@@ -11,6 +11,12 @@ configurable: CAGO_LOYALTY_VND_PER_POINT / site_config cago_loyalty_vnd_per_poin
 import frappe
 from frappe.utils import flt
 
+WALKIN_NAME = "Khách lẻ"  # generic cash customer — no loyalty (would inflate one shared record)
+
+
+def _is_walkin(customer):
+	return frappe.db.get_value("Customer", customer, "customer_name") == WALKIN_NAME
+
 
 def _per_point():
 	from cago.chatbot.config import _get
@@ -27,7 +33,7 @@ def accrue(doc, method=None):
 	"""On submit: award points and RECORD the awarded count on the invoice, so cancel can
 	reverse the exact amount regardless of any later rate change."""
 	customer = getattr(doc, "customer", None)
-	if not customer:
+	if not customer or _is_walkin(customer):
 		return
 	pts = int(flt(getattr(doc, "grand_total", 0)) / _per_point())
 	if pts <= 0:
@@ -43,7 +49,7 @@ def accrue(doc, method=None):
 def reverse(doc, method=None):
 	"""On cancel: subtract exactly the points awarded at submit (not a recomputed value)."""
 	customer = getattr(doc, "customer", None)
-	if not customer:
+	if not customer or _is_walkin(customer):
 		return
 	awarded = getattr(doc, "cago_points_awarded", None)
 	pts = int(flt(awarded)) if awarded else int(flt(getattr(doc, "grand_total", 0)) / _per_point())

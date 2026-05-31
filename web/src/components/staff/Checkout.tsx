@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import type { ProductCard } from "@/lib/types";
+import type { ProductCard, Product } from "@/lib/types";
 
 interface SaleResult {
   invoice: string;
@@ -13,16 +13,28 @@ interface SaleResult {
   item_count: number;
 }
 
+interface Meta {
+  sale_units: { uom: string; price_text: string }[];
+  stock_uom: string;
+  stock_qty: number;
+  stock_status?: string | null;
+}
+interface Line {
+  qty: number;
+  uom: string;
+}
+
 const money = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
-// Estimate the numeric price from "320.000đ / Bao"; the server recomputes the real total.
 const parsePrice = (t: string) => parseInt((t || "").replace(/[^\d]/g, ""), 10) || 0;
+const trim = (n: number) => (Number.isInteger(n) ? n : Math.round(n * 100) / 100);
 
 export function Checkout() {
   const router = useRouter();
   const [list, setList] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [qty, setQty] = useState<Record<string, number>>({}); // item_code -> qty in cart
+  const [lines, setLines] = useState<Record<string, Line>>({});
+  const [meta, setMeta] = useState<Record<string, Meta>>({});
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<SaleResult | null>(null);
   const [qr, setQr] = useState<string | null>(null);
@@ -33,27 +45,53 @@ export function Checkout() {
     try {
       const r = await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query }, { method: "GET" });
       setList(r || []);
+    } catch {
+      setList([]);
     } finally {
       setLoading(false);
     }
   };
   useEffect(() => {
-    void run(""); // show the full catalog up front — staff browse + tap to add
+    void run("");
   }, []);
 
-  const priceOf = (code: string) => parsePrice(list.find((p) => p.item_code === code)?.price_text || "");
-  const bump = (code: string, delta: number) =>
-    setQty((m) => {
-      const next = (m[code] || 0) + delta;
-      const copy = { ...m };
-      if (next <= 0) delete copy[code];
-      else copy[code] = next;
+  // Load per-item units + live stock the first time an item is added.
+  const ensureMeta = async (code: string): Promise<Meta | null> => {
+    if (meta[code]) return meta[code];
+    try {
+      const p = await frappeCall<Product>("cago.api.staff.get_product", { item_code: code }, { method: "GET" });
+      const m: Meta = {
+        sale_units: p.sale_units && p.sale_units.length ? p.sale_units : [{ uom: p.unit || "", price_text: p.price_text }],
+        stock_uom: p.unit || "",
+        stock_qty: p.actual_stock_qty ?? 0,
+        stock_status: p.stock_status,
+      };
+      setMeta((x) => ({ ...x, [code]: m }));
+      return m;
+    } catch {
+      return null;
+    }
+  };
+
+  const add = async (code: string) => {
+    const m = await ensureMeta(code);
+    setLines((l) => (l[code] ? l : { ...l, [code]: { qty: 1, uom: m?.stock_uom || "" } }));
+  };
+  const setQty = (code: string, qty: number) =>
+    setLines((l) => {
+      const copy = { ...l };
+      if (qty <= 0) delete copy[code];
+      else copy[code] = { ...copy[code], qty: trim(qty) };
       return copy;
     });
+  const setUom = (code: string, uom: string) => setLines((l) => ({ ...l, [code]: { ...l[code], uom } }));
 
-  const cartCodes = Object.keys(qty);
-  const totalQty = cartCodes.reduce((s, c) => s + qty[c], 0);
-  const estimate = cartCodes.reduce((s, c) => s + priceOf(c) * qty[c], 0);
+  const unitPrice = (code: string, uom: string) => {
+    const u = meta[code]?.sale_units.find((s) => s.uom === uom);
+    return parsePrice(u?.price_text || list.find((p) => p.item_code === code)?.price_text || "");
+  };
+  const cartCodes = Object.keys(lines);
+  const estimate = cartCodes.reduce((s, c) => s + unitPrice(c, lines[c].uom) * lines[c].qty, 0);
 
   const checkout = async (payment_mode: "cash" | "bank") => {
     if (cartCodes.length === 0 || busy) return;
@@ -61,11 +99,11 @@ export function Checkout() {
     setBusy(true);
     try {
       const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", {
-        items: cartCodes.map((c) => ({ item_code: c, qty: qty[c] })),
+        items: cartCodes.map((c) => ({ item_code: c, qty: lines[c].qty, uom: lines[c].uom })),
         payment_mode,
       });
       setResult(r);
-      setQty({});
+      setLines({});
       if (payment_mode === "bank") {
         const v = await frappeCall<{ configured: boolean; url: string | null }>(
           "cago.api.payment.vietqr",
@@ -75,7 +113,7 @@ export function Checkout() {
         setQr(v.url);
       }
     } catch (e) {
-      alert(`Lỗi: không bán được. ${e instanceof Error ? e.message : ""}`);
+      alert(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
     } finally {
       setBusy(false);
     }
@@ -104,6 +142,7 @@ export function Checkout() {
           onClick={() => {
             setResult(null);
             setQr(null);
+            void run(q.trim()); // refresh stock after a sale
           }}
           className="mt-4 min-h-touch w-full rounded-2xl bg-brand py-4 text-xl font-extrabold text-white"
         >
@@ -117,7 +156,7 @@ export function Checkout() {
   }
 
   return (
-    <div className="pb-32">
+    <div className="pb-40">
       <div className="mb-2.5 flex items-center gap-2.5">
         <button onClick={() => router.push("/staff")} className="rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ← Trang chủ
@@ -144,26 +183,62 @@ export function Checkout() {
           <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy sản phẩm.</div>
         ) : (
           list.map((p) => {
-            const inCart = qty[p.item_code] || 0;
+            const line = lines[p.item_code];
+            const m = meta[p.item_code];
+            const multi = (m?.sale_units?.length || 0) > 1;
             return (
-              <div key={p.item_code} className={`mb-2.5 flex items-center gap-3 rounded-xl border-2 p-3 shadow-sm ${inCart ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {p.image && <img src={p.image} alt="" className="h-14 w-14 rounded-lg object-cover" />}
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-bold">{p.display_name}</div>
-                  <div className="text-sm font-bold text-brand">{p.price_text}</div>
-                  <div className="text-xs text-slate-400">{p.stock_status}</div>
-                </div>
-                {inCart > 0 ? (
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => bump(p.item_code, -1)} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
-                    <span className="w-7 text-center text-xl font-extrabold">{inCart}</span>
-                    <button onClick={() => bump(p.item_code, +1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
+              <div key={p.item_code} className={`mb-2.5 rounded-xl border-2 p-3 shadow-sm ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {p.image && <img src={p.image} alt="" className="h-14 w-14 rounded-lg object-cover" />}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-bold">{p.display_name}</div>
+                    <div className="text-sm font-bold text-brand">{p.price_text}</div>
+                    <div className="text-xs text-slate-400">{(m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}</div>
                   </div>
-                ) : (
-                  <button onClick={() => bump(p.item_code, +1)} className="h-11 rounded-lg bg-brand px-4 text-lg font-bold text-white">
-                    ＋ Thêm
-                  </button>
+                  {!line && (
+                    <button onClick={() => add(p.item_code)} className="h-11 rounded-lg bg-brand px-4 text-lg font-bold text-white">
+                      ＋ Thêm
+                    </button>
+                  )}
+                </div>
+
+                {line && (
+                  <div className="mt-2.5 border-t border-brand/20 pt-2.5">
+                    {multi && (
+                      <div className="mb-2 flex flex-wrap gap-1.5">
+                        {m!.sale_units.map((u) => (
+                          <button
+                            key={u.uom}
+                            onClick={() => setUom(p.item_code, u.uom)}
+                            className={`rounded-lg px-3 py-1.5 text-sm font-bold ${line.uom === u.uom ? "bg-brand text-white" : "bg-slate-200 text-slate-700"}`}
+                          >
+                            {u.uom} · {u.price_text}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setQty(p.item_code, line.qty - 1)} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
+                        <input
+                          inputMode="decimal"
+                          value={line.qty}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value.replace(",", "."));
+                            setLines((l) => ({ ...l, [p.item_code]: { ...l[p.item_code], qty: Number.isFinite(v) ? v : 0 } }));
+                          }}
+                          className="h-11 w-16 rounded-lg border-2 border-emerald-300 text-center text-xl font-extrabold"
+                        />
+                        <button onClick={() => setQty(p.item_code, line.qty + 1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
+                        <span className="text-slate-500">{line.uom}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-extrabold text-brand">{money(unitPrice(p.item_code, line.uom) * line.qty)}</div>
+                        <button onClick={() => setQty(p.item_code, 0)} className="text-sm text-red-600">Bỏ</button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             );
@@ -175,7 +250,7 @@ export function Checkout() {
         <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
           <div className="mx-auto max-w-[760px]">
             <div className="flex items-baseline justify-between">
-              <span className="text-slate-500">Tạm tính · {totalQty} món / {cartCodes.length} mặt hàng</span>
+              <span className="text-slate-500">Tạm tính · {cartCodes.length} mặt hàng</span>
               <span className="text-2xl font-extrabold text-brand">{money(estimate)}</span>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-3">

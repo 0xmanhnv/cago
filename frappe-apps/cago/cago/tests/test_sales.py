@@ -136,6 +136,14 @@ class TestQuickSale(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "bitcoin")
 
+	def test_oversell_is_blocked_with_friendly_message(self):
+		from cago.api import purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		on_hand = flt_qty(ITEM)
+		with self.assertRaises(frappe.ValidationError):
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": on_hand + 100}]), "cash")
+
 	def test_sell_zero_valuation_item(self):
 		"""An item received with no cost (zero valuation) must still be sellable
 		(COGS=0), not blocked by 'Allow Zero Valuation Rate not enabled'."""

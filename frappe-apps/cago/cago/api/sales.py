@@ -57,7 +57,37 @@ def _rate_for_uom(item_code, uom, stock_uom):
 		)
 		if r:
 			return flt(r)
+		# No retail price for this UOM — refuse rather than silently charge the bulk
+		# (stock-unit) price per retail unit, which would be wildly wrong.
+		frappe.throw(_("Chưa đặt giá bán lẻ cho đơn vị {0}. Vào Sửa sản phẩm để đặt giá.").format(uom))
 	return flt(dto.get_selling_price(item_code))
+
+
+def _conversion_factor(item_code, uom, stock_uom):
+	"""Stock units per 1 selling unit (e.g. 1 Bao = 25 Kg → factor 25 for Bao, 1 for Kg)."""
+	if not uom or uom == stock_uom:
+		return 1.0
+	cf = frappe.db.get_value("UOM Conversion Detail", {"parent": item_code, "uom": uom}, "conversion_factor")
+	return flt(cf) or 1.0
+
+
+def _check_stock(code, qty, uom, stock_uom):
+	"""Friendly Vietnamese stock check (ERPNext's own error is raw HTML in English)."""
+	if frappe.db.get_single_value("Stock Settings", "allow_negative_stock"):
+		return
+	on_hand = flt(dto.get_actual_qty(code))  # in stock units
+	need = qty * _conversion_factor(code, uom, stock_uom)
+	if need > on_hand + 1e-6:
+		name = frappe.db.get_value("Item", code, "cago_display_name") or frappe.db.get_value("Item", code, "item_name") or code
+		frappe.throw(
+			_("Không đủ tồn: {0} chỉ còn {1} {2}.").format(name, _trim(on_hand), stock_uom),
+			frappe.ValidationError,
+		)
+
+
+def _trim(n):
+	n = flt(n)
+	return int(n) if n == int(n) else round(n, 2)
 
 
 @frappe.whitelist()
@@ -84,6 +114,7 @@ def credit_sale(customer, items, note=None):
 			continue
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
+		_check_stock(code, qty, uom, stock_uom)
 		rows.append(
 			{
 				"item_code": code,
@@ -200,6 +231,7 @@ def quick_sale(items, payment_mode="cash", customer=None):
 			continue
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
+		_check_stock(code, qty, uom, stock_uom)
 		rows.append(
 			{
 				"item_code": code,
