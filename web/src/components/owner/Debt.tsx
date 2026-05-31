@@ -11,6 +11,8 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const [info, setInfo] = useState<{ customer_name: string; outstanding_text: string; debt_limit_text?: string } | null>(null);
   const [amt, setAmt] = useState("");
   const [msg, setMsg] = useState<React.ReactNode>(null);
+  const [qr, setQr] = useState<string | null>(null);
+  const [qrCfg, setQrCfg] = useState(true);
   const method = mode === "add" ? "cago.api.debt.record_debt" : "cago.api.debt.record_repayment";
   const title = mode === "add" ? "GHI NỢ" : "KHÁCH TRẢ NỢ";
 
@@ -67,6 +69,30 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
         <button onClick={save} className={`mt-3 min-h-touch w-full rounded-xl font-extrabold text-white ${mode === "add" ? "bg-red-600" : "bg-brand"}`}>
           {mode === "add" ? "Ghi nợ" : "Xác nhận trả"}
         </button>
+        {mode === "repay" && (
+          <button
+            onClick={async () => {
+              const r = await frappeCall<{ configured: boolean; url: string | null }>(
+                "cago.api.payment.vietqr",
+                { amount: parseFloat(amt) || 0, info: `${info.customer_name} tra no` },
+                { method: "GET" },
+              );
+              setQrCfg(r.configured);
+              setQr(r.url);
+            }}
+            className="mt-2.5 min-h-touch w-full rounded-xl bg-violet-600 font-extrabold text-white"
+          >
+            💳 Hiện QR thu tiền
+          </button>
+        )}
+        {qr && (
+          <div className="mt-3 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qr} alt="VietQR" className="mx-auto w-56 rounded-lg border" />
+            <div className="mt-1 text-sm text-slate-500">Khách quét mã bằng app ngân hàng để chuyển khoản.</div>
+          </div>
+        )}
+        {!qrCfg && <Warn>Chưa cài đặt tài khoản QR. Vào &quot;💳 QR thu tiền&quot; ở trang chủ để cài.</Warn>}
         {msg}
       </div>
     </div>

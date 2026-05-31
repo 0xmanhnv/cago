@@ -113,3 +113,19 @@ def ensure_customer_fields():
 	)
 	frappe.db.commit()
 	print("Customer field ensured: cago_debt_limit")
+
+
+def ensure_payment_fields():
+	"""Store bank account for VietQR (hiện QR để khách chuyển khoản)."""
+	create_custom_fields(
+		{
+			"Company": [
+				{"fieldname": "cago_bank_bin", "label": "Cago Bank BIN", "fieldtype": "Data", "insert_after": "company_name", "description": "Mã ngân hàng (BIN), vd Vietcombank=970436."},
+				{"fieldname": "cago_bank_account", "label": "Cago Bank Account", "fieldtype": "Data", "insert_after": "cago_bank_bin"},
+				{"fieldname": "cago_bank_account_name", "label": "Cago Bank Account Name", "fieldtype": "Data", "insert_after": "cago_bank_account"},
+			]
+		},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("Company bank fields ensured: cago_bank_bin, cago_bank_account, cago_bank_account_name")

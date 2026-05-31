@@ -74,6 +74,31 @@ class TestGrossProfit(FrappeTestCase):
 		self.assertAlmostEqual(r["profit"], r["revenue"] - r["cogs"], places=2)
 
 
+class TestVietQR(FrappeTestCase):
+	def setUp(self):
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def test_save_and_qr(self):
+		from cago.api import payment
+
+		payment.save_bank(bank_bin="970436", account="0123456789", account_name="CUA HANG")
+		self.assertTrue(payment.get_bank()["configured"])
+		q = payment.vietqr(amount=200000, info="test")
+		self.assertTrue(q["configured"])
+		self.assertIn("img.vietqr.io", q["url"])
+		self.assertIn("amount=200000", q["url"])
+
+	def test_not_configured(self):
+		from cago.api import payment
+
+		payment.save_bank(bank_bin="", account="", account_name="")
+		self.assertFalse(payment.vietqr()["configured"])
+
+
 class TestBarcode(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("Item", NONBATCH_ITEM):

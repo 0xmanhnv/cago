@@ -30,6 +30,7 @@ export function OwnerHome() {
         {item("📦 Hàng sắp hết", "bg-teal-600", "/owner/low-stock")}
         {item("⏰ Lô & hạn dùng", "bg-orange-600", "/owner/expiry")}
         {item("📊 Báo cáo", "bg-blue-600", "/owner/reports")}
+        {item("💳 QR thu tiền", "bg-violet-600", "/owner/settings")}
         <a
           href="/app/point-of-sale"
           target="_blank"
