@@ -87,6 +87,11 @@ export function ProductDetail({ code }: { code: string }) {
         )}
         <h2 className="mt-3 text-2xl font-bold">{product.display_name}</h2>
         <div className="text-3xl font-extrabold text-brand">{product.price_text}</div>
+        {product.sale_units && product.sale_units.length > 1 && (
+          <div className="mt-1 text-slate-600">
+            Bán lẻ: <b className="text-brand-dark">{product.sale_units.slice(1).map((u) => u.price_text).join(" · ")}</b>
+          </div>
+        )}
         {product.public_description && <p className="mt-1">{product.public_description}</p>}
         <div className="text-slate-500">
           Dùng cho: {product.use_cases || "-"} · {product.stock_status || ""}

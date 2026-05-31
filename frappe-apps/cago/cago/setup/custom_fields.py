@@ -38,3 +38,24 @@ def ensure_category_fields():
 	)
 	frappe.db.commit()
 	print("Item Group fields ensured: cago_icon, cago_color")
+
+
+def ensure_retail_field():
+	"""Per-product toggle: show retail (per-kg/lạng…) prices to customers on the kiosk.
+	Staff/POS always see them; this only controls public visibility."""
+	create_custom_fields(
+		{
+			"Item": [
+				{
+					"fieldname": "cago_show_retail_on_kiosk",
+					"label": "Hiện giá bán lẻ trên kiosk",
+					"fieldtype": "Check",
+					"insert_after": "cago_is_public_visible",
+					"description": "Cho khách xem giá theo đơn vị lẻ (kg, lạng…) trên kiosk.",
+				}
+			]
+		},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("Item field ensured: cago_show_retail_on_kiosk")

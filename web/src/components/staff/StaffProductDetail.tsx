@@ -64,6 +64,11 @@ export function StaffProductDetail({ code }: { code: string }) {
         {p.image && <img src={p.image} alt="" className="max-h-60 w-full rounded-lg bg-slate-100 object-contain" />}
         <h2 className="mt-2 text-xl font-bold">{p.display_name}</h2>
         <div className="text-3xl font-extrabold text-brand">{p.price_text}</div>
+        {p.sale_units && p.sale_units.length > 1 && (
+          <div className="mt-1 text-slate-600">
+            Giá bán lẻ: <b>{p.sale_units.slice(1).map((u) => u.price_text).join(" · ")}</b>
+          </div>
+        )}
         <Row k="Tồn kho" v={`${p.stock_status || "-"} (${p.actual_stock_qty ?? 0})`} />
         <Row k="Vị trí để hàng" v={p.shelf_location || "-"} />
         <Row k="Tên hay gọi" v={p.local_names || "-"} />

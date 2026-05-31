@@ -62,3 +62,39 @@ class TestInventoryBatch(FrappeTestCase):
 		self.assertIn("expiry_status", d)
 		self.assertIn("nearest_expiry", d)
 		self.assertIn("expiry_text", d)
+
+
+class TestSaleUnits(FrappeTestCase):
+	def setUp(self):
+		if not frappe.db.exists("Item", CHEM_ITEM):
+			self.skipTest("sample chemical item missing")
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def test_add_retail_unit_keeps_stock_price(self):
+		from cago.api import units
+
+		stock_price = dto.get_selling_price(CHEM_ITEM)
+		units.save_unit(CHEM_ITEM, "Kg", 25, 12000)
+		# stock-unit price must NOT be overwritten by the per-UOM retail price
+		self.assertEqual(dto.get_selling_price(CHEM_ITEM), stock_price)
+		uoms = {u["uom"] for u in units.get_units(CHEM_ITEM)["units"]}
+		self.assertIn("Kg", uoms)
+
+	def test_public_sale_units_gated_by_flag(self):
+		from cago.api import units
+
+		units.save_unit(CHEM_ITEM, "Kg", 25, 12000)
+		units.set_retail_visible(CHEM_ITEM, 0)
+		self.assertNotIn("sale_units", dto.public_dto(frappe.get_doc("Item", CHEM_ITEM)))
+		units.set_retail_visible(CHEM_ITEM, 1)
+		d = dto.public_dto(frappe.get_doc("Item", CHEM_ITEM))
+		self.assertIn("sale_units", d)
+		self.assertTrue(any(u["uom"] == "Kg" for u in d["sale_units"]))
+
+	def test_staff_dto_always_has_sale_units(self):
+		d = dto.staff_dto(frappe.get_doc("Item", CHEM_ITEM))
+		self.assertIn("sale_units", d)

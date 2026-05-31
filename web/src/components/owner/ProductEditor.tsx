@@ -192,9 +192,94 @@ export function ProductEditor({ code }: { code: string }) {
         </button>
         {msg}
 
+        <UnitsSection code={code} />
         <BatchSection code={code} />
       </div>
       {draft !== null && <DraftModal text={draft} onClose={() => setDraft(null)} />}
+    </div>
+  );
+}
+
+function UnitsSection({ code }: { code: string }) {
+  type U = { uom: string; is_stock?: number; units_per_stock?: number; price_text: string };
+  type Data = { stock_uom: string; units: U[]; show_retail: boolean; presets: { uom: string; hint: string }[] };
+  const [d, setD] = useState<Data | null>(null);
+  const [uom, setUom] = useState("");
+  const [ups, setUps] = useState("");
+  const [price, setPrice] = useState("");
+  const [msg, setMsg] = useState<React.ReactNode>(null);
+  const load = async () => setD(await frappeCall<Data>("cago.api.units.get_units", { item_code: code }, { method: "GET" }));
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+  if (!d) return null;
+
+  const add = async () => {
+    setMsg(null);
+    if (!uom.trim()) return setMsg(<Warn>Chọn hoặc nhập đơn vị.</Warn>);
+    const n = parseFloat(ups);
+    if (!n || n <= 0) return setMsg(<Warn>{`Nhập số ${uom || "đơn vị"} trong 1 ${d.stock_uom}.`}</Warn>);
+    const p = parseFloat(price);
+    if (!p || p <= 0) return setMsg(<Warn>Nhập giá bán cho đơn vị này.</Warn>);
+    try {
+      setD(await frappeCall<Data>("cago.api.units.save_unit", { item_code: code, uom: uom.trim(), units_per_stock: n, price: p }));
+      setUom("");
+      setUps("");
+      setPrice("");
+    } catch (e) {
+      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi lưu đơn vị."}</Warn>);
+    }
+  };
+  const remove = async (u: string) => {
+    if (confirm(`Xoá đơn vị bán ${u}?`)) setD(await frappeCall<Data>("cago.api.units.remove_unit", { item_code: code, uom: u }));
+  };
+  const toggle = async () => {
+    await frappeCall("cago.api.units.set_retail_visible", { item_code: code, visible: d.show_retail ? 0 : 1 });
+    setD({ ...d, show_retail: !d.show_retail });
+  };
+
+  return (
+    <div className="mt-5 border-t border-slate-200 pt-3">
+      <div className="text-lg font-extrabold">Đơn vị bán &amp; giá lẻ</div>
+      <p className="text-sm text-slate-500">
+        Tồn kho theo <b>{d.stock_uom}</b>. Thêm đơn vị lẻ (kg, lạng…) với giá riêng — ERPNext tự quy đổi tồn khi bán lẻ.
+      </p>
+      {d.units.map((u) => (
+        <div key={u.uom} className="mt-1.5 flex items-center justify-between rounded-lg border border-slate-200 px-2.5 py-2">
+          <span>
+            <b>{u.uom}</b>{" "}
+            {u.is_stock ? "(tồn kho)" : u.units_per_stock ? <span className="text-slate-500">· 1 {d.stock_uom} = {u.units_per_stock} {u.uom}</span> : ""}
+          </span>
+          <span className="flex items-center gap-2">
+            <b className="text-brand">{u.price_text}</b>
+            {!u.is_stock && (
+              <button onClick={() => remove(u.uom)} className="rounded bg-red-100 px-2 py-1 text-xs font-bold text-red-700">
+                Xoá
+              </button>
+            )}
+          </span>
+        </div>
+      ))}
+      <div className="mt-2 flex flex-wrap gap-2">
+        {d.presets.map((p) => (
+          <button key={p.uom} onClick={() => setUom(p.uom)} className="rounded-full border border-emerald-300 bg-white px-3 py-1.5 text-sm font-bold text-brand-dark" title={p.hint}>
+            {p.uom}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <input value={uom} onChange={(e) => setUom(e.target.value)} placeholder="Đơn vị (vd Kg)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input value={ups} onChange={(e) => setUps(e.target.value)} inputMode="numeric" placeholder={`1 ${d.stock_uom} = ? ${uom || "đơn vị"}`} className="rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder="Giá / đơn vị (đồng)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
+      </div>
+      <button onClick={add} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
+        + Lưu đơn vị bán
+      </button>
+      <label className="mt-3 flex items-center gap-2 font-bold text-slate-700">
+        <input type="checkbox" checked={d.show_retail} onChange={toggle} className="h-5 w-5" /> Hiện giá bán lẻ cho khách trên kiosk
+      </label>
+      {msg}
     </div>
   );
 }

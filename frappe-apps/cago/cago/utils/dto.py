@@ -99,12 +99,18 @@ def category_meta(group):
 # Pricing / stock helpers
 # --------------------------------------------------------------------------- #
 def get_selling_price(item_code):
-	"""Selling rate from ERPNext Item Price (source of truth), or 0."""
-	rate = frappe.db.get_value(
-		"Item Price",
-		{"item_code": item_code, "price_list": SELLING_PRICE_LIST, "selling": 1},
-		"price_list_rate",
-	)
+	"""Selling rate for the STOCK unit (an item may now have per-UOM retail prices too).
+
+	Prefers the Item Price whose uom == the item's stock UOM, then a uom-less price,
+	then any — so multi-UOM retail prices never override the main price.
+	"""
+	base = {"item_code": item_code, "price_list": SELLING_PRICE_LIST, "selling": 1}
+	stock_uom = frappe.db.get_value("Item", item_code, "stock_uom")
+	rate = frappe.db.get_value("Item Price", {**base, "uom": stock_uom}, "price_list_rate") if stock_uom else None
+	if not rate:
+		rate = frappe.db.get_value("Item Price", {**base, "uom": ["in", ["", None]]}, "price_list_rate")
+	if not rate:
+		rate = frappe.db.get_value("Item Price", base, "price_list_rate")
 	return rate or 0
 
 
@@ -228,15 +234,26 @@ LIST_FIELDS = [
 # Search
 # --------------------------------------------------------------------------- #
 def _price_map(codes):
-	"""Batch-fetch selling prices for many items in a single query."""
+	"""Batch-fetch selling prices for many items in a single query, keyed by uom so a
+	per-UOM retail price never shadows the stock-unit price. Returns {code: {uom: rate}}."""
 	if not codes:
 		return {}
 	rows = frappe.get_all(
 		"Item Price",
 		filters={"price_list": SELLING_PRICE_LIST, "selling": 1, "item_code": ["in", codes]},
-		fields=["item_code", "price_list_rate"],
+		fields=["item_code", "uom", "price_list_rate"],
 	)
-	return {r.item_code: r.price_list_rate for r in rows}
+	out = {}
+	for r in rows:
+		out.setdefault(r.item_code, {})[r.uom or ""] = r.price_list_rate
+	return out
+
+
+def _rate_for(pmap, stock_uom):
+	"""Pick the stock-unit rate from a per-uom price map (fallbacks: uom-less, any)."""
+	if not pmap:
+		return 0
+	return pmap.get(stock_uom) or pmap.get("") or next(iter(pmap.values()), 0) or 0
 
 
 def list_dtos(query, audience="staff", public_only=False, category=None, limit=24):
@@ -272,7 +289,7 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 
 	prices = _price_map([r.name for r in rows])
 	cat_meta = category_meta_map([r.item_group for r in rows])
-	return [_list_dto(r, prices.get(r.name) or 0, audience, cat_meta) for r in rows]
+	return [_list_dto(r, _rate_for(prices.get(r.name) or {}, r.stock_uom), audience, cat_meta) for r in rows]
 
 
 def _list_dto(r, rate, audience, cat_meta=None):
@@ -343,6 +360,24 @@ def search_item_codes(query, public_only=False, limit=24):
 # --------------------------------------------------------------------------- #
 # DTO builders
 # --------------------------------------------------------------------------- #
+def sale_units(item):
+	"""Sale units + display prices: the stock unit plus any priced retail units
+	(kg/lạng/yến…). Each retail price is its own Item Price (may differ from bulk)."""
+	code = item.name
+	out = [{"uom": item.stock_uom, "price_text": format_price(get_selling_price(code), item.stock_uom)}]
+	for row in _get(item, "uoms") or []:
+		if row.uom == item.stock_uom:
+			continue
+		rate = frappe.db.get_value(
+			"Item Price",
+			{"item_code": code, "price_list": SELLING_PRICE_LIST, "selling": 1, "uom": row.uom},
+			"price_list_rate",
+		)
+		if rate:
+			out.append({"uom": row.uom, "price_text": format_price(rate, row.uom)})
+	return out
+
+
 def public_dto(item):
 	"""Kiosk-safe DTO. No price number, no internal fields — only display text."""
 	rate = get_selling_price(item.name)
@@ -362,6 +397,7 @@ def public_dto(item):
 		"is_chemical": bool(item.cago_is_chemical),
 		"safety_notes": safety_warning_for(item),
 		**_expiry_dto(item.name),
+		**({"sale_units": sale_units(item)} if _get(item, "cago_show_retail_on_kiosk") else {}),
 	}
 
 
@@ -394,6 +430,7 @@ def staff_dto(item):
 		"is_chemical": bool(item.cago_is_chemical),
 		"safety_notes": safety_warning_for(item),
 		**_expiry_dto(item.name),
+		"sale_units": sale_units(item),
 	}
 
 
