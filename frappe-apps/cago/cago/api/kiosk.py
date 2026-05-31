@@ -78,6 +78,9 @@ def create_wanted_list(items, note=None):
 
 	`items` is a JSON list of {item_code, qty}. Only kiosk-visible items are kept.
 	"""
+	from cago.utils.ratelimit import rate_guard
+
+	rate_guard("wanted", limit=20, seconds=60)
 	items = frappe.parse_json(items) if isinstance(items, str) else items
 	if not items or not isinstance(items, list):
 		frappe.throw(_("Bác chưa chọn sản phẩm nào."))

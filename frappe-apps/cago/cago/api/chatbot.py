@@ -22,11 +22,16 @@ def _history(history):
 def ask_kiosk(message, history=None, session_id=None, phone=None, focus_item=None, focus_category=None):
 	"""Public/customer chat — public-safe product data only.
 
+	Rate-limited per IP (guest endpoint + LLM cost protection).
+
 	`session_id` (client-generated) groups a conversation; `phone` is OPTIONAL — used
 	only if the customer chooses to leave it so the shop can follow up. `focus_item`/
 	`focus_category` are what the customer is viewing, so context-free questions
 	("còn hàng không?") resolve against that product/category.
 	"""
+	from cago.utils.ratelimit import rate_guard
+
+	rate_guard("chat", limit=30, seconds=60)
 	return orchestrator.ask(
 		"customer", message, _history(history),
 		session_id=session_id, customer_phone=phone,
