@@ -151,7 +151,7 @@ interface LedgerEntry {
 
 export function CustomerLedger({ customer }: { customer: string }) {
   const router = useRouter();
-  type Ledger = { customer_name: string; outstanding_text: string; overpaid?: boolean; points?: number; entries: LedgerEntry[] };
+  type Ledger = { customer_name: string; outstanding_text: string; overpaid?: boolean; points?: number; wholesale?: boolean; entries: LedgerEntry[] };
   const [d, setD] = useState<Ledger | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const load = async () => setD(await frappeCall<Ledger>("cago.api.debt.get_customer_ledger", { customer }, { method: "GET" }));
@@ -176,6 +176,18 @@ export function CustomerLedger({ customer }: { customer: string }) {
             <b className="text-amber-600">{d.points}</b>
           </div>
         )}
+        <div className="flex items-center justify-between border-b border-slate-100 py-2">
+          <span className="text-slate-500">🏷️ Khách sỉ (mua giá sỉ)</span>
+          <button
+            onClick={async () => {
+              await frappeCall("cago.api.debt.set_wholesale", { customer, on: d.wholesale ? 0 : 1 });
+              await load();
+            }}
+            className={`rounded-lg px-3 py-1.5 text-sm font-bold ${d.wholesale ? "bg-violet-600 text-white" : "bg-slate-200 text-slate-700"}`}
+          >
+            {d.wholesale ? "Đang bật" : "Đang tắt"}
+          </button>
+        </div>
         <button
           onClick={async () => {
             const r = await frappeCall<{ text: string }>("cago.api.owner.zalo_draft", { kind: "debt_reminder", customer });

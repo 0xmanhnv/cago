@@ -219,6 +219,7 @@ export function ProductEditor({ code }: { code: string }) {
         </button>
         {msg}
 
+        <WholesalePrice code={code} />
         <StockSection code={code} />
         <UnitsSection code={code} />
         <BatchSection code={code} />
@@ -466,6 +467,43 @@ function BatchSection({ code }: { code: string }) {
         <input type="date" value={exp} onChange={(e) => setExp(e.target.value)} className="rounded-lg border-2 border-emerald-300 p-2.5" />
         <button onClick={add} className="rounded-lg bg-brand px-4 font-extrabold text-white">
           + Thêm lô
+        </button>
+      </div>
+      {msg}
+    </div>
+  );
+}
+
+function WholesalePrice({ code }: { code: string }) {
+  const [price, setPrice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<React.ReactNode>(null);
+  useEffect(() => {
+    frappeCall<{ wholesale_price: number | null }>("cago.api.owner.get_wholesale_price", { item_code: code }, { method: "GET" })
+      .then((r) => setPrice(r.wholesale_price ? String(r.wholesale_price) : ""))
+      .catch(() => {});
+  }, [code]);
+  const save = async () => {
+    if (busy) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      await frappeCall("cago.api.owner.set_wholesale_price", { item_code: code, price: price ? parseFloat(price) : 0 });
+      setMsg(<Ok>✅ Đã lưu giá sỉ.</Ok>);
+    } catch (e) {
+      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi lưu giá sỉ."}</Warn>);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mt-5 border-t border-slate-200 pt-3">
+      <div className="text-lg font-extrabold">Giá sỉ (cho khách sỉ)</div>
+      <div className="text-sm text-slate-500">Khách được đánh dấu &quot;khách sỉ&quot; sẽ mua theo giá này. Để trống = không có giá sỉ.</div>
+      <div className="mt-2 flex gap-2">
+        <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder="Giá sỉ / đơn vị tồn" className="flex-1 rounded-lg border-2 border-violet-300 p-2.5" />
+        <button onClick={save} disabled={busy} className="rounded-lg bg-violet-600 px-4 font-extrabold text-white disabled:opacity-50">
+          Lưu
         </button>
       </div>
       {msg}

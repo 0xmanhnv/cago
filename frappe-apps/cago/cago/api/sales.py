@@ -48,18 +48,37 @@ def _warehouse():
 	return frappe.db.get_value("Warehouse", {"company": company, "is_group": 0}, "name")
 
 
-def _rate_for_uom(item_code, uom, stock_uom):
+def _price_list_for(customer):
+	"""Wholesale customers use the 'Giá sỉ' list; everyone else the standard one."""
+	if customer and frappe.db.get_value("Customer", customer, "cago_wholesale"):
+		return dto.WHOLESALE_PRICE_LIST
+	return SELLING_PRICE_LIST
+
+
+def _rate_for_uom(item_code, uom, stock_uom, price_list=None):
+	price_list = price_list or SELLING_PRICE_LIST
+	# A wholesale list may not price every item/uom — fall back to the standard list so a
+	# missing giá-sỉ entry never blocks the sale (owner just sells at retail price).
+	for pl in [p for p in (price_list, SELLING_PRICE_LIST) if p]:
+		if uom and uom != stock_uom:
+			r = frappe.db.get_value(
+				"Item Price",
+				{"item_code": item_code, "price_list": pl, "selling": 1, "uom": uom},
+				"price_list_rate",
+			)
+			if r:
+				return flt(r)
+		else:
+			r = frappe.db.get_value(
+				"Item Price",
+				{"item_code": item_code, "price_list": pl, "selling": 1, "uom": stock_uom},
+				"price_list_rate",
+			)
+			if r:
+				return flt(r)
 	if uom and uom != stock_uom:
-		r = frappe.db.get_value(
-			"Item Price",
-			{"item_code": item_code, "price_list": SELLING_PRICE_LIST, "selling": 1, "uom": uom},
-			"price_list_rate",
-		)
-		if r:
-			return flt(r)
-		# No retail price for this UOM — refuse rather than silently charge the bulk
-		# (stock-unit) price per retail unit, which would be wildly wrong.
-		frappe.throw(_("Chưa đặt giá bán lẻ cho đơn vị {0}. Vào Sửa sản phẩm để đặt giá.").format(uom))
+		# A retail UOM with no price anywhere — refuse rather than charge the bulk price per unit.
+		frappe.throw(_("Chưa đặt giá bán cho đơn vị {0}. Vào Sửa sản phẩm để đặt giá.").format(uom))
 	return flt(dto.get_selling_price(item_code))
 
 
@@ -105,6 +124,7 @@ def credit_sale(customer, items, note=None):
 	wh = _warehouse()
 	if not wh:
 		frappe.throw(_("Chưa cấu hình kho."))
+	pl = _price_list_for(customer)
 
 	rows = []
 	for it in items:
@@ -120,7 +140,7 @@ def credit_sale(customer, items, note=None):
 				"item_code": code,
 				"qty": qty,
 				"uom": uom,
-				"rate": _rate_for_uom(code, uom, stock_uom),
+				"rate": _rate_for_uom(code, uom, stock_uom, pl),
 				"warehouse": wh,
 				# Items received without a cost have zero valuation; selling them via
 				# update_stock would otherwise fail ("Allow Zero Valuation Rate not enabled").
@@ -150,7 +170,7 @@ def credit_sale(customer, items, note=None):
 			"due_date": nowdate(),
 			"update_stock": 1,
 			"set_warehouse": wh,
-			"selling_price_list": SELLING_PRICE_LIST,
+			"selling_price_list": pl,
 			"remarks": note or f"Bán chịu {customer}",
 			"items": rows,
 		}
@@ -323,6 +343,7 @@ def quick_sale(items, payment_mode="cash", customer=None):
 		frappe.throw(_("Chưa cấu hình hình thức thanh toán."))
 
 	cust = customer if (customer and frappe.db.exists("Customer", customer)) else walkin_customer()
+	pl = _price_list_for(cust)
 
 	rows = []
 	for it in items:
@@ -338,7 +359,7 @@ def quick_sale(items, payment_mode="cash", customer=None):
 				"item_code": code,
 				"qty": qty,
 				"uom": uom,
-				"rate": _rate_for_uom(code, uom, stock_uom),
+				"rate": _rate_for_uom(code, uom, stock_uom, pl),
 				"warehouse": wh,
 				# Items received without a cost have zero valuation; selling them via
 				# update_stock would otherwise fail ("Allow Zero Valuation Rate not enabled").
@@ -361,7 +382,7 @@ def quick_sale(items, payment_mode="cash", customer=None):
 				"pos_profile": profile,
 				"update_stock": 1,
 				"set_warehouse": wh,
-				"selling_price_list": SELLING_PRICE_LIST,
+				"selling_price_list": pl,
 				"remarks": f"Bán hàng tại quầy ({'chuyển khoản' if payment_mode == 'bank' else 'tiền mặt'})",
 				"items": rows,
 			}

@@ -116,6 +116,42 @@ def _upsert_selling_price(item_code, rate, uom=None):
 	price.save(ignore_permissions=True)
 
 
+@frappe.whitelist()
+def get_wholesale_price(item_code):
+	"""Owner: the wholesale (giá sỉ) price for an item's stock unit, if set."""
+	_check_item(item_code)
+	uom = frappe.db.get_value("Item", item_code, "stock_uom")
+	rate = frappe.db.get_value(
+		"Item Price",
+		{"item_code": item_code, "price_list": dto.WHOLESALE_PRICE_LIST, "selling": 1, "uom": uom},
+		"price_list_rate",
+	)
+	return {"wholesale_price": flt(rate) if rate else None}
+
+
+@frappe.whitelist()
+def set_wholesale_price(item_code, price):
+	"""Owner: set/clear the wholesale price (stock unit). 0/empty clears it."""
+	_check_item(item_code)
+	uom = frappe.db.get_value("Item", item_code, "stock_uom")
+	rate = flt(price)
+	existing = frappe.db.get_value(
+		"Item Price",
+		{"item_code": item_code, "price_list": dto.WHOLESALE_PRICE_LIST, "selling": 1, "uom": uom},
+		"name",
+	)
+	if rate <= 0:
+		if existing:
+			frappe.delete_doc("Item Price", existing, ignore_permissions=True)
+		frappe.db.commit()
+		return {"wholesale_price": None}
+	doc = frappe.get_doc("Item Price", existing) if existing else frappe.new_doc("Item Price")
+	doc.update({"item_code": item_code, "price_list": dto.WHOLESALE_PRICE_LIST, "selling": 1, "uom": uom, "price_list_rate": rate})
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"wholesale_price": rate}
+
+
 # --------------------------------------------------------------------------- #
 # Product images (owner can manage from the simplified UI, no ERPNext Desk)
 # --------------------------------------------------------------------------- #

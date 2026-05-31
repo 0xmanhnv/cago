@@ -109,6 +109,7 @@ def get_customer_debt(customer):
 		"debt_limit": limit,
 		"debt_limit_text": dto.format_price(limit) if limit else "",
 		"points": int(flt(frappe.db.get_value("Customer", customer, "cago_points"))),
+		"wholesale": bool(frappe.db.get_value("Customer", customer, "cago_wholesale")),
 	}
 
 
@@ -203,9 +204,11 @@ def record_repayment(customer, amount, note=None):
 
 
 @frappe.whitelist()
-def add_customer(customer_name, phone=None, village=None, debt_limit=None):
+def add_customer(customer_name, phone=None, village=None, debt_limit=None, wholesale=0):
 	"""Create a new customer from the simplified owner UI (e.g. during Ghi nợ)."""
 	ensure_owner()
+	from frappe.utils import cint
+
 	name = (customer_name or "").strip()
 	if not name:
 		frappe.throw(_("Nhập tên khách hàng."))
@@ -222,6 +225,7 @@ def add_customer(customer_name, phone=None, village=None, debt_limit=None):
 			"mobile_no": mobile or None,
 			"cago_zalo_phone": mobile or None,
 			"cago_debt_limit": flt(debt_limit) or 0,
+			"cago_wholesale": 1 if cint(wholesale) else 0,
 		}
 	)
 	# Defaults so Customer validation passes on a fresh site.
@@ -234,6 +238,20 @@ def add_customer(customer_name, phone=None, village=None, debt_limit=None):
 	doc.insert(ignore_permissions=True)
 	frappe.db.commit()
 	return {"customer": doc.name, "customer_name": name}
+
+
+@frappe.whitelist()
+def set_wholesale(customer, on):
+	"""Owner: mark a customer as wholesale (mua theo giá sỉ) or not."""
+	ensure_owner()
+	from frappe.utils import cint
+
+	if not frappe.db.exists("Customer", customer):
+		frappe.throw(_("Không tìm thấy khách hàng."))
+	val = 1 if cint(on) else 0
+	frappe.db.set_value("Customer", customer, "cago_wholesale", val)
+	frappe.db.commit()
+	return {"customer": customer, "wholesale": bool(val)}
 
 
 @frappe.whitelist()
@@ -276,6 +294,7 @@ def get_customer_ledger(customer):
 		"outstanding_text": cust["outstanding_text"],
 		"overpaid": cust["outstanding"] < 0,
 		"points": cust["points"],
+		"wholesale": cust["wholesale"],
 		"entries": entries,
 	}
 

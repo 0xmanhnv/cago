@@ -20,6 +20,7 @@ from frappe.utils import flt
 from cago.utils.safety import safety_warning_for
 
 SELLING_PRICE_LIST = "Standard Selling"
+WHOLESALE_PRICE_LIST = "Giá sỉ"  # optional second selling list for wholesale customers
 
 # Item fields searched by the owner/staff product search (docs/07 §5).
 SEARCH_FIELDS = [

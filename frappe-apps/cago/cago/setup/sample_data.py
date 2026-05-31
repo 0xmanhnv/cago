@@ -53,6 +53,7 @@ def import_sample_products(csv_path=None):
 	# A freshly created site (no setup wizard) has no default price lists, so make
 	# sure the selling price list exists before we attach Item Prices to it.
 	_ensure_price_list(DEFAULT_PRICE_LIST)
+	_ensure_price_list("Giá sỉ")  # wholesale selling list (giá sỉ)
 
 	# Category icon/colour is DATA on the Item Group (owner-editable), not hardcoded
 	# keyword matching in the UI — make sure the fields exist before seeding presets.

@@ -114,13 +114,20 @@ def ensure_customer_fields():
 					"insert_after": "cago_debt_limit",
 					"read_only": 1,
 					"description": "Điểm thưởng tích theo doanh số (tự động khi xuất hoá đơn).",
-				}
+				},
+				{
+					"fieldname": "cago_wholesale",
+					"label": "Khách sỉ (dùng bảng giá sỉ)",
+					"fieldtype": "Check",
+					"insert_after": "cago_points",
+					"description": "Bật: khách này mua theo Giá sỉ (nếu sản phẩm có đặt giá sỉ).",
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Customer fields ensured: cago_debt_limit, cago_points")
+	print("Customer fields ensured: cago_debt_limit, cago_points, cago_wholesale")
 
 
 def ensure_loyalty_fields():
