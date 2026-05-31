@@ -9,7 +9,7 @@ and the debt list. Read-only.
 import frappe
 from frappe.query_builder import Order
 from frappe.query_builder.functions import Count, Sum
-from frappe.utils import add_days, flt, get_first_day, nowdate
+from frappe.utils import add_days, cint, flt, get_first_day, nowdate
 
 from cago.api.debt import get_customer_debt
 from cago.utils import dto
@@ -120,6 +120,35 @@ def payment_split(period="today"):
 		"credit": credit,
 		"credit_text": _t(credit),
 	}
+
+
+@frappe.whitelist()
+def sales_by_customer(period="month", limit=10):
+	"""Owner-only: top customers by sales total in the period."""
+	ensure_owner()
+	if period not in PERIOD_LABEL:
+		period = "month"
+	start, end = _period_range(period)
+	company = _company()
+	si = frappe.qb.DocType("Sales Invoice")
+	rows = (
+		frappe.qb.from_(si)
+		.select(si.customer, Sum(si.grand_total).as_("total"), Count(si.name).as_("cnt"))
+		.where((si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end))
+		.groupby(si.customer)
+		.orderby(Sum(si.grand_total), order=Order.desc)
+		.limit(cint(limit) or 10)
+	).run(as_dict=True)
+	return [
+		{
+			"customer": r.customer,
+			"customer_name": frappe.db.get_value("Customer", r.customer, "customer_name") or r.customer,
+			"total": flt(r.total),
+			"total_text": dto.format_price(flt(r.total)),
+			"count": r.cnt,
+		}
+		for r in rows
+	]
 
 
 @frappe.whitelist()

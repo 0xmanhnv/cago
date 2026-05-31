@@ -51,11 +51,13 @@ export function Report() {
   const [split, setSplit] = useState<Split | null>(null);
   const [profit, setProfit] = useState<Profit | null>(null);
   const [best, setBest] = useState<{ display_name: string; qty: number }[]>([]);
+  const [byCust, setByCust] = useState<{ customer_name: string; total_text: string }[]>([]);
   useEffect(() => {
     frappeCall<Summary>("cago.api.reports.period_summary", { period }, { method: "GET" }).then(setS);
     frappeCall<Split>("cago.api.reports.payment_split", { period }, { method: "GET" }).then(setSplit).catch(() => setSplit(null));
     frappeCall<Profit>("cago.api.reports.gross_profit", { period }, { method: "GET" }).then(setProfit).catch(() => setProfit(null));
     frappeCall<{ display_name: string; qty: number }[]>("cago.api.reports.best_sellers", { limit: 5 }, { method: "GET" }).then((r) => setBest(r || []));
+    frappeCall<{ customer_name: string; total_text: string }[]>("cago.api.reports.sales_by_customer", { period, limit: 5 }, { method: "GET" }).then((r) => setByCust(r || []));
   }, [period]);
 
   const tab = (p: "today" | "week" | "month", label: string) => (
@@ -131,6 +133,17 @@ export function Report() {
               </>
             ) : (
               <div className="mt-2.5 text-slate-500">Chưa có dữ liệu bán hàng.</div>
+            )}
+            {byCust.length > 0 && (
+              <>
+                <div className="mt-2.5 font-bold">Khách mua nhiều</div>
+                {byCust.map((c, i) => (
+                  <div key={i} className="flex justify-between border-b border-slate-100 py-1.5">
+                    <span>{c.customer_name}</span>
+                    <b>{c.total_text}</b>
+                  </div>
+                ))}
+              </>
             )}
           </>
         )}

@@ -101,6 +101,15 @@ export function StaffWanted() {
               ✅ Hoàn tất
             </button>
           </div>
+          <button
+            onClick={async () => {
+              const r = await frappeCall<{ url: string }>("cago.api.pos.create_invoice_from_wanted", { code: wl.code });
+              window.open(r.url, "_blank");
+            }}
+            className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-bold text-white"
+          >
+            🧾 Tạo hoá đơn (mở để thu tiền)
+          </button>
         </div>
       )}
     </div>

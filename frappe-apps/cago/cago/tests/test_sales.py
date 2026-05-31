@@ -51,3 +51,25 @@ def flt_qty(item_code):
 	from frappe.utils import flt
 
 	return flt(dto.get_actual_qty(item_code))
+
+
+class TestPosHandoff(FrappeTestCase):
+	def setUp(self):
+		if not frappe.db.exists("Item", ITEM):
+			self.skipTest("sample item missing")
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def test_draft_invoice_from_wanted(self):
+		from cago.api import kiosk, pos
+
+		wl = kiosk.create_wanted_list(json.dumps([{"item_code": ITEM, "qty": 2}]))
+		r = pos.create_invoice_from_wanted(wl["code"])
+		self.assertTrue(r["invoice"])
+		si = frappe.get_doc("Sales Invoice", r["invoice"])
+		self.assertEqual(si.docstatus, 0)  # DRAFT — staff must confirm/submit
+		self.assertEqual(len(si.items), 1)
+		self.assertEqual(frappe.db.get_value("Cago Wanted List", {"code": wl["code"]}, "status"), "Processing")

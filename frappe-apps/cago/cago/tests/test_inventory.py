@@ -99,6 +99,13 @@ class TestVietQR(FrappeTestCase):
 		self.assertFalse(payment.vietqr()["configured"])
 
 
+class TestSalesByCustomer(FrappeTestCase):
+	def test_returns_list(self):
+		from cago.api import reports
+
+		self.assertIsInstance(reports.sales_by_customer("month", 5), list)
+
+
 class TestBarcode(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("Item", NONBATCH_ITEM):
