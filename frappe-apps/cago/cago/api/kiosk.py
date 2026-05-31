@@ -67,8 +67,9 @@ def related_products(item_code, limit=8):
 	category = frappe.db.get_value("Item", item_code, "item_group")
 	if not category:
 		return []
-	items = dto.list_dtos(None, audience="public", public_only=True, category=category, limit=int(limit) + 1)
-	return [p for p in items if p["item_code"] != item_code][: int(limit)]
+	limit = cint(limit) or 8
+	items = dto.list_dtos(None, audience="public", public_only=True, category=category, limit=limit + 1)
+	return [p for p in items if p["item_code"] != item_code][:limit]
 
 
 @frappe.whitelist(allow_guest=True)

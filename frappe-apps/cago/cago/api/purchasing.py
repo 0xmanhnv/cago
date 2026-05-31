@@ -65,8 +65,11 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 	warehouse = _default_warehouse()
 	if not warehouse:
 		frappe.throw(_("Chưa cấu hình kho."))
-	if frappe.db.get_value("Item", item_code, "has_batch_no") and not batch_no:
-		frappe.throw(_("Sản phẩm quản lý theo lô — chọn mã lô khi nhập (thêm lô ở mục Lô & hạn dùng)."))
+	if frappe.db.get_value("Item", item_code, "has_batch_no"):
+		if not batch_no:
+			frappe.throw(_("Sản phẩm quản lý theo lô — chọn mã lô khi nhập (thêm lô ở mục Lô & hạn dùng)."))
+		if not frappe.db.exists("Batch", {"batch_id": batch_no, "item": item_code}):
+			frappe.throw(_("Lô không tồn tại cho sản phẩm này."))
 	ensure_lang()
 
 	user = frappe.session.user
@@ -89,9 +92,9 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 		)
 		se.insert(ignore_permissions=True)
 		se.submit()
-		frappe.db.commit()
 		entry = se.name
 	finally:
 		frappe.set_user(user)
 
+	frappe.db.commit()  # commit as the real user, after restoring the session
 	return {"entry": entry, "qty": flt(dto.get_actual_qty(item_code))}

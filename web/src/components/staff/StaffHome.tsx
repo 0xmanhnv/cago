@@ -10,7 +10,7 @@ export function StaffHome() {
   const hasPos = !!boot?.has_posawesome;
   const doLogout = async () => {
     await logout();
-    router.push("/login");
+    window.location.href = "/login"; // full reload → fresh guest session + CSRF
   };
   const Btn = ({ onClick, color, children }: { onClick: () => void; color: string; children: React.ReactNode }) => (
     <button
@@ -36,6 +36,8 @@ export function StaffHome() {
         </Btn>
         <a
           href="/app/point-of-sale"
+          target="_blank"
+          rel="noopener"
           className="flex min-h-[84px] items-center justify-center rounded-2xl bg-brand p-2.5 text-center text-[19px] font-bold text-white"
         >
           🛒 Mở POS gốc
@@ -43,6 +45,8 @@ export function StaffHome() {
         {hasPos && (
           <a
             href="/app/posawesome"
+            target="_blank"
+            rel="noopener"
             className="flex min-h-[84px] items-center justify-center rounded-2xl bg-slate-500 p-2.5 text-center text-[19px] font-bold text-white"
           >
             🧾 Mở POS Awesome

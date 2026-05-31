@@ -15,7 +15,7 @@ accounting. We only manage the configuration here; ERPNext owns the maths.
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from cago.utils import dto
 from cago.utils.permissions import ensure_owner, ensure_staff
@@ -158,6 +158,7 @@ def remove_unit(item_code, uom):
 @frappe.whitelist()
 def set_retail_visible(item_code, visible):
 	ensure_owner()
-	frappe.db.set_value("Item", item_code, "cago_show_retail_on_kiosk", 1 if int(visible) else 0)
+	on = 1 if cint(visible) else 0
+	frappe.db.set_value("Item", item_code, "cago_show_retail_on_kiosk", on)
 	frappe.db.commit()
-	return {"show_retail": bool(int(visible))}
+	return {"show_retail": bool(on)}

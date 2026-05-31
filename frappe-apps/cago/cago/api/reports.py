@@ -19,6 +19,10 @@ LOW_STOCK_STATUSES = ["Còn ít", "Hết hàng", "Sắp nhập"]
 PERIOD_LABEL = {"today": "Hôm nay", "week": "7 ngày qua", "month": "Tháng này"}
 
 
+def _company():
+	return frappe.defaults.get_global_default("company") or (frappe.get_all("Company", pluck="name") or [None])[0]
+
+
 def _period_range(period):
 	today = nowdate()
 	if period == "week":
@@ -35,11 +39,12 @@ def period_summary(period="today"):
 	if period not in PERIOD_LABEL:
 		period = "today"
 	start, end = _period_range(period)
+	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	res = (
 		frappe.qb.from_(si)
 		.select(Sum(si.grand_total), Count(si.name))
-		.where((si.docstatus == 1) & (si.posting_date >= start) & (si.posting_date <= end))
+		.where((si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end))
 	).run()
 	total = flt(res[0][0]) if res and res[0] else 0
 	count = (res[0][1] if res and res[0] else 0) or 0
@@ -69,6 +74,7 @@ def payment_split(period="today"):
 	if period not in PERIOD_LABEL:
 		period = "today"
 	start, end = _period_range(period)
+	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	sip = frappe.qb.DocType("Sales Invoice Payment")
 	mop = frappe.qb.DocType("Mode of Payment")
@@ -79,7 +85,7 @@ def payment_split(period="today"):
 		.left_join(mop)
 		.on(sip.mode_of_payment == mop.name)
 		.select(mop.type.as_("type"), Sum(sip.amount).as_("amt"))
-		.where((si.docstatus == 1) & (si.posting_date >= start) & (si.posting_date <= end))
+		.where((si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end))
 		.groupby(mop.type)
 	).run(as_dict=True)
 	cash = bank = other = 0
@@ -95,7 +101,7 @@ def payment_split(period="today"):
 	res = (
 		frappe.qb.from_(si)
 		.select(Sum(si.outstanding_amount))
-		.where((si.docstatus == 1) & (si.posting_date >= start) & (si.posting_date <= end))
+		.where((si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end))
 	).run()
 	credit = flt(res[0][0]) if res and res[0] else 0
 
@@ -160,6 +166,7 @@ def low_stock():
 @frappe.whitelist()
 def best_sellers(limit=10):
 	ensure_owner()
+	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	sii = frappe.qb.DocType("Sales Invoice Item")
 	rows = (
@@ -167,7 +174,7 @@ def best_sellers(limit=10):
 		.join(si)
 		.on(sii.parent == si.name)
 		.select(sii.item_code, Sum(sii.qty).as_("qty"))
-		.where(si.docstatus == 1)
+		.where((si.docstatus == 1) & (si.company == company))
 		.groupby(sii.item_code)
 		.orderby(Sum(sii.qty), order=Order.desc)
 		.limit(int(limit))

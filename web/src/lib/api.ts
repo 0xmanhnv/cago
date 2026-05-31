@@ -99,6 +99,7 @@ export async function logout() {
     credentials: "include",
     headers: { "X-Frappe-CSRF-Token": csrfToken },
   });
+  csrfToken = ""; // stale after session ends; a fresh guest token is fetched on next bootstrap
 }
 
 // Multipart upload (product images) — Frappe's upload_file, returns file_url.

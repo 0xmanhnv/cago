@@ -275,6 +275,19 @@ def cancel_entry(voucher_type, voucher_no, customer=None):
 		frappe.throw(_("Chỉ huỷ được bút toán ghi nợ / trả nợ."))
 	if not frappe.db.exists(voucher_type, voucher_no):
 		frappe.throw(_("Không tìm thấy bút toán."))
+	# Scope guard: only vouchers that post to a Customer party (i.e. belong to a debt
+	# ledger) may be cancelled — and, when given, only for that customer. Without this an
+	# owner could cancel ANY Journal/Payment Entry in the company by guessing its name.
+	gl = frappe.get_all(
+		"GL Entry",
+		filters={"voucher_type": voucher_type, "voucher_no": voucher_no, "party_type": "Customer", "is_cancelled": 0},
+		fields=["party"],
+		limit=1,
+	)
+	if not gl:
+		frappe.throw(_("Bút toán này không thuộc công nợ khách hàng."))
+	if customer and gl[0].party != customer:
+		frappe.throw(_("Bút toán không thuộc khách hàng này."))
 	doc = frappe.get_doc(voucher_type, voucher_no)
 	# Privileged cancel (owner lacks ERPNext accounting perms); audit keeps the real user.
 	actor = frappe.session.user

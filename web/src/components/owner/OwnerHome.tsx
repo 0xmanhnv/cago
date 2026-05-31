@@ -7,7 +7,7 @@ export function OwnerHome() {
   const router = useRouter();
   const doLogout = async () => {
     await logout();
-    router.push("/login");
+    window.location.href = "/login"; // full reload → fresh guest session + CSRF
   };
   const item = (label: string, color: string, href: string) => (
     <button
@@ -32,13 +32,15 @@ export function OwnerHome() {
         {item("📊 Báo cáo", "bg-blue-600", "/owner/reports")}
         <a
           href="/app/point-of-sale"
+          target="_blank"
+          rel="noopener"
           className="flex min-h-[84px] items-center justify-center rounded-2xl bg-brand p-2.5 text-center text-[19px] font-bold text-white"
         >
           🛒 Bán hàng (POS)
         </a>
       </div>
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
-        <a href="/app" className="flex min-h-[64px] items-center justify-center rounded-2xl bg-slate-500 p-2.5 text-center text-lg font-bold text-white">
+        <a href="/app" target="_blank" rel="noopener" className="flex min-h-[64px] items-center justify-center rounded-2xl bg-slate-500 p-2.5 text-center text-lg font-bold text-white">
           ⚙️ Quản lý ERPNext
         </a>
         <button onClick={doLogout} className="min-h-[64px] rounded-2xl bg-red-600 text-lg font-bold text-white">

@@ -77,6 +77,7 @@ export function FloatingFab({
     };
     const onDown = (e: PointerEvent) => {
       moved = false;
+      (el as HTMLButtonElement & { _moved?: boolean })._moved = false; // clear stale flag (e.g. after pointercancel)
       const r = el.getBoundingClientRect();
       sx = e.clientX;
       sy = e.clientY;

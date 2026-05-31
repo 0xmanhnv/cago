@@ -13,7 +13,7 @@ real stock-in/out to batches belongs to the later "nhập hàng → tồn thật
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, date_diff, flt, getdate, nowdate
+from frappe.utils import add_days, cint, date_diff, flt, getdate, nowdate
 
 from cago.utils import dto
 from cago.utils.permissions import ensure_owner, ensure_staff
@@ -117,7 +117,7 @@ def add_batch(item_code, batch_id, expiry_date=None, manufacturing_date=None):
 def expiring_soon(days=DEFAULT_WARN_DAYS):
 	"""Owner report: batches expiring within `days` (or already expired)."""
 	ensure_owner()
-	days = int(days or DEFAULT_WARN_DAYS)
+	days = cint(days) or DEFAULT_WARN_DAYS
 	horizon = add_days(nowdate(), days)
 	# NULL expiry_date is excluded by the `<=` comparison, so only dated batches show.
 	rows = frappe.get_all(

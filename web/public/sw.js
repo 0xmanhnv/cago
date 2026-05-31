@@ -29,7 +29,16 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // App shell / static / product images: stale-while-revalidate.
+  // Never cache authenticated areas' navigation (shared tablet: don't serve an owner/staff
+  // shell to the next guest). Only the public kiosk navigations are cached.
+  const isKioskNav =
+    url.pathname === "/" ||
+    url.pathname.startsWith("/products") ||
+    url.pathname === "/cart" ||
+    url.pathname === "/assistant";
+  if (req.mode === "navigate" && !isKioskNav) return; // owner/staff/login → always network
+
+  // Kiosk shell / static / product images: stale-while-revalidate.
   if (req.mode === "navigate" || url.pathname.startsWith("/_next/") || url.pathname.startsWith("/files/")) {
     e.respondWith(
       caches.match(req).then((cached) => {

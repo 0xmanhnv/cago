@@ -102,17 +102,12 @@ def category_meta(group):
 def get_selling_price(item_code):
 	"""Selling rate for the STOCK unit (an item may now have per-UOM retail prices too).
 
-	Prefers the Item Price whose uom == the item's stock UOM, then a uom-less price,
-	then any — so multi-UOM retail prices never override the main price.
+	Shares logic with the batch path (_price_map/_rate_for): prefer the stock-uom price,
+	then a uom-less price, then any — so multi-UOM retail prices never override the main
+	price (and NULL-uom rows are matched correctly).
 	"""
-	base = {"item_code": item_code, "price_list": SELLING_PRICE_LIST, "selling": 1}
 	stock_uom = frappe.db.get_value("Item", item_code, "stock_uom")
-	rate = frappe.db.get_value("Item Price", {**base, "uom": stock_uom}, "price_list_rate") if stock_uom else None
-	if not rate:
-		rate = frappe.db.get_value("Item Price", {**base, "uom": ["in", ["", None]]}, "price_list_rate")
-	if not rate:
-		rate = frappe.db.get_value("Item Price", base, "price_list_rate")
-	return rate or 0
+	return _rate_for(_price_map([item_code]).get(item_code) or {}, stock_uom)
 
 
 def format_price(rate, uom=None):
@@ -441,6 +436,7 @@ def public_dto(item):
 def staff_dto(item):
 	"""Staff DTO: selling price + operational fields. No buying price / margin."""
 	rate = get_selling_price(item.name)
+	qty = get_actual_qty(item.name)
 	return {
 		"item_code": item.name,
 		"display_name": item.cago_display_name or item.item_name,
@@ -453,8 +449,8 @@ def staff_dto(item):
 		"selling_price": rate,
 		"price_text": format_price(rate, item.stock_uom),
 		"unit": item.stock_uom,
-		"stock_status": stock_status_for(item, get_actual_qty(item.name)),
-		"actual_stock_qty": get_actual_qty(item.name),
+		"stock_status": stock_status_for(item, qty),
+		"actual_stock_qty": qty,
 		"shelf_location": item.cago_shelf_location,
 		"public_description": item.cago_public_description,
 		"staff_advice": item.cago_staff_advice,
