@@ -1,0 +1,88 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "hash",
+ "creation": "2026-05-31 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "source_item",
+  "alternative_item",
+  "alternative_type",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_item",
+   "fieldtype": "Link",
+   "label": "Sản phẩm gốc",
+   "options": "Item",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "alternative_item",
+   "fieldtype": "Link",
+   "label": "Sản phẩm thay thế",
+   "options": "Item",
+   "in_list_view": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "alternative_type",
+   "fieldtype": "Select",
+   "label": "Loại thay thế",
+   "options": "Cheaper\nEquivalent\nBetter\nAvoid",
+   "in_list_view": 1,
+   "reqd": 1,
+   "description": "Cheaper = rẻ hơn, Equivalent = tương đương, Better = tốt hơn, Avoid = tránh dùng cùng."
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-31 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cago",
+ "name": "Cago Product Alternative",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Cago Owner",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Cago Staff",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

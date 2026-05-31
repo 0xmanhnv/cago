@@ -1,0 +1,196 @@
+{% extends "templates/web.html" %}
+
+{% block title %}Nhân viên bán hàng - AgriMate{% endblock %}
+
+{% block page_content %}
+<style>
+	.navbar, .web-footer, footer, .page-head { display: none !important; }
+	body { background: #f4f6f8; }
+	.ag-wrap { max-width: 760px; margin: 0 auto; padding: 16px; font-size: 18px; color: #1b2733; }
+	.ag-title { font-size: 24px; font-weight: 700; text-align: center; margin: 12px 0 18px; }
+	.ag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+	.ag-btn { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 84px; border-radius: 14px; border: none; cursor: pointer; font-size: 19px; font-weight: 700; color: #fff; background: #2563eb; padding: 10px; }
+	.ag-btn.green { background: #16a34a; } .ag-btn.gray { background: #64748b; } .ag-btn.teal { background: #0d9488; }
+	.ag-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+	.ag-back { background: #e2e8f0; color: #1b2733; border: none; border-radius: 10px; padding: 12px 16px; font-size: 18px; font-weight: 700; cursor: pointer; }
+	.ag-input { flex: 1; padding: 14px; font-size: 18px; border: 2px solid #cbd5e1; border-radius: 10px; }
+	.ag-card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: flex; gap: 12px; cursor: pointer; }
+	.ag-card img { width: 76px; height: 76px; object-fit: cover; border-radius: 8px; background: #eef2f6; }
+	.ag-card .name { font-weight: 700; } .ag-card .price { color: #16a34a; font-weight: 700; }
+	.ag-muted { color: #64748b; font-size: 16px; }
+	.ag-detail { background: #fff; border-radius: 12px; padding: 16px; }
+	.ag-detail img { width: 100%; max-height: 240px; object-fit: contain; background: #eef2f6; border-radius: 10px; }
+	.ag-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eef2f6; gap: 12px; }
+	.ag-row b { text-align: right; }
+	.ag-bignum { font-size: 28px; font-weight: 800; color: #16a34a; }
+	.ag-sec { font-weight: 700; margin: 14px 0 6px; }
+	.ag-advice { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px; }
+	.ag-alt { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; margin: 6px 0; }
+	.ag-warn { background: #fef3c7; border: 1px solid #f59e0b; color: #7c2d12; border-radius: 10px; padding: 12px; margin-top: 12px; }
+	.ag-callowner { background: #fee2e2; border: 1px solid #ef4444; color: #7f1d1d; border-radius: 10px; padding: 12px; margin-top: 12px; }
+	.ag-spin { text-align: center; padding: 30px; color: #64748b; }
+	.ag-pill { display: inline-block; background: #e2e8f0; border-radius: 999px; padding: 4px 10px; font-size: 14px; }
+</style>
+
+<div class="ag-wrap" id="app"></div>
+
+<script>
+(function () {
+	const app = document.getElementById('app');
+	const HAS_POSAWESOME = {{ "true" if has_posawesome else "false" }};
+	const esc = (s) => (s == null ? '' : String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])));
+	const spin = () => { app.innerHTML = '<div class="ag-spin">Đang tải...</div>'; };
+	const call = (method, args) => new Promise((res, rej) => frappe.call({
+		method, args,
+		callback: r => res(r.message),
+		error: (e) => {
+			if (app.querySelector('.ag-spin')) {
+				app.innerHTML = '<div class="ag-bar"><button class="ag-back" id="ag-reload">← Tải lại</button></div><div class="ag-warn">Lỗi tải dữ liệu. Kiểm tra mạng rồi bấm "Tải lại".</div>';
+				const b = app.querySelector('#ag-reload'); if (b) b.onclick = () => location.reload();
+			}
+			rej(e);
+		}
+	}));
+
+	function home() {
+		app.innerHTML = `
+			<div class="ag-title">NHÂN VIÊN BÁN HÀNG</div>
+			<div class="ag-grid">
+				<button class="ag-btn" id="b-search">🔎 Tra sản phẩm</button>
+				<button class="ag-btn teal" id="b-wl">📋 Khách đã chọn</button>
+				<button class="ag-btn purple" id="b-chat" style="background:#7c3aed">🤖 Hỏi trợ lý</button>
+				<button class="ag-btn green" onclick="window.location='/app/point-of-sale'">🛒 Mở POS gốc</button>
+				${HAS_POSAWESOME ? `<button class="ag-btn gray" onclick="window.location='/app/posawesome'">🧾 Mở POS Awesome</button>` : ``}
+			</div>
+			<div style="height:14px"></div>
+			<button class="ag-btn red" style="width:100%" onclick="frappe.call({method:'logout',callback:function(){location.href='/dangnhap'}})">🚪 Đăng xuất</button>`;
+		app.querySelector('#b-search').onclick = searchView;
+		app.querySelector('#b-wl').onclick = wantedListView;
+		app.querySelector('#b-chat').onclick = chatView;
+	}
+
+	function searchView() {
+		app.innerHTML = `
+			<div class="ag-bar"><button class="ag-back">← Trang chủ</button>
+			<input class="ag-input" placeholder="Tên, tên hay gọi, màu, công dụng..." autofocus></div>
+			<div id="results"><div class="ag-spin">Đang tải...</div></div>`;
+		app.querySelector('.ag-back').onclick = home;
+		const input = app.querySelector('.ag-input'), results = app.querySelector('#results');
+		const run = async (q) => {
+			results.innerHTML = '<div class="ag-spin">Đang tải...</div>';
+			const list = await call('cago.api.staff.search_products', { query: q });
+			if (!list.length) { results.innerHTML = '<div class="ag-muted">Không tìm thấy.</div>'; return; }
+			results.innerHTML = list.map(p => `
+				<div class="ag-card" data-code="${esc(p.item_code)}">
+					<img src="${esc(p.image||'')}" onerror="this.style.visibility='hidden'">
+					<div><div class="name">${esc(p.display_name)}</div>
+					<div class="price">${esc(p.price_text)}</div>
+					<div class="ag-muted">${esc(p.stock_status||'')} ${p.shelf_location ? '· '+esc(p.shelf_location):''}</div></div>
+				</div>`).join('');
+			results.querySelectorAll('.ag-card').forEach(c => c.onclick = () => detail(c.dataset.code));
+		};
+		let t;
+		input.oninput = () => { clearTimeout(t); t = setTimeout(() => run(input.value.trim()), 250); };
+		run('');  // default: show all products immediately
+	}
+
+	async function detail(code) {
+		spin();
+		const p = await call('cago.api.staff.get_product', { item_code: code });
+		const alts = p.alternatives || {};
+		const altBlock = (label, arr) => (arr && arr.length) ? `<div class="ag-sec">${label}</div>` +
+			arr.map(a => `<div class="ag-alt"><b>${esc(a.display_name)}</b>${a.note ? ' — '+esc(a.note) : ''}</div>`).join('') : '';
+		app.innerHTML = `
+			<div class="ag-bar"><button class="ag-back">← Quay lại</button></div>
+			<div class="ag-detail">
+				<img src="${esc(p.image||'')}" onerror="this.style.visibility='hidden'">
+				<h2>${esc(p.display_name)}</h2>
+				<div class="ag-bignum">${esc(p.price_text)}</div>
+				<div class="ag-row"><span class="ag-muted">Tồn kho</span><b>${esc(p.stock_status||'-')} (${p.actual_stock_qty})</b></div>
+				<div class="ag-row"><span class="ag-muted">Vị trí để hàng</span><b>${esc(p.shelf_location||'-')}</b></div>
+				<div class="ag-row"><span class="ag-muted">Tên hay gọi</span><b>${esc(p.local_names||'-')}</b></div>
+				<div class="ag-row"><span class="ag-muted">Dùng cho</span><b>${esc(p.use_cases||'-')}</b></div>
+				${p.staff_advice ? `<div class="ag-sec">Tư vấn</div><div class="ag-advice">${esc(p.staff_advice)}</div>` : ''}
+				${altBlock('Rẻ hơn', alts.cheaper)}
+				${altBlock('Tương đương', alts.equivalent)}
+				${altBlock('Tốt hơn', alts.better)}
+				${altBlock('Tránh dùng cùng', alts.avoid)}
+				${p.call_owner_when ? `<div class="ag-callowner">📞 Gọi chủ khi: ${esc(p.call_owner_when)}</div>` : ''}
+				${p.safety_notes ? `<div class="ag-warn">⚠️ ${esc(p.safety_notes)}</div>` : ''}
+			</div>`;
+		app.querySelector('.ag-back').onclick = searchView;
+	}
+
+	function wantedListView() {
+		app.innerHTML = `
+			<div class="ag-bar"><button class="ag-back">← Trang chủ</button>
+			<input class="ag-input" placeholder="Nhập mã đơn khách chọn, vd WL-2026-00001" autofocus></div>
+			<button class="ag-btn teal" id="lookup" style="width:100%">Tìm đơn</button>
+			<div id="wl"></div>`;
+		app.querySelector('.ag-back').onclick = home;
+		const STATUS_VI = { New: 'Mới', Processing: 'Đang xử lý', Completed: 'Hoàn tất', Expired: 'Hết hạn' };
+		const doLookup = async () => {
+			const code = app.querySelector('.ag-input').value.trim();
+			const out = app.querySelector('#wl');
+			if (!code) return;
+			out.innerHTML = '<div class="ag-spin">Đang tìm...</div>';
+			let wl;
+			try { wl = await call('cago.api.staff.get_wanted_list', { code }); }
+			catch (e) { out.innerHTML = '<div class="ag-warn">Không tìm thấy đơn với mã này.</div>'; return; }
+			const render = (w) => {
+				out.innerHTML = `<div class="ag-detail" style="margin-top:14px">
+					<h3>Đơn ${esc(w.code)} <span class="ag-pill">${esc(STATUS_VI[w.status] || w.status)}</span></h3>
+					${w.is_expired ? '<div class="ag-warn">⏰ Đơn đã quá hạn (>2 ngày), nên xác nhận lại với khách.</div>' : ''}
+					${w.note ? `<div class="ag-muted">${esc(w.note)}</div>` : ''}
+					${w.items.map(i => `<div class="ag-row"><span><b>${esc(i.display_name)}</b><br><span class="ag-muted">SL: ${i.qty} ${i.shelf_location ? '· ' + esc(i.shelf_location) : ''}</span></span><b>${esc(i.price_text)}</b></div>`).join('')}
+					<div style="height:12px"></div>
+					<div class="ag-bar">
+						<button class="ag-btn" id="st-proc" style="min-height:48px">⏳ Đang xử lý</button>
+						<button class="ag-btn green" id="st-done" style="min-height:48px">✅ Hoàn tất</button>
+					</div></div>`;
+				const setStatus = async (s) => { const r = await call('cago.api.staff.set_wanted_list_status', { code: w.code, status: s }); render({ ...w, status: r.status }); };
+				out.querySelector('#st-proc').onclick = () => setStatus('Processing');
+				out.querySelector('#st-done').onclick = () => setStatus('Completed');
+			};
+			render(wl);
+		};
+		app.querySelector('#lookup').onclick = doLookup;
+		app.querySelector('.ag-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLookup(); });
+	}
+
+	function chatView() {
+		const hist = [];
+		const esc2 = esc;
+		const md = (s) => esc2(s || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|\n)\s*[-*•]\s+/g, '$1• ');
+		const renderLog = () => hist.map(m => m.who === 'user'
+			? `<div style="text-align:right;margin:8px 0"><span style="background:#2563eb;color:#fff;padding:10px 14px;border-radius:14px;display:inline-block;max-width:85%;text-align:left">${esc2(m.text)}</span></div>`
+			: `<div style="margin:8px 0"><div style="background:#fff;padding:12px;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);white-space:pre-line">${md(m.text)}</div>${(m.cards || []).map(c => `<div class="ag-card" data-code="${esc2(c.item_code)}" style="margin-top:8px"><img src="${esc2(c.image || '')}" onerror="this.style.display='none'"><div style="flex:1"><div class="name">${esc2(c.display_name)}</div><div class="price">${esc2(c.price_text)}</div></div></div>`).join('')}</div>`
+		).join('') || '<div class="ag-muted">Hỏi nhanh về sản phẩm: giá, tồn, vị trí kệ, tư vấn...</div>';
+		const draw = () => {
+			app.innerHTML = `<div class="ag-bar"><button class="ag-back">← Trang chủ</button><div class="ag-title" style="margin:0;flex:1;font-size:20px">🤖 Trợ lý</div></div>
+				<div id="clog" style="max-height:60vh;overflow-y:auto">${renderLog()}</div>
+				<div class="ag-bar" style="margin-top:10px"><input class="ag-input" id="q" placeholder="Nhập câu hỏi..." autofocus><button class="ag-btn green" id="send" style="min-height:0;height:52px;padding:0 18px">Gửi</button></div>`;
+			app.querySelector('.ag-back').onclick = home;
+			app.querySelectorAll('#clog [data-code]').forEach(c => c.onclick = () => detail(c.dataset.code));
+			const q = app.querySelector('#q'), log = app.querySelector('#clog'), send = app.querySelector('#send');
+			const ask = async () => {
+				const text = q.value.trim(); if (!text || send.disabled) return;
+				hist.push({ who: 'user', text }); q.value = ''; send.disabled = true;
+				log.innerHTML = renderLog() + '<div style="margin:8px 0"><div style="background:#fff;padding:14px 16px;border-radius:14px;display:inline-block">⌛ đang trả lời...</div></div>'; log.scrollTop = log.scrollHeight;
+				const h = hist.filter(m => m.text).slice(-6).map(m => ({ role: m.who === 'user' ? 'user' : 'assistant', content: m.text }));
+				let r;
+				try { r = await call('cago.api.chatbot.ask_staff', { message: text, history: JSON.stringify(h) }); }
+				catch (e) { hist.push({ who: 'bot', text: 'Có lỗi, thử lại nhé.' }); draw(); return; }
+				hist.push({ who: 'bot', text: r.answer_text, cards: r.product_cards });
+				draw();
+			};
+			send.onclick = ask; q.addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+			log.scrollTop = log.scrollHeight; try { q.focus(); } catch (e) {}
+		};
+		draw();
+	}
+
+	frappe.ready(home);
+})();
+</script>
+{% endblock %}

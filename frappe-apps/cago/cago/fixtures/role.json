@@ -1,0 +1,20 @@
+[
+ {
+  "doctype": "Role",
+  "name": "Cago Owner",
+  "role_name": "Cago Owner",
+  "desk_access": 1,
+  "disabled": 0,
+  "two_factor_auth": 0,
+  "restrict_to_domain": ""
+ },
+ {
+  "doctype": "Role",
+  "name": "Cago Staff",
+  "role_name": "Cago Staff",
+  "desk_access": 1,
+  "disabled": 0,
+  "two_factor_auth": 0,
+  "restrict_to_domain": ""
+ }
+]

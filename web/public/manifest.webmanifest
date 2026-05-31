@@ -1,0 +1,10 @@
+{
+  "name": "AgriMate — Cửa hàng vật tư nông nghiệp",
+  "short_name": "AgriMate",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0fdf4",
+  "theme_color": "#16a34a",
+  "lang": "vi",
+  "icons": []
+}

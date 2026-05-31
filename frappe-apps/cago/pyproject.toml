@@ -1,0 +1,27 @@
+[project]
+name = "cago"
+authors = [
+    { name = "AgriMate", email = "nguyenmanh0397@gmail.com" }
+]
+description = "Business customization layer for a rural Vietnamese agricultural supplies store (AgriMate)."
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    # HTTP client for the provider-agnostic LLM adapters (chatbot). Only used when an
+    # LLM provider is configured; deterministic mode works without it.
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "cago"
+
+# Target platform is ERPNext v16 / Frappe v16. The bounds below stay permissive
+# across v15+ so the app can also be evaluated on a v15 bench.
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0"
+erpnext = ">=15.0.0"

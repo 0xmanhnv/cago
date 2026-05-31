@@ -1,0 +1,46 @@
+# Development override: live-mount the local cago source into the
+# running containers so Python changes take effect without rebuilding the image.
+#
+#   docker compose -f compose.yaml -f compose.override.dev.yaml up -d --build
+#
+# After editing DocTypes / hooks, apply changes with:
+#   docker compose exec backend bench --site agrimate.localhost migrate
+#   docker compose restart backend scheduler queue-short queue-long websocket frontend
+#
+# NOTE: always restart `frontend` together with `backend` — nginx caches the
+# backend container's IP, so restarting backend alone yields 502s until frontend
+# re-resolves it.
+#
+# The app is installed editable (pip -e) in the image, so the bind mount below
+# simply replaces the baked source with your working copy at the same path.
+
+services:
+  backend:
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+      - ../../frappe-apps/cago:/home/frappe/frappe-bench/apps/cago
+
+  scheduler:
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+      - ../../frappe-apps/cago:/home/frappe/frappe-bench/apps/cago
+
+  queue-short:
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+      - ../../frappe-apps/cago:/home/frappe/frappe-bench/apps/cago
+
+  queue-long:
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+      - ../../frappe-apps/cago:/home/frappe/frappe-bench/apps/cago
+
+  websocket:
+    volumes:
+      - sites:/home/frappe/frappe-bench/sites
+      - logs:/home/frappe/frappe-bench/logs
+      - ../../frappe-apps/cago:/home/frappe/frappe-bench/apps/cago

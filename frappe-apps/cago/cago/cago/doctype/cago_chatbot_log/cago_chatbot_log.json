@@ -1,0 +1,53 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-05-31 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "in_create": 1,
+ "field_order": [
+  "role",
+  "chat_user",
+  "session_id",
+  "customer_phone",
+  "needs_staff_help",
+  "question",
+  "sources",
+  "column_break_meta",
+  "provider",
+  "model",
+  "latency_ms",
+  "safety_flags"
+ ],
+ "fields": [
+  {"fieldname": "role", "fieldtype": "Select", "label": "Vai trò", "options": "customer\nstaff\nowner", "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "chat_user", "fieldtype": "Link", "label": "Người dùng", "options": "User", "in_list_view": 1, "read_only": 1},
+  {"fieldname": "session_id", "fieldtype": "Data", "label": "Mã phiên", "in_standard_filter": 1},
+  {"fieldname": "customer_phone", "fieldtype": "Data", "label": "SĐT khách (tùy chọn)", "options": "Phone", "in_standard_filter": 1},
+  {"fieldname": "needs_staff_help", "fieldtype": "Check", "label": "Cần người bán hỗ trợ", "in_list_view": 1},
+  {"fieldname": "question", "fieldtype": "Small Text", "label": "Câu hỏi"},
+  {"fieldname": "sources", "fieldtype": "Small Text", "label": "Nguồn (item_code)"},
+  {"fieldname": "column_break_meta", "fieldtype": "Column Break"},
+  {"fieldname": "provider", "fieldtype": "Data", "label": "Provider", "in_standard_filter": 1},
+  {"fieldname": "model", "fieldtype": "Data", "label": "Model"},
+  {"fieldname": "latency_ms", "fieldtype": "Int", "label": "Latency (ms)"},
+  {"fieldname": "safety_flags", "fieldtype": "Data", "label": "Cờ an toàn"}
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-05-31 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cago",
+ "name": "Cago Chatbot Log",
+ "naming_rule": "Random",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "delete": 1, "report": 1, "export": 1},
+  {"role": "Cago Owner", "read": 1, "report": 1}
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

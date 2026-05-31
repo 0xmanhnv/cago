@@ -1,0 +1,276 @@
+[
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_section_break",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_section_break",
+  "label": "Thông tin AgriMate",
+  "fieldtype": "Section Break",
+  "insert_after": "image",
+  "collapsible": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_display_name",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_display_name",
+  "label": "Tên hiển thị",
+  "fieldtype": "Data",
+  "insert_after": "cago_section_break",
+  "translatable": 0
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_local_names",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_local_names",
+  "label": "Tên dân dã / tên hay gọi",
+  "fieldtype": "Small Text",
+  "insert_after": "cago_display_name",
+  "description": "Các tên khách hay gọi, phân cách bằng dấu phẩy. Dùng cho tìm kiếm."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_public_description",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_public_description",
+  "label": "Mô tả ngắn cho khách",
+  "fieldtype": "Small Text",
+  "insert_after": "cago_local_names"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_use_cases",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_use_cases",
+  "label": "Dùng cho",
+  "fieldtype": "Small Text",
+  "insert_after": "cago_public_description"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_crop_or_animal_targets",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_crop_or_animal_targets",
+  "label": "Cây/con phù hợp",
+  "fieldtype": "Small Text",
+  "insert_after": "cago_use_cases"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_package_color",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_package_color",
+  "label": "Màu bao bì/chai/gói",
+  "fieldtype": "Data",
+  "insert_after": "cago_crop_or_animal_targets"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_product_quality_tier",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_product_quality_tier",
+  "label": "Mức chất lượng",
+  "fieldtype": "Select",
+  "options": "\nPhổ thông\nTrung cấp\nCao cấp",
+  "insert_after": "cago_package_color"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_column_break_ag",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_column_break_ag",
+  "fieldtype": "Column Break",
+  "insert_after": "cago_product_quality_tier"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_staff_advice",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_staff_advice",
+  "label": "Câu tư vấn cho người bán",
+  "fieldtype": "Text",
+  "insert_after": "cago_column_break_ag",
+  "description": "Chỉ hiển thị cho chủ/nhân viên, không hiển thị trên kiosk."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_call_owner_when",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_call_owner_when",
+  "label": "Khi nào cần gọi chủ",
+  "fieldtype": "Text",
+  "insert_after": "cago_staff_advice"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_shelf_location",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_shelf_location",
+  "label": "Vị trí để hàng",
+  "fieldtype": "Data",
+  "insert_after": "cago_call_owner_when"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_stock_status_manual",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_stock_status_manual",
+  "label": "Trạng thái tồn kho hiển thị",
+  "fieldtype": "Select",
+  "options": "\nCòn nhiều\nCòn hàng\nCòn ít\nHết hàng\nSắp nhập",
+  "insert_after": "cago_shelf_location",
+  "description": "Trạng thái hiển thị cho người xem. Tồn kho chính xác vẫn dùng số liệu ERPNext."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_kiosk_sort_order",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_kiosk_sort_order",
+  "label": "Thứ tự kiosk",
+  "fieldtype": "Int",
+  "insert_after": "cago_stock_status_manual"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_safety_section",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_safety_section",
+  "label": "An toàn & hiển thị kiosk",
+  "fieldtype": "Section Break",
+  "insert_after": "cago_kiosk_sort_order"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_is_chemical",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_is_chemical",
+  "label": "Là hóa chất/thuốc",
+  "fieldtype": "Check",
+  "default": "0",
+  "insert_after": "cago_safety_section",
+  "description": "Nếu bật, luôn hiển thị cảnh báo an toàn hóa chất."
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_is_public_visible",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_is_public_visible",
+  "label": "Hiển thị trên kiosk",
+  "fieldtype": "Check",
+  "default": "1",
+  "insert_after": "cago_is_chemical"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_safety_notes",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_safety_notes",
+  "label": "Lưu ý an toàn",
+  "fieldtype": "Text",
+  "insert_after": "cago_is_public_visible"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Item-cago_image_gallery",
+  "module": "Cago",
+  "dt": "Item",
+  "fieldname": "cago_image_gallery",
+  "label": "Album ảnh (mỗi dòng 1 đường dẫn ảnh)",
+  "fieldtype": "Small Text",
+  "insert_after": "cago_safety_notes",
+  "description": "Thêm nhiều ảnh sản phẩm: mỗi dòng một URL ảnh (ngoài ảnh chính)."
+ },
+
+ {
+  "doctype": "Custom Field",
+  "name": "Customer-cago_section_break",
+  "module": "Cago",
+  "dt": "Customer",
+  "fieldname": "cago_section_break",
+  "label": "Thông tin AgriMate",
+  "fieldtype": "Section Break",
+  "insert_after": "customer_group",
+  "collapsible": 1
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Customer-cago_village",
+  "module": "Cago",
+  "dt": "Customer",
+  "fieldname": "cago_village",
+  "label": "Xóm/thôn",
+  "fieldtype": "Data",
+  "insert_after": "cago_section_break"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Customer-cago_customer_type",
+  "module": "Cago",
+  "dt": "Customer",
+  "fieldname": "cago_customer_type",
+  "label": "Loại khách",
+  "fieldtype": "Select",
+  "options": "\nKhách lẻ\nKhách quen\nĐại lý\nTrang trại",
+  "insert_after": "cago_village"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Customer-cago_zalo_phone",
+  "module": "Cago",
+  "dt": "Customer",
+  "fieldname": "cago_zalo_phone",
+  "label": "Số Zalo",
+  "fieldtype": "Data",
+  "options": "Phone",
+  "insert_after": "cago_customer_type"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Customer-cago_column_break",
+  "module": "Cago",
+  "dt": "Customer",
+  "fieldname": "cago_column_break",
+  "fieldtype": "Column Break",
+  "insert_after": "cago_zalo_phone"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Customer-cago_farming_notes",
+  "module": "Cago",
+  "dt": "Customer",
+  "fieldname": "cago_farming_notes",
+  "label": "Ghi chú canh tác/chăn nuôi",
+  "fieldtype": "Text",
+  "insert_after": "cago_column_break"
+ },
+ {
+  "doctype": "Custom Field",
+  "name": "Customer-cago_debt_note",
+  "module": "Cago",
+  "dt": "Customer",
+  "fieldname": "cago_debt_note",
+  "label": "Ghi chú công nợ",
+  "fieldtype": "Text",
+  "insert_after": "cago_farming_notes",
+  "description": "Ghi chú nội bộ. Không hiển thị trên kiosk."
+ }
+]

@@ -1,0 +1,14 @@
+# Keep the build context lean. The image only needs frappe-apps/cago.
+.git
+.gitignore
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.DS_Store
+**/node_modules/
+docs/
+prompts/
+data/
+services/
+infra/
+*.md

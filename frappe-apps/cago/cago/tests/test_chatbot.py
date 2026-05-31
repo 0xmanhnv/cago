@@ -1,0 +1,175 @@
+# Copyright (c) 2026, AgriMate and contributors
+# For license information, please see license.txt
+"""Tests for the chatbot: providers, factory/switch, safety, context, retrieval roles,
+and the orchestrator (no-data, chemical refusal, real-price cards).
+
+Run: bench --site <site> run-tests --app cago --module cago.tests.test_chatbot
+"""
+
+import frappe
+import httpx
+from frappe.tests.utils import FrappeTestCase
+
+from cago.chatbot import context, orchestrator, retrieval, safety
+from cago.chatbot import observability
+from cago.chatbot.providers import LLMError, get_provider
+from cago.chatbot.providers.base import Message
+from cago.chatbot.providers.fake import FakeProvider
+from cago.chatbot.providers.openai_compat import OpenAICompatProvider
+
+KIOSK_ITEM = "CAM-GA-CON-25KG"
+CHEM_ITEM = "THUOC-CHUOT-A-GOI"
+
+
+# --------------------------- providers / factory --------------------------- #
+class TestChatbotProviders(FrappeTestCase):
+	def test_fake_provider_echoes_user(self):
+		res = FakeProvider().chat([Message("user", "xin chào")], model="fake")
+		self.assertIn("xin chào", res.text)
+
+	def test_openai_compat_builds_request_and_parses(self):
+		seen = {}
+
+		def handler(request):
+			seen["url"] = str(request.url)
+			seen["auth"] = request.headers.get("authorization")
+			return httpx.Response(200, json={
+				"model": "m", "choices": [{"message": {"content": "chào bác"}, "finish_reason": "stop"}],
+				"usage": {"total_tokens": 5},
+			})
+
+		client = httpx.Client(transport=httpx.MockTransport(handler))
+		p = OpenAICompatProvider(api_key="secret", base_url="http://test/v1", client=client)
+		res = p.chat([Message("user", "hi")], model="m")
+		self.assertEqual(res.text, "chào bác")
+		self.assertTrue(seen["url"].endswith("/chat/completions"))
+		self.assertEqual(seen["auth"], "Bearer secret")
+
+	def test_openai_compat_http_error_becomes_llmerror(self):
+		client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(500, text="boom")))
+		p = OpenAICompatProvider(base_url="http://test/v1", client=client)
+		with self.assertRaises(LLMError):
+			p.chat([Message("user", "hi")], model="m")
+
+	def test_factory_switches_by_name(self):
+		self.assertIsInstance(get_provider("fake"), FakeProvider)
+		self.assertIsInstance(get_provider("openai", api_key="k"), OpenAICompatProvider)
+		self.assertIsInstance(get_provider("ollama", base_url="http://x/v1"), OpenAICompatProvider)
+		self.assertIsNone(get_provider("deterministic"))
+		self.assertIsNone(get_provider(None))
+		with self.assertRaises(LLMError):
+			get_provider("does-not-exist")
+
+
+# --------------------------- phone validation --------------------------- #
+class TestChatbotPhone(FrappeTestCase):
+	def test_valid_vn_mobile_normalized(self):
+		from cago.chatbot.observability import clean_phone
+		self.assertEqual(clean_phone("0987654321"), "0987654321")
+		self.assertEqual(clean_phone("098 765 4321"), "0987654321")
+		self.assertEqual(clean_phone("+84987654321"), "0987654321")
+		self.assertEqual(clean_phone("84387654321"), "0387654321")
+
+	def test_invalid_phone_dropped(self):
+		from cago.chatbot.observability import clean_phone
+		for bad in ["", "abc", "12345", "0123456789", "0987", "99999999999", "0287654321"]:
+			self.assertEqual(clean_phone(bad), "", f"should reject {bad!r}")
+
+
+# --------------------------- safety --------------------------- #
+class TestChatbotSafety(FrappeTestCase):
+	def test_detects_sensitive_intents(self):
+		self.assertIn("dosage", safety.classify("thuốc chuột pha bao nhiêu ml"))
+		self.assertIn("mixing", safety.classify("trộn thuốc này với thuốc kia được không"))
+		self.assertIn("stronger_than_label", safety.classify("tăng liều cho mạnh hơn"))
+		self.assertIn("near_harvest", safety.classify("gần thu hoạch có phun được không"))
+
+	def test_non_sensitive_is_empty(self):
+		self.assertEqual(safety.classify("cám gà con giá bao nhiêu"), [])
+
+	def test_sensitive_is_never_auto_answered(self):
+		self.assertFalse(safety.answerable_from_data(["dosage"], [{"is_chemical": 1}]))
+
+
+# --------------------------- context --------------------------- #
+class TestChatbotContext(FrappeTestCase):
+	def test_context_rejects_sensitive_keys(self):
+		with self.assertRaises(ValueError):
+			context.build("customer", [{"display_name": "X", "valuation_rate": 100}])
+
+	def test_no_data_sentinel(self):
+		self.assertEqual(context.build("customer", []), "NO_DATA")
+
+
+# --------------------------- retrieval roles --------------------------- #
+class TestChatbotRetrievalRoles(FrappeTestCase):
+	def test_customer_products_hide_staff_fields(self):
+		for p in retrieval.search("customer", "npk"):
+			self.assertNotIn("shelf_location", p)
+			self.assertNotIn("staff_advice", p)
+
+	def test_staff_products_include_staff_fields(self):
+		prods = retrieval.search("staff", "npk")
+		self.assertTrue(prods)
+		self.assertIn("shelf_location", prods[0])
+
+
+# --------------------- context-aware resolution (focus) --------------------- #
+class TestChatbotFocusResolution(FrappeTestCase):
+	def test_context_free_question_resolves_to_focused_product(self):
+		# "còn hàng không?" has no product keyword; with focus_item it must answer
+		# about the product being viewed, not return "not found".
+		prods = retrieval.resolve("customer", "còn hàng không", focus_item=KIOSK_ITEM)
+		self.assertTrue(prods)
+		self.assertEqual(prods[0]["item_code"], KIOSK_ITEM)
+
+	def test_explicit_keyword_wins_over_focus(self):
+		# Naming a different product overrides whatever is on screen.
+		prods = retrieval.resolve("customer", "npk", focus_item=KIOSK_ITEM)
+		self.assertTrue(prods)
+		self.assertNotEqual(prods[0]["item_code"], KIOSK_ITEM)
+
+	def test_focus_category_lists_category_products(self):
+		category = frappe.db.get_value("Item", KIOSK_ITEM, "item_group")
+		prods = retrieval.resolve("customer", "còn gì không", focus_category=category)
+		self.assertTrue(prods)
+		self.assertTrue(all(p.get("item_code") for p in prods))
+
+	def test_no_focus_no_keyword_returns_empty(self):
+		self.assertEqual(retrieval.resolve("customer", "còn hàng không"), [])
+
+
+# --------------------------- orchestrator --------------------------- #
+class TestChatbotOrchestrator(FrappeTestCase):
+	def setUp(self):
+		# Don't persist logs during tests (orchestrator commits otherwise).
+		self._log = observability.log
+		observability.log = lambda **kw: None
+		# Force deterministic mode so tests never call an external LLM (hermetic + fast).
+		from cago.chatbot import config as cbconfig
+		self._cfg = cbconfig
+		self._lp, self._fb = cbconfig.load_primary, cbconfig.load_fallback
+		cbconfig.load_primary = lambda: cbconfig.LLMConfig(provider="deterministic")
+		cbconfig.load_fallback = lambda: None
+
+	def tearDown(self):
+		observability.log = self._log
+		self._cfg.load_primary, self._cfg.load_fallback = self._lp, self._fb
+
+	def test_no_data_says_not_found(self):
+		r = orchestrator.ask("customer", "xe máy honda wave")
+		self.assertEqual(r["confidence"], "low")
+		self.assertTrue(r["needs_staff_help"])
+		self.assertIn("tìm thấy", r["answer_text"].lower())
+
+	def test_chemical_question_is_refused_with_warning(self):
+		r = orchestrator.ask("customer", "thuốc chuột pha bao nhiêu nước")
+		self.assertTrue(r["needs_staff_help"])
+		self.assertTrue(r["safety_warnings"])
+
+	def test_normal_answer_has_real_price_card(self):
+		r = orchestrator.ask("customer", "cám gà con giá bao nhiêu")
+		self.assertTrue(r["product_cards"])
+		card = r["product_cards"][0]
+		self.assertTrue(card["price_text"])
+		self.assertIn(KIOSK_ITEM, r["sources"])

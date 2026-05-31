@@ -1,0 +1,40 @@
+# Copyright (c) 2026, AgriMate and contributors
+# For license information, please see license.txt
+"""Custom fields that aren't product-row data.
+
+Category presentation (icon emoji + colour) belongs to the CATEGORY, set by the
+owner — not hardcoded as Vietnamese keyword matching in the UI. We store it on the
+Item Group so the kiosk simply renders what the data says, with a neutral default.
+
+    bench --site <site> execute cago.setup.custom_fields.ensure_category_fields
+"""
+
+import frappe
+from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+
+def ensure_category_fields():
+	"""Add cago_icon / cago_color to Item Group (idempotent)."""
+	create_custom_fields(
+		{
+			"Item Group": [
+				{
+					"fieldname": "cago_icon",
+					"label": "Cago Icon (emoji)",
+					"fieldtype": "Data",
+					"insert_after": "item_group_name",
+					"description": "Biểu tượng hiển thị cho danh mục trên kiosk (vd 🐔).",
+				},
+				{
+					"fieldname": "cago_color",
+					"label": "Cago Color (hex)",
+					"fieldtype": "Data",
+					"insert_after": "cago_icon",
+					"description": "Màu nền danh mục trên kiosk (vd #fef3c7).",
+				},
+			]
+		},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("Item Group fields ensured: cago_icon, cago_color")

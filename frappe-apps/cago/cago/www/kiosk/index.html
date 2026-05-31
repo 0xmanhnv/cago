@@ -1,0 +1,540 @@
+{% extends "templates/web.html" %}
+
+{% block title %}AgriMate - Cửa hàng vật tư nông nghiệp{% endblock %}
+
+{% block page_content %}
+<style>
+	.navbar, .web-footer, footer, .page-head { display: none !important; }
+	body { background: #f0fdf4; }
+	.ag-wrap { max-width: 900px; margin: 0 auto; padding: 16px 16px 90px; color: #14271b; }
+	.ag-title { font-size: 28px; font-weight: 800; text-align: center; margin: 14px 0 20px; color: #14532d; }
+	.ag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+	.ag-cat { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; min-height: 120px; border-radius: 16px; border: none; cursor: pointer; font-size: 20px; font-weight: 800; color: #fff; background: #16a34a; padding: 12px; }
+	.ag-cat .cat-ico { font-size: 44px; line-height: 1; }
+	.ag-cat .cat-name { font-weight: 800; }
+	.ag-cat .cat-count { font-size: 13px; font-weight: 600; opacity: .9; }
+	.ag-prodgrid { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 14px; }
+	.ag-prod { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); cursor: pointer; }
+	.ag-prod img { width: 100%; height: 150px; object-fit: cover; background: #e6f4ea; }
+	.ag-prod .body { padding: 10px; }
+	.ag-prod .name { font-weight: 800; font-size: 17px; }
+	.ag-prod .price { color: #16a34a; font-weight: 800; margin-top: 4px; }
+	.ag-prod .chem { display: inline-block; background: #fef3c7; color: #92400e; border-radius: 6px; font-size: 12px; padding: 2px 6px; margin-top: 6px; }
+	.ag-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+	.ag-back { background: #d1fae5; color: #14532d; border: none; border-radius: 10px; padding: 12px 16px; font-size: 18px; font-weight: 800; cursor: pointer; }
+	.ag-input { flex: 1; padding: 14px; font-size: 18px; border: 2px solid #86efac; border-radius: 10px; }
+	.ag-detail { background: #fff; border-radius: 16px; padding: 18px; }
+	.ag-detail img { width: 100%; max-height: 320px; object-fit: contain; background: #e6f4ea; border-radius: 12px; }
+	.ag-bignum { font-size: 32px; font-weight: 800; color: #16a34a; }
+	.ag-warn { background: #fef3c7; border: 1px solid #f59e0b; color: #7c2d12; border-radius: 12px; padding: 14px; margin-top: 14px; font-size: 17px; }
+	.ag-add { width: 100%; min-height: 64px; font-size: 22px; font-weight: 800; color: #fff; background: #16a34a; border: none; border-radius: 12px; cursor: pointer; margin-top: 14px; }
+	.ag-cartbar { position: fixed; left: 0; right: 0; bottom: 0; background: #14532d; color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; font-size: 19px; font-weight: 800; cursor: pointer; }
+	.ag-cartbar.hidden { display: none; }
+	.ag-code { font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #14532d; text-align: center; background: #dcfce7; border: 2px dashed #16a34a; border-radius: 14px; padding: 20px; margin: 16px 0; }
+	.ag-spin { text-align: center; padding: 30px; color: #64748b; }
+	.ag-qtyrow { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eef2f6; }
+	.ag-qbtn { width: 44px; height: 44px; font-size: 22px; border: none; border-radius: 8px; background: #d1fae5; font-weight: 800; cursor: pointer; }
+	/* persistent "call seller" button (top-right) — always reachable for non-tech users */
+	#callfab { position: fixed; top: 10px; right: 10px; z-index: 55; background: #dc2626; color: #fff; border: none; border-radius: 999px; padding: 10px 16px; font-size: 15px; font-weight: 800; cursor: grab; box-shadow: 0 2px 8px rgba(0,0,0,.2); touch-action: none; user-select: none; -webkit-user-select: none; }
+	/* persistent labeled assistant pill (bottom-right, above cart bar) — ask mid-browse */
+	#chatfab { position: fixed; right: 10px; bottom: 78px; z-index: 55; background: #7c3aed; color: #fff; border: none; border-radius: 999px; padding: 12px 18px; font-size: 16px; font-weight: 800; cursor: grab; box-shadow: 0 2px 10px rgba(0,0,0,.25); touch-action: none; user-select: none; -webkit-user-select: none; }
+	#callfab.dragging, #chatfab.dragging { cursor: grabbing; opacity: .92; }
+	#chatfab.hidden { display: none; }
+	/* tap-to-ask suggestion chips in the assistant */
+	.ag-chips { display: flex; gap: 8px; overflow-x: auto; padding: 8px 14px; background: #f0fdf4; border-top: 1px solid #d1fae5; }
+	.ag-chip { flex: 0 0 auto; background: #dcfce7; color: #14532d; border: 1px solid #86efac; border-radius: 999px; padding: 8px 14px; font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+	.ag-speak { background: #0d9488; color: #fff; border: none; border-radius: 10px; padding: 10px 16px; font-size: 16px; font-weight: 800; cursor: pointer; margin-top: 10px; }
+	.ag-grouplabel { font-size: 16px; font-weight: 800; color: #14532d; margin: 18px 4px 8px; }
+	/* Visual placeholder when a product has no photo yet */
+	.ag-noimg { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: var(--c, #e6f4ea); color: #14532d; width: 100%; height: 150px; }
+	.ag-noimg.big { height: 260px; border-radius: 12px; }
+	.ag-noimg.row { width: 76px; height: 76px; border-radius: 8px; flex: 0 0 76px; }
+	.ag-noimg.mini { width: 100%; height: 90px; }
+	.ag-relrow { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+	.ag-relcard { flex: 0 0 140px; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); cursor: pointer; }
+	.ag-noimg .e { font-size: 46px; line-height: 1; }
+	.ag-noimg.big .e { font-size: 96px; } .ag-noimg.row .e { font-size: 34px; }
+	.ag-noimg .t { font-size: 12px; font-weight: 700; text-align: center; padding: 0 6px; opacity: .8; }
+	.ag-noimg.row .t { display: none; }
+	/* chat product cards */
+	.ag-card { background: #fff; border-radius: 12px; padding: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: flex; gap: 10px; align-items: center; }
+	.ag-card .name { font-weight: 700; } .ag-card .price { color: #16a34a; font-weight: 800; }
+	.ag-muted { color: #64748b; }
+	/* Full-screen chat: header top, scrollable log middle, input fixed bottom */
+	.ag-chat { position: fixed; inset: 0; display: flex; flex-direction: column; background: #f0fdf4; z-index: 60; }
+	.ag-chat .top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #fff; border-bottom: 1px solid #d1fae5; }
+	.ag-chat .top h2 { font-size: 20px; margin: 0; flex: 1; color: #14532d; }
+	/* optional-phone popup shown when opening the assistant */
+	.ag-modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 70; padding: 20px; }
+	.ag-modal-card { background: #fff; border-radius: 16px; padding: 22px; max-width: 440px; width: 100%; }
+	.ag-modal-card h2 { margin: 0 0 8px; color: #14532d; }
+	.ag-modal-card input { width: 100%; padding: 14px; border: 2px solid #86efac; border-radius: 12px; font-size: 18px; margin: 12px 0; }
+	.ag-chat .log { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 14px; }
+	.ag-chat .composer { display: flex; gap: 8px; padding: 10px 14px; background: #fff; border-top: 1px solid #d1fae5; }
+	.ag-chat .composer input { flex: 1; padding: 14px; border: 2px solid #86efac; border-radius: 12px; font-size: 17px; }
+	.ag-chat .composer button { border: none; background: #16a34a; color: #fff; font-weight: 800; border-radius: 12px; padding: 0 20px; font-size: 17px; cursor: pointer; }
+	.ag-bubble-u { text-align: right; margin: 8px 0; }
+	.ag-bubble-u span { background: #16a34a; color: #fff; padding: 10px 14px; border-radius: 14px; display: inline-block; max-width: 85%; text-align: left; }
+	.ag-bubble-b { background: #fff; padding: 12px; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); white-space: pre-line; }
+	/* "đang gõ" typing indicator */
+	.ag-typing { display: inline-flex; gap: 5px; align-items: center; background: #fff; padding: 14px 16px; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+	.ag-typing span { width: 9px; height: 9px; border-radius: 50%; background: #9ca3af; animation: agblink 1.2s infinite; }
+	.ag-typing span:nth-child(2) { animation-delay: .2s; } .ag-typing span:nth-child(3) { animation-delay: .4s; }
+	@keyframes agblink { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+	/* context banner: "đang hỏi về <sản phẩm>" so the assistant is anchored to it */
+	.ag-focusbar { display: flex; align-items: center; gap: 8px; background: #ecfdf5; border-top: 1px solid #d1fae5; padding: 8px 14px; font-size: 14px; color: #14532d; }
+	.ag-focusbar b { font-weight: 800; } .ag-focusbar .x { margin-left: auto; background: #d1fae5; border: none; border-radius: 999px; width: 30px; height: 30px; font-size: 16px; font-weight: 800; color: #14532d; cursor: pointer; }
+	/* optional inline phone row inside the chat (no blocking popup) */
+	.ag-phonebar { padding: 6px 14px 0; }
+	.ag-plink { width: 100%; text-align: left; background: #f0fdf4; border: 1px dashed #86efac; border-radius: 10px; padding: 9px 12px; font-size: 14px; color: #166534; cursor: pointer; }
+	.ag-phonebar .row { display: flex; gap: 8px; align-items: center; }
+	.ag-phonebar input { flex: 1; padding: 11px; border: 2px solid #86efac; border-radius: 10px; font-size: 16px; }
+	.ag-pbtn { border: none; border-radius: 10px; padding: 0 14px; height: 44px; font-weight: 800; font-size: 15px; cursor: pointer; background: #16a34a; color: #fff; }
+	.ag-pbtn.ghost { background: #e2e8f0; color: #334155; }
+	.pp-err { color: #dc2626; font-size: 13px; padding: 4px 2px 0; display: block; }
+</style>
+
+<div class="ag-wrap" id="app"></div>
+<div class="ag-cartbar hidden" id="cartbar"><span>🧺 Đã chọn: <span id="cartcount">0</span> sản phẩm</span><span>Xem &amp; gửi →</span></div>
+<button id="callfab" title="Gọi người bán">🔔 Gọi người bán</button>
+<button id="chatfab" title="Hỏi trợ lý">🤖 Hỏi trợ lý</button>
+
+<script>
+(function () {
+	// Configurable persona/branding injected by the server (see www/kiosk/index.py).
+	const ASSISTANT = {{ persona_json | safe }};
+	const app = document.getElementById('app');
+	const cartbar = document.getElementById('cartbar');
+	const cart = {}; // item_code -> {dto, qty}
+	const esc = (s) => (s == null ? '' : String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])));
+	const spin = () => { app.innerHTML = '<div class="ag-spin">Đang tải...</div>'; };
+	const call = (method, args) => new Promise((res, rej) => frappe.call({
+		method, args,
+		callback: r => res(r.message),
+		error: (e) => {
+			// If a read was loading, replace the stuck spinner with a friendly retry.
+			if (app.querySelector('.ag-spin')) {
+				app.innerHTML = '<div class="ag-bar"><button class="ag-back" id="ag-reload">← Tải lại</button></div><div class="ag-warn">Lỗi tải dữ liệu. Bác kiểm tra mạng rồi bấm "Tải lại".</div>';
+				const b = app.querySelector('#ag-reload'); if (b) b.onclick = () => location.reload();
+			}
+			rej(e);
+		}
+	}));
+
+	function refreshCart() {
+		const n = Object.values(cart).reduce((s, x) => s + x.qty, 0);
+		document.getElementById('cartcount').textContent = n;
+		cartbar.classList.toggle('hidden', n === 0);
+	}
+	function addToCart(dto) { const c = cart[dto.item_code] || { dto, qty: 0 }; c.qty++; cart[dto.item_code] = c; refreshCart(); }
+
+	// ---- Visual helpers: category emoji + image-or-placeholder thumbnail ----
+	function catEmoji(cat) {
+		const c = (cat || '').toLowerCase();
+		if (c.includes('cám') || c.includes('chăn nuôi')) return '🐔';
+		if (c.includes('phân')) return '🌱';
+		if (c.includes('cỏ')) return '🌿';
+		if (c.includes('chuột')) return '🐀';
+		if (c.includes('sâu') || c.includes('bệnh') || c.includes('thuốc')) return '🐛';
+		if (c.includes('giống') || c.includes('hạt')) return '🌰';
+		if (c.includes('dụng cụ') || c.includes('công cụ')) return '🧰';
+		return '📦';
+	}
+	function catColor(cat) {
+		const c = (cat || '').toLowerCase();
+		if (c.includes('cám') || c.includes('chăn nuôi')) return '#fef3c7';
+		if (c.includes('phân')) return '#dcfce7';
+		if (c.includes('cỏ')) return '#d1fae5';
+		if (c.includes('chuột')) return '#fee2e2';
+		if (c.includes('sâu') || c.includes('bệnh') || c.includes('thuốc')) return '#e0e7ff';
+		if (c.includes('giống') || c.includes('hạt')) return '#fef9c3';
+		return '#e6f4ea';
+	}
+	// variant: 'grid' (card) | 'big' (detail) | 'row' (horizontal card) | 'mini' (related)
+	function thumb(p, variant) {
+		variant = variant || 'grid';
+		if (p.image) {
+			const st = variant === 'big'
+				? 'width:100%;max-height:320px;object-fit:contain;background:#e6f4ea;border-radius:12px'
+				: (variant === 'row' ? 'width:76px;height:76px;object-fit:cover;border-radius:8px'
+				   : (variant === 'mini' ? 'width:100%;height:90px;object-fit:cover'
+				      : 'width:100%;height:150px;object-fit:cover;background:#e6f4ea'));
+			return `<img src="${esc(p.image)}" style="${st}" onerror="this.replaceWith(document.createRange().createContextualFragment(this.dataset.ph))" data-ph="${esc(_ph(p, variant))}">`;
+		}
+		return _ph(p, variant);
+	}
+	function _ph(p, variant) {
+		const cls = variant === 'big' ? 'big' : (variant === 'row' ? 'row' : (variant === 'mini' ? 'mini' : ''));
+		return `<div class="ag-noimg ${cls}" style="--c:${catColor(p.category)}"><span class="e">${catEmoji(p.category)}</span><span class="t">${esc(p.display_name || '')}</span></div>`;
+	}
+
+	// ---- Hỏi trợ lý (chatbot) ----
+	// SHARED KIOSK model: a "session" = one customer. We use sessionStorage (not
+	// localStorage) so it never persists forever, AND auto-reset after inactivity so the
+	// next customer starts clean. A reload by the SAME customer (within the idle window)
+	// keeps their chat. A "Khách mới" button resets immediately. The server still logs
+	// each turn under session_id for the owner — separate from this on-screen history.
+	const IDLE_MS = 3 * 60 * 1000;  // 3 minutes of inactivity -> new customer
+	const ss = window.sessionStorage;
+	const nowMs = () => new Date().getTime();
+	const newId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 's' + nowMs();
+	let sessionId, customerPhone, chatHistory, phoneAsked;
+	// What the customer is currently viewing — so the assistant can answer context-free
+	// questions ("còn hàng không?") about the product/category on screen.
+	let focusItem = '', focusCat = '', focusName = '';
+	let phoneOpen = false;  // inline phone editor expanded in chat?
+
+	const touch = () => { try { ss.setItem('cago_chat_active', String(nowMs())); } catch (e) {} };
+	function startNewSession() {
+		sessionId = newId(); customerPhone = ''; chatHistory = []; phoneAsked = false;
+		try { ss.removeItem('cago_chat_history'); ss.removeItem('cago_chat_phone'); ss.setItem('cago_chat_session', sessionId); } catch (e) {}
+		touch();
+	}
+	function loadOrReset() {
+		const last = parseInt((ss && ss.getItem('cago_chat_active')) || '0', 10);
+		if (!ss || !ss.getItem('cago_chat_session') || (nowMs() - last > IDLE_MS)) { startNewSession(); return; }
+		sessionId = ss.getItem('cago_chat_session');
+		customerPhone = ss.getItem('cago_chat_phone') || '';
+		try { chatHistory = JSON.parse(ss.getItem('cago_chat_history') || '[]'); } catch (e) { chatHistory = []; }
+		phoneAsked = !!customerPhone || chatHistory.length > 0;
+	}
+	loadOrReset();
+	const saveChat = () => { try { ss.setItem('cago_chat_history', JSON.stringify(chatHistory.slice(-50))); } catch (e) {} touch(); };
+	const idleExpired = () => (nowMs() - parseInt((ss && ss.getItem('cago_chat_active')) || '0', 10)) > IDLE_MS;
+
+	// Vietnamese mobile validation/normalization (10-digit 0xx, or +84/84 forms).
+	function normalizePhone(p) {
+		let s = (p || '').replace(/[\s.\-()]/g, '');
+		if (s.indexOf('+84') === 0) s = '0' + s.slice(3);
+		else if (s.indexOf('84') === 0 && s.length === 11) s = '0' + s.slice(2);
+		return s;
+	}
+	function validPhone(p) { return /^0(3|5|7|8|9)\d{8}$/.test(normalizePhone(p)); }
+
+	// Open the assistant straight away. The phone is OPTIONAL and lives inline inside
+	// the chat (no blocking popup) — the customer types it only if they want a call back.
+	function openChat() {
+		showChatFab(false);
+		if (idleExpired()) startNewSession();  // a new customer arrived after idle
+		phoneOpen = false;
+		chatView();
+	}
+
+	// Safe light-markdown: escape first (anti-XSS), then render **bold** + tidy bullets.
+	function mdLight(s) {
+		let h = esc(s || '');
+		h = h.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+		h = h.replace(/__(.+?)__/g, '<b>$1</b>');
+		h = h.replace(/(^|\n)\s*[-*•]\s+/g, '$1• ');
+		return h;
+	}
+
+	function renderChatLog() {
+		return chatHistory.map(m => {
+			if (m.who === 'user') return `<div class="ag-bubble-u"><span>${esc(m.text)}</span></div>`;
+			const cards = (m.cards || []).map(c => `
+				<div class="ag-card" data-code="${esc(c.item_code)}" style="margin-top:8px">
+					${thumb(c, 'row')}
+					<div style="flex:1"><div class="name">${esc(c.display_name)}</div>
+					<div class="price">${esc(c.price_text)}</div>
+					<div class="ag-muted" style="font-size:14px">${esc(c.stock_status||'')}</div></div>
+					<button class="ag-qbtn" style="background:#16a34a;color:#fff;width:auto;padding:0 14px" data-go="${esc(c.item_code)}">Xem / Chọn →</button>
+				</div>`).join('');
+			const warns = (m.warnings || []).map(w => `<div class="ag-warn">⚠️ ${esc(w)}</div>`).join('');
+			const staff = m.needStaff ? `<button class="ag-add" style="background:#dc2626;margin-top:10px" data-callstaff="1">📞 Gọi người bán</button>` : '';
+			return `<div style="margin:8px 0"><div class="ag-bubble-b">${mdLight(m.text)}</div>${cards}${warns}${staff}</div>`;
+		}).join('') || `<div class="ag-muted">Dạ ${esc(ASSISTANT.pronoun)} là <b>${esc(ASSISTANT.name)}</b> — ${esc(ASSISTANT.relation)}, trợ lý của cửa hàng. Bác cần hỏi gì về sản phẩm, giá, cách dùng ạ? (ví dụ: "cám gà con giá bao nhiêu")</div>`;
+	}
+
+	// Optional inline phone editor inside the chat (collapsed link <-> input row).
+	function paintPhonebar(el) {
+		if (!el) return;
+		if (phoneOpen) {
+			el.innerHTML = `<div class="row"><input id="pp" inputmode="tel" maxlength="15" placeholder="VD: 0987 654 321" value="${esc(customerPhone)}"><button class="ag-pbtn" id="psave">Lưu</button><button class="ag-pbtn ghost" id="pclose">Đóng</button></div><span class="pp-err" id="pperr" style="display:none">Số điện thoại chưa đúng (vd 0987654321).</span>`;
+			const pp = el.querySelector('#pp');
+			const save = () => {
+				const raw = (pp.value || '').trim();
+				if (raw && !validPhone(raw)) { el.querySelector('#pperr').style.display = 'block'; return; }
+				customerPhone = raw ? normalizePhone(raw) : '';
+				try { ss.setItem('cago_chat_phone', customerPhone); } catch (e) {}
+				touch(); phoneOpen = false; paintPhonebar(el);
+			};
+			el.querySelector('#psave').onclick = save;
+			el.querySelector('#pclose').onclick = () => { phoneOpen = false; paintPhonebar(el); };
+			pp.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+			try { pp.focus(); } catch (e) {}
+		} else {
+			el.innerHTML = customerPhone
+				? `<button class="ag-plink" id="pedit">📞 Đã lưu SĐT: ${esc(customerPhone)} — bấm để sửa</button>`
+				: `<button class="ag-plink" id="pedit">📞 Để lại số điện thoại để được gọi lại (không bắt buộc)</button>`;
+			el.querySelector('#pedit').onclick = () => { phoneOpen = true; paintPhonebar(el); };
+		}
+	}
+
+	// Context-aware suggestion chips: anchored to a product, a category, or general.
+	function chatChips() {
+		if (focusItem) return ['Còn hàng không?', 'Giá bao nhiêu?', 'Dùng cho gì?', 'Có loại nào khác?', 'Có an toàn không?'];
+		if (focusCat) return ['Loại nào rẻ hơn?', 'Loại nào tốt?', 'Còn hàng không?', 'Dùng cho lúa', 'Trị sâu bệnh'];
+		return ['Giá bao nhiêu?', 'Còn hàng không?', 'Dùng cho lúa', 'Trị sâu bệnh', 'Phân bón cho cây', 'Thuốc diệt chuột'];
+	}
+
+	function chatView() {
+		// Fixed full-screen chat: header on top, scrollable log in the middle, input pinned at bottom.
+		const focusHtml = focusItem
+			? `<div class="ag-focusbar" id="focusbar">🔎 Đang hỏi về: <b>${esc(focusName || 'sản phẩm này')}</b><button class="x" id="focusclear" title="Hỏi chung">✕</button></div>`
+			: '';
+		app.innerHTML = `
+			<div class="ag-chat">
+				<div class="top">
+					<button class="ag-back" id="chome">← Trang chủ</button>
+					<h2>🤖 ${esc(ASSISTANT.name)} — Trợ lý</h2>
+					<button class="ag-back" id="cnew" style="background:#fde68a" title="Khách mới">🆕 Xong</button>
+				</div>
+				${focusHtml}
+				<div class="log" id="chatlog">${renderChatLog()}</div>
+				<div class="ag-phonebar" id="phonebar"></div>
+				<div class="ag-chips" id="chips">
+					${chatChips().map(c => `<button class="ag-chip">${esc(c)}</button>`).join('')}
+				</div>
+				<div class="composer">
+					<input id="q" placeholder="Nhập câu hỏi..." autofocus>
+					<button id="send">Gửi</button>
+				</div>
+			</div>`;
+		const root = app.querySelector('.ag-chat');
+		root.querySelector('#chome').onclick = home;
+		root.querySelectorAll('[data-go]').forEach(b => b.onclick = () => detail(b.dataset.go, () => chatView()));
+		const cs = root.querySelector('[data-callstaff]'); if (cs) cs.onclick = callStaff;
+		const fc = root.querySelector('#focusclear'); if (fc) fc.onclick = () => { focusItem = ''; focusName = ''; focusCat = ''; chatView(); };
+		root.querySelector('#cnew').onclick = () => { if (confirm('Kết thúc và xoá cuộc trò chuyện cho khách mới?')) { startNewSession(); home(); } };
+		paintPhonebar(root.querySelector('#phonebar'));
+		const q = root.querySelector('#q'), send = root.querySelector('#send'), log = root.querySelector('#chatlog');
+		const ask = async () => {
+			const text = q.value.trim(); if (!text || send.disabled) return;
+			chatHistory.push({ who: 'user', text }); saveChat();
+			log.innerHTML = renderChatLog(); q.value = '';
+			// "đang gõ" indicator while we query data / call the assistant
+			send.disabled = true; q.disabled = true;
+			log.insertAdjacentHTML('beforeend', '<div id="ag-typing-row" style="margin:8px 0"><div class="ag-typing"><span></span><span></span><span></span></div></div>');
+			log.scrollTop = log.scrollHeight;
+			const hist = chatHistory.filter(m => m.text).slice(-6).map(m => ({ role: m.who === 'user' ? 'user' : 'assistant', content: m.text }));
+			let r;
+			try { r = await call('cago.api.chatbot.ask_kiosk', { message: text, history: JSON.stringify(hist), session_id: sessionId, phone: customerPhone, focus_item: focusItem || null, focus_category: focusCat || null }); }
+			catch (e) { chatHistory.push({ who: 'bot', text: 'Xin lỗi, có lỗi kết nối. Bác thử lại nhé.' }); saveChat(); chatView(); return; }
+			chatHistory.push({ who: 'bot', text: r.answer_text, cards: r.product_cards, warnings: r.safety_warnings, needStaff: r.needs_staff_help });
+			saveChat(); chatView();  // re-render removes the typing indicator and re-enables input
+		};
+		send.onclick = ask;
+		q.addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+		// tap-to-ask chips: fill the box and send (no typing needed)
+		root.querySelectorAll('#chips .ag-chip').forEach(ch => ch.onclick = () => { if (send.disabled) return; q.value = ch.textContent; ask(); });
+		log.scrollTop = log.scrollHeight;
+		try { q.focus(); } catch (e) {}
+	}
+
+	async function home() {
+		focusItem = ''; focusCat = ''; focusName = '';  // leaving any product/category
+		spin();
+		const cats = await call('cago.api.kiosk.get_categories', {});
+		app.innerHTML = `
+			<div class="ag-title">BÁC CẦN MUA GÌ?</div>
+			<div class="ag-bar"><input class="ag-input" placeholder="Tìm sản phẩm..." id="search"></div>
+			<div class="ag-grouplabel">🧺 Chọn loại hàng</div>
+			<div class="ag-grid">
+				${cats.map(c => `<button class="ag-cat" data-cat="${esc(c.category)}"><span class="cat-ico">${catEmoji(c.category)}</span><span class="cat-name">${esc(c.category)}</span><span class="cat-count">${c.count} loại</span></button>`).join('')}
+				<button class="ag-cat" data-cat="" style="background:#64748b"><span class="cat-ico">🛒</span><span class="cat-name">Xem tất cả</span></button>
+			</div>
+			<div class="ag-grouplabel">💬 Cần giúp đỡ?</div>
+			<div class="ag-grid">
+				<button class="ag-cat" id="ask" style="background:#7c3aed" title="Trợ lý ${esc(ASSISTANT.name)} (${esc(ASSISTANT.relation)}): ${esc(ASSISTANT.tagline)}"><span class="cat-ico">🤖</span><span class="cat-name">Hỏi trợ lý</span></button>
+				<button class="ag-cat" id="callstaff-home" style="background:#dc2626"><span class="cat-ico">🔔</span><span class="cat-name">Gọi người bán</span></button>
+			</div>`;
+		app.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => listView(b.dataset.cat));
+		app.querySelector('#ask').onclick = openChat;
+		app.querySelector('#callstaff-home').onclick = callStaff;
+		const s = app.querySelector('#search');
+		s.addEventListener('keydown', e => { if (e.key === 'Enter') listView('', s.value.trim()); });
+		showChatFab(false);  // home already has the big "Hỏi trợ lý" button
+	}
+
+	// Big, reassuring "call seller" overlay — the safety net for non-tech customers.
+	function callStaff() {
+		app.innerHTML = `<div class="ag-modal"><div class="ag-modal-card" style="text-align:center">
+			<div style="font-size:64px">🔔</div>
+			<h2 style="color:#dc2626">Đã gọi người bán!</h2>
+			<p style="font-size:18px">Bác chờ một chút, người bán sẽ tới giúp bác ngay ạ.</p>
+			<button class="ag-add" id="cs-ok">Đã hiểu</button>
+		</div></div>`;
+		app.querySelector('#cs-ok').onclick = home;
+	}
+
+	async function listView(category, query) {
+		focusCat = category || ''; focusItem = ''; focusName = '';  // browsing a category/search
+		spin();
+		const list = await call('cago.api.kiosk.list_products', { category: category || null, query: query || null });
+		app.innerHTML = `
+			<div class="ag-bar"><button class="ag-back">← Trang chủ</button><div class="ag-title" style="margin:0;flex:1;font-size:22px">${esc(category || (query ? 'Kết quả: ' + query : 'Tất cả'))}</div></div>
+			${list.length ? `<div class="ag-prodgrid">` + list.map(p => `
+				<div class="ag-prod" data-code="${esc(p.item_code)}">
+					${thumb(p, 'grid')}
+					<div class="body"><div class="name">${esc(p.display_name)}</div>
+					<div class="price">${esc(p.price_text)}</div>
+					<div style="font-size:14px;color:#64748b">${esc(p.stock_status||'')}</div>
+					${p.is_chemical ? '<span class="chem">⚠️ Hóa chất</span>' : ''}</div>
+				</div>`).join('') + `</div>` : '<div class="ag-spin">Không có sản phẩm.</div>'}`;
+		app.querySelector('.ag-back').onclick = home;
+		// Pass an explicit in-app "back" so detail returns to THIS list, never browser history.
+		app.querySelectorAll('.ag-prod').forEach(c => c.onclick = () => detail(c.dataset.code, () => listView(category, query)));
+		showChatFab(true);  // let customers ask while browsing
+	}
+
+	function galleryHtml(p) {
+		const imgs = (p.images || []).filter(Boolean);
+		if (!imgs.length) return thumb(p, 'big');  // emoji placeholder when no photos
+		const main = `<img id="ag-main-img" src="${esc(imgs[0])}" style="width:100%;max-height:320px;object-fit:contain;background:#e6f4ea;border-radius:12px">`;
+		if (imgs.length === 1) return main;
+		const thumbs = imgs.map((u, i) => `<img class="ag-galthumb" data-src="${esc(u)}" src="${esc(u)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid ${i === 0 ? '#16a34a' : 'transparent'}">`).join('');
+		return main + `<div style="display:flex;gap:8px;overflow-x:auto;margin-top:10px">${thumbs}</div>`;
+	}
+
+	async function detail(code, onBack) {
+		spin();
+		const p = await call('cago.api.kiosk.get_product', { item_code: code });
+		focusItem = code; focusName = p.display_name || ''; focusCat = p.category || '';  // anchor assistant here
+		app.innerHTML = `
+			<div class="ag-bar"><button class="ag-back">← Quay lại</button></div>
+			<div class="ag-detail">
+				${galleryHtml(p)}
+				<h2>${esc(p.display_name)}</h2>
+				<div class="ag-bignum">${esc(p.price_text)}</div>
+				<p>${esc(p.public_description||'')}</p>
+				<div style="color:#64748b">Dùng cho: ${esc(p.use_cases||'-')} · ${esc(p.stock_status||'')}</div>
+				${p.safety_notes ? `<div class="ag-warn">⚠️ ${esc(p.safety_notes)}</div>` : ''}
+				<button class="ag-speak" id="speak">🔊 Đọc to</button>
+				<button class="ag-add" id="add">➕ Chọn sản phẩm này</button>
+			</div>
+			<div id="related"></div>`;
+		app.querySelector('.ag-back').onclick = onBack || home;
+		showChatFab(true);
+		app.querySelector('#add').onclick = () => { addToCart(p); app.querySelector('#add').textContent = '✅ Đã thêm! (chọn tiếp hoặc xem giỏ)'; };
+		// Read aloud (helps customers who read with difficulty) — Vietnamese TTS.
+		app.querySelector('#speak').onclick = () => {
+			try {
+				window.speechSynthesis.cancel();
+				const u = new SpeechSynthesisUtterance(`${p.display_name}. Giá ${p.price_text}. Dùng cho ${p.use_cases || ''}.`);
+				u.lang = 'vi-VN'; u.rate = 0.95;
+				window.speechSynthesis.speak(u);
+			} catch (e) {}
+		};
+		// gallery thumbnail switching
+		const mainImg = app.querySelector('#ag-main-img');
+		app.querySelectorAll('.ag-galthumb').forEach(t => t.onclick = () => {
+			if (mainImg) mainImg.src = t.dataset.src;
+			app.querySelectorAll('.ag-galthumb').forEach(x => x.style.border = '2px solid transparent');
+			t.style.border = '2px solid #16a34a';
+		});
+		// related products row (same category) — lazy loaded so detail shows instantly
+		try {
+			const rel = await call('cago.api.kiosk.related_products', { item_code: code });
+			if (rel && rel.length) {
+				const cards = rel.map(r => `
+					<div class="ag-relcard" data-go="${esc(r.item_code)}">
+						${thumb(r, 'mini')}
+						<div style="padding:6px"><div style="font-weight:700;font-size:14px">${esc(r.display_name)}</div>
+						<div style="color:#16a34a;font-weight:700;font-size:13px">${esc(r.price_text)}</div></div>
+					</div>`).join('');
+				app.querySelector('#related').innerHTML = `<div style="margin-top:18px"><div style="font-weight:800;margin-bottom:8px">🛒 Sản phẩm liên quan</div><div class="ag-relrow">${cards}</div></div>`;
+				app.querySelectorAll('#related [data-go]').forEach(c => c.onclick = () => detail(c.dataset.go, onBack));
+			}
+		} catch (e) {}
+	}
+
+	function cartView() {
+		const items = Object.values(cart);
+		if (!items.length) { home(); return; }
+		app.innerHTML = `
+			<div class="ag-bar"><button class="ag-back">← Tiếp tục chọn</button><div class="ag-title" style="margin:0;flex:1;font-size:22px">Giỏ đã chọn</div></div>
+			<div class="ag-detail" id="cartlist"></div>
+			<button class="ag-add" id="submit">📨 Gửi cho người bán</button>
+			<div id="result"></div>`;
+		const render = () => {
+			app.querySelector('#cartlist').innerHTML = Object.values(cart).map(x => `
+				<div class="ag-qtyrow" data-code="${esc(x.dto.item_code)}">
+					<span><b>${esc(x.dto.display_name)}</b><br><span style="color:#16a34a;font-weight:700">${esc(x.dto.price_text)}</span></span>
+					<span><button class="ag-qbtn" data-act="dec">−</button> <b style="font-size:20px">${x.qty}</b> <button class="ag-qbtn" data-act="inc">+</button></span>
+				</div>`).join('');
+			app.querySelectorAll('.ag-qtyrow').forEach(row => {
+				const code = row.dataset.code;
+				row.querySelector('[data-act="inc"]').onclick = () => { cart[code].qty++; refreshCart(); render(); };
+				row.querySelector('[data-act="dec"]').onclick = () => { cart[code].qty--; if (cart[code].qty <= 0) delete cart[code]; refreshCart(); Object.keys(cart).length ? render() : cartView(); };
+			});
+		};
+		render();
+		app.querySelector('.ag-back').onclick = home;
+		app.querySelector('#submit').onclick = async () => {
+			const payload = Object.values(cart).map(x => ({ item_code: x.dto.item_code, qty: x.qty }));
+			app.querySelector('#submit').disabled = true;
+			try {
+				const res = await call('cago.api.kiosk.create_wanted_list', { items: JSON.stringify(payload) });
+				app.querySelector('#result').innerHTML = `
+					<div class="ag-code">${esc(res.code)}</div>
+					<p style="text-align:center;font-size:18px">Bác đọc mã này cho người bán để lấy hàng nhé!</p>
+					<button class="ag-add" style="background:#0d9488" onclick="location.reload()">Xong</button>`;
+				for (const k in cart) delete cart[k]; refreshCart();
+			} catch (e) {
+				app.querySelector('#submit').disabled = false;
+				app.querySelector('#result').innerHTML = '<div class="ag-warn">Gửi không thành công, bác thử lại.</div>';
+			}
+		};
+	}
+
+	// Make a fixed button draggable anywhere on screen (so it never permanently hides
+	// content). Position persists per-device in localStorage. A real tap still fires the
+	// button's onclick; only an actual drag suppresses it.
+	function makeDraggable(el, key) {
+		const PAD = 6, THRESH = 6;
+		const clampApply = (x, y) => {
+			const w = el.offsetWidth, h = el.offsetHeight;
+			x = Math.max(PAD, Math.min(x, window.innerWidth - w - PAD));
+			y = Math.max(PAD, Math.min(y, window.innerHeight - h - PAD));
+			el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.right = 'auto'; el.style.bottom = 'auto';
+		};
+		try { const p = JSON.parse(localStorage.getItem(key) || 'null'); if (p && typeof p.x === 'number') clampApply(p.x, p.y); } catch (e) {}
+		let sx, sy, ox, oy, moved = false;
+		const onMove = (e) => {
+			const dx = e.clientX - sx, dy = e.clientY - sy;
+			if (!moved && Math.abs(dx) + Math.abs(dy) < THRESH) return;
+			moved = true; el.classList.add('dragging'); clampApply(ox + dx, oy + dy);
+		};
+		const onUp = () => {
+			el.removeEventListener('pointermove', onMove);
+			el.removeEventListener('pointerup', onUp);
+			el.removeEventListener('pointercancel', onUp);
+			el.classList.remove('dragging');
+			if (moved) { const r = el.getBoundingClientRect(); try { localStorage.setItem(key, JSON.stringify({ x: r.left, y: r.top })); } catch (e) {} }
+			el._moved = moved;
+		};
+		el.addEventListener('pointerdown', (e) => {
+			moved = false; const r = el.getBoundingClientRect();
+			sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+			try { el.setPointerCapture(e.pointerId); } catch (err) {}
+			el.addEventListener('pointermove', onMove);
+			el.addEventListener('pointerup', onUp);
+			el.addEventListener('pointercancel', onUp);
+		});
+		// Swallow the click that browsers fire after a drag so onclick only runs on real taps.
+		el.addEventListener('click', (e) => { if (el._moved) { e.preventDefault(); e.stopImmediatePropagation(); el._moved = false; } }, true);
+	}
+
+	cartbar.onclick = cartView;
+	const callfab = document.getElementById('callfab');
+	callfab.onclick = callStaff;
+	const chatfab = document.getElementById('chatfab');
+	chatfab.onclick = openChat;
+	const showChatFab = (on) => chatfab.classList.toggle('hidden', !on);
+	makeDraggable(callfab, 'cago_fab_call');
+	makeDraggable(chatfab, 'cago_fab_chat');
+	frappe.ready(home);
+})();
+</script>
+{% endblock %}

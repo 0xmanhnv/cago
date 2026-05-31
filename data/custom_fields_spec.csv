@@ -1,0 +1,21 @@
+doctype,fieldname,label,type,audience
+Item,cago_display_name,Tên hiển thị,Data,All
+Item,cago_local_names,Tên dân dã / tên hay gọi,Small Text,Owner/Staff
+Item,cago_public_description,Mô tả ngắn cho khách,Small Text,All
+Item,cago_staff_advice,Câu tư vấn cho người bán,Text,Owner/Staff
+Item,cago_product_quality_tier,Mức chất lượng,Select,Owner/Staff
+Item,cago_use_cases,Dùng cho,Small Text,All
+Item,cago_crop_or_animal_targets,Cây/con phù hợp,Small Text,All
+Item,cago_package_color,Màu bao bì/chai/gói,Data,All
+Item,cago_shelf_location,Vị trí để hàng,Data,Owner/Staff
+Item,cago_stock_status_manual,Trạng thái tồn kho hiển thị,Select,All
+Item,cago_call_owner_when,Khi nào cần gọi chủ,Text,Staff
+Item,cago_safety_notes,Lưu ý an toàn,Text,All
+Item,cago_is_chemical,Là hóa chất/thuốc,Check,Logic
+Item,cago_is_public_visible,Hiển thị trên kiosk,Check,Owner
+Item,cago_kiosk_sort_order,Thứ tự kiosk,Int,Owner
+Customer,cago_village,Xóm/thôn,Data,Owner/Staff
+Customer,cago_customer_type,Loại khách,Select,Owner/Staff
+Customer,cago_farming_notes,Ghi chú canh tác/chăn nuôi,Text,Owner/Staff
+Customer,cago_zalo_phone,Số Zalo,Data,Owner/Staff
+Customer,cago_debt_note,Ghi chú công nợ,Text,Owner
