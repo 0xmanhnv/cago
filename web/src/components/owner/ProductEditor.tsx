@@ -222,6 +222,7 @@ export function ProductEditor({ code }: { code: string }) {
         <StockSection code={code} />
         <UnitsSection code={code} />
         <BatchSection code={code} />
+        <PriceHistory code={code} />
       </div>
       {draft !== null && <DraftModal text={draft} onClose={() => setDraft(null)} />}
     </div>
@@ -234,6 +235,8 @@ function StockSection({ code }: { code: string }) {
   const [qty, setQty] = useState("");
   const [cost, setCost] = useState("");
   const [batchNo, setBatchNo] = useState("");
+  const [counted, setCounted] = useState("");
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<React.ReactNode>(null);
   const load = async () => setStock(await frappeCall<Stock>("cago.api.purchasing.get_stock", { item_code: code }, { method: "GET" }));
   useEffect(() => {
@@ -243,9 +246,11 @@ function StockSection({ code }: { code: string }) {
 
   const receive = async () => {
     setMsg(null);
+    if (busy) return;
     const n = parseFloat(qty);
     if (!n || n <= 0) return setMsg(<Warn>Nhập số lượng nhập.</Warn>);
     if (stock?.has_batch && !batchNo) return setMsg(<Warn>Sản phẩm theo lô — chọn lô (thêm lô ở mục Lô &amp; hạn dùng bên dưới).</Warn>);
+    setBusy(true);
     try {
       const r = await frappeCall<{ qty: number }>("cago.api.purchasing.receive_stock", {
         item_code: code,
@@ -259,6 +264,27 @@ function StockSection({ code }: { code: string }) {
       setMsg(<Ok>✅ Đã nhập hàng. Tồn hiện tại: {r.qty}</Ok>);
     } catch (e) {
       setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi nhập hàng."}</Warn>);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const adjust = async () => {
+    setMsg(null);
+    if (busy) return;
+    const n = parseFloat(counted);
+    if (counted === "" || isNaN(n) || n < 0) return setMsg(<Warn>Nhập số đếm thực tế (≥ 0).</Warn>);
+    if (!confirm(`Đặt tồn thực tế = ${n} ${stock?.uom || ""}? (dùng khi kiểm kê, lệch do hao hụt/vỡ)`)) return;
+    setBusy(true);
+    try {
+      const r = await frappeCall<{ before: number; qty: number }>("cago.api.purchasing.adjust_stock", { item_code: code, counted_qty: n });
+      setStock((s) => (s ? { ...s, qty: r.qty } : s));
+      setCounted("");
+      setMsg(<Ok>✅ Đã kiểm kê: {r.before} → {r.qty} {stock?.uom}.</Ok>);
+    } catch (e) {
+      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi kiểm kê."}</Warn>);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -283,9 +309,19 @@ function StockSection({ code }: { code: string }) {
           ))}
         </select>
       )}
-      <button onClick={receive} className="mt-2 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
+      <button onClick={receive} disabled={busy} className="mt-2 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white disabled:opacity-50">
         📥 Nhập hàng (tăng tồn thật)
       </button>
+
+      <div className="mt-3 rounded-lg bg-slate-50 p-2.5">
+        <div className="font-bold text-slate-700">Kiểm kê (sửa tồn về số đếm thực tế)</div>
+        <div className="mt-1 flex gap-2">
+          <input value={counted} onChange={(e) => setCounted(e.target.value)} inputMode="decimal" placeholder={`Đếm được (${stock?.uom || ""})`} className="flex-1 rounded-lg border-2 border-amber-300 p-2.5" />
+          <button onClick={adjust} disabled={busy} className="rounded-lg bg-amber-500 px-4 font-extrabold text-white disabled:opacity-50">
+            Cập nhật
+          </button>
+        </div>
+      </div>
       {msg}
     </div>
   );
@@ -433,6 +469,28 @@ function BatchSection({ code }: { code: string }) {
         </button>
       </div>
       {msg}
+    </div>
+  );
+}
+
+function PriceHistory({ code }: { code: string }) {
+  type Row = { when: string; old_text: string; new_text: string; up: boolean; by: string };
+  const [rows, setRows] = useState<Row[] | null>(null);
+  useEffect(() => {
+    frappeCall<Row[]>("cago.api.owner.price_history", { item_code: code }, { method: "GET" }).then(setRows).catch(() => setRows([]));
+  }, [code]);
+  if (!rows || rows.length === 0) return null;
+  return (
+    <div className="mt-5 border-t border-slate-200 pt-3">
+      <div className="text-lg font-extrabold">Lịch sử giá</div>
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-center justify-between border-b border-slate-100 py-2">
+          <span className="text-slate-500">{r.when}</span>
+          <span className="font-bold">
+            {r.old_text} → <span className={r.up ? "text-red-600" : "text-brand"}>{r.new_text}</span> {r.up ? "↑" : "↓"}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

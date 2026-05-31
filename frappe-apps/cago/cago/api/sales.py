@@ -167,6 +167,69 @@ def credit_sale(customer, items, note=None):
 	}
 
 
+@frappe.whitelist()
+def list_recent_sales(limit=30):
+	"""Staff: recent submitted sales (for returns / lookup). Newest first."""
+	ensure_staff()
+	from frappe.utils import cint, format_datetime
+
+	rows = frappe.get_all(
+		"Sales Invoice",
+		filters={"docstatus": 1, "is_return": 0, "company": debt._company()},
+		fields=["name", "customer", "customer_name", "grand_total", "posting_date", "creation", "is_pos"],
+		order_by="creation desc",
+		limit=cint(limit) or 30,
+	)
+	out = []
+	for r in rows:
+		n_items = frappe.db.count("Sales Invoice Item", {"parent": r.name})
+		returned = frappe.db.get_value("Sales Invoice", {"return_against": r.name, "docstatus": 1}, "name")
+		out.append(
+			{
+				"invoice": r.name,
+				"customer_name": r.customer_name,
+				"total_text": dto.format_price(flt(r.grand_total)),
+				"when": format_datetime(r.creation, "dd/MM HH:mm"),
+				"item_count": n_items,
+				"returned": bool(returned),
+				"paid": "POS" if r.is_pos else "Nợ",
+			}
+		)
+	return out
+
+
+@frappe.whitelist()
+def return_sale(invoice):
+	"""Trả hàng: fully reverse a submitted sale — stock comes back, money is refunded.
+
+	Uses ERPNext's make_sales_return (is_return, negative qty, copies payments). Staff-only;
+	privileged submit (staff lack accounting/stock perms; ERPNext still validates)."""
+	ensure_staff()
+	ensure_lang()
+	if not frappe.db.exists("Sales Invoice", invoice):
+		frappe.throw(_("Không tìm thấy hoá đơn."))
+	orig = frappe.db.get_value("Sales Invoice", invoice, ["docstatus", "is_return"], as_dict=True)
+	if orig.docstatus != 1 or orig.is_return:
+		frappe.throw(_("Hoá đơn này không trả được."))
+	if frappe.db.get_value("Sales Invoice", {"return_against": invoice, "docstatus": 1}, "name"):
+		frappe.throw(_("Hoá đơn này đã được trả trước đó."))
+
+	from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
+
+	with as_user("Administrator"):
+		ret = make_sales_return(invoice)
+		ret.flags.ignore_permissions = True
+		ret.update_stock = 1
+		for it in ret.items:
+			it.allow_zero_valuation_rate = 1
+		ret.insert(ignore_permissions=True)
+		ret.submit()
+
+	record_action("Other", ref_doctype="Sales Invoice", ref_name=invoice, new_value="returned")
+	frappe.db.commit()
+	return {"return_invoice": ret.name, "total_text": dto.format_price(abs(flt(ret.grand_total)))}
+
+
 def _pos_profile(company):
 	return frappe.db.get_value("POS Profile", {"company": company, "disabled": 0}, "name") or frappe.db.get_value(
 		"POS Profile", {"company": company}, "name"

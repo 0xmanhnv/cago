@@ -10,13 +10,41 @@ import re
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import flt, format_datetime
 
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import (
 	record_action,
 )
 from cago.utils import dto
 from cago.utils.permissions import ensure_owner
+
+
+@frappe.whitelist()
+def price_history(item_code, limit=20):
+	"""Owner: past selling-price changes for an item (đã được ghi tự động khi sửa giá).
+
+	Reads the existing Cago Owner Action Log (action_type='Price Update') — no new data.
+	"""
+	ensure_owner()
+	from frappe.utils import cint
+
+	rows = frappe.get_all(
+		"Cago Owner Action Log",
+		filters={"action_type": "Price Update", "ref_doctype": "Item", "ref_name": item_code},
+		fields=["timestamp", "old_value", "new_value", "user"],
+		order_by="timestamp desc",
+		limit=cint(limit) or 20,
+	)
+	return [
+		{
+			"when": format_datetime(r.timestamp, "dd/MM/yyyy HH:mm"),
+			"old_text": dto.format_price(flt(r.old_value)) if r.old_value else "—",
+			"new_text": dto.format_price(flt(r.new_value)),
+			"up": flt(r.new_value) > flt(r.old_value or 0),
+			"by": r.user,
+		}
+		for r in rows
+	]
 
 
 @frappe.whitelist()

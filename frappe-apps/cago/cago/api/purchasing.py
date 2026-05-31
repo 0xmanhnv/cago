@@ -15,6 +15,8 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+from cago.api import debt
+from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
 from cago.utils.permissions import ensure_lang, ensure_owner, ensure_staff
 from cago.utils.privileged import as_user
@@ -100,3 +102,46 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 
 	frappe.db.commit()  # commit as the real user, after restoring the session
 	return {"entry": entry, "qty": flt(dto.get_actual_qty(item_code))}
+
+
+@frappe.whitelist()
+def adjust_stock(item_code, counted_qty, reason=None):
+	"""Kiểm kê: set on-hand to the counted quantity (fix drift from spillage/breakage/theft).
+
+	Uses ERPNext's Stock Reconciliation (the correct primitive — it books the delta against
+	stock adjustment). Owner-only; privileged submit (owner lacks Stock perms)."""
+	ensure_owner()
+	ensure_lang()
+	if not frappe.db.exists("Item", item_code):
+		frappe.throw(_("Không tìm thấy sản phẩm."))
+	counted = flt(counted_qty)
+	if counted < 0:
+		frappe.throw(_("Số đếm không hợp lệ."))
+	warehouse = _default_warehouse()
+	if not warehouse:
+		frappe.throw(_("Chưa cấu hình kho."))
+	before = flt(dto.get_actual_qty(item_code))
+
+	with as_user("Administrator"):
+		sr = frappe.get_doc(
+			{
+				"doctype": "Stock Reconciliation",
+				"purpose": "Stock Reconciliation",
+				"company": debt._company(),
+				"items": [
+					{
+						"item_code": item_code,
+						"warehouse": warehouse,
+						"qty": counted,
+						"allow_zero_valuation_rate": 1,
+					}
+				],
+			}
+		)
+		sr.flags.ignore_permissions = True
+		sr.insert(ignore_permissions=True)
+		sr.submit()
+
+	record_action("Other", ref_doctype="Item", ref_name=item_code, old_value=before, new_value=counted)
+	frappe.db.commit()
+	return {"entry": sr.name, "before": before, "qty": flt(dto.get_actual_qty(item_code))}

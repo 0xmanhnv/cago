@@ -166,6 +166,42 @@ class TestQuickSale(FrappeTestCase):
 		self.assertEqual(frappe.get_doc("Sales Invoice", r["invoice"]).docstatus, 1)
 
 
+class TestReturnsAndAdjust(FrappeTestCase):
+	def setUp(self):
+		if not frappe.db.exists("Item", ITEM):
+			self.skipTest("sample item missing")
+		from cago.setup.company import ensure_payment_modes
+
+		ensure_payment_modes()
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def test_return_sale_restores_stock(self):
+		from cago.api import purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		before = flt_qty(ITEM)
+		s = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 2}]), "cash")
+		self.assertAlmostEqual(flt_qty(ITEM), before - 2, places=2)
+		r = sales.return_sale(s["invoice"])
+		self.assertTrue(r["return_invoice"])
+		self.assertAlmostEqual(flt_qty(ITEM), before, places=2)  # stock back
+		# double return refused
+		with self.assertRaises(frappe.ValidationError):
+			sales.return_sale(s["invoice"])
+
+	def test_adjust_stock_sets_counted_qty(self):
+		from cago.api import purchasing
+
+		purchasing.receive_stock(ITEM, 10)
+		r = purchasing.adjust_stock(ITEM, 7)
+		self.assertAlmostEqual(r["qty"], 7, places=2)
+		self.assertAlmostEqual(flt_qty(ITEM), 7, places=2)
+
+
 class TestPosHandoff(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("Item", ITEM):

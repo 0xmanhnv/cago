@@ -40,6 +40,9 @@ export function StaffHome() {
         <Btn onClick={() => router.push("/staff/verify")} color="bg-amber-500">
           🙋 Xác nhận xem nợ
         </Btn>
+        <Btn onClick={() => router.push("/staff/returns")} color="bg-rose-600">
+          ↩ Trả hàng
+        </Btn>
         {hasPos && (
           <a
             href="/app/posawesome"

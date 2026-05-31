@@ -132,6 +132,7 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState("");
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const savingRef = useRef(false);
   const [form, setForm] = useState({ name: "", phone: "", village: "", limit: "" });
   const [msg, setMsg] = useState<React.ReactNode>(null);
 
@@ -146,7 +147,9 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
   if (adding) {
     const save = async () => {
       setMsg(null);
+      if (savingRef.current) return;
       if (!form.name.trim()) return setMsg(<Warn>Nhập tên khách.</Warn>);
+      savingRef.current = true;
       try {
         const r = await frappeCall<{ customer: string }>("cago.api.debt.add_customer", {
           customer_name: form.name.trim(),
@@ -155,8 +158,9 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
           debt_limit: form.limit ? parseFloat(form.limit) : 0,
         });
         onPick(r.customer);
-      } catch {
-        setMsg(<Warn>Lỗi: không tạo được khách.</Warn>);
+      } catch (e) {
+        setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi: không tạo được khách."}</Warn>);
+        savingRef.current = false;
       }
     };
     return (
@@ -195,6 +199,7 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
         className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
       />
       <div className="text-xl font-bold text-brand-dark">{title}</div>
+      <div className="mb-1 text-sm text-slate-500">Chọn khách để thực hiện — số bên phải là nợ hiện tại của khách (để xem ai đang nợ, vào &quot;📒 Công nợ khách&quot;).</div>
       {list.length === 0 ? (
         <div className="my-2 text-slate-500">Không tìm thấy khách. Bấm &quot;Thêm khách mới&quot; bên dưới.</div>
       ) : (
