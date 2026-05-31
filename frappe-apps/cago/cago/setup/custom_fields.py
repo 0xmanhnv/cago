@@ -106,13 +106,21 @@ def ensure_customer_fields():
 					"fieldtype": "Currency",
 					"insert_after": "cago_debt_note",
 					"description": "Chặn ghi nợ khi tổng nợ vượt mức này. Để trống = không giới hạn.",
+				},
+				{
+					"fieldname": "cago_points",
+					"label": "Điểm tích lũy",
+					"fieldtype": "Int",
+					"insert_after": "cago_debt_limit",
+					"read_only": 1,
+					"description": "Điểm thưởng tích theo doanh số (tự động khi xuất hoá đơn).",
 				}
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Customer field ensured: cago_debt_limit")
+	print("Customer fields ensured: cago_debt_limit, cago_points")
 
 
 def ensure_payment_fields():

@@ -53,6 +53,26 @@ def flt_qty(item_code):
 	return flt(dto.get_actual_qty(item_code))
 
 
+class TestLoyalty(FrappeTestCase):
+	def setUp(self):
+		if not frappe.db.exists("Item", ITEM):
+			self.skipTest("sample item missing")
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def test_points_accrue_on_credit_sale(self):
+		from cago.api import debt, purchasing, sales
+		from frappe.utils import flt
+
+		purchasing.receive_stock(ITEM, 10)
+		cust = debt.add_customer("KH Diem Test")["customer"]
+		sales.credit_sale(cust, json.dumps([{"item_code": ITEM, "qty": 3}]))
+		self.assertGreater(flt(frappe.db.get_value("Customer", cust, "cago_points")), 0)
+
+
 class TestPosHandoff(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("Item", ITEM):

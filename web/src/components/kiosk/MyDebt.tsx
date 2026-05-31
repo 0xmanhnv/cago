@@ -10,7 +10,7 @@ export function MyDebt() {
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<"enter" | "wait" | "done">("enter");
   const [err, setErr] = useState("");
-  const [debt, setDebt] = useState<{ customer_name: string; outstanding_text: string } | null>(null);
+  const [debt, setDebt] = useState<{ customer_name: string; outstanding_text: string; points?: number } | null>(null);
   const rid = useRef<string | null>(null);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -37,7 +37,7 @@ export function MyDebt() {
       }
       if (s.approved && s.token) {
         if (poll.current) clearInterval(poll.current);
-        const d = await frappeCall<{ customer_name: string; outstanding_text: string }>("cago.api.verify.my_debt", { token: s.token });
+        const d = await frappeCall<{ customer_name: string; outstanding_text: string; points?: number }>("cago.api.verify.my_debt", { token: s.token });
         setDebt(d);
         setStep("done");
       }
@@ -89,6 +89,7 @@ export function MyDebt() {
           <div className="text-lg font-bold">{debt.customer_name}</div>
           <div className="mt-1 text-slate-500">Bác đang nợ</div>
           <div className="mt-1 text-4xl font-extrabold text-red-600">{debt.outstanding_text}</div>
+          {!!debt.points && <div className="mt-2 text-lg font-bold text-amber-600">🎁 {debt.points} điểm tích lũy</div>}
           <button onClick={nav.goHome} className="mt-4 min-h-touch w-full rounded-xl bg-brand py-3.5 text-lg font-extrabold text-white">
             Xong
           </button>

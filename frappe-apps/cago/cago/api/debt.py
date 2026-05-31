@@ -111,6 +111,7 @@ def get_customer_debt(customer):
 		"outstanding_text": dto.format_price(balance) if balance else "Không nợ",
 		"debt_limit": limit,
 		"debt_limit_text": dto.format_price(limit) if limit else "",
+		"points": int(flt(frappe.db.get_value("Customer", customer, "cago_points"))),
 	}
 
 
@@ -277,6 +278,7 @@ def get_customer_ledger(customer):
 		"outstanding": cust["outstanding"],
 		"outstanding_text": cust["outstanding_text"],
 		"overpaid": cust["outstanding"] < 0,
+		"points": cust["points"],
 		"entries": entries,
 	}
 

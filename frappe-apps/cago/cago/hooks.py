@@ -25,6 +25,18 @@ role_home_page = {
 }
 
 # ---------------------------------------------------------------------------
+# Document events
+# ---------------------------------------------------------------------------
+# Loyalty points accrue on every submitted Sales Invoice (POS + credit sale),
+# and reverse on cancel. See cago/loyalty.py.
+doc_events = {
+	"Sales Invoice": {
+		"on_submit": "cago.loyalty.accrue",
+		"on_cancel": "cago.loyalty.reverse",
+	},
+}
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 # These make the Milestone 1 setup reproducible on a fresh site:

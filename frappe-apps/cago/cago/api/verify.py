@@ -158,5 +158,6 @@ def my_debt(token):
 				"customer_name": frappe.db.get_value("Customer", cust, "customer_name"),
 				"outstanding": bal,
 				"outstanding_text": dto.format_price(bal) if bal > 0 else "Không nợ",
+				"points": int(flt(frappe.db.get_value("Customer", cust, "cago_points"))),
 			}
 	frappe.throw(_("Phiên đã hết hạn, nhờ người bán xác nhận lại."))

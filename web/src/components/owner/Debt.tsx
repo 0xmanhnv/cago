@@ -146,7 +146,7 @@ interface LedgerEntry {
 
 export function CustomerLedger({ customer }: { customer: string }) {
   const router = useRouter();
-  type Ledger = { customer_name: string; outstanding_text: string; overpaid?: boolean; entries: LedgerEntry[] };
+  type Ledger = { customer_name: string; outstanding_text: string; overpaid?: boolean; points?: number; entries: LedgerEntry[] };
   const [d, setD] = useState<Ledger | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const load = async () => setD(await frappeCall<Ledger>("cago.api.debt.get_customer_ledger", { customer }, { method: "GET" }));
@@ -165,6 +165,12 @@ export function CustomerLedger({ customer }: { customer: string }) {
           <span className="text-slate-500">{d.overpaid ? "Khách trả dư" : "Đang nợ"}</span>
           <span className="font-bold text-red-600">{d.outstanding_text}</span>
         </div>
+        {!!d.points && (
+          <div className="flex justify-between border-b border-slate-100 py-2">
+            <span className="text-slate-500">🎁 Điểm tích lũy</span>
+            <b className="text-amber-600">{d.points}</b>
+          </div>
+        )}
         <button
           onClick={async () => {
             const r = await frappeCall<{ text: string }>("cago.api.owner.zalo_draft", { kind: "debt_reminder", customer });
