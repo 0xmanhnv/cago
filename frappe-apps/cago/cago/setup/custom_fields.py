@@ -80,9 +80,16 @@ def ensure_stock_fields():
 					"insert_after": "cago_stock_auto",
 					"description": "Theo đơn vị tồn kho. Tồn thật ≤ mức này = 'Còn ít' → gợi ý nhập hàng.",
 				},
+				{
+					"fieldname": "cago_min_price",
+					"label": "Giá bán tối thiểu (sàn) / đơn vị tồn",
+					"fieldtype": "Currency",
+					"insert_after": "cago_reorder_level",
+					"description": "Chặn lỡ tay đặt giá thấp hơn giá vốn. Để trống = không chặn. Theo đơn vị tồn (vd /Bao); giá lẻ được quy đổi.",
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Item stock fields ensured: cago_stock_auto, cago_reorder_level")
+	print("Item stock fields ensured: cago_stock_auto, cago_reorder_level, cago_min_price")

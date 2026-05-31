@@ -70,11 +70,11 @@ def update_price(item_code, new_price):
 
 
 def _upsert_selling_price(item_code, rate, uom=None):
-	existing = frappe.db.get_value(
-		"Item Price",
-		{"item_code": item_code, "price_list": dto.SELLING_PRICE_LIST, "selling": 1},
-		"name",
-	)
+	# Target the row for THIS uom (the stock unit) so per-UOM retail prices aren't overwritten.
+	filters = {"item_code": item_code, "price_list": dto.SELLING_PRICE_LIST, "selling": 1}
+	if uom:
+		filters["uom"] = uom
+	existing = frappe.db.get_value("Item Price", filters, "name")
 	if existing:
 		price = frappe.get_doc("Item Price", existing)
 	else:
@@ -170,6 +170,7 @@ EDITABLE_FIELDS = (
 	"cago_stock_status_manual",
 	"cago_stock_auto",
 	"cago_reorder_level",
+	"cago_min_price",
 	"cago_product_quality_tier",
 	"cago_staff_advice",
 	"cago_call_owner_when",
@@ -211,10 +212,17 @@ def update_product(item_code, data):
 	if updates:
 		frappe.db.set_value("Item", item_code, updates)
 
-	# Optional selling price.
+	# Optional selling price (with a floor guard against selling below cost).
 	if data.get("selling_price") not in (None, ""):
 		rate = flt(data["selling_price"])
 		if rate > 0:
+			min_price = flt(frappe.db.get_value("Item", item_code, "cago_min_price"))
+			if min_price and rate < min_price:
+				frappe.throw(
+					_("Giá bán {0} thấp hơn giá sàn {1}. Bác kiểm tra lại.").format(
+						dto.format_price(rate), dto.format_price(min_price)
+					)
+				)
 			uom = frappe.db.get_value("Item", item_code, "stock_uom")
 			_upsert_selling_price(item_code, rate, uom)
 

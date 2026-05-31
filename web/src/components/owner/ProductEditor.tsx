@@ -24,6 +24,7 @@ const EDIT_FIELDS = [
   "cago_stock_status_manual",
   "cago_stock_auto",
   "cago_reorder_level",
+  "cago_min_price",
   "cago_shelf_location",
   "cago_local_names",
   "cago_public_description",
@@ -169,6 +170,7 @@ export function ProductEditor({ code }: { code: string }) {
         <Select label="Tồn kho hiển thị (khi không tự tính)" k="cago_stock_status_manual" opts={e.stock_status_options || []} />
         <Check label="Tự tính tồn theo số thật (đã nhập hàng)" k="cago_stock_auto" />
         <Field label="Mức đặt lại — 'còn ít' khi tồn ≤ (theo đơn vị tồn)" k="cago_reorder_level" type="number" />
+        <Field label="Giá bán tối thiểu (sàn) — chặn bán dưới giá vốn (để trống = không chặn)" k="cago_min_price" type="number" />
         <Field label="Vị trí để hàng" k="cago_shelf_location" />
         <Field label="Tên dân dã (khách hay gọi)" k="cago_local_names" />
         <Area label="Mô tả ngắn cho khách" k="cago_public_description" />

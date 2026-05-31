@@ -114,8 +114,13 @@ def save_unit(item_code, uom, units_per_stock, price):
 	if not uom:
 		frappe.throw(_("Nhập tên đơn vị."))
 	item = frappe.get_doc("Item", item_code)
+	min_price = flt(frappe.db.get_value("Item", item_code, "cago_min_price"))
 
 	if uom == item.stock_uom:
+		if min_price and flt(price) < min_price:
+			frappe.throw(
+				_("Giá {0} thấp hơn giá sàn {1}.").format(dto.format_price(flt(price)), dto.format_price(min_price))
+			)
 		_upsert_price(item_code, uom, price)  # just the main price
 		frappe.db.commit()
 		return get_units(item_code)
@@ -123,6 +128,14 @@ def save_unit(item_code, uom, units_per_stock, price):
 	ups = flt(units_per_stock)
 	if ups <= 0:
 		frappe.throw(_("Số đơn vị trong 1 %s phải lớn hơn 0.") % item.stock_uom)
+	if min_price:
+		floor = min_price / ups  # cost per retail unit
+		if flt(price) < floor:
+			frappe.throw(
+				_("Giá {0}/{1} thấp hơn giá sàn quy đổi {2}.").format(
+					dto.format_price(flt(price)), uom, dto.format_price(floor)
+				)
+			)
 	_ensure_uom(uom)
 	conversion = 1.0 / ups  # ERPNext stores factor relative to the stock UOM
 	row = next((r for r in item.uoms if r.uom == uom), None)

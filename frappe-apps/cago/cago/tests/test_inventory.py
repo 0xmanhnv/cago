@@ -5,6 +5,8 @@
 Run: bench --site <site> run-tests --app cago --module cago.tests.test_inventory
 """
 
+import json
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, nowdate
@@ -34,6 +36,32 @@ class TestAutoStockStatus(FrappeTestCase):
 		self.assertEqual(dto.stock_status_for(auto, 0), "Hết hàng")
 		self.assertEqual(dto.stock_status_for(auto, 3), "Còn ít")
 		self.assertEqual(dto.stock_status_for(auto, 10), "Còn hàng")
+
+
+class TestMinPriceGuard(FrappeTestCase):
+	def setUp(self):
+		if not frappe.db.exists("Item", NONBATCH_ITEM):
+			self.skipTest("sample item missing")
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+		self._orig_min = frappe.db.get_value("Item", NONBATCH_ITEM, "cago_min_price")
+		frappe.db.set_value("Item", NONBATCH_ITEM, "cago_min_price", 300000)
+
+	def tearDown(self):
+		frappe.db.set_value("Item", NONBATCH_ITEM, "cago_min_price", self._orig_min)
+		frappe.db.commit = self._commit
+
+	def test_below_floor_rejected(self):
+		from cago.api import owner
+
+		with self.assertRaises(frappe.ValidationError):
+			owner.update_product(NONBATCH_ITEM, json.dumps({"selling_price": 100000}))
+
+	def test_at_or_above_floor_ok(self):
+		from cago.api import owner
+
+		owner.update_product(NONBATCH_ITEM, json.dumps({"selling_price": 350000}))
+		self.assertEqual(dto.get_selling_price(NONBATCH_ITEM), 350000)
 
 
 class TestInventoryBatch(FrappeTestCase):
