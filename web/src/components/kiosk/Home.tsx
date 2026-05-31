@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
+import { useSession } from "@/lib/session";
 import { catColor, catIcon } from "@/lib/kioskUi";
 import type { Category } from "@/lib/types";
 
 export function Home() {
   const nav = useKioskNav();
   const kiosk = useKiosk();
+  const { boot } = useSession();
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
 
@@ -73,6 +75,15 @@ export function Home() {
           <span className="text-5xl leading-none">🔔</span>
           <span>Gọi người bán</span>
         </button>
+        {boot?.kiosk_debt_visible && (
+          <button
+            onClick={nav.openMyDebt}
+            className="flex min-h-[120px] flex-col items-center justify-center gap-1 rounded-2xl bg-amber-500 p-3 text-xl font-extrabold text-white"
+          >
+            <span className="text-5xl leading-none">📒</span>
+            <span>Công nợ của tôi</span>
+          </button>
+        )}
       </div>
     </div>
   );

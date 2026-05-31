@@ -123,9 +123,16 @@ def ensure_payment_fields():
 				{"fieldname": "cago_bank_bin", "label": "Cago Bank BIN", "fieldtype": "Data", "insert_after": "company_name", "description": "Mã ngân hàng (BIN), vd Vietcombank=970436."},
 				{"fieldname": "cago_bank_account", "label": "Cago Bank Account", "fieldtype": "Data", "insert_after": "cago_bank_bin"},
 				{"fieldname": "cago_bank_account_name", "label": "Cago Bank Account Name", "fieldtype": "Data", "insert_after": "cago_bank_account"},
+				{
+					"fieldname": "cago_kiosk_debt_visible",
+					"label": "Cho khách xem công nợ trên kiosk (cần người bán xác nhận)",
+					"fieldtype": "Check",
+					"insert_after": "cago_bank_account_name",
+					"description": "Bật: khách nhập SĐT trên kiosk, người bán xác nhận, rồi khách xem được nợ của mình.",
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Company bank fields ensured: cago_bank_bin, cago_bank_account, cago_bank_account_name")
+	print("Company bank fields ensured: cago_bank_*, cago_kiosk_debt_visible")

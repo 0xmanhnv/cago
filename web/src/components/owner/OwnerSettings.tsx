@@ -8,13 +8,23 @@ import { BackBar, Ok, Warn } from "./OwnerShared";
 export function OwnerSettings() {
   const router = useRouter();
   const [b, setB] = useState({ bank_bin: "", account: "", account_name: "" });
+  const [debtVisible, setDebtVisible] = useState(false);
   const [msg, setMsg] = useState<React.ReactNode>(null);
 
   useEffect(() => {
     frappeCall<{ bin: string; account: string; name: string }>("cago.api.payment.get_bank", {}, { method: "GET" })
       .then((d) => setB({ bank_bin: d.bin || "", account: d.account || "", account_name: d.name || "" }))
       .catch(() => {});
+    frappeCall<{ enabled: boolean }>("cago.api.verify.get_visible", {}, { method: "GET" })
+      .then((d) => setDebtVisible(!!d.enabled))
+      .catch(() => {});
   }, []);
+
+  const toggleDebt = async () => {
+    const next = !debtVisible;
+    await frappeCall("cago.api.verify.set_visible", { on: next ? 1 : 0 });
+    setDebtVisible(next);
+  };
 
   const save = async () => {
     setMsg(null);
@@ -41,6 +51,15 @@ export function OwnerSettings() {
           💾 Lưu
         </button>
         {msg}
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-4">
+        <div className="font-extrabold">Khách tự xem công nợ trên kiosk</div>
+        <p className="text-slate-500">Khi bật: khách nhập SĐT ở kiosk, người bán bấm xác nhận, rồi khách xem được nợ của mình.</p>
+        <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
+          <input type="checkbox" checked={debtVisible} onChange={toggleDebt} className="h-5 w-5" />
+          Cho phép xem công nợ trên kiosk
+        </label>
       </div>
     </div>
   );

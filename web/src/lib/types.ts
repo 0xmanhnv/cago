@@ -89,6 +89,7 @@ export interface Bootstrap {
   brand: string;
   persona: Persona;
   kiosk_chips: KioskChips;
+  kiosk_debt_visible: boolean;
   has_posawesome: boolean;
 }
 

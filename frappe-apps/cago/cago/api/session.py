@@ -26,5 +26,11 @@ def bootstrap():
 		"brand": frappe.db.get_single_value("Website Settings", "app_name") or "AgriMate",
 		"persona": chatbot_config.persona(),
 		"kiosk_chips": chatbot_config.kiosk_chips(),
+		"kiosk_debt_visible": _kiosk_debt_visible(),
 		"has_posawesome": "posawesome" in frappe.get_installed_apps(),
 	}
+
+
+def _kiosk_debt_visible():
+	company = frappe.defaults.get_global_default("company") or (frappe.get_all("Company", pluck="name") or [None])[0]
+	return bool(company and frappe.db.get_value("Company", company, "cago_kiosk_debt_visible"))

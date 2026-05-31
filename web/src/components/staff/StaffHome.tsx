@@ -34,6 +34,9 @@ export function StaffHome() {
         <Btn onClick={() => router.push("/staff/assistant")} color="bg-violet-600">
           🤖 Hỏi trợ lý
         </Btn>
+        <Btn onClick={() => router.push("/staff/verify")} color="bg-amber-500">
+          🙋 Xác nhận xem nợ
+        </Btn>
         <a
           href="/app/point-of-sale"
           target="_blank"
