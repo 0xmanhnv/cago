@@ -80,3 +80,26 @@ If POS Awesome is stable:
 - add link from staff product page to POS Awesome item/cart
 - display agri fields in POS item detail if maintainable
 - convert wanted list to POS cart if possible without fragile hacks
+
+## 8. Cago-native checkout (selling path for staff)
+
+The raw ERPNext Desk POS (`/app/point-of-sale`) is **not** the staff selling path: Cago
+Staff have no Desk/POS permission, so a "Mở POS gốc" link pushed them to a screen that
+404s/redirects to `/desk/point-of-sale` and is, by design, the ERP-dense UI we avoid.
+
+Staff now sell through a Cago-native checkout (`/staff/sell`, owner reuses the same button):
+
+```text
+Staff opens "🛒 Bán hàng"
+→ searches products, adjusts qty (cart)
+→ picks 💵 Tiền mặt or 💳 Chuyển khoản
+→ cago.api.sales.quick_sale → submitted is_pos Sales Invoice (update_stock, fully paid)
+→ stock drops, payment + GL recorded, loyalty points accrue (doc_events)
+→ bank sales show a VietQR for the exact amount
+```
+
+ERPNext stays the engine (Sales Invoice / Mode of Payment / Stock Ledger / GL); the cart
+is just a clean Cago surface. `setup.company.ensure_payment_modes` wires up Cash **and** a
+`Chuyển khoản` Mode of Payment (with a leaf bank account) into the POS Profile so both
+payment types submit. Native Desk POS remains a working fallback for the **owner** (who has
+Desk access) via "⚙️ Quản lý ERPNext". `cago` does not depend on POS Awesome.

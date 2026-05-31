@@ -13,24 +13,9 @@ from frappe import _
 from frappe.utils import nowdate
 
 from cago.api import debt
-from cago.api.sales import _warehouse
+from cago.api.sales import _warehouse, walkin_customer
 from cago.utils import dto
 from cago.utils.permissions import ensure_lang, ensure_staff
-
-
-def _walkin_customer():
-	name = frappe.db.get_value("Customer", {"customer_name": "Khách lẻ"}, "name")
-	if name:
-		return name
-	doc = frappe.get_doc({"doctype": "Customer", "customer_name": "Khách lẻ", "customer_type": "Individual"})
-	group = frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
-	territory = frappe.db.get_value("Territory", {"is_group": 0}, "name")
-	if group:
-		doc.customer_group = group
-	if territory:
-		doc.territory = territory
-	doc.insert(ignore_permissions=True)
-	return doc.name
 
 
 @frappe.whitelist()
@@ -53,7 +38,7 @@ def create_invoice_from_wanted(code):
 		si = frappe.get_doc(
 			{
 				"doctype": "Sales Invoice",
-				"customer": _walkin_customer(),
+				"customer": walkin_customer(),
 				"company": company,
 				"posting_date": nowdate(),
 				"due_date": nowdate(),

@@ -48,8 +48,11 @@ jobs:
       - name: System deps
         run: |
           sudo apt-get update
+          # redis-server: `bench init` shells out to `redis-server --version` to generate
+          # its redis config, so the binary must be present even though tests use the
+          # redis service containers above (not this local install).
           sudo apt-get install -y --no-install-recommends \
-            mariadb-client libmysqlclient-dev wkhtmltopdf
+            mariadb-client libmysqlclient-dev wkhtmltopdf redis-server
           sudo npm install -g yarn
 
       - name: Configure MariaDB (utf8mb4)

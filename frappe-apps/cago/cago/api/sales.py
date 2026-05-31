@@ -17,9 +17,25 @@ from frappe.utils import flt, nowdate
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_owner
+from cago.utils.permissions import ensure_lang, ensure_owner, ensure_staff
 
 SELLING_PRICE_LIST = dto.SELLING_PRICE_LIST
+
+
+def walkin_customer():
+	"""A generic walk-in customer for cash sales (created once)."""
+	name = frappe.db.get_value("Customer", {"customer_name": "Khách lẻ"}, "name")
+	if name:
+		return name
+	doc = frappe.get_doc({"doctype": "Customer", "customer_name": "Khách lẻ", "customer_type": "Individual"})
+	group = frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
+	territory = frappe.db.get_value("Territory", {"is_group": 0}, "name")
+	if group:
+		doc.customer_group = group
+	if territory:
+		doc.territory = territory
+	doc.insert(ignore_permissions=True)
+	return doc.name
 
 
 def _warehouse():
@@ -104,4 +120,110 @@ def credit_sale(customer, items, note=None):
 		"total": flt(si.grand_total),
 		"total_text": dto.format_price(flt(si.grand_total)),
 		"outstanding_text": d["outstanding_text"],
+	}
+
+
+def _pos_profile(company):
+	return frappe.db.get_value("POS Profile", {"company": company, "disabled": 0}, "name") or frappe.db.get_value(
+		"POS Profile", {"company": company}, "name"
+	)
+
+
+def _mode_of_payment(company, payment_mode):
+	"""Resolve a Mode of Payment by intent ('bank' vs 'cash').
+
+	Only modes that have an account configured for this company submit cleanly in a POS
+	invoice, so we pick among those. setup.company.ensure_payment_modes wires up Cash and
+	'Chuyển khoản'; we prefer the matching type and fall back to any configured mode.
+	"""
+	want = "Bank" if payment_mode == "bank" else "Cash"
+	configured = [r.parent for r in frappe.get_all("Mode of Payment Account", filters={"company": company}, fields=["parent"])]
+	if not configured:
+		return None
+	for name in configured:
+		if frappe.db.get_value("Mode of Payment", {"name": name, "type": want, "enabled": 1}):
+			return name
+	for name in configured:  # fall back: any enabled configured mode (cash first)
+		if frappe.db.get_value("Mode of Payment", {"name": name, "enabled": 1}):
+			return name
+	return None
+
+
+@frappe.whitelist()
+def quick_sale(items, payment_mode="cash", customer=None):
+	"""Cago-native checkout: a paid POS Sales Invoice (cash/bank) that reduces stock.
+
+	This is the staff selling tool — a clean Cago cart instead of the raw ERPNext Desk POS
+	(which staff lack permission for). ERPNext is still the engine: a submitted is_pos
+	Sales Invoice (update_stock) moves stock + records the payment + GL. Native Desk POS
+	stays available to the owner as a documented fallback (docs/04).
+	"""
+	ensure_staff()
+	ensure_lang()
+	items = frappe.parse_json(items) if isinstance(items, str) else (items or [])
+	if not items:
+		frappe.throw(_("Chưa chọn sản phẩm."))
+	if payment_mode not in ("cash", "bank"):
+		frappe.throw(_("Hình thức thanh toán không hợp lệ."))
+
+	company = debt._company()
+	wh = _warehouse()
+	if not wh:
+		frappe.throw(_("Chưa cấu hình kho."))
+	profile = _pos_profile(company)
+	if not profile:
+		frappe.throw(_("Chưa cấu hình điểm bán hàng (POS Profile)."))
+	mode = _mode_of_payment(company, payment_mode)
+	if not mode:
+		frappe.throw(_("Chưa cấu hình hình thức thanh toán."))
+
+	cust = customer if (customer and frappe.db.exists("Customer", customer)) else walkin_customer()
+
+	rows = []
+	for it in items:
+		code = (it or {}).get("item_code")
+		qty = flt((it or {}).get("qty"))
+		if not code or not frappe.db.exists("Item", code) or qty <= 0:
+			continue
+		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
+		uom = (it.get("uom") or stock_uom) if it else stock_uom
+		rows.append({"item_code": code, "qty": qty, "uom": uom, "rate": _rate_for_uom(code, uom, stock_uom), "warehouse": wh})
+	if not rows:
+		frappe.throw(_("Không có sản phẩm hợp lệ."))
+
+	actor = frappe.session.user
+	try:
+		frappe.set_user("Administrator")  # staff lacks Sales Invoice/Payment perms; ERPNext still validates
+		si = frappe.get_doc(
+			{
+				"doctype": "Sales Invoice",
+				"customer": cust,
+				"company": company,
+				"posting_date": nowdate(),
+				"due_date": nowdate(),
+				"is_pos": 1,
+				"pos_profile": profile,
+				"update_stock": 1,
+				"set_warehouse": wh,
+				"selling_price_list": SELLING_PRICE_LIST,
+				"remarks": f"Bán hàng tại quầy ({'chuyển khoản' if payment_mode == 'bank' else 'tiền mặt'})",
+				"items": rows,
+			}
+		)
+		si.flags.ignore_permissions = True
+		si.insert(ignore_permissions=True)  # totals computed
+		si.append("payments", {"mode_of_payment": mode, "amount": flt(si.grand_total)})
+		si.save(ignore_permissions=True)
+		si.submit()
+	finally:
+		frappe.set_user(actor)
+
+	frappe.db.commit()
+	total = flt(si.grand_total)
+	return {
+		"invoice": si.name,
+		"total": total,
+		"total_text": dto.format_price(total),
+		"payment_mode": payment_mode,
+		"item_count": len(rows),
 	}

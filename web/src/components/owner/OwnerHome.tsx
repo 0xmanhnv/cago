@@ -33,14 +33,7 @@ export function OwnerHome() {
         {item("⏰ Lô & hạn dùng", "bg-orange-600", "/owner/expiry")}
         {item("📊 Báo cáo", "bg-blue-600", "/owner/reports")}
         {item("💳 QR thu tiền", "bg-violet-600", "/owner/settings")}
-        <a
-          href="/app/point-of-sale"
-          target="_blank"
-          rel="noopener"
-          className="flex min-h-[84px] items-center justify-center rounded-2xl bg-brand p-2.5 text-center text-[19px] font-bold text-white"
-        >
-          🛒 Bán hàng (POS)
-        </a>
+        {item("🛒 Bán hàng", "bg-brand", "/staff/sell")}
       </div>
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
         <a href="/app" target="_blank" rel="noopener" className="flex min-h-[64px] items-center justify-center rounded-2xl bg-slate-500 p-2.5 text-center text-lg font-bold text-white">

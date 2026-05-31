@@ -73,6 +73,52 @@ class TestLoyalty(FrappeTestCase):
 		self.assertGreater(flt(frappe.db.get_value("Customer", cust, "cago_points")), 0)
 
 
+class TestQuickSale(FrappeTestCase):
+	"""Cago-native checkout (sales.quick_sale): a paid POS invoice that reduces stock."""
+
+	def setUp(self):
+		if not frappe.db.exists("Item", ITEM):
+			self.skipTest("sample item missing")
+		from cago.setup.company import ensure_payment_modes
+
+		ensure_payment_modes()  # make cash + bank modes available for is_pos
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def test_cash_sale_is_paid_and_reduces_stock(self):
+		from cago.api import purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		before = flt_qty(ITEM)
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 2}]), "cash")
+
+		self.assertTrue(r["invoice"])
+		si = frappe.get_doc("Sales Invoice", r["invoice"])
+		self.assertEqual(si.docstatus, 1)  # submitted
+		self.assertEqual(si.is_pos, 1)
+		self.assertAlmostEqual(si.outstanding_amount, 0, places=2)  # fully paid
+		self.assertAlmostEqual(flt_qty(ITEM), before - 2, places=2)  # stock down
+
+	def test_bank_sale_records_bank_mode(self):
+		from cago.api import purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "bank")
+		si = frappe.get_doc("Sales Invoice", r["invoice"])
+		self.assertEqual(si.docstatus, 1)
+		mode = si.payments[0].mode_of_payment
+		self.assertEqual(frappe.db.get_value("Mode of Payment", mode, "type"), "Bank")
+
+	def test_bad_payment_mode_rejected(self):
+		from cago.api import sales
+
+		with self.assertRaises(frappe.ValidationError):
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "bitcoin")
+
+
 class TestPosHandoff(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("Item", ITEM):

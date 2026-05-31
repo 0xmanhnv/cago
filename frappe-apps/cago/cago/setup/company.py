@@ -76,6 +76,7 @@ def _ensure_pos_profile():
 	"""Create a minimal POS Profile so native POS is usable out of the box."""
 	company = frappe.get_all("Company", pluck="name")[0]
 	if frappe.get_all("POS Profile", filters={"company": company}, limit=1):
+		ensure_payment_modes()  # keep payment modes in sync even if the profile predates this
 		return
 	# Prefer a real stock warehouse (Stores / Finished Goods) over transit/WIP.
 	warehouse = None
@@ -113,3 +114,60 @@ def _ensure_pos_profile():
 	profile.insert(ignore_permissions=True)
 	frappe.db.commit()
 	print("POS Profile created:", profile.name)
+	ensure_payment_modes()
+
+
+def ensure_payment_modes():
+	"""Make both cash and bank-transfer payments usable for Cago checkout (sales.quick_sale).
+
+	A native ERPNext POS payment only submits if its Mode of Payment has an account for the
+	company AND is listed in the POS Profile. The Standard chart ships a 'Bank Accounts' group
+	but no leaf bank account and no bank-type mode wired to the company, so 'Chuyển khoản' sales
+	would fail. This creates a leaf bank account, a 'Chuyển khoản' mode pointing at it, and adds
+	both Cash + Chuyển khoản to the POS Profile. Idempotent.
+	"""
+	company = frappe.get_all("Company", pluck="name")[0]
+	bank_mode = "Chuyển khoản"
+
+	# 1) A leaf bank account under the Bank Accounts group.
+	bank_acc = frappe.db.get_value("Account", {"company": company, "account_type": "Bank", "is_group": 0}, "name")
+	if not bank_acc:
+		parent = frappe.db.get_value("Account", {"company": company, "account_type": "Bank", "is_group": 1}, "name")
+		if parent:
+			acc = frappe.get_doc(
+				{
+					"doctype": "Account",
+					"account_name": "Tài khoản ngân hàng",
+					"parent_account": parent,
+					"company": company,
+					"account_type": "Bank",
+					"is_group": 0,
+				}
+			)
+			acc.insert(ignore_permissions=True)
+			bank_acc = acc.name
+
+	# 2) A bank-transfer Mode of Payment wired to that account for this company.
+	if not frappe.db.exists("Mode of Payment", bank_mode):
+		frappe.get_doc({"doctype": "Mode of Payment", "mode_of_payment": bank_mode, "type": "Bank", "enabled": 1}).insert(
+			ignore_permissions=True
+		)
+	if bank_acc:
+		mop = frappe.get_doc("Mode of Payment", bank_mode)
+		if not any(a.company == company for a in mop.accounts):
+			mop.append("accounts", {"company": company, "default_account": bank_acc})
+			mop.save(ignore_permissions=True)
+
+	# 3) Both modes present in the POS Profile.
+	profile_name = frappe.db.get_value("POS Profile", {"company": company}, "name")
+	if profile_name:
+		prof = frappe.get_doc("POS Profile", profile_name)
+		existing = {p.mode_of_payment for p in prof.payments}
+		changed = False
+		for m in ("Cash", bank_mode):
+			if frappe.db.exists("Mode of Payment", m) and m not in existing:
+				prof.append("payments", {"mode_of_payment": m, "default": 1 if m == "Cash" else 0})
+				changed = True
+		if changed:
+			prof.save(ignore_permissions=True)
+	frappe.db.commit()

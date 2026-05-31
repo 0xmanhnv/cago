@@ -34,17 +34,12 @@ export function StaffHome() {
         <Btn onClick={() => router.push("/staff/assistant")} color="bg-violet-600">
           🤖 Hỏi trợ lý
         </Btn>
+        <Btn onClick={() => router.push("/staff/sell")} color="bg-brand">
+          🛒 Bán hàng
+        </Btn>
         <Btn onClick={() => router.push("/staff/verify")} color="bg-amber-500">
           🙋 Xác nhận xem nợ
         </Btn>
-        <a
-          href="/app/point-of-sale"
-          target="_blank"
-          rel="noopener"
-          className="flex min-h-[84px] items-center justify-center rounded-2xl bg-brand p-2.5 text-center text-[19px] font-bold text-white"
-        >
-          🛒 Mở POS gốc
-        </a>
         {hasPos && (
           <a
             href="/app/posawesome"
