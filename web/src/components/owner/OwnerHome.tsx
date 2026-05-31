@@ -31,6 +31,7 @@ export function OwnerHome() {
         {item("🚚 Công nợ NCC", "bg-violet-500", "/owner/supplier-debt")}
         {item("📦 Hàng sắp hết", "bg-teal-600", "/owner/low-stock")}
         {item("⏰ Lô & hạn dùng", "bg-orange-600", "/owner/expiry")}
+        {item("🧮 Chốt ca / Sổ quỹ", "bg-blue-700", "/owner/cashbook")}
         {item("📊 Báo cáo", "bg-blue-600", "/owner/reports")}
         {item("💳 QR thu tiền", "bg-violet-600", "/owner/settings")}
         {item("🛒 Bán hàng", "bg-brand", "/staff/sell")}

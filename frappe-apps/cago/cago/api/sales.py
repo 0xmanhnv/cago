@@ -168,6 +168,44 @@ def credit_sale(customer, items, note=None):
 
 
 @frappe.whitelist()
+def get_receipt(invoice):
+	"""Staff: data for a printable 58mm bill (store header + lines + total + safety note)."""
+	ensure_staff()
+	if not frappe.db.exists("Sales Invoice", invoice):
+		frappe.throw(_("Không tìm thấy hoá đơn."))
+	from frappe.utils import format_datetime
+
+	si = frappe.get_doc("Sales Invoice", invoice)
+	company = si.company
+	lines, has_chem = [], False
+	for it in si.items:
+		if frappe.db.get_value("Item", it.item_code, "cago_is_chemical"):
+			has_chem = True
+		lines.append(
+			{
+				"name": frappe.db.get_value("Item", it.item_code, "cago_display_name") or it.item_name,
+				"qty": flt(it.qty),
+				"uom": it.uom,
+				"rate_text": dto.format_price(flt(it.rate)),
+				"amount_text": dto.format_price(flt(it.amount)),
+			}
+		)
+	from cago.utils.safety import STANDARD_SAFETY_WARNING
+
+	return {
+		"invoice": si.name,
+		"store": frappe.db.get_value("Company", company, "company_name") or company,
+		"when": format_datetime(si.creation, "dd/MM/yyyy HH:mm"),
+		"customer_name": si.customer_name,
+		"lines": lines,
+		"total_text": dto.format_price(flt(si.grand_total)),
+		"paid_text": dto.format_price(flt(si.paid_amount)) if si.is_pos else None,
+		"outstanding_text": dto.format_price(flt(si.outstanding_amount)) if flt(si.outstanding_amount) > 0 else None,
+		"safety": STANDARD_SAFETY_WARNING if has_chem else None,
+	}
+
+
+@frappe.whitelist()
 def list_recent_sales(limit=30):
 	"""Staff: recent submitted sales (for returns / lookup). Newest first."""
 	ensure_staff()

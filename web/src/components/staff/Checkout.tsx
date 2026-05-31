@@ -28,6 +28,50 @@ const money = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
 const parsePrice = (t: string) => parseInt((t || "").replace(/[^\d]/g, ""), 10) || 0;
 const trim = (n: number) => (Number.isInteger(n) ? n : Math.round(n * 100) / 100);
 
+interface Receipt {
+  invoice: string;
+  store: string;
+  when: string;
+  lines: { name: string; qty: number; uom: string; rate_text: string; amount_text: string }[];
+  total_text: string;
+  paid_text?: string | null;
+  outstanding_text?: string | null;
+  safety?: string | null;
+}
+const esc = (s: string) => (s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
+
+// Open a 58mm print window for the receipt (works with thermal printers + normal printers).
+async function printReceipt(invoice: string) {
+  const r = await frappeCall<Receipt>("cago.api.sales.get_receipt", { invoice }, { method: "GET" });
+  const rows = r.lines
+    .map(
+      (l) =>
+        `<div class="it"><div>${esc(l.name)}</div><div class="r">${trim(l.qty)} ${esc(l.uom)} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`,
+    )
+    .join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(r.invoice)}</title>
+  <style>@page{size:58mm auto;margin:2mm}body{width:54mm;font-family:monospace;font-size:11px;color:#000}
+  h3{text-align:center;margin:2px 0}.c{text-align:center}.it{border-bottom:1px dashed #999;padding:2px 0}.r{font-size:10px}
+  .tot{font-weight:bold;font-size:14px;text-align:right;margin-top:4px}.sf{font-size:9px;border-top:1px solid #000;margin-top:4px;padding-top:3px}</style>
+  </head><body>
+  <h3>${esc(r.store)}</h3>
+  <div class="c">HOÁ ĐƠN BÁN HÀNG</div>
+  <div class="c">${esc(r.when)} · ${esc(r.invoice)}</div>
+  <hr>${rows}
+  <div class="tot">TỔNG: ${r.total_text}</div>
+  ${r.paid_text ? `<div class="r">Khách trả: ${r.paid_text}</div>` : ""}
+  ${r.outstanding_text ? `<div class="r">Còn nợ: ${r.outstanding_text}</div>` : ""}
+  ${r.safety ? `<div class="sf">${esc(r.safety)}</div>` : ""}
+  <div class="c" style="margin-top:6px">Cảm ơn quý khách!</div>
+  <script>window.onload=function(){window.print()}</script>
+  </body></html>`;
+  const w = window.open("", "_blank", "width=320,height=600");
+  if (w) {
+    w.document.write(html);
+    w.document.close();
+  }
+}
+
 export function Checkout() {
   const router = useRouter();
   const [list, setList] = useState<ProductCard[]>([]);
@@ -138,13 +182,16 @@ export function Checkout() {
             </div>
           )}
         </div>
+        <button onClick={() => printReceipt(result.invoice)} className="mt-4 min-h-touch w-full rounded-2xl bg-slate-700 py-3.5 text-lg font-extrabold text-white">
+          🖨 In hoá đơn
+        </button>
         <button
           onClick={() => {
             setResult(null);
             setQr(null);
             void run(q.trim()); // refresh stock after a sale
           }}
-          className="mt-4 min-h-touch w-full rounded-2xl bg-brand py-4 text-xl font-extrabold text-white"
+          className="mt-2.5 min-h-touch w-full rounded-2xl bg-brand py-4 text-xl font-extrabold text-white"
         >
           🛒 Bán đơn mới
         </button>
