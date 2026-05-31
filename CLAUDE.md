@@ -19,6 +19,15 @@ Do not use Go. If an external service is needed, use Python.
 
 ## Tech stack rules
 
+> **Frontend decision update (2026-05-31, owner-approved):** The UI has migrated to a
+> **decoupled Next.js 16 app** (App Router, TypeScript, Tailwind + shadcn/Radix,
+> TanStack Query, Zustand, PWA) under `web/`. It is the public entry and proxies Frappe
+> over one origin (cookie session + CSRF). The Frappe backend stays **API-first**
+> (`cago.api.*` whitelisted methods with role-scoped DTOs) — that is the contract the
+> Next.js app consumes. The Frappe-native `www/` pages remain as an internal fallback.
+> The rules below are the original MVP constraint and are superseded for the frontend by
+> this decision; auxiliary services remain Python (no Go). See docs/27.
+
 MVP UI must use:
 
 ```text
