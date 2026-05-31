@@ -1,10 +1,23 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { logout } from "@/lib/api";
+import { frappeCall, logout } from "@/lib/api";
+
+interface Digest {
+  low_stock: number;
+  expiring: number;
+  debtors: number;
+  debt_total_text: string;
+  has_tasks: boolean;
+}
 
 export function OwnerHome() {
   const router = useRouter();
+  const [digest, setDigest] = useState<Digest | null>(null);
+  useEffect(() => {
+    frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
+  }, []);
   const doLogout = async () => {
     await logout();
     window.location.href = "/login"; // full reload → fresh guest session + CSRF
@@ -20,6 +33,28 @@ export function OwnerHome() {
   return (
     <div>
       <div className="my-4 text-center text-2xl font-bold text-brand-dark">CHỦ CỬA HÀNG</div>
+      {digest?.has_tasks && (
+        <div className="mb-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
+          <div className="font-extrabold text-amber-800">📌 Việc cần làm hôm nay</div>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {digest.low_stock > 0 && (
+              <button onClick={() => router.push("/owner/low-stock")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-amber-800 shadow">
+                📦 {digest.low_stock} hàng sắp hết
+              </button>
+            )}
+            {digest.expiring > 0 && (
+              <button onClick={() => router.push("/owner/expiry")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-orange-700 shadow">
+                ⏰ {digest.expiring} lô sắp hết hạn
+              </button>
+            )}
+            {digest.debtors > 0 && (
+              <button onClick={() => router.push("/owner/debt")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-red-700 shadow">
+                📒 {digest.debtors} khách nợ · {digest.debt_total_text}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3.5">
         {item("🔎 Tra giá", "bg-blue-600", "/owner/price")}
         {item("✏️ Sửa sản phẩm", "bg-amber-500", "/owner/edit")}

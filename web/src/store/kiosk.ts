@@ -55,45 +55,57 @@ interface KioskState {
 }
 
 function loadSession() {
-  if (!SS) return { sessionId: newId(), phone: "", history: [] as ChatMsg[] };
+  const empty = { sessionId: newId(), phone: "", history: [] as ChatMsg[], cart: {} as Record<string, CartLine> };
+  if (!SS) return empty;
   const last = parseInt(SS.getItem("cago_chat_active") || "0", 10);
   if (!SS.getItem("cago_chat_session") || now() - last > IDLE_MS) {
     const id = newId();
     SS.setItem("cago_chat_session", id);
     SS.removeItem("cago_chat_history");
     SS.removeItem("cago_chat_phone");
+    SS.removeItem("cago_cart");
     SS.setItem("cago_chat_active", String(now()));
-    return { sessionId: id, phone: "", history: [] as ChatMsg[] };
+    return { ...empty, sessionId: id };
   }
   let history: ChatMsg[] = [];
+  let cart: Record<string, CartLine> = {};
   try {
     history = JSON.parse(SS.getItem("cago_chat_history") || "[]");
   } catch {
     history = [];
   }
-  return {
-    sessionId: SS.getItem("cago_chat_session") || newId(),
-    phone: SS.getItem("cago_chat_phone") || "",
-    history,
-  };
+  try {
+    cart = JSON.parse(SS.getItem("cago_cart") || "{}");
+  } catch {
+    cart = {};
+  }
+  return { sessionId: SS.getItem("cago_chat_session") || newId(), phone: SS.getItem("cago_chat_phone") || "", history, cart };
 }
 
 const touch = () => SS?.setItem("cago_chat_active", String(now()));
+// Persist the cart so a hard refresh / PWA cold start mid-selection doesn't lose it.
+const saveCart = (cart: Record<string, CartLine>) => {
+  touch();
+  SS?.setItem("cago_cart", JSON.stringify(cart));
+};
 
 export const useKiosk = create<KioskState>((set, get) => {
-  const initial = typeof window !== "undefined" ? loadSession() : { sessionId: "ssr", phone: "", history: [] };
+  const initial = typeof window !== "undefined" ? loadSession() : { sessionId: "ssr", phone: "", history: [], cart: {} };
   return {
-    cart: {},
+    cart: initial.cart,
     addToCart: (p) =>
       set((s) => {
         const line = s.cart[p.item_code] || { product: p, qty: 0 };
-        return { cart: { ...s.cart, [p.item_code]: { product: p, qty: line.qty + 1 } } };
+        const cart = { ...s.cart, [p.item_code]: { product: p, qty: line.qty + 1 } };
+        saveCart(cart);
+        return { cart };
       }),
     setCartQty: (p, qty) =>
       set((s) => {
         const next = { ...s.cart };
         if (qty <= 0) delete next[p.item_code];
         else next[p.item_code] = { product: p, qty };
+        saveCart(next);
         return { cart: next };
       }),
     setQty: (code, qty) =>
@@ -101,9 +113,13 @@ export const useKiosk = create<KioskState>((set, get) => {
         const next = { ...s.cart };
         if (qty <= 0) delete next[code];
         else if (next[code]) next[code] = { ...next[code], qty };
+        saveCart(next);
         return { cart: next };
       }),
-    clearCart: () => set({ cart: {} }),
+    clearCart: () => {
+      saveCart({});
+      return set({ cart: {} });
+    },
     cartCount: () => Object.values(get().cart).reduce((a, x) => a + x.qty, 0),
 
     focusItem: "",
@@ -139,8 +155,9 @@ export const useKiosk = create<KioskState>((set, get) => {
       SS?.setItem("cago_chat_session", id);
       SS?.removeItem("cago_chat_history");
       SS?.removeItem("cago_chat_phone");
+      SS?.removeItem("cago_cart");
       touch();
-      set({ sessionId: id, phone: "", history: [] });
+      set({ sessionId: id, phone: "", history: [], cart: {} });
     },
 
     callStaffOpen: false,

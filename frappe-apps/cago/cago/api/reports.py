@@ -273,3 +273,26 @@ def debt_list():
 			)
 	out.sort(key=lambda x: x["outstanding"], reverse=True)
 	return out
+
+
+@frappe.whitelist()
+def daily_digest():
+	"""Owner 'việc cần làm hôm nay': counts of low-stock items, soon-expiring batches, and
+	customers owing. Computed live from the existing reports (always fresh)."""
+	ensure_owner()
+	from cago.api import inventory
+
+	low = low_stock()
+	debts = debt_list()
+	try:
+		expiring = inventory.expiring_soon()
+	except Exception:
+		expiring = []
+	total_debt = sum(flt(d["outstanding"]) for d in debts)
+	return {
+		"low_stock": len(low),
+		"expiring": len(expiring),
+		"debtors": len(debts),
+		"debt_total_text": dto.format_price(total_debt) if total_debt else "0đ",
+		"has_tasks": bool(low or expiring or debts),
+	}
