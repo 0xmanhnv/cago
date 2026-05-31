@@ -190,10 +190,23 @@ def get_product_for_edit(item_code):
 	row = frappe.db.get_value("Item", item_code, list(EDITABLE_FIELDS) + ["stock_uom"], as_dict=True)
 	row["item_code"] = item_code
 	row["selling_price"] = dto.get_selling_price(item_code)
+	row["barcode"] = frappe.db.get_value("Item Barcode", {"parent": item_code}, "barcode") or ""
 	row["images"] = _images(item_code)
 	row["stock_status_options"] = STOCK_STATUS_OPTIONS
 	row["quality_options"] = QUALITY_OPTIONS
 	return row
+
+
+def _set_barcode(item_code, code):
+	"""Set/clear a product's barcode (ERPNext Item Barcode child). One barcode per item here."""
+	item = frappe.get_doc("Item", item_code)
+	item.set("barcodes", [])
+	if code:
+		item.append("barcodes", {"barcode": code})
+	try:
+		item.save(ignore_permissions=True)
+	except frappe.DuplicateEntryError:
+		frappe.throw(_("Mã vạch này đã dùng cho sản phẩm khác."))
 
 
 @frappe.whitelist()
@@ -211,6 +224,10 @@ def update_product(item_code, data):
 			updates[field] = val
 	if updates:
 		frappe.db.set_value("Item", item_code, updates)
+
+	# Barcode (Item Barcode child table — handled outside the field loop).
+	if "barcode" in data:
+		_set_barcode(item_code, (data.get("barcode") or "").strip())
 
 	# Optional selling price (with a floor guard against selling below cost).
 	if data.get("selling_price") not in (None, ""):

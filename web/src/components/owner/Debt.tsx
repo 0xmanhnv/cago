@@ -8,7 +8,7 @@ import { BackBar, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerSha
 export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const router = useRouter();
   const [cust, setCust] = useState("");
-  const [info, setInfo] = useState<{ customer_name: string; outstanding_text: string } | null>(null);
+  const [info, setInfo] = useState<{ customer_name: string; outstanding_text: string; debt_limit_text?: string } | null>(null);
   const [amt, setAmt] = useState("");
   const [msg, setMsg] = useState<React.ReactNode>(null);
   const method = mode === "add" ? "cago.api.debt.record_debt" : "cago.api.debt.record_repayment";
@@ -21,7 +21,11 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
         onBack={() => router.push("/owner")}
         onPick={async (c) => {
           setCust(c);
-          const d = await frappeCall<{ customer_name: string; outstanding_text: string }>("cago.api.debt.get_customer_debt", { customer: c }, { method: "GET" });
+          const d = await frappeCall<{ customer_name: string; outstanding_text: string; debt_limit_text?: string }>(
+            "cago.api.debt.get_customer_debt",
+            { customer: c },
+            { method: "GET" },
+          );
           setInfo(d);
         }}
       />
@@ -52,6 +56,12 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
           <span className="text-slate-500">Đang nợ</span>
           <span className="font-bold text-red-600">{info.outstanding_text}</span>
         </div>
+        {info.debt_limit_text && (
+          <div className="flex justify-between border-b border-slate-100 py-2">
+            <span className="text-slate-500">Hạn mức nợ</span>
+            <b>{info.debt_limit_text}</b>
+          </div>
+        )}
         <p className="mt-2 text-slate-500">{mode === "add" ? "Số tiền ghi nợ thêm" : "Số tiền khách trả"} (đồng):</p>
         <input autoFocus inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-3 text-xl" />
         <button onClick={save} className={`mt-3 min-h-touch w-full rounded-xl font-extrabold text-white ${mode === "add" ? "bg-red-600" : "bg-brand"}`}>

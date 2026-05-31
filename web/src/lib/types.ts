@@ -103,4 +103,5 @@ export interface Batch {
   expiry_status: ExpiryStatus;
   days_left?: number | null;
   qty: number;
+  sell_first?: boolean;
 }

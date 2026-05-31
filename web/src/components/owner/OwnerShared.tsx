@@ -64,6 +64,16 @@ export function ProductPicker({ title, onBack, onPick }: { title: string; onBack
   useEffect(() => {
     void run("");
   }, []);
+  const findBarcode = async (code: string) => {
+    if (!code.trim()) return;
+    const r = await frappeCall<{ item_code: string | null }>(
+      "cago.api.catalog.find_by_barcode",
+      { barcode: code.trim() },
+      { method: "GET" },
+    );
+    if (r.item_code) onPick(r.item_code);
+    else alert("Không tìm thấy sản phẩm với mã vạch này.");
+  };
   return (
     <div>
       <BackBar onBack={onBack} />
@@ -75,6 +85,16 @@ export function ProductPicker({ title, onBack, onPick }: { title: string; onBack
         }}
         placeholder="Tên, tên hay gọi, màu bao..."
         className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
+      />
+      <input
+        placeholder="⌨ Quét/nhập mã vạch rồi Enter"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            void findBarcode((e.target as HTMLInputElement).value);
+            (e.target as HTMLInputElement).value = "";
+          }
+        }}
+        className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3 text-base"
       />
       <div className="text-xl font-bold text-brand-dark">{title}</div>
       {loading ? (
@@ -112,7 +132,7 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
   const [adding, setAdding] = useState(false);
   const [q, setQ] = useState("");
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [form, setForm] = useState({ name: "", phone: "", village: "" });
+  const [form, setForm] = useState({ name: "", phone: "", village: "", limit: "" });
   const [msg, setMsg] = useState<React.ReactNode>(null);
 
   const run = async (query: string) => {
@@ -132,6 +152,7 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
           customer_name: form.name.trim(),
           phone: form.phone.trim(),
           village: form.village.trim(),
+          debt_limit: form.limit ? parseFloat(form.limit) : 0,
         });
         onPick(r.customer);
       } catch {
@@ -148,6 +169,8 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
           <input inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="VD: 0987654321" className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           <label className="block font-bold text-slate-700">Xóm/thôn (tùy chọn)</label>
           <input value={form.village} onChange={(e) => setForm({ ...form, village: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          <label className="block font-bold text-slate-700">Hạn mức nợ (tùy chọn, đồng)</label>
+          <input inputMode="numeric" value={form.limit} onChange={(e) => setForm({ ...form, limit: e.target.value })} placeholder="Để trống = không giới hạn" className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           <button onClick={save} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
             Lưu khách
           </button>

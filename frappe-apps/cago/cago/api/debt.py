@@ -103,11 +103,14 @@ def get_customer_debt(customer):
 		company=company,
 	)
 	balance = flt(balance)
+	limit = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
 	return {
 		"customer": customer,
 		"customer_name": frappe.db.get_value("Customer", customer, "customer_name"),
 		"outstanding": balance,
 		"outstanding_text": dto.format_price(balance) if balance else "Không nợ",
+		"debt_limit": limit,
+		"debt_limit_text": dto.format_price(limit) if limit else "",
 	}
 
 
@@ -121,6 +124,17 @@ def record_debt(customer, amount, note=None):
 	amount = flt(amount)
 	if amount <= 0:
 		frappe.throw(_("Số tiền phải lớn hơn 0."))
+
+	# Credit limit (hạn mức nợ): block if this would push outstanding over the limit.
+	limit = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
+	if limit:
+		current = flt(get_customer_debt(customer)["outstanding"])
+		if current + amount > limit:
+			frappe.throw(
+				_("Vượt hạn mức nợ {0} (đang nợ {1}, ghi thêm {2}).").format(
+					dto.format_price(limit), dto.format_price(current), dto.format_price(amount)
+				)
+			)
 
 	company = _company()
 	receivable = _receivable_account(company)
@@ -191,7 +205,7 @@ def record_repayment(customer, amount, note=None):
 
 
 @frappe.whitelist()
-def add_customer(customer_name, phone=None, village=None):
+def add_customer(customer_name, phone=None, village=None, debt_limit=None):
 	"""Create a new customer from the simplified owner UI (e.g. during Ghi nợ)."""
 	ensure_owner()
 	name = (customer_name or "").strip()
@@ -209,6 +223,7 @@ def add_customer(customer_name, phone=None, village=None):
 			"cago_village": (village or "").strip() or None,
 			"mobile_no": mobile or None,
 			"cago_zalo_phone": mobile or None,
+			"cago_debt_limit": flt(debt_limit) or 0,
 		}
 	)
 	# Defaults so Customer validation passes on a fresh site.

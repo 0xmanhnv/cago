@@ -25,9 +25,20 @@ export function StaffSearch() {
     void run("");
   }, []);
 
+  const findBarcode = async (code: string) => {
+    if (!code.trim()) return;
+    const r = await frappeCall<{ item_code: string | null }>(
+      "cago.api.catalog.find_by_barcode",
+      { barcode: code.trim() },
+      { method: "GET" },
+    );
+    if (r.item_code) router.push(`/staff/products/${encodeURIComponent(r.item_code)}`);
+    else alert("Không tìm thấy sản phẩm với mã vạch này.");
+  };
+
   return (
     <div>
-      <div className="mb-3.5 flex items-center gap-2.5">
+      <div className="mb-2.5 flex items-center gap-2.5">
         <button onClick={() => router.push("/staff")} className="rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ← Trang chủ
         </button>
@@ -43,6 +54,16 @@ export function StaffSearch() {
           className="flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
         />
       </div>
+      <input
+        placeholder="⌨ Quét/nhập mã vạch rồi Enter"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            void findBarcode((e.target as HTMLInputElement).value);
+            (e.target as HTMLInputElement).value = "";
+          }
+        }}
+        className="mb-3.5 w-full rounded-xl border-2 border-emerald-300 p-3 text-base"
+      />
       {loading ? (
         <div className="py-6 text-center text-slate-500">Đang tải...</div>
       ) : list.length === 0 ? (

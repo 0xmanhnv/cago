@@ -93,3 +93,23 @@ def ensure_stock_fields():
 	)
 	frappe.db.commit()
 	print("Item stock fields ensured: cago_stock_auto, cago_reorder_level, cago_min_price")
+
+
+def ensure_customer_fields():
+	"""Per-customer credit limit (hạn mức nợ) — 0/empty = no limit."""
+	create_custom_fields(
+		{
+			"Customer": [
+				{
+					"fieldname": "cago_debt_limit",
+					"label": "Hạn mức nợ (đồng)",
+					"fieldtype": "Currency",
+					"insert_after": "cago_debt_note",
+					"description": "Chặn ghi nợ khi tổng nợ vượt mức này. Để trống = không giới hạn.",
+				}
+			]
+		},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("Customer field ensured: cago_debt_limit")

@@ -64,6 +64,40 @@ class TestMinPriceGuard(FrappeTestCase):
 		self.assertEqual(dto.get_selling_price(NONBATCH_ITEM), 350000)
 
 
+class TestBarcode(FrappeTestCase):
+	def setUp(self):
+		if not frappe.db.exists("Item", NONBATCH_ITEM):
+			self.skipTest("sample item missing")
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def test_set_and_find(self):
+		from cago.api import catalog, owner
+
+		owner.update_product(NONBATCH_ITEM, json.dumps({"barcode": "TESTBC-XYZ-1"}))
+		self.assertEqual(catalog.find_by_barcode("TESTBC-XYZ-1")["item_code"], NONBATCH_ITEM)
+		self.assertIsNone(catalog.find_by_barcode("NOPE-404")["item_code"])
+
+
+class TestDebtLimit(FrappeTestCase):
+	def setUp(self):
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def test_over_limit_blocked(self):
+		from cago.api import debt
+
+		cust = debt.add_customer("KH Test Hạn Mức", debt_limit=100000)["customer"]
+		with self.assertRaises(frappe.ValidationError):
+			debt.record_debt(cust, 200000)
+
+
 class TestInventoryBatch(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("Item", CHEM_ITEM):

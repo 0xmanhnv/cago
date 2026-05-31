@@ -66,7 +66,8 @@ def _batch_row(b):
 
 @frappe.whitelist()
 def list_batches(item_code):
-	"""All batches for a product (staff may view; owner manages)."""
+	"""All batches for a product (staff may view; owner manages). The earliest non-expired
+	batch is flagged `sell_first` (FEFO — bán lô gần hết hạn trước)."""
 	ensure_staff()
 	rows = frappe.get_all(
 		"Batch",
@@ -74,7 +75,12 @@ def list_batches(item_code):
 		fields=["name", "batch_id", "item", "expiry_date", "manufacturing_date"],
 		order_by="expiry_date asc",
 	)
-	return [_batch_row(r) for r in rows]
+	out = [_batch_row(r) for r in rows]
+	for b in out:
+		if b["expiry_status"] != "expired" and b.get("expiry_date"):
+			b["sell_first"] = True  # earliest non-expired (rows are expiry asc)
+			break
+	return out
 
 
 @frappe.whitelist()

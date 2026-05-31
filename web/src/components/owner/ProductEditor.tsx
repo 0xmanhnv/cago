@@ -53,6 +53,7 @@ export function ProductEditor({ code }: { code: string }) {
       setImgs(d.images || { images: [] });
       const init: Record<string, string | number> = {};
       EDIT_FIELDS.forEach((k) => (init[k] = ((d as Record<string, unknown>)[k] as string | number) ?? ""));
+      init["barcode"] = (d as Record<string, unknown>)["barcode"] as string ?? ""; // Item Barcode child
       setData(init);
     });
   }, [code]);
@@ -166,6 +167,7 @@ export function ProductEditor({ code }: { code: string }) {
 
         <div className="mt-4 text-lg font-extrabold">Thông tin sản phẩm</div>
         <Field label="Tên hiển thị" k="cago_display_name" />
+        <Field label="Mã vạch (barcode — quét/nhập)" k="barcode" />
         <Field label="Giá bán (đồng)" k="selling_price" type="number" />
         <Select label="Tồn kho hiển thị (khi không tự tính)" k="cago_stock_status_manual" opts={e.stock_status_options || []} />
         <Check label="Tự tính tồn theo số thật (đã nhập hàng)" k="cago_stock_auto" />
@@ -389,6 +391,7 @@ function BatchSection({ code }: { code: string }) {
           <span>
             <b>{b.batch_id}</b>
             {b.expiry_text ? <span className="text-slate-500"> · HSD {b.expiry_text}</span> : ""}
+            {b.sell_first ? <span className="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-bold text-emerald-700">→ bán trước</span> : ""}
           </span>
           <span
             className={
