@@ -45,7 +45,8 @@ jobs:
           allow-prereleases: true
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Frappe v16 package.json pins node >=24 (yarn install validates the engine).
+          node-version: "24"
 
       - name: System deps
         run: |

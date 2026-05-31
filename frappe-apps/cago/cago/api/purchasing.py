@@ -17,6 +17,7 @@ from frappe.utils import flt
 
 from cago.utils import dto
 from cago.utils.permissions import ensure_lang, ensure_owner, ensure_staff
+from cago.utils.privileged import as_user
 
 
 def _default_warehouse():
@@ -72,9 +73,7 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 			frappe.throw(_("Lô không tồn tại cho sản phẩm này."))
 	ensure_lang()
 
-	user = frappe.session.user
-	try:
-		frappe.set_user("Administrator")  # owner lacks Stock submit perm; ERPNext still validates the doc
+	with as_user("Administrator"):  # owner lacks Stock submit perm; ERPNext still validates the doc
 		item = {"item_code": item_code, "qty": qty, "t_warehouse": warehouse}
 		if cost_rate and flt(cost_rate) > 0:
 			item["basic_rate"] = flt(cost_rate)
@@ -93,8 +92,6 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 		se.insert(ignore_permissions=True)
 		se.submit()
 		entry = se.name
-	finally:
-		frappe.set_user(user)
 
 	frappe.db.commit()  # commit as the real user, after restoring the session
 	return {"entry": entry, "qty": flt(dto.get_actual_qty(item_code))}

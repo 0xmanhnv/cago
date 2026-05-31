@@ -20,6 +20,7 @@ from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import (
 )
 from cago.utils import dto
 from cago.utils.permissions import ensure_lang, ensure_owner
+from cago.utils.privileged import as_user
 
 
 def _company():
@@ -46,14 +47,10 @@ def _submit_privileged(doc):
 	roles while still booking the entry. The business audit (Cago Owner Action Log)
 	is written by the caller as the real user.
 	"""
-	actor = frappe.session.user
-	try:
-		frappe.set_user("Administrator")
+	with as_user("Administrator"):
 		doc.flags.ignore_permissions = True
 		doc.insert(ignore_permissions=True)
 		doc.submit()
-	finally:
-		frappe.set_user(actor)
 	return doc
 
 
@@ -307,13 +304,9 @@ def cancel_entry(voucher_type, voucher_no, customer=None):
 		frappe.throw(_("Bút toán không thuộc khách hàng này."))
 	doc = frappe.get_doc(voucher_type, voucher_no)
 	# Privileged cancel (owner lacks ERPNext accounting perms); audit keeps the real user.
-	actor = frappe.session.user
-	try:
-		frappe.set_user("Administrator")
+	with as_user("Administrator"):
 		doc.flags.ignore_permissions = True
 		doc.cancel()
-	finally:
-		frappe.set_user(actor)
 	record_action("Other", ref_doctype=voucher_type, ref_name=voucher_no, new_value="cancelled")
 	frappe.db.commit()
 	return get_customer_debt(customer) if customer else {"cancelled": voucher_no}

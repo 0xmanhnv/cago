@@ -63,7 +63,7 @@
 				${HAS_POSAWESOME ? `<button class="ag-btn gray" onclick="window.location='/app/posawesome'">🧾 Mở POS Awesome</button>` : ``}
 			</div>
 			<div style="height:14px"></div>
-			<button class="ag-btn red" style="width:100%" onclick="frappe.call({method:'logout',callback:function(){location.href='/dangnhap'}})">🚪 Đăng xuất</button>`;
+			<button class="ag-btn red" style="width:100%" onclick="frappe.call({method:'logout',callback:function(){location.href='/login'}})">🚪 Đăng xuất</button>`;
 		app.querySelector('#b-search').onclick = searchView;
 		app.querySelector('#b-wl').onclick = wantedListView;
 		app.querySelector('#b-chat').onclick = chatView;

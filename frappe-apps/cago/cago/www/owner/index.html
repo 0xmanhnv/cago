@@ -74,7 +74,7 @@
 			<div style="height:14px"></div>
 			<div class="ag-grid">
 				<button class="ag-btn gray" onclick="window.location='/app'">⚙️ Quản lý ERPNext</button>
-				<button class="ag-btn red" onclick="frappe.call({method:'logout',callback:function(){location.href='/dangnhap'}})">🚪 Đăng xuất</button>
+				<button class="ag-btn red" onclick="frappe.call({method:'logout',callback:function(){location.href='/login'}})">🚪 Đăng xuất</button>
 			</div>`;
 		app.querySelectorAll('[data-go]').forEach(b => b.onclick = () => views[b.dataset.go]());
 	}

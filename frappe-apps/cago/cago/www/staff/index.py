@@ -8,7 +8,7 @@ from cago.utils.permissions import is_staff
 
 def get_context(context):
 	if frappe.session.user == "Guest":
-		frappe.local.flags.redirect_location = "/dangnhap"
+		frappe.local.flags.redirect_location = "/login"
 		raise frappe.Redirect
 
 	if not is_staff():

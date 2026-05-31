@@ -18,6 +18,7 @@ from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
 from cago.utils.permissions import ensure_lang, ensure_owner, ensure_staff
+from cago.utils.privileged import as_user
 
 SELLING_PRICE_LIST = dto.SELLING_PRICE_LIST
 
@@ -191,9 +192,7 @@ def quick_sale(items, payment_mode="cash", customer=None):
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 
-	actor = frappe.session.user
-	try:
-		frappe.set_user("Administrator")  # staff lacks Sales Invoice/Payment perms; ERPNext still validates
+	with as_user("Administrator"):  # staff lacks Sales Invoice/Payment perms; ERPNext still validates
 		si = frappe.get_doc(
 			{
 				"doctype": "Sales Invoice",
@@ -215,8 +214,6 @@ def quick_sale(items, payment_mode="cash", customer=None):
 		si.append("payments", {"mode_of_payment": mode, "amount": flt(si.grand_total)})
 		si.save(ignore_permissions=True)
 		si.submit()
-	finally:
-		frappe.set_user(actor)
 
 	frappe.db.commit()
 	total = flt(si.grand_total)

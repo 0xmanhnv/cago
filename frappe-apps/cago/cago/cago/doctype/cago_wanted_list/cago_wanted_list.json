@@ -28,7 +28,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Trạng thái",
-   "options": "New\nProcessing\nCompleted\nExpired",
+   "options": "New\nProcessing\nCompleted\nExpired\nCancelled",
    "default": "New",
    "in_list_view": 1,
    "in_standard_filter": 1

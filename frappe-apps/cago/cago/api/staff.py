@@ -13,7 +13,7 @@ from frappe.utils import cint, flt, format_datetime, get_datetime, now_datetime
 from cago.utils import dto
 from cago.utils.permissions import ensure_staff
 
-WANTED_STATUSES = ("New", "Processing", "Completed", "Expired")
+WANTED_STATUSES = ("New", "Processing", "Completed", "Expired", "Cancelled")
 
 
 @frappe.whitelist()
@@ -117,3 +117,17 @@ def set_wanted_list_status(code, status):
 	frappe.db.set_value("Cago Wanted List", code, "status", status)
 	frappe.db.commit()
 	return {"code": code, "status": status}
+
+
+@frappe.whitelist()
+def cancel_wanted_list(code):
+	"""Staff cancels a wanted list when the customer no longer wants it.
+
+	Marked Cancelled (kept for the record, hidden from the open list) rather than hard
+	deleted, so it can still be reviewed under 'Xem cả đơn xong'."""
+	ensure_staff()
+	if not frappe.db.exists("Cago Wanted List", code):
+		frappe.throw(_("Không tìm thấy đơn chọn hàng."))
+	frappe.db.set_value("Cago Wanted List", code, "status", "Cancelled")
+	frappe.db.commit()
+	return {"code": code, "status": "Cancelled"}

@@ -9,6 +9,7 @@ const STATUS_VI: Record<string, string> = {
   Processing: "Đang xử lý",
   Completed: "Hoàn tất",
   Expired: "Hết hạn",
+  Cancelled: "Đã huỷ",
 };
 
 interface WantedItem {
@@ -78,6 +79,13 @@ export function StaffWanted() {
     setWl({ ...wl, status: r.status });
     void loadList();
   };
+  const cancelOrder = async () => {
+    if (!wl) return;
+    if (!confirm(`Huỷ đơn ${wl.code}? (khách không lấy nữa)`)) return;
+    await frappeCall<{ status: string }>("cago.api.staff.cancel_wanted_list", { code: wl.code });
+    setWl(null);
+    void loadList();
+  };
 
   // ---- Detail view -------------------------------------------------------
   if (wl) {
@@ -128,6 +136,11 @@ export function StaffWanted() {
           >
             🧾 Tạo hoá đơn (mở để thu tiền)
           </button>
+          {wl.status !== "Cancelled" && wl.status !== "Completed" && (
+            <button onClick={cancelOrder} className="mt-2.5 min-h-touch w-full rounded-xl border-2 border-red-300 bg-white font-bold text-red-600">
+              🗑 Huỷ đơn (khách không lấy nữa)
+            </button>
+          )}
         </div>
       </div>
     );

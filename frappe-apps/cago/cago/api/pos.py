@@ -16,6 +16,7 @@ from cago.api import debt
 from cago.api.sales import _warehouse, walkin_customer
 from cago.utils import dto
 from cago.utils.permissions import ensure_lang, ensure_staff
+from cago.utils.privileged import as_user
 
 
 @frappe.whitelist()
@@ -32,9 +33,7 @@ def create_invoice_from_wanted(code):
 		frappe.throw(_("Đơn không có sản phẩm hợp lệ."))
 
 	company = debt._company()
-	actor = frappe.session.user
-	try:
-		frappe.set_user("Administrator")  # staff lacks Sales Invoice create; draft only, ERPNext validates
+	with as_user("Administrator"):  # staff lacks Sales Invoice create; draft only, ERPNext validates
 		si = frappe.get_doc(
 			{
 				"doctype": "Sales Invoice",
@@ -51,8 +50,6 @@ def create_invoice_from_wanted(code):
 		)
 		si.flags.ignore_permissions = True
 		si.insert(ignore_permissions=True)  # DRAFT — not submitted
-	finally:
-		frappe.set_user(actor)
 
 	frappe.db.set_value("Cago Wanted List", wl, "status", "Processing")
 	frappe.db.commit()
