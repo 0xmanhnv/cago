@@ -192,10 +192,74 @@ export function ProductEditor({ code }: { code: string }) {
         </button>
         {msg}
 
+        <StockSection code={code} />
         <UnitsSection code={code} />
         <BatchSection code={code} />
       </div>
       {draft !== null && <DraftModal text={draft} onClose={() => setDraft(null)} />}
+    </div>
+  );
+}
+
+function StockSection({ code }: { code: string }) {
+  type Stock = { qty: number; uom: string; has_batch: boolean; batches: { batch_id: string; expiry_date?: string }[] };
+  const [stock, setStock] = useState<Stock | null>(null);
+  const [qty, setQty] = useState("");
+  const [cost, setCost] = useState("");
+  const [batchNo, setBatchNo] = useState("");
+  const [msg, setMsg] = useState<React.ReactNode>(null);
+  const load = async () => setStock(await frappeCall<Stock>("cago.api.purchasing.get_stock", { item_code: code }, { method: "GET" }));
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
+  const receive = async () => {
+    setMsg(null);
+    const n = parseFloat(qty);
+    if (!n || n <= 0) return setMsg(<Warn>Nhập số lượng nhập.</Warn>);
+    if (stock?.has_batch && !batchNo) return setMsg(<Warn>Sản phẩm theo lô — chọn lô (thêm lô ở mục Lô &amp; hạn dùng bên dưới).</Warn>);
+    try {
+      const r = await frappeCall<{ qty: number }>("cago.api.purchasing.receive_stock", {
+        item_code: code,
+        qty: n,
+        cost_rate: cost ? parseFloat(cost) : null,
+        batch_no: stock?.has_batch ? batchNo : null,
+      });
+      setStock((s) => (s ? { ...s, qty: r.qty } : s));
+      setQty("");
+      setCost("");
+      setMsg(<Ok>✅ Đã nhập hàng. Tồn hiện tại: {r.qty}</Ok>);
+    } catch (e) {
+      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi nhập hàng."}</Warn>);
+    }
+  };
+
+  return (
+    <div className="mt-5 border-t border-slate-200 pt-3">
+      <div className="text-lg font-extrabold">Tồn kho &amp; nhập hàng</div>
+      <div className="mt-1 text-slate-600">
+        Tồn thật hiện tại: <b className="text-brand-dark">{stock ? `${stock.qty} ${stock.uom}` : "…"}</b>
+      </div>
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" placeholder={`Số lượng nhập (${stock?.uom || ""})`} className="rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input value={cost} onChange={(e) => setCost(e.target.value)} inputMode="numeric" placeholder="Giá nhập / đơn vị (tùy chọn)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
+      </div>
+      {stock?.has_batch && (
+        <select value={batchNo} onChange={(e) => setBatchNo(e.target.value)} className="mt-2 w-full rounded-lg border-2 border-emerald-300 p-2.5">
+          <option value="">— Chọn lô —</option>
+          {stock.batches.map((b) => (
+            <option key={b.batch_id} value={b.batch_id}>
+              {b.batch_id}
+              {b.expiry_date ? ` (HSD ${b.expiry_date})` : ""}
+            </option>
+          ))}
+        </select>
+      )}
+      <button onClick={receive} className="mt-2 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
+        📥 Nhập hàng (tăng tồn thật)
+      </button>
+      {msg}
     </div>
   );
 }

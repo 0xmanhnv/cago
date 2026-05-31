@@ -13,6 +13,7 @@ from cago.api import inventory
 from cago.utils import dto
 
 CHEM_ITEM = "THUOC-CHUOT-A-GOI"
+NONBATCH_ITEM = "CAM-GA-CON-25KG"
 
 
 class TestExpiryHelpers(FrappeTestCase):
@@ -98,3 +99,29 @@ class TestSaleUnits(FrappeTestCase):
 	def test_staff_dto_always_has_sale_units(self):
 		d = dto.staff_dto(frappe.get_doc("Item", CHEM_ITEM))
 		self.assertIn("sale_units", d)
+
+
+class TestReceiveStock(FrappeTestCase):
+	def setUp(self):
+		if not frappe.db.exists("Item", NONBATCH_ITEM):
+			self.skipTest("sample item missing")
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def test_receive_increases_real_qty(self):
+		from cago.api import purchasing
+
+		before = purchasing.get_stock(NONBATCH_ITEM)["qty"]
+		r = purchasing.receive_stock(NONBATCH_ITEM, 3, cost_rate=1000)
+		self.assertAlmostEqual(r["qty"], before + 3, places=2)
+
+	def test_batch_item_requires_batch(self):
+		from cago.api import purchasing
+
+		if not frappe.db.exists("Item", CHEM_ITEM):
+			self.skipTest("chem item missing")
+		with self.assertRaises(frappe.ValidationError):
+			purchasing.receive_stock(CHEM_ITEM, 1)  # batch-tracked → must pass batch_no
