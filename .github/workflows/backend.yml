@@ -40,7 +40,8 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          # Frappe v16 uses PEP 695 `type` statements, which require Python >= 3.12.
+          python-version: "3.12"
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
