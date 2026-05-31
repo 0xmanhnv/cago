@@ -63,6 +63,60 @@ def today_summary():
 
 
 @frappe.whitelist()
+def payment_split(period="today"):
+	"""Tiền mặt / chuyển khoản / khác (từ thanh toán POS) + ghi nợ (outstanding)."""
+	ensure_owner()
+	if period not in PERIOD_LABEL:
+		period = "today"
+	start, end = _period_range(period)
+	si = frappe.qb.DocType("Sales Invoice")
+	sip = frappe.qb.DocType("Sales Invoice Payment")
+	mop = frappe.qb.DocType("Mode of Payment")
+	rows = (
+		frappe.qb.from_(sip)
+		.join(si)
+		.on(sip.parent == si.name)
+		.left_join(mop)
+		.on(sip.mode_of_payment == mop.name)
+		.select(mop.type.as_("type"), Sum(sip.amount).as_("amt"))
+		.where((si.docstatus == 1) & (si.posting_date >= start) & (si.posting_date <= end))
+		.groupby(mop.type)
+	).run(as_dict=True)
+	cash = bank = other = 0
+	for r in rows:
+		t = (r.type or "").lower()
+		amt = flt(r.amt)
+		if t == "cash":
+			cash += amt
+		elif t == "bank":
+			bank += amt
+		else:
+			other += amt
+	res = (
+		frappe.qb.from_(si)
+		.select(Sum(si.outstanding_amount))
+		.where((si.docstatus == 1) & (si.posting_date >= start) & (si.posting_date <= end))
+	).run()
+	credit = flt(res[0][0]) if res and res[0] else 0
+
+	def _t(v):
+		return dto.format_price(v) if v else "0đ"
+
+	return {
+		"period": period,
+		"period_label": PERIOD_LABEL[period],
+		"cash": cash,
+		"cash_text": _t(cash),
+		"bank": bank,
+		"bank_text": _t(bank),
+		"other": other,
+		"other_text": _t(other),
+		"credit": credit,
+		"credit_text": _t(credit),
+	}
+
+
+@frappe.whitelist()
 def low_stock():
 	ensure_owner()
 	rows = frappe.get_all(

@@ -5,9 +5,15 @@
 Use a two-layer POS strategy:
 
 ```text
-Preferred POS UI after evaluation: POS Awesome V15
-Mandatory fallback: ERPNext native POS
+POS Awesome V15/V16 port is an OPTIONAL, parallel spike (a separate fork: cago_posawesome).
+MVP/production must ship on ERPNext native POS unless the fork passes FULL compatibility
+plus accounting (GL) and stock-ledger correctness tests vs native POS.
+Mandatory fallback (always): ERPNext native POS.
 ```
+
+> Updated 2026-05-31: POS Awesome is **not** on the MVP critical path. It is evaluated as a
+> time-boxed spike on a throwaway v16 site. See docs/28 (porting strategy) and docs/29 (spike
+> Milestone 1). Decision: *port in parallel, ship MVP on native POS*.
 
 ## 2. Why not depend fully on POS Awesome?
 

@@ -26,6 +26,7 @@ interface KioskState {
   // cart
   cart: Record<string, CartLine>;
   addToCart: (p: Product) => void;
+  setCartQty: (p: Product, qty: number) => void;
   setQty: (code: string, qty: number) => void;
   clearCart: () => void;
   cartCount: () => number;
@@ -46,6 +47,11 @@ interface KioskState {
   pushMsg: (m: ChatMsg) => void;
   ensureFreshSession: () => void;
   newSession: () => void;
+
+  // transient "call seller" overlay (shown over any route)
+  callStaffOpen: boolean;
+  openCallStaff: () => void;
+  closeCallStaff: () => void;
 }
 
 function loadSession() {
@@ -82,6 +88,13 @@ export const useKiosk = create<KioskState>((set, get) => {
       set((s) => {
         const line = s.cart[p.item_code] || { product: p, qty: 0 };
         return { cart: { ...s.cart, [p.item_code]: { product: p, qty: line.qty + 1 } } };
+      }),
+    setCartQty: (p, qty) =>
+      set((s) => {
+        const next = { ...s.cart };
+        if (qty <= 0) delete next[p.item_code];
+        else next[p.item_code] = { product: p, qty };
+        return { cart: next };
       }),
     setQty: (code, qty) =>
       set((s) => {
@@ -129,5 +142,9 @@ export const useKiosk = create<KioskState>((set, get) => {
       touch();
       set({ sessionId: id, phone: "", history: [] });
     },
+
+    callStaffOpen: false,
+    openCallStaff: () => set({ callStaffOpen: true }),
+    closeCallStaff: () => set({ callStaffOpen: false }),
   };
 });

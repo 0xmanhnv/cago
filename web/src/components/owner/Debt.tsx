@@ -1,0 +1,175 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { frappeCall } from "@/lib/api";
+import { BackBar, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
+
+export function DebtAction({ mode }: { mode: "add" | "repay" }) {
+  const router = useRouter();
+  const [cust, setCust] = useState("");
+  const [info, setInfo] = useState<{ customer_name: string; outstanding_text: string } | null>(null);
+  const [amt, setAmt] = useState("");
+  const [msg, setMsg] = useState<React.ReactNode>(null);
+  const method = mode === "add" ? "cago.api.debt.record_debt" : "cago.api.debt.record_repayment";
+  const title = mode === "add" ? "GHI NỢ" : "KHÁCH TRẢ NỢ";
+
+  if (!cust) {
+    return (
+      <CustomerPicker
+        title={title}
+        onBack={() => router.push("/owner")}
+        onPick={async (c) => {
+          setCust(c);
+          const d = await frappeCall<{ customer_name: string; outstanding_text: string }>("cago.api.debt.get_customer_debt", { customer: c }, { method: "GET" });
+          setInfo(d);
+        }}
+      />
+    );
+  }
+  if (!info) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+
+  const save = async () => {
+    const val = parseFloat(amt);
+    setMsg(null);
+    if (!val || val <= 0) return setMsg(<Warn>Số tiền phải lớn hơn 0.</Warn>);
+    if (!confirm(`${mode === "add" ? "Ghi nợ " : "Khách trả "}${money(val)} cho ${info.customer_name}?`)) return;
+    try {
+      const r = await frappeCall<{ outstanding_text: string }>(method, { customer: cust, amount: val });
+      setMsg(<Ok>✅ Xong. Nợ còn lại: {r.outstanding_text}</Ok>);
+      setAmt("");
+    } catch {
+      setMsg(<Warn>Lỗi: không lưu được.</Warn>);
+    }
+  };
+
+  return (
+    <div>
+      <BackBar onBack={() => setCust("")} label="Quay lại" />
+      <div className="rounded-xl bg-white p-4">
+        <h2 className="text-xl font-bold">{info.customer_name}</h2>
+        <div className="flex justify-between border-b border-slate-100 py-2">
+          <span className="text-slate-500">Đang nợ</span>
+          <span className="font-bold text-red-600">{info.outstanding_text}</span>
+        </div>
+        <p className="mt-2 text-slate-500">{mode === "add" ? "Số tiền ghi nợ thêm" : "Số tiền khách trả"} (đồng):</p>
+        <input autoFocus inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-3 text-xl" />
+        <button onClick={save} className={`mt-3 min-h-touch w-full rounded-xl font-extrabold text-white ${mode === "add" ? "bg-red-600" : "bg-brand"}`}>
+          {mode === "add" ? "Ghi nợ" : "Xác nhận trả"}
+        </button>
+        {msg}
+      </div>
+    </div>
+  );
+}
+
+export function DebtList() {
+  const router = useRouter();
+  const [list, setList] = useState<{ customer: string; customer_name: string; village?: string; outstanding_text: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    frappeCall<typeof list>("cago.api.reports.debt_list", {}, { method: "GET" }).then((r) => {
+      setList(r || []);
+      setLoading(false);
+    });
+  }, []);
+  return (
+    <div>
+      <BackBar onBack={() => router.push("/owner")} title="CÔNG NỢ KHÁCH HÀNG" />
+      {loading ? (
+        <div className="py-6 text-center text-slate-500">Đang tải...</div>
+      ) : list.length === 0 ? (
+        <Ok>Không có khách nào đang nợ. 🎉</Ok>
+      ) : (
+        list.map((c) => (
+          <button
+            key={c.customer}
+            onClick={() => router.push(`/owner/debt/${encodeURIComponent(c.customer)}`)}
+            className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
+          >
+            <div>
+              <div className="font-bold">{c.customer_name}</div>
+              <div className="text-slate-500">{c.village || ""} · bấm xem chi tiết</div>
+            </div>
+            <div className="text-xl font-bold text-red-600">{c.outstanding_text}</div>
+          </button>
+        ))
+      )}
+    </div>
+  );
+}
+
+interface LedgerEntry {
+  type: "debt" | "repay";
+  label: string;
+  date: string;
+  amount_text: string;
+  voucher_type: string;
+  voucher_no: string;
+}
+
+export function CustomerLedger({ customer }: { customer: string }) {
+  const router = useRouter();
+  type Ledger = { customer_name: string; outstanding_text: string; overpaid?: boolean; entries: LedgerEntry[] };
+  const [d, setD] = useState<Ledger | null>(null);
+  const [draft, setDraft] = useState<string | null>(null);
+  const load = async () => setD(await frappeCall<Ledger>("cago.api.debt.get_customer_ledger", { customer }, { method: "GET" }));
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer]);
+  if (!d) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+
+  return (
+    <div>
+      <BackBar onBack={() => router.push("/owner/debt")} label="Quay lại" />
+      <div className="rounded-xl bg-white p-4">
+        <h2 className="text-xl font-bold">{d.customer_name}</h2>
+        <div className="flex justify-between border-b border-slate-100 py-2">
+          <span className="text-slate-500">{d.overpaid ? "Khách trả dư" : "Đang nợ"}</span>
+          <span className="font-bold text-red-600">{d.outstanding_text}</span>
+        </div>
+        <button
+          onClick={async () => {
+            const r = await frappeCall<{ text: string }>("cago.api.owner.zalo_draft", { kind: "debt_reminder", customer });
+            setDraft(r.text);
+          }}
+          className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white"
+        >
+          📩 Soạn tin nhắc nợ (Zalo)
+        </button>
+        <div className="mt-3 font-extrabold">Lịch sử ghi nợ / trả nợ</div>
+        {d.entries.length === 0 && <div className="text-slate-500">Chưa có giao dịch.</div>}
+        {d.entries.map((e, i) => (
+          <div key={i} className="flex justify-between border-b border-slate-100 py-2">
+            <span>
+              <b>
+                {e.type === "debt" ? "📝" : "💵"} {e.label}
+              </b>
+              <br />
+              <span className="text-slate-500">{e.date}</span>
+            </span>
+            <span className="text-right">
+              <b className={e.type === "debt" ? "text-red-600" : "text-brand"}>
+                {e.type === "debt" ? "+" : "−"}
+                {e.amount_text}
+              </b>
+              <br />
+              <button
+                onClick={async () => {
+                  if (!confirm("Huỷ bút toán này? (dùng khi ghi nhầm)")) return;
+                  await frappeCall("cago.api.debt.cancel_entry", { voucher_type: e.voucher_type, voucher_no: e.voucher_no, customer });
+                  await load();
+                }}
+                className="rounded bg-red-100 px-2 py-1 text-[13px] font-bold text-red-700"
+              >
+                Huỷ
+              </button>
+            </span>
+          </div>
+        ))}
+      </div>
+      {draft !== null && <DraftModal text={draft} onClose={() => setDraft(null)} />}
+    </div>
+  );
+}
