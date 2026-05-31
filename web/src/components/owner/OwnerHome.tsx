@@ -24,7 +24,8 @@ export function OwnerHome() {
         {item("🔎 Tra giá", "bg-blue-600", "/owner/price")}
         {item("✏️ Sửa sản phẩm", "bg-amber-500", "/owner/edit")}
         {item("➕ Thêm sản phẩm", "bg-teal-600", "/owner/products/new")}
-        {item("📝 Ghi nợ", "bg-red-600", "/owner/record-debt")}
+        {item("🧾 Bán chịu (trừ tồn)", "bg-red-600", "/owner/credit-sale")}
+        {item("📝 Ghi nợ (chỉ tiền)", "bg-red-500", "/owner/record-debt")}
         {item("💵 Khách trả nợ", "bg-brand", "/owner/record-payment")}
         {item("📒 Công nợ", "bg-violet-600", "/owner/debt")}
         {item("📦 Hàng sắp hết", "bg-teal-600", "/owner/low-stock")}
