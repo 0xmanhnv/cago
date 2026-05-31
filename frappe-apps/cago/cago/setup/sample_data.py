@@ -56,10 +56,11 @@ def import_sample_products(csv_path=None):
 
 	# Category icon/colour is DATA on the Item Group (owner-editable), not hardcoded
 	# keyword matching in the UI — make sure the fields exist before seeding presets.
-	from cago.setup.custom_fields import ensure_category_fields, ensure_retail_field
+	from cago.setup.custom_fields import ensure_category_fields, ensure_retail_field, ensure_stock_fields
 
 	ensure_category_fields()
 	ensure_retail_field()
+	ensure_stock_fields()
 
 	created, updated = 0, 0
 	with open(csv_path, encoding="utf-8-sig") as fh:

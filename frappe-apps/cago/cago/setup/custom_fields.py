@@ -59,3 +59,30 @@ def ensure_retail_field():
 	)
 	frappe.db.commit()
 	print("Item field ensured: cago_show_retail_on_kiosk")
+
+
+def ensure_stock_fields():
+	"""Auto stock status from real on-hand qty + a reorder threshold."""
+	create_custom_fields(
+		{
+			"Item": [
+				{
+					"fieldname": "cago_stock_auto",
+					"label": "Tự tính tồn theo số thật",
+					"fieldtype": "Check",
+					"insert_after": "cago_stock_status_manual",
+					"description": "Bật: trạng thái tồn tự tính từ số lượng thật + mức đặt lại (thay cho chọn tay).",
+				},
+				{
+					"fieldname": "cago_reorder_level",
+					"label": "Mức đặt lại (còn ít khi ≤)",
+					"fieldtype": "Float",
+					"insert_after": "cago_stock_auto",
+					"description": "Theo đơn vị tồn kho. Tồn thật ≤ mức này = 'Còn ít' → gợi ý nhập hàng.",
+				},
+			]
+		},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("Item stock fields ensured: cago_stock_auto, cago_reorder_level")

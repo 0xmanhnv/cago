@@ -15,6 +15,7 @@ See docs/07_DATA_MODEL.md.
 
 import frappe
 from frappe.query_builder.functions import Sum
+from frappe.utils import flt
 
 from cago.utils.safety import safety_warning_for
 
@@ -186,6 +187,34 @@ def get_actual_qty(item_code):
 	return (result[0][0] if result and result[0] else 0) or 0
 
 
+def bin_qty_map(codes):
+	"""Batch on-hand qty for many items in one query: {item_code: qty}."""
+	codes = [c for c in set(codes) if c]
+	if not codes:
+		return {}
+	bin_table = frappe.qb.DocType("Bin")
+	rows = (
+		frappe.qb.from_(bin_table)
+		.select(bin_table.item_code, Sum(bin_table.actual_qty).as_("q"))
+		.where(bin_table.item_code.isin(codes))
+		.groupby(bin_table.item_code)
+	).run(as_dict=True)
+	return {r.item_code: flt(r.q) for r in rows}
+
+
+def stock_status_for(item, qty):
+	"""Displayed stock status: auto from real qty + reorder level when cago_stock_auto,
+	else the owner's manual status. (qty is on-hand in the stock UOM.)"""
+	if not _get(item, "cago_stock_auto"):
+		return _get(item, "cago_stock_status_manual")
+	reorder = flt(_get(item, "cago_reorder_level"))
+	if flt(qty) <= 0:
+		return "Hết hàng"
+	if reorder and flt(qty) <= reorder:
+		return "Còn ít"
+	return "Còn hàng"
+
+
 def get_alternatives(item_code):
 	"""Grouped alternatives for staff advice."""
 	out = {"cheaper": [], "equivalent": [], "better": [], "avoid": []}
@@ -223,6 +252,8 @@ LIST_FIELDS = [
 	"cago_use_cases",
 	"cago_package_color",
 	"cago_stock_status_manual",
+	"cago_stock_auto",
+	"cago_reorder_level",
 	"cago_shelf_location",
 	"cago_is_chemical",
 	"cago_safety_notes",
@@ -289,17 +320,22 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 
 	prices = _price_map([r.name for r in rows])
 	cat_meta = category_meta_map([r.item_group for r in rows])
-	return [_list_dto(r, _rate_for(prices.get(r.name) or {}, r.stock_uom), audience, cat_meta) for r in rows]
+	# on-hand only needed for auto-status items, but one grouped query is cheap
+	qty_map = bin_qty_map([r.name for r in rows if r.get("cago_stock_auto")])
+	return [
+		_list_dto(r, _rate_for(prices.get(r.name) or {}, r.stock_uom), audience, cat_meta, qty_map)
+		for r in rows
+	]
 
 
-def _list_dto(r, rate, audience, cat_meta=None):
+def _list_dto(r, rate, audience, cat_meta=None, qty_map=None):
 	meta = (cat_meta or {}).get(r.item_group) or category_meta(r.item_group)
 	out = {
 		"item_code": r.name,
 		"display_name": r.cago_display_name or r.item_name,
 		"image": r.image,
 		"price_text": format_price(rate, r.stock_uom),
-		"stock_status": r.cago_stock_status_manual,
+		"stock_status": stock_status_for(r, (qty_map or {}).get(r.name, 0)),
 		"is_chemical": bool(r.cago_is_chemical),
 		"category": r.item_group,
 		"category_icon": meta["icon"],
@@ -381,6 +417,7 @@ def sale_units(item):
 def public_dto(item):
 	"""Kiosk-safe DTO. No price number, no internal fields — only display text."""
 	rate = get_selling_price(item.name)
+	qty = get_actual_qty(item.name) if _get(item, "cago_stock_auto") else 0
 	return {
 		"item_code": item.name,
 		"display_name": item.cago_display_name or item.item_name,
@@ -393,7 +430,7 @@ def public_dto(item):
 		"public_description": item.cago_public_description,
 		"use_cases": item.cago_use_cases,
 		"package_color": item.cago_package_color,
-		"stock_status": item.cago_stock_status_manual,
+		"stock_status": stock_status_for(item, qty),
 		"is_chemical": bool(item.cago_is_chemical),
 		"safety_notes": safety_warning_for(item),
 		**_expiry_dto(item.name),
@@ -416,7 +453,7 @@ def staff_dto(item):
 		"selling_price": rate,
 		"price_text": format_price(rate, item.stock_uom),
 		"unit": item.stock_uom,
-		"stock_status": item.cago_stock_status_manual,
+		"stock_status": stock_status_for(item, get_actual_qty(item.name)),
 		"actual_stock_qty": get_actual_qty(item.name),
 		"shelf_location": item.cago_shelf_location,
 		"public_description": item.cago_public_description,

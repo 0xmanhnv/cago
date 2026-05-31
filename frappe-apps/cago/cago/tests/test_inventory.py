@@ -24,6 +24,18 @@ class TestExpiryHelpers(FrappeTestCase):
 		self.assertEqual(dto.expiry_status(add_days(nowdate(), 999)), "ok")
 
 
+class TestAutoStockStatus(FrappeTestCase):
+	def test_status_logic(self):
+		from frappe import _dict
+
+		manual = _dict({"cago_stock_auto": 0, "cago_stock_status_manual": "Còn hàng"})
+		self.assertEqual(dto.stock_status_for(manual, 0), "Còn hàng")  # manual ignores qty
+		auto = _dict({"cago_stock_auto": 1, "cago_reorder_level": 5})
+		self.assertEqual(dto.stock_status_for(auto, 0), "Hết hàng")
+		self.assertEqual(dto.stock_status_for(auto, 3), "Còn ít")
+		self.assertEqual(dto.stock_status_for(auto, 10), "Còn hàng")
+
+
 class TestInventoryBatch(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("Item", CHEM_ITEM):

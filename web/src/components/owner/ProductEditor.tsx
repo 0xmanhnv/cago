@@ -22,6 +22,8 @@ const EDIT_FIELDS = [
   "cago_display_name",
   "selling_price",
   "cago_stock_status_manual",
+  "cago_stock_auto",
+  "cago_reorder_level",
   "cago_shelf_location",
   "cago_local_names",
   "cago_public_description",
@@ -164,7 +166,9 @@ export function ProductEditor({ code }: { code: string }) {
         <div className="mt-4 text-lg font-extrabold">Thông tin sản phẩm</div>
         <Field label="Tên hiển thị" k="cago_display_name" />
         <Field label="Giá bán (đồng)" k="selling_price" type="number" />
-        <Select label="Tồn kho hiển thị" k="cago_stock_status_manual" opts={e.stock_status_options || []} />
+        <Select label="Tồn kho hiển thị (khi không tự tính)" k="cago_stock_status_manual" opts={e.stock_status_options || []} />
+        <Check label="Tự tính tồn theo số thật (đã nhập hàng)" k="cago_stock_auto" />
+        <Field label="Mức đặt lại — 'còn ít' khi tồn ≤ (theo đơn vị tồn)" k="cago_reorder_level" type="number" />
         <Field label="Vị trí để hàng" k="cago_shelf_location" />
         <Field label="Tên dân dã (khách hay gọi)" k="cago_local_names" />
         <Area label="Mô tả ngắn cho khách" k="cago_public_description" />

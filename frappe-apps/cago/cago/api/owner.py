@@ -168,6 +168,8 @@ EDITABLE_FIELDS = (
 	"cago_package_color",
 	"cago_shelf_location",
 	"cago_stock_status_manual",
+	"cago_stock_auto",
+	"cago_reorder_level",
 	"cago_product_quality_tier",
 	"cago_staff_advice",
 	"cago_call_owner_when",
@@ -175,7 +177,7 @@ EDITABLE_FIELDS = (
 	"cago_is_chemical",
 	"cago_is_public_visible",
 )
-_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible")
+_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto")
 STOCK_STATUS_OPTIONS = ["Còn nhiều", "Còn hàng", "Còn ít", "Hết hàng", "Sắp nhập"]
 QUALITY_OPTIONS = ["Phổ thông", "Trung cấp", "Cao cấp"]
 

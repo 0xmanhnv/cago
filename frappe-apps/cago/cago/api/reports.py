@@ -118,22 +118,43 @@ def payment_split(period="today"):
 
 @frappe.whitelist()
 def low_stock():
+	"""Items that need attention: manual low-stock statuses + auto items whose REAL
+	on-hand is at/under the reorder level (→ gợi ý nhập hàng)."""
 	ensure_owner()
-	rows = frappe.get_all(
+	out = {}
+	# 1) manual statuses
+	for r in frappe.get_all(
 		"Item",
-		filters={"disabled": 0, "cago_stock_status_manual": ["in", LOW_STOCK_STATUSES]},
+		filters={"disabled": 0, "cago_stock_auto": 0, "cago_stock_status_manual": ["in", LOW_STOCK_STATUSES]},
 		fields=["name", "item_name", "cago_display_name", "cago_stock_status_manual", "cago_shelf_location"],
 		order_by="cago_stock_status_manual asc",
-	)
-	return [
-		{
+	):
+		out[r.name] = {
 			"item_code": r.name,
 			"display_name": r.cago_display_name or r.item_name,
 			"status": r.cago_stock_status_manual,
 			"shelf_location": r.cago_shelf_location,
+			"qty": None,
 		}
-		for r in rows
-	]
+	# 2) auto items at/under reorder (or out of stock)
+	auto = frappe.get_all(
+		"Item",
+		filters={"disabled": 0, "cago_stock_auto": 1},
+		fields=["name", "item_name", "cago_display_name", "cago_reorder_level", "cago_shelf_location", "stock_uom"],
+	)
+	qty_map = dto.bin_qty_map([r.name for r in auto])
+	for r in auto:
+		qty = qty_map.get(r.name, 0)
+		reorder = flt(r.cago_reorder_level)
+		if qty <= 0 or (reorder and qty <= reorder):
+			out[r.name] = {
+				"item_code": r.name,
+				"display_name": r.cago_display_name or r.item_name,
+				"status": "Hết hàng" if qty <= 0 else "Còn ít",
+				"shelf_location": r.cago_shelf_location,
+				"qty": f"{flt(qty):g} {r.stock_uom}",
+			}
+	return sorted(out.values(), key=lambda x: x["status"])
 
 
 @frappe.whitelist()

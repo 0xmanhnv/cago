@@ -8,7 +8,7 @@ import { BackBar, Ok } from "./OwnerShared";
 
 export function LowStock() {
   const router = useRouter();
-  const [list, setList] = useState<{ display_name: string; shelf_location?: string; status: string }[]>([]);
+  const [list, setList] = useState<{ display_name: string; shelf_location?: string; status: string; qty?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     frappeCall<typeof list>("cago.api.reports.low_stock", {}, { method: "GET" }).then((r) => {
@@ -28,7 +28,10 @@ export function LowStock() {
           <div key={i} className="mb-2 flex items-center justify-between rounded-xl bg-white p-3.5 shadow">
             <div>
               <div className="font-bold">{p.display_name}</div>
-              <div className="text-slate-500">{p.shelf_location || ""}</div>
+              <div className="text-slate-500">
+                {p.shelf_location || ""}
+                {p.qty ? ` · còn ${p.qty}` : ""}
+              </div>
             </div>
             <div className="font-bold text-red-600">{p.status}</div>
           </div>
