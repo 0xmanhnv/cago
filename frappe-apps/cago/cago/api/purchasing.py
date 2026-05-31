@@ -77,6 +77,11 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 		item = {"item_code": item_code, "qty": qty, "t_warehouse": warehouse}
 		if cost_rate and flt(cost_rate) > 0:
 			item["basic_rate"] = flt(cost_rate)
+		else:
+			# No cost given: allow a quantity-only receipt. Under perpetual inventory a
+			# Material Receipt needs a valuation rate, and an item with no prior valuation
+			# would otherwise fail on its first stock-in. Owner can enter cost for accuracy.
+			item["allow_zero_valuation_rate"] = 1
 		if batch_no:
 			# legacy batch field (avoids requiring the Serial & Batch Bundle setting)
 			item["use_serial_batch_fields"] = 1
