@@ -45,13 +45,16 @@ export function Report() {
   const router = useRouter();
   type Summary = { period_label: string; sales_total_text: string; invoice_count: number };
   type Split = { cash_text: string; bank_text: string; other_text: string; credit_text: string };
+  type Profit = { revenue_text: string; cogs_text: string; profit_text: string; margin_pct: number };
   const [period, setPeriod] = useState<"today" | "week" | "month">("today");
   const [s, setS] = useState<Summary | null>(null);
   const [split, setSplit] = useState<Split | null>(null);
+  const [profit, setProfit] = useState<Profit | null>(null);
   const [best, setBest] = useState<{ display_name: string; qty: number }[]>([]);
   useEffect(() => {
     frappeCall<Summary>("cago.api.reports.period_summary", { period }, { method: "GET" }).then(setS);
     frappeCall<Split>("cago.api.reports.payment_split", { period }, { method: "GET" }).then(setSplit).catch(() => setSplit(null));
+    frappeCall<Profit>("cago.api.reports.gross_profit", { period }, { method: "GET" }).then(setProfit).catch(() => setProfit(null));
     frappeCall<{ display_name: string; qty: number }[]>("cago.api.reports.best_sellers", { limit: 5 }, { method: "GET" }).then((r) => setBest(r || []));
   }, [period]);
 
@@ -89,6 +92,17 @@ export function Report() {
               <span className="text-slate-500">Số hóa đơn</span>
               <b>{s.invoice_count}</b>
             </div>
+            {profit && (
+              <div className="mt-1 rounded-lg bg-emerald-50 px-2.5 py-1.5">
+                <div className="flex justify-between py-0.5">
+                  <span className="text-slate-500">📈 Lãi gộp ước tính</span>
+                  <b className="text-brand">
+                    {profit.profit_text} ({profit.margin_pct}%)
+                  </b>
+                </div>
+                <div className="text-xs text-slate-500">Doanh thu {profit.revenue_text} − giá vốn {profit.cogs_text}</div>
+              </div>
+            )}
             {split && (
               <div className="mt-1">
                 <div className="flex justify-between border-b border-slate-100 py-1.5">

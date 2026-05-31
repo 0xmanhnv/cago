@@ -123,6 +123,41 @@ def payment_split(period="today"):
 
 
 @frappe.whitelist()
+def gross_profit(period="today"):
+	"""Owner-only gross profit = doanh thu (net) − giá vốn (COGS). COGS uses the Sales
+	Invoice Item incoming_rate (set when stock is maintained). Never exposed to staff/kiosk."""
+	ensure_owner()
+	if period not in PERIOD_LABEL:
+		period = "today"
+	start, end = _period_range(period)
+	company = _company()
+	si = frappe.qb.DocType("Sales Invoice")
+	sii = frappe.qb.DocType("Sales Invoice Item")
+	res = (
+		frappe.qb.from_(sii)
+		.join(si)
+		.on(sii.parent == si.name)
+		.select(Sum(sii.base_net_amount).as_("rev"), Sum(sii.incoming_rate * sii.stock_qty).as_("cogs"))
+		.where((si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end))
+	).run(as_dict=True)
+	rev = flt(res[0].rev) if res else 0
+	cogs = flt(res[0].cogs) if res else 0
+	profit = rev - cogs
+	margin = round(profit / rev * 100) if rev else 0
+	return {
+		"period": period,
+		"period_label": PERIOD_LABEL[period],
+		"revenue": rev,
+		"revenue_text": dto.format_price(rev) if rev else "0đ",
+		"cogs": cogs,
+		"cogs_text": dto.format_price(cogs) if cogs else "0đ",
+		"profit": profit,
+		"profit_text": dto.format_price(profit) if profit else "0đ",
+		"margin_pct": margin,
+	}
+
+
+@frappe.whitelist()
 def low_stock():
 	"""Items that need attention: manual low-stock statuses + auto items whose REAL
 	on-hand is at/under the reorder level (→ gợi ý nhập hàng)."""

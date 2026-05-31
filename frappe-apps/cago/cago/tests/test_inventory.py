@@ -64,6 +64,16 @@ class TestMinPriceGuard(FrappeTestCase):
 		self.assertEqual(dto.get_selling_price(NONBATCH_ITEM), 350000)
 
 
+class TestGrossProfit(FrappeTestCase):
+	def test_structure(self):
+		from cago.api import reports
+
+		r = reports.gross_profit("today")
+		for k in ("revenue", "cogs", "profit", "margin_pct"):
+			self.assertIn(k, r)
+		self.assertAlmostEqual(r["profit"], r["revenue"] - r["cogs"], places=2)
+
+
 class TestBarcode(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("Item", NONBATCH_ITEM):
