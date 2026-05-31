@@ -26,6 +26,7 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
   const [lines, setLines] = useState<Record<string, { p: ProductCard; qty: number }>>({});
   const [result, setResult] = useState<{ total_text: string; outstanding_text: string } | null>(null);
   const [msg, setMsg] = useState<React.ReactNode>(null);
+  const [busy, setBusy] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const search = async (q: string) => {
@@ -47,10 +48,12 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
 
   const submit = async () => {
     setMsg(null);
+    if (busy) return;
     const items = Object.values(lines).map((x) => ({ item_code: x.p.item_code, qty: x.qty }));
     if (!items.length) return setMsg(<Warn>Chưa chọn sản phẩm.</Warn>);
     const total = items.reduce((s, i) => s + i.qty, 0);
     if (!confirm(`Tạo hoá đơn bán chịu (giao ${total} món, ghi nợ khách)?`)) return;
+    setBusy(true);
     try {
       const r = await frappeCall<{ total_text: string; outstanding_text: string }>("cago.api.sales.credit_sale", {
         customer,
@@ -59,6 +62,8 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
       setResult(r);
     } catch (e) {
       setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi: không tạo được hoá đơn."}</Warn>);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -102,8 +107,8 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
               </span>
             </div>
           ))}
-          <button onClick={submit} className="mt-3 min-h-touch w-full rounded-xl bg-red-600 font-extrabold text-white">
-            🧾 Tạo hoá đơn bán chịu (trừ tồn + ghi nợ)
+          <button onClick={submit} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-red-600 font-extrabold text-white disabled:opacity-50">
+            {busy ? "Đang tạo..." : "🧾 Tạo hoá đơn bán chịu (trừ tồn + ghi nợ)"}
           </button>
           {msg}
         </div>

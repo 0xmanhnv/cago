@@ -59,6 +59,7 @@ def import_sample_products(csv_path=None):
 	from cago.setup.custom_fields import (
 		ensure_category_fields,
 		ensure_customer_fields,
+		ensure_loyalty_fields,
 		ensure_payment_fields,
 		ensure_retail_field,
 		ensure_stock_fields,
@@ -69,6 +70,7 @@ def import_sample_products(csv_path=None):
 	ensure_stock_fields()
 	ensure_customer_fields()
 	ensure_payment_fields()
+	ensure_loyalty_fields()
 
 	created, updated = 0, 0
 	with open(csv_path, encoding="utf-8-sig") as fh:

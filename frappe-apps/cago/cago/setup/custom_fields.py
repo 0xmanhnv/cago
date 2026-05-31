@@ -123,6 +123,29 @@ def ensure_customer_fields():
 	print("Customer fields ensured: cago_debt_limit, cago_points")
 
 
+def ensure_loyalty_fields():
+	"""Record points actually awarded on each Sales Invoice, so cancel reverses the EXACT
+	amount even if the loyalty rate changed between submit and cancel."""
+	create_custom_fields(
+		{
+			"Sales Invoice": [
+				{
+					"fieldname": "cago_points_awarded",
+					"label": "Cago Points Awarded",
+					"fieldtype": "Int",
+					"insert_after": "customer",
+					"read_only": 1,
+					"no_copy": 1,
+					"print_hide": 1,
+				}
+			]
+		},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("Sales Invoice loyalty field ensured: cago_points_awarded")
+
+
 def ensure_payment_fields():
 	"""Store bank account for VietQR (hiện QR để khách chuyển khoản)."""
 	create_custom_fields(

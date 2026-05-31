@@ -13,6 +13,7 @@ Owner gate: Company.cago_kiosk_debt_visible. No debt is ever returned before app
 the request never reveals whether a phone matches a customer. State lives in Redis (TTL).
 """
 
+import hmac
 import json
 import time
 
@@ -90,9 +91,16 @@ def request(phone):
 	cust = frappe.db.get_value("Customer", {"cago_zalo_phone": p}, "name") or frappe.db.get_value(
 		"Customer", {"mobile_no": p}, "name"
 	)
-	rid = frappe.generate_hash()[:10]
+	rid = frappe.generate_hash()  # full-length, unguessable
 	d = _store()
-	d[rid] = {"phone": p, "customer": cust or "", "approved": 0, "token": "", "t": int(time.time())}
+	d[rid] = {
+		"phone": p,
+		"customer": cust or "",
+		"approved": 0,
+		"token": "",
+		"t": int(time.time()),
+		"ip": getattr(frappe.local, "request_ip", None) or "",
+	}
 	_save(d)
 	return {"enabled": True, "request_id": rid}
 
@@ -127,7 +135,7 @@ def approve(request_id):
 	if not v["customer"]:
 		frappe.throw(_("Không tìm thấy khách hàng với số điện thoại này."))
 	v["approved"] = 1
-	v["token"] = frappe.generate_hash()[:16]
+	v["token"] = frappe.generate_hash()  # full-length view token
 	_save(d)
 	return {"ok": True}
 
@@ -135,19 +143,26 @@ def approve(request_id):
 @frappe.whitelist(allow_guest=True)
 def status(request_id):
 	"""Kiosk: poll approval; returns the token once approved."""
+	rate_guard("verify_poll", limit=90, seconds=300)
 	v = _store().get(request_id)
 	if not v:
 		return {"approved": False, "expired": True}
+	# Only the device that created the request may poll it — don't hand the token to a
+	# different client that guessed/observed the request_id.
+	cur_ip = getattr(frappe.local, "request_ip", None) or ""
+	if v.get("ip") and cur_ip and v["ip"] != cur_ip:
+		return {"approved": False}
 	return {"approved": bool(v["approved"]), "token": v["token"] if v["approved"] else None}
 
 
 @frappe.whitelist(allow_guest=True)
 def my_debt(token):
 	"""Kiosk: with a valid approved token, return ONLY that customer's outstanding (audited)."""
+	rate_guard("verify_debt", limit=30, seconds=300)
 	if not token:
 		frappe.throw(_("Phiên không hợp lệ."))
 	for v in _store().values():
-		if v.get("approved") and v.get("token") == token and v.get("customer"):
+		if v.get("approved") and v.get("customer") and v.get("token") and hmac.compare_digest(v["token"], token):
 			cust = v["customer"]
 			bal = _owes(cust)
 			try:

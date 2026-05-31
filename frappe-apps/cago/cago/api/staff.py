@@ -78,10 +78,15 @@ def get_product(item_code):
 def get_wanted_list(code):
 	"""Retrieve a customer's wanted list (created on the kiosk) for fulfilment."""
 	ensure_staff()
-	if not frappe.db.exists("Cago Wanted List", code):
+	# Look up by the business `code` field (e.g. WL-2026-00001), not the docname, so it
+	# stays consistent with pos.create_invoice_from_wanted and the list view.
+	name = frappe.db.get_value("Cago Wanted List", {"code": code}, "name") or (
+		code if frappe.db.exists("Cago Wanted List", code) else None
+	)
+	if not name:
 		frappe.throw(_("Không tìm thấy đơn chọn hàng với mã này."))
 
-	wl = frappe.get_doc("Cago Wanted List", code)
+	wl = frappe.get_doc("Cago Wanted List", name)
 	items = []
 	for row in wl.items:
 		item = frappe.get_doc("Item", row.item_code) if frappe.db.exists("Item", row.item_code) else None
@@ -112,9 +117,8 @@ def set_wanted_list_status(code, status):
 	ensure_staff()
 	if status not in WANTED_STATUSES:
 		frappe.throw(_("Trạng thái không hợp lệ."))
-	if not frappe.db.exists("Cago Wanted List", code):
-		frappe.throw(_("Không tìm thấy đơn chọn hàng."))
-	frappe.db.set_value("Cago Wanted List", code, "status", status)
+	name = _wanted_name(code)
+	frappe.db.set_value("Cago Wanted List", name, "status", status)
 	frappe.db.commit()
 	return {"code": code, "status": status}
 
@@ -126,8 +130,17 @@ def cancel_wanted_list(code):
 	Marked Cancelled (kept for the record, hidden from the open list) rather than hard
 	deleted, so it can still be reviewed under 'Xem cả đơn xong'."""
 	ensure_staff()
-	if not frappe.db.exists("Cago Wanted List", code):
-		frappe.throw(_("Không tìm thấy đơn chọn hàng."))
-	frappe.db.set_value("Cago Wanted List", code, "status", "Cancelled")
+	name = _wanted_name(code)
+	frappe.db.set_value("Cago Wanted List", name, "status", "Cancelled")
 	frappe.db.commit()
 	return {"code": code, "status": "Cancelled"}
+
+
+def _wanted_name(code):
+	"""Resolve a wanted-list business code (WL-2026-...) to its docname (or throw)."""
+	name = frappe.db.get_value("Cago Wanted List", {"code": code}, "name") or (
+		code if frappe.db.exists("Cago Wanted List", code) else None
+	)
+	if not name:
+		frappe.throw(_("Không tìm thấy đơn chọn hàng."))
+	return name

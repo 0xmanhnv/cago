@@ -11,6 +11,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const [info, setInfo] = useState<{ customer_name: string; outstanding_text: string; debt_limit_text?: string } | null>(null);
   const [amt, setAmt] = useState("");
   const [msg, setMsg] = useState<React.ReactNode>(null);
+  const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [qrCfg, setQrCfg] = useState(true);
   const method = mode === "add" ? "cago.api.debt.record_debt" : "cago.api.debt.record_repayment";
@@ -38,14 +39,18 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const save = async () => {
     const val = parseFloat(amt);
     setMsg(null);
+    if (busy) return;
     if (!val || val <= 0) return setMsg(<Warn>Số tiền phải lớn hơn 0.</Warn>);
     if (!confirm(`${mode === "add" ? "Ghi nợ " : "Khách trả "}${money(val)} cho ${info.customer_name}?`)) return;
+    setBusy(true);
     try {
       const r = await frappeCall<{ outstanding_text: string }>(method, { customer: cust, amount: val });
       setMsg(<Ok>✅ Xong. Nợ còn lại: {r.outstanding_text}</Ok>);
       setAmt("");
-    } catch {
-      setMsg(<Warn>Lỗi: không lưu được.</Warn>);
+    } catch (e) {
+      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi: không lưu được."}</Warn>);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -66,8 +71,8 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
         )}
         <p className="mt-2 text-slate-500">{mode === "add" ? "Số tiền ghi nợ thêm" : "Số tiền khách trả"} (đồng):</p>
         <input autoFocus inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-3 text-xl" />
-        <button onClick={save} className={`mt-3 min-h-touch w-full rounded-xl font-extrabold text-white ${mode === "add" ? "bg-red-600" : "bg-brand"}`}>
-          {mode === "add" ? "Ghi nợ" : "Xác nhận trả"}
+        <button onClick={save} disabled={busy} className={`mt-3 min-h-touch w-full rounded-xl font-extrabold text-white disabled:opacity-50 ${mode === "add" ? "bg-red-600" : "bg-brand"}`}>
+          {busy ? "Đang lưu..." : mode === "add" ? "Ghi nợ" : "Xác nhận trả"}
         </button>
         {mode === "repay" && (
           <button

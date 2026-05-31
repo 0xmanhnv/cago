@@ -39,6 +39,54 @@ const EDIT_FIELDS = [
   "cago_is_public_visible",
 ] as const;
 
+// These are defined at MODULE scope (not inside ProductEditor) so their component identity
+// is stable across renders — otherwise React remounts each <input> on every keystroke and
+// the field loses focus after one character (the owner couldn't type).
+type FieldProps = { label: string; k: string; data: Record<string, string | number>; set: (k: string, v: string | number) => void };
+
+function EditField({ label, k, data, set, type = "text" }: FieldProps & { type?: string }) {
+  return (
+    <label className="mt-3 block">
+      <span className="mb-1 block font-bold text-slate-700">{label}</span>
+      <input
+        type={type}
+        inputMode={type === "number" ? "numeric" : undefined}
+        value={(data[k] as string) ?? ""}
+        onChange={(ev) => set(k, ev.target.value)}
+        className="w-full rounded-lg border-2 border-emerald-300 p-2.5 text-base"
+      />
+    </label>
+  );
+}
+function EditArea({ label, k, data, set }: FieldProps) {
+  return (
+    <label className="mt-3 block">
+      <span className="mb-1 block font-bold text-slate-700">{label}</span>
+      <textarea rows={2} value={(data[k] as string) ?? ""} onChange={(ev) => set(k, ev.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5 text-base" />
+    </label>
+  );
+}
+function EditSelect({ label, k, data, set, opts }: FieldProps & { opts: string[] }) {
+  return (
+    <label className="mt-3 block">
+      <span className="mb-1 block font-bold text-slate-700">{label}</span>
+      <select value={(data[k] as string) ?? ""} onChange={(ev) => set(k, ev.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5 text-base">
+        {["", ...opts].map((o) => (
+          <option key={o}>{o}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+function EditCheck({ label, k, data, set }: FieldProps) {
+  return (
+    <label className="mt-3 flex items-center gap-2 font-bold text-slate-700">
+      <input type="checkbox" checked={!!data[k]} onChange={(ev) => set(k, ev.target.checked ? 1 : 0)} className="h-5 w-5" />
+      {label}
+    </label>
+  );
+}
+
 export function ProductEditor({ code }: { code: string }) {
   const router = useRouter();
   const [e, setE] = useState<EditData | null>(null);
@@ -46,6 +94,7 @@ export function ProductEditor({ code }: { code: string }) {
   const [msg, setMsg] = useState<React.ReactNode>(null);
   const [imgs, setImgs] = useState<{ main?: string; images: string[] }>({ images: [] });
   const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     frappeCall<EditData>("cago.api.owner.get_product_for_edit", { item_code: code }, { method: "GET" }).then((d) => {
@@ -61,48 +110,18 @@ export function ProductEditor({ code }: { code: string }) {
   if (!e) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
 
   const set = (k: string, v: string | number) => setData((d) => ({ ...d, [k]: v }));
-  const Field = ({ label, k, type = "text" }: { label: string; k: string; type?: string }) => (
-    <label className="mt-3 block">
-      <span className="mb-1 block font-bold text-slate-700">{label}</span>
-      <input
-        type={type}
-        inputMode={type === "number" ? "numeric" : undefined}
-        value={(data[k] as string) ?? ""}
-        onChange={(ev) => set(k, ev.target.value)}
-        className="w-full rounded-lg border-2 border-emerald-300 p-2.5 text-base"
-      />
-    </label>
-  );
-  const Area = ({ label, k }: { label: string; k: string }) => (
-    <label className="mt-3 block">
-      <span className="mb-1 block font-bold text-slate-700">{label}</span>
-      <textarea rows={2} value={(data[k] as string) ?? ""} onChange={(ev) => set(k, ev.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5 text-base" />
-    </label>
-  );
-  const Select = ({ label, k, opts }: { label: string; k: string; opts: string[] }) => (
-    <label className="mt-3 block">
-      <span className="mb-1 block font-bold text-slate-700">{label}</span>
-      <select value={(data[k] as string) ?? ""} onChange={(ev) => set(k, ev.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5 text-base">
-        {["", ...opts].map((o) => (
-          <option key={o}>{o}</option>
-        ))}
-      </select>
-    </label>
-  );
-  const Check = ({ label, k }: { label: string; k: string }) => (
-    <label className="mt-3 flex items-center gap-2 font-bold text-slate-700">
-      <input type="checkbox" checked={!!data[k]} onChange={(ev) => set(k, ev.target.checked ? 1 : 0)} className="h-5 w-5" />
-      {label}
-    </label>
-  );
 
   const save = async () => {
     setMsg(null);
+    if (saving) return;
+    setSaving(true);
     try {
       await frappeCall("cago.api.owner.update_product", { item_code: code, data: JSON.stringify(data) });
       setMsg(<Ok>✅ Đã lưu sản phẩm.</Ok>);
-    } catch {
-      setMsg(<Warn>Lỗi: không lưu được.</Warn>);
+    } catch (err) {
+      setMsg(<Warn>Lỗi: {err instanceof Error ? err.message : "không lưu được."}</Warn>);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -166,28 +185,28 @@ export function ProductEditor({ code }: { code: string }) {
         ))}
 
         <div className="mt-4 text-lg font-extrabold">Thông tin sản phẩm</div>
-        <Field label="Tên hiển thị" k="cago_display_name" />
-        <Field label="Mã vạch (barcode — quét/nhập)" k="barcode" />
-        <Field label="Giá bán (đồng)" k="selling_price" type="number" />
-        <Select label="Tồn kho hiển thị (khi không tự tính)" k="cago_stock_status_manual" opts={e.stock_status_options || []} />
-        <Check label="Tự tính tồn theo số thật (đã nhập hàng)" k="cago_stock_auto" />
-        <Field label="Mức đặt lại — 'còn ít' khi tồn ≤ (theo đơn vị tồn)" k="cago_reorder_level" type="number" />
-        <Field label="Giá bán tối thiểu (sàn) — chặn bán dưới giá vốn (để trống = không chặn)" k="cago_min_price" type="number" />
-        <Field label="Vị trí để hàng" k="cago_shelf_location" />
-        <Field label="Tên dân dã (khách hay gọi)" k="cago_local_names" />
-        <Area label="Mô tả ngắn cho khách" k="cago_public_description" />
-        <Field label="Dùng cho" k="cago_use_cases" />
-        <Field label="Cây/con phù hợp" k="cago_crop_or_animal_targets" />
-        <Field label="Màu bao bì" k="cago_package_color" />
-        <Select label="Mức chất lượng" k="cago_product_quality_tier" opts={e.quality_options || []} />
-        <Area label="Câu tư vấn cho người bán" k="cago_staff_advice" />
-        <Area label="Khi nào cần gọi chủ" k="cago_call_owner_when" />
-        <Area label="Lưu ý an toàn" k="cago_safety_notes" />
-        <Check label="Là hóa chất/thuốc" k="cago_is_chemical" />
-        <Check label="Hiển thị trên kiosk" k="cago_is_public_visible" />
+        <EditField label="Tên hiển thị" k="cago_display_name" data={data} set={set} />
+        <EditField label="Mã vạch (barcode — quét/nhập)" k="barcode" data={data} set={set} />
+        <EditField label="Giá bán (đồng)" k="selling_price" type="number" data={data} set={set} />
+        <EditSelect label="Tồn kho hiển thị (khi không tự tính)" k="cago_stock_status_manual" opts={e.stock_status_options || []} data={data} set={set} />
+        <EditCheck label="Tự tính tồn theo số thật (đã nhập hàng)" k="cago_stock_auto" data={data} set={set} />
+        <EditField label="Mức đặt lại — 'còn ít' khi tồn ≤ (theo đơn vị tồn)" k="cago_reorder_level" type="number" data={data} set={set} />
+        <EditField label="Giá bán tối thiểu (sàn) — chặn bán dưới giá vốn (để trống = không chặn)" k="cago_min_price" type="number" data={data} set={set} />
+        <EditField label="Vị trí để hàng" k="cago_shelf_location" data={data} set={set} />
+        <EditField label="Tên dân dã (khách hay gọi)" k="cago_local_names" data={data} set={set} />
+        <EditArea label="Mô tả ngắn cho khách" k="cago_public_description" data={data} set={set} />
+        <EditField label="Dùng cho" k="cago_use_cases" data={data} set={set} />
+        <EditField label="Cây/con phù hợp" k="cago_crop_or_animal_targets" data={data} set={set} />
+        <EditField label="Màu bao bì" k="cago_package_color" data={data} set={set} />
+        <EditSelect label="Mức chất lượng" k="cago_product_quality_tier" opts={e.quality_options || []} data={data} set={set} />
+        <EditArea label="Câu tư vấn cho người bán" k="cago_staff_advice" data={data} set={set} />
+        <EditArea label="Khi nào cần gọi chủ" k="cago_call_owner_when" data={data} set={set} />
+        <EditArea label="Lưu ý an toàn" k="cago_safety_notes" data={data} set={set} />
+        <EditCheck label="Là hóa chất/thuốc" k="cago_is_chemical" data={data} set={set} />
+        <EditCheck label="Hiển thị trên kiosk" k="cago_is_public_visible" data={data} set={set} />
 
-        <button onClick={save} className="mt-4 min-h-touch w-full rounded-xl bg-amber-500 font-extrabold text-white">
-          💾 Lưu sản phẩm
+        <button onClick={save} disabled={saving} className="mt-4 min-h-touch w-full rounded-xl bg-amber-500 font-extrabold text-white disabled:opacity-50">
+          {saving ? "Đang lưu..." : "💾 Lưu sản phẩm"}
         </button>
         <button
           onClick={async () => {

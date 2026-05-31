@@ -72,6 +72,24 @@ class TestLoyalty(FrappeTestCase):
 		sales.credit_sale(cust, json.dumps([{"item_code": ITEM, "qty": 3}]))
 		self.assertGreater(flt(frappe.db.get_value("Customer", cust, "cago_points")), 0)
 
+	def test_points_reverse_exactly_even_if_rate_changes(self):
+		from cago.api import debt, purchasing, sales
+		from frappe.utils import flt
+
+		purchasing.receive_stock(ITEM, 10)
+		cust = debt.add_customer("KH Diem Reverse")["customer"]
+		before = flt(frappe.db.get_value("Customer", cust, "cago_points"))
+		r = sales.credit_sale(cust, json.dumps([{"item_code": ITEM, "qty": 2}]))
+		after_accrue = flt(frappe.db.get_value("Customer", cust, "cago_points"))
+		self.assertGreater(after_accrue, before)
+		# Change the loyalty rate, then cancel — reversal must use the awarded count, not recompute.
+		frappe.conf["cago_loyalty_vnd_per_point"] = 1  # would massively inflate a recompute
+		try:
+			frappe.get_doc("Sales Invoice", r["invoice"]).cancel()
+		finally:
+			frappe.conf.pop("cago_loyalty_vnd_per_point", None)
+		self.assertEqual(flt(frappe.db.get_value("Customer", cust, "cago_points")), before)
+
 
 class TestQuickSale(FrappeTestCase):
 	"""Cago-native checkout (sales.quick_sale): a paid POS invoice that reduces stock."""
@@ -117,6 +135,27 @@ class TestQuickSale(FrappeTestCase):
 
 		with self.assertRaises(frappe.ValidationError):
 			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "bitcoin")
+
+	def test_sell_zero_valuation_item(self):
+		"""An item received with no cost (zero valuation) must still be sellable
+		(COGS=0), not blocked by 'Allow Zero Valuation Rate not enabled'."""
+		from cago.api import purchasing, sales
+
+		code = "CAGO-ZEROVAL-TEST"
+		if not frappe.db.exists("Item", code):
+			frappe.get_doc(
+				{
+					"doctype": "Item",
+					"item_code": code,
+					"item_name": "Zero val test",
+					"item_group": frappe.db.get_value("Item Group", {"is_group": 0}, "name"),
+					"stock_uom": "Nos",
+					"is_stock_item": 1,
+				}
+			).insert(ignore_permissions=True)
+		purchasing.receive_stock(code, 5)  # no cost_rate -> zero valuation
+		r = sales.quick_sale(json.dumps([{"item_code": code, "qty": 1}]), "cash")
+		self.assertEqual(frappe.get_doc("Sales Invoice", r["invoice"]).docstatus, 1)
 
 
 class TestPosHandoff(FrappeTestCase):

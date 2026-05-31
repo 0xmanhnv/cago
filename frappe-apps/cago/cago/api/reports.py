@@ -237,10 +237,10 @@ def best_sellers(limit=10):
 		frappe.qb.from_(sii)
 		.join(si)
 		.on(sii.parent == si.name)
-		.select(sii.item_code, Sum(sii.qty).as_("qty"))
+		.select(sii.item_code, Sum(sii.stock_qty).as_("qty"))
 		.where((si.docstatus == 1) & (si.company == company))
 		.groupby(sii.item_code)
-		.orderby(Sum(sii.qty), order=Order.desc)
+		.orderby(Sum(sii.stock_qty), order=Order.desc)
 		.limit(int(limit))
 	).run(as_dict=True)
 	return [

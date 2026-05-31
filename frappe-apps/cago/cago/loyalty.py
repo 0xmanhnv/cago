@@ -18,20 +18,34 @@ def _per_point():
 	return flt(_get("CAGO_LOYALTY_VND_PER_POINT", "cago_loyalty_vnd_per_point", 10000)) or 10000
 
 
-def _adjust(doc, sign):
+def _add_points(customer, delta):
+	current = flt(frappe.db.get_value("Customer", customer, "cago_points"))
+	frappe.db.set_value("Customer", customer, "cago_points", max(0, int(current + delta)))
+
+
+def accrue(doc, method=None):
+	"""On submit: award points and RECORD the awarded count on the invoice, so cancel can
+	reverse the exact amount regardless of any later rate change."""
 	customer = getattr(doc, "customer", None)
 	if not customer:
 		return
 	pts = int(flt(getattr(doc, "grand_total", 0)) / _per_point())
 	if pts <= 0:
 		return
-	current = flt(frappe.db.get_value("Customer", customer, "cago_points"))
-	frappe.db.set_value("Customer", customer, "cago_points", max(0, int(current + sign * pts)))
-
-
-def accrue(doc, method=None):
-	_adjust(doc, +1)
+	_add_points(customer, +pts)
+	# Persist what we actually gave (read back on cancel). Field may be absent on older sites.
+	try:
+		frappe.db.set_value("Sales Invoice", doc.name, "cago_points_awarded", pts, update_modified=False)
+	except Exception:
+		pass
 
 
 def reverse(doc, method=None):
-	_adjust(doc, -1)
+	"""On cancel: subtract exactly the points awarded at submit (not a recomputed value)."""
+	customer = getattr(doc, "customer", None)
+	if not customer:
+		return
+	awarded = getattr(doc, "cago_points_awarded", None)
+	pts = int(flt(awarded)) if awarded else int(flt(getattr(doc, "grand_total", 0)) / _per_point())
+	if pts > 0:
+		_add_points(customer, -pts)

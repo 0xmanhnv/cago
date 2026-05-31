@@ -244,7 +244,7 @@ def get_customer_ledger(customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	rows = frappe.get_all(
 		"GL Entry",
-		filters={"party_type": "Customer", "party": customer, "is_cancelled": 0},
+		filters={"party_type": "Customer", "party": customer, "is_cancelled": 0, "company": _company()},
 		fields=["posting_date", "voucher_type", "voucher_no", "debit", "credit"],
 		order_by="posting_date asc, creation asc",
 	)

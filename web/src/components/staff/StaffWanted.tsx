@@ -44,6 +44,7 @@ export function StaffWanted() {
   const [code, setCode] = useState("");
   const [wl, setWl] = useState<WantedList | null>(null);
   const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const loadList = async (done = includeDone) => {
     setLoading(true);
@@ -74,17 +75,44 @@ export function StaffWanted() {
     }
   };
   const setStatus = async (status: string) => {
-    if (!wl) return;
-    const r = await frappeCall<{ status: string }>("cago.api.staff.set_wanted_list_status", { code: wl.code, status });
-    setWl({ ...wl, status: r.status });
-    void loadList();
+    if (!wl || busy) return;
+    setBusy(true);
+    try {
+      const r = await frappeCall<{ status: string }>("cago.api.staff.set_wanted_list_status", { code: wl.code, status });
+      setWl({ ...wl, status: r.status });
+      void loadList();
+    } catch (e) {
+      alert(`Lỗi: ${e instanceof Error ? e.message : "không đổi được trạng thái."}`);
+    } finally {
+      setBusy(false);
+    }
   };
   const cancelOrder = async () => {
-    if (!wl) return;
+    if (!wl || busy) return;
     if (!confirm(`Huỷ đơn ${wl.code}? (khách không lấy nữa)`)) return;
-    await frappeCall<{ status: string }>("cago.api.staff.cancel_wanted_list", { code: wl.code });
-    setWl(null);
-    void loadList();
+    setBusy(true);
+    try {
+      await frappeCall<{ status: string }>("cago.api.staff.cancel_wanted_list", { code: wl.code });
+      setWl(null);
+      void loadList();
+    } catch (e) {
+      alert(`Lỗi: ${e instanceof Error ? e.message : "không huỷ được."}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const createInvoice = async () => {
+    if (!wl || busy) return;
+    setBusy(true);
+    try {
+      const r = await frappeCall<{ url: string }>("cago.api.pos.create_invoice_from_wanted", { code: wl.code });
+      window.open(r.url, "_blank");
+      void loadList();
+    } catch (e) {
+      alert(`Lỗi: ${e instanceof Error ? e.message : "không tạo được hoá đơn."}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   // ---- Detail view -------------------------------------------------------
@@ -127,14 +155,8 @@ export function StaffWanted() {
               ✅ Hoàn tất
             </button>
           </div>
-          <button
-            onClick={async () => {
-              const r = await frappeCall<{ url: string }>("cago.api.pos.create_invoice_from_wanted", { code: wl.code });
-              window.open(r.url, "_blank");
-            }}
-            className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-bold text-white"
-          >
-            🧾 Tạo hoá đơn (mở để thu tiền)
+          <button onClick={createInvoice} disabled={busy} className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-bold text-white disabled:opacity-50">
+            {busy ? "Đang xử lý..." : "🧾 Tạo hoá đơn (mở để thu tiền)"}
           </button>
           {wl.status !== "Cancelled" && wl.status !== "Completed" && (
             <button onClick={cancelOrder} className="mt-2.5 min-h-touch w-full rounded-xl border-2 border-red-300 bg-white font-bold text-red-600">

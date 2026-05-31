@@ -84,7 +84,19 @@ def credit_sale(customer, items, note=None):
 			continue
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
-		rows.append({"item_code": code, "qty": qty, "uom": uom, "rate": _rate_for_uom(code, uom, stock_uom), "warehouse": wh})
+		rows.append(
+			{
+				"item_code": code,
+				"qty": qty,
+				"uom": uom,
+				"rate": _rate_for_uom(code, uom, stock_uom),
+				"warehouse": wh,
+				# Items received without a cost have zero valuation; selling them via
+				# update_stock would otherwise fail ("Allow Zero Valuation Rate not enabled").
+				# COGS is 0 for those until a cost is recorded — owner enters cost on nhập hàng.
+				"allow_zero_valuation_rate": 1,
+			}
+		)
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 
@@ -188,7 +200,19 @@ def quick_sale(items, payment_mode="cash", customer=None):
 			continue
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
-		rows.append({"item_code": code, "qty": qty, "uom": uom, "rate": _rate_for_uom(code, uom, stock_uom), "warehouse": wh})
+		rows.append(
+			{
+				"item_code": code,
+				"qty": qty,
+				"uom": uom,
+				"rate": _rate_for_uom(code, uom, stock_uom),
+				"warehouse": wh,
+				# Items received without a cost have zero valuation; selling them via
+				# update_stock would otherwise fail ("Allow Zero Valuation Rate not enabled").
+				# COGS is 0 for those until a cost is recorded — owner enters cost on nhập hàng.
+				"allow_zero_valuation_rate": 1,
+			}
+		)
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 

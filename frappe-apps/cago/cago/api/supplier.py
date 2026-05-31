@@ -43,7 +43,7 @@ def _supplier_outstanding(supplier):
 	"""How much we owe a supplier = credit − debit on their party GL (positive = we owe)."""
 	rows = frappe.get_all(
 		"GL Entry",
-		filters={"party_type": "Supplier", "party": supplier, "is_cancelled": 0},
+		filters={"party_type": "Supplier", "party": supplier, "is_cancelled": 0, "company": debt._company()},
 		fields=["debit", "credit"],
 	)
 	return flt(sum(flt(r.credit) - flt(r.debit) for r in rows))
@@ -192,7 +192,7 @@ def get_supplier_ledger(supplier):
 	ensure_owner()
 	rows = frappe.get_all(
 		"GL Entry",
-		filters={"party_type": "Supplier", "party": supplier, "is_cancelled": 0},
+		filters={"party_type": "Supplier", "party": supplier, "is_cancelled": 0, "company": debt._company()},
 		fields=["posting_date", "voucher_type", "voucher_no", "debit", "credit"],
 		order_by="posting_date asc, creation asc",
 	)

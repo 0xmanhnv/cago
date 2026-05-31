@@ -28,7 +28,11 @@ def create_invoice_from_wanted(code):
 	if not wl:
 		frappe.throw(_("Không tìm thấy đơn với mã này."))
 	doc = frappe.get_doc("Cago Wanted List", wl)
-	items = [{"item_code": i.item_code, "qty": i.qty} for i in doc.items if frappe.db.exists("Item", i.item_code)]
+	items = [
+		{"item_code": i.item_code, "qty": i.qty, "allow_zero_valuation_rate": 1}
+		for i in doc.items
+		if frappe.db.exists("Item", i.item_code)
+	]
 	if not items:
 		frappe.throw(_("Đơn không có sản phẩm hợp lệ."))
 
