@@ -8,12 +8,56 @@ price, valuation or margin.
 
 import frappe
 from frappe import _
-from frappe.utils import get_datetime, now_datetime
+from frappe.utils import cint, flt, format_datetime, get_datetime, now_datetime
 
 from cago.utils import dto
 from cago.utils.permissions import ensure_staff
 
 WANTED_STATUSES = ("New", "Processing", "Completed", "Expired")
+
+
+@frappe.whitelist()
+def list_wanted_lists(include_done=0):
+	"""List recent customer wanted lists so staff can SEE what was selected on the kiosk
+	without having to type a code. Open ones (New/Processing) first; newest first. Set
+	include_done=1 to also show Completed/Expired."""
+	ensure_staff()
+	filters = {}
+	if not cint(include_done):
+		filters["status"] = ["in", ["New", "Processing"]]
+	rows = frappe.get_all(
+		"Cago Wanted List",
+		filters=filters,
+		fields=["name", "code", "status", "note", "creation", "expires_at"],
+		order_by="creation desc",
+		limit=50,
+	)
+	out = []
+	for r in rows:
+		items = frappe.get_all("Cago Wanted List Item", filters={"parent": r.name}, fields=["item_code", "qty"])
+		names, total_qty = [], 0
+		for it in items:
+			total_qty += flt(it.qty)
+			disp = (
+				frappe.db.get_value("Item", it.item_code, "cago_display_name")
+				or frappe.db.get_value("Item", it.item_code, "item_name")
+				or it.item_code
+			)
+			names.append(disp)
+		summary = ", ".join(names[:3]) + (f" +{len(names) - 3}" if len(names) > 3 else "")
+		out.append(
+			{
+				"code": r.code or r.name,
+				"status": r.status,
+				"item_count": len(items),
+				"total_qty": total_qty,
+				"summary": summary,
+				"note": r.note,
+				"created": format_datetime(r.creation, "dd/MM HH:mm"),
+				"is_expired": bool(r.expires_at and get_datetime(r.expires_at) < now_datetime()),
+			}
+		)
+	return out
 
 
 @frappe.whitelist()

@@ -139,3 +139,10 @@ class TestPosHandoff(FrappeTestCase):
 		self.assertEqual(si.docstatus, 0)  # DRAFT — staff must confirm/submit
 		self.assertEqual(len(si.items), 1)
 		self.assertEqual(frappe.db.get_value("Cago Wanted List", {"code": wl["code"]}, "status"), "Processing")
+
+	def test_list_wanted_lists_shows_open_orders(self):
+		from cago.api import kiosk, staff
+
+		wl = kiosk.create_wanted_list(json.dumps([{"item_code": ITEM, "qty": 2}]))
+		codes = [o["code"] for o in staff.list_wanted_lists()]
+		self.assertIn(wl["code"], codes)  # a new (open) list is listed without typing a code
