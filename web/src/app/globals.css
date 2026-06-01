@@ -13,6 +13,12 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Always reserve the scrollbar gutter so the layout doesn't shift left/right when a page
+   grows/shrinks past one viewport (e.g. switching a category with many vs few products). */
+html {
+  scrollbar-gutter: stable;
+}
+
 /* Soft sunny-field gradient: pale sky → fresh leaf, fixed so it doesn't scroll. */
 body {
   font-size: 17px;
