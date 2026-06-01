@@ -115,6 +115,13 @@ Source string → Cago Vietnamese (these become `Translation` records for `vi`; 
 - **Dictionary:** §4 (cashier-critical core; finalized in M3).
 - **Files likely to change:** (data) Frappe `Translation` records for `vi`; (Cago, optional) `cago/setup/pos_i18n.py` + fixture/CSV + this doc; the POS user's `User.language`. **No posawesome source files** unless the fork path (M5) is triggered.
 - **Risks:** (a) ~26 non-`__()` files may hold hardcoded cashier strings → audit (M2), fork-patch if needed; (b) existing `vi.csv` mistranslations → overridden by Translation records; (c) must `clear-cache`/rebuild translations after seeding so the frontend updates; (d) VI label overflow on buttons → keep short + visual check; (e) updates re-ship `vi.csv` but DB overrides win (safe).
+- **Status (2026-06-01):** M1–M4 done on the eval site. Curated dictionary (120 cashier
+  strings) formalized in **`cago/setup/pos_i18n.py`** (`seed_pos_translations` /
+  `clear_pos_translations`, idempotent, no posawesome import). Applied via Frappe `Translation`
+  (vi) — overrides the app's `vi.csv` at runtime. Verified: critical cashier terms resolve to
+  curated Vietnamese; **Cago 76 tests pass**; **English fallback** clean (vi overrides don't
+  leak into `en`). Remaining = human browser pass (button overflow / full flow visual) at
+  `/app/posapp`, then production install (owner-approved) + run the seeder there.
 - **Implementation milestones:**
   - **M1** — set POS user lang = vi, load `/app/posapp`, baseline how much `vi.csv` already covers.
   - **M2** — audit cashier-critical strings (untranslated / wrong / hardcoded) → gap list.
