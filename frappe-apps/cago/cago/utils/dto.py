@@ -296,7 +296,7 @@ def _rate_for(pmap, stock_uom):
 	return pmap.get(stock_uom) or pmap.get("") or next(iter(pmap.values()), 0) or 0
 
 
-def list_dtos(query, audience="staff", public_only=False, category=None, limit=24):
+def list_dtos(query, audience="staff", public_only=False, category=None, limit=24, start=0):
 	"""Lightweight list/search results built with 2 queries total (items + prices).
 
 	List cards don't need alternatives or live stock qty, so we skip the per-item
@@ -326,6 +326,7 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 			or_filters=[[f, "like", like] for f in SEARCH_FIELDS],
 			fields=LIST_FIELDS,
 			limit=limit,
+			limit_start=start,
 			order_by="item_name asc",
 		)
 	else:
@@ -334,6 +335,7 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 			filters=base,
 			fields=LIST_FIELDS,
 			limit=limit,
+			limit_start=start,
 			order_by="cago_kiosk_sort_order asc, item_name asc",
 		)
 

@@ -67,10 +67,15 @@ def list_wanted_lists(include_done=0):
 	return out
 
 
+STAFF_PAGE = 30
+
+
 @frappe.whitelist()
-def search_products(query=None, category=None):
+def search_products(query=None, category=None, start=0):
 	ensure_staff()
-	return dto.list_dtos(query, audience="staff", public_only=False, category=category)
+	from frappe.utils import cint
+
+	return dto.list_dtos(query, audience="staff", public_only=False, category=category, limit=STAFF_PAGE, start=cint(start))
 
 
 @frappe.whitelist()

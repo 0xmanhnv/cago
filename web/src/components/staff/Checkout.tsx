@@ -139,6 +139,10 @@ export function Checkout() {
   const { boot } = useSession();
   const allowPriceEdit = !!boot?.allow_price_edit; // server re-checks; this only shows the field
   const [list, setList] = useState<ProductCard[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const STAFF_PAGE = 30;
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [lines, setLines] = useState<Record<string, Line>>({});
@@ -213,11 +217,28 @@ export function Checkout() {
   const run = async (query: string, cat: string = category) => {
     setLoading(true);
     try {
-      setList((await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, category: cat || null }, { method: "GET" })) || []);
+      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, category: cat || null, start: 0 }, { method: "GET" })) || [];
+      setList(r);
+      setHasMore(r.length >= STAFF_PAGE);
     } catch {
       setList([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
+    }
+  };
+  // Infinite scroll: fetch the next page and append (server paginates by `start`).
+  const loadMore = async () => {
+    if (loadingMore || loading) return;
+    setLoadingMore(true);
+    try {
+      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q, category: category || null, start: list.length }, { method: "GET" })) || [];
+      setList((prev) => [...prev, ...r]);
+      setHasMore(r.length >= STAFF_PAGE);
+    } catch {
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
     }
   };
   useEffect(() => {
@@ -231,6 +252,16 @@ export function Checkout() {
     setQ("");
     void run("", c);
   };
+  // Auto load-more when the bottom sentinel scrolls into view.
+  useEffect(() => {
+    if (!hasMore || loading) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((es) => es[0]?.isIntersecting && void loadMore(), { rootMargin: "400px" });
+    io.observe(el);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, loading, loadingMore, list.length, q, category]);
 
   const ensureMeta = async (code: string): Promise<Meta | null> => {
     if (meta[code]) return meta[code];
@@ -661,42 +692,44 @@ export function Checkout() {
       </button>
       {showCust && <CustomerPicker onPick={(c) => { setCust(c); setShowCust(false); }} onWalkIn={() => { setCust(null); setShowCust(false); }} />}
 
-      <input
-        autoFocus
-        value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
-          clearTimeout(tRef.current);
-          tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
-        }}
-        placeholder="🔎 Tìm theo tên, công dụng... (để trống xem tất cả)"
-        className="w-full rounded-xl border-2 border-slate-300 p-3.5 text-lg"
-      />
-      <input
-        placeholder="⌨ Quét/nhập mã vạch rồi Enter"
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            void findBarcode((e.target as HTMLInputElement).value);
-            (e.target as HTMLInputElement).value = "";
-          }
-        }}
-        className="mt-2 w-full rounded-xl border-2 border-emerald-300 p-3 text-base"
-      />
+      {/* Search + barcode share one row on wider screens (stack on phones) — less vertical
+          stacking so the products surface sooner. */}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          autoFocus
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            clearTimeout(tRef.current);
+            tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
+          }}
+          placeholder="🔎 Tìm theo tên, công dụng... (để trống xem tất cả)"
+          className="w-full rounded-xl border-2 border-slate-300 p-3.5 text-lg sm:flex-1"
+        />
+        <input
+          placeholder="⌨ Quét/nhập mã vạch rồi Enter"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              void findBarcode((e.target as HTMLInputElement).value);
+              (e.target as HTMLInputElement).value = "";
+            }
+          }}
+          className="w-full rounded-xl border-2 border-emerald-300 p-3 text-base sm:w-72"
+        />
+      </div>
 
       <div className="mt-3">
-        {/* Category quick-filter: a horizontal chip strip at every width (no sidebar) so the
-            product grid gets the full width and the browse-by-loại UX is consistent. */}
-        {cats.length > 0 && (
-          <div className="mb-2">
-            <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />
+        {/* One compact row: category chips (scrollable) + product count + List/Card toggle. */}
+        <div className="mb-2 flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            {cats.length > 0 && <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />}
           </div>
-        )}
-        {/* List ⟷ Card view: staff default to dense List for speed; Card is bigger/visual. */}
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm text-slate-400">{list.length} sản phẩm</span>
-          <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
-            <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
-            <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden whitespace-nowrap text-sm text-slate-400 sm:inline">{list.length} sản phẩm</span>
+            <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
+              <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
+              <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
+            </div>
           </div>
         </div>
         {loading ? (
@@ -819,6 +852,9 @@ export function Checkout() {
           })}
           </div>
         )}
+        {/* Infinite-scroll sentinel + loading hint (server paginates 30/page). */}
+        {hasMore && <div ref={sentinelRef} className="h-1" />}
+        {loadingMore && <div className="py-4 text-center text-slate-400">Đang tải thêm...</div>}
       </div>
 
       {cartCodes.length > 0 && (
