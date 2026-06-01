@@ -108,6 +108,49 @@ Source string → Cago Vietnamese (these become `Translation` records for `vi`; 
 9. Native ERPNext POS still works.
 10. Cago owner/staff/kiosk + 76 Cago tests still pass (translation doesn't touch Cago code).
 
+## 8b. Operating guide (implementation as shipped)
+
+**Mechanism (POS Awesome's existing i18n only):** Frappe gettext — POS Awesome calls `__()` and
+ships `translations/*.csv` (incl. `vi.csv`). We override/curate terminology via the Frappe
+**`Translation` DocType** (language `vi`), which `get_all_translations("vi")` merges into both
+server and the desk/boot bundle. **No fork, no app/CSV edits, no core changes.**
+
+**Dictionary (the translation "file"):** `frappe-apps/cago/cago/setup/pos_i18n.py` — ~150
+curated `source → vi` entries (cashier-critical first, plus fixes for the app's machine
+mistranslations and proper-name preservation). Version-controlled, reviewable.
+
+**Apply / re-apply:**
+```
+bench --site <site> execute cago.setup.pos_i18n.seed_pos_translations   # idempotent + clear-cache
+```
+
+**How to switch language (per user; English fallback automatic):**
+- Vietnamese POS: set the user's `User.language = "vi"` (counter users get this via
+  `cago.setup.test_accounts`). 
+- English: set `User.language = "en"` (or blank) → Frappe falls back to source/`en`; our `vi`
+  overrides do NOT affect `en`. No global ERPNext language change needed.
+
+**How to ADD a new translation:**
+1. Open `cago/setup/pos_i18n.py`, add `"Exact Source String": "Bản dịch",` to `POS_VI`.
+   - The source must match EXACTLY what POS Awesome passes to `__()` (case/spacing-sensitive).
+   - Find sources: `grep -rhoP "__\(\s*['\"][^'\"]+" apps/posawesome/frontend/src | sort -u`.
+2. `bench --site <site> execute cago.setup.pos_i18n.seed_pos_translations`
+3. Hard-reload the POS (Cmd+Shift+R); if cached, clear site data / use incognito.
+- For a HARDCODED string (component has literal text, no `__()`): translations can't reach it —
+  it needs the `cago_posawesome` fork (wrap in `__()`). Tracked under §3-D / known-remaining.
+
+**Visual / manual QA checklist (do on a tablet + a phone, logged in as a counter user, lang=vi):**
+- [ ] `/app/posapp` opens in Vietnamese; "POS Awesome" stays as the product name (not "tuyệt vời").
+- [ ] Item grid: Sản phẩm, Đơn giá, Tồn khả dụng, nhóm hàng labels VN.
+- [ ] Cart: Số lượng, Thành tiền, Tổng tiền/Tổng cộng, Giảm giá; VND shows no decimals (320.000).
+- [ ] Payment: Tiền mặt / Chuyển khoản / Trả tiền; "Hình thức thanh toán"; "Loại đối tượng" (not "Đảng").
+- [ ] Actions: Hoàn tất, In phiếu, Trả hàng, Hủy; menu Thanh toán/Đơn đặt mua/In mã vạch.
+- [ ] Errors/empties read VN: "Hết hàng", "Chưa chọn khách", "Giỏ chưa có sản phẩm".
+- [ ] No button overflow / text clipping with the longer VN labels.
+- [ ] Set a user to `en` → POS shows English (fallback works); other users still VN.
+- [ ] Complete one real sale → no business-logic change (invoice/stock/GL correct).
+- [ ] Native ERPNext POS + Cago `/staff/sell` + kiosk still work.
+
 ## 9. Deliverables summary
 
 - **Localization support found:** Frappe gettext + per-app CSV (`vi.csv` already present); overridable via the `Translation` DocType; language via `User.language`. (§1)
