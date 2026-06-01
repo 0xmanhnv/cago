@@ -435,11 +435,47 @@ def recent_sales_counts():
 
 
 @frappe.whitelist()
-def return_sale(invoice):
-	"""Trả hàng: fully reverse a submitted sale — stock comes back, money is refunded.
+def get_returnable(invoice):
+	"""Per-line remaining returnable qty for an invoice (sold − already returned), so staff can
+	return part of a line (e.g. 25kg of a 50kg bag) and return the same invoice more than once."""
+	ensure_staff()
+	if not frappe.db.exists("Sales Invoice", invoice):
+		frappe.throw(_("Không tìm thấy hoá đơn."))
+	orig = frappe.db.get_value("Sales Invoice", invoice, ["docstatus", "is_return"], as_dict=True)
+	if orig.docstatus != 1 or orig.is_return:
+		frappe.throw(_("Hoá đơn này không trả được."))
+	from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
 
-	Uses ERPNext's make_sales_return (is_return, negative qty, copies payments). Staff-only;
-	privileged submit (staff lack accounting/stock perms; ERPNext still validates)."""
+	lines = []
+	try:
+		with as_user("Administrator"):
+			tmpl = make_sales_return(invoice)  # qty already nets off prior returns (negative = remaining)
+		for it in tmpl.items:
+			remaining = abs(flt(it.qty))
+			if remaining <= 1e-9:
+				continue
+			name = frappe.db.get_value("Item", it.item_code, "cago_display_name") or it.item_name or it.item_code
+			lines.append(
+				{
+					"item_code": it.item_code,
+					"name": name,
+					"uom": dto.uom_label(it.uom),
+					"remaining": _trim(remaining),
+					"rate": flt(it.rate),
+					"rate_text": dto.format_price(flt(it.rate), it.uom),
+				}
+			)
+	except Exception:
+		lines = []
+	return {"invoice": invoice, "lines": lines}
+
+
+@frappe.whitelist()
+def return_sale(invoice, lines=None):
+	"""Trả hàng: reverse a submitted sale — stock comes back, money is refunded (or debt reduced
+	for credit sales). `lines` (JSON [{item_code, qty}]) returns only those quantities (partial,
+	e.g. 25kg of a 50kg bag); omit it to return the whole invoice. Can be called repeatedly until
+	everything is returned. Uses ERPNext make_sales_return; staff-only, privileged submit."""
 	ensure_staff()
 	ensure_lang()
 	if not frappe.db.exists("Sales Invoice", invoice):
@@ -447,8 +483,18 @@ def return_sale(invoice):
 	orig = frappe.db.get_value("Sales Invoice", invoice, ["docstatus", "is_return"], as_dict=True)
 	if orig.docstatus != 1 or orig.is_return:
 		frappe.throw(_("Hoá đơn này không trả được."))
-	if frappe.db.get_value("Sales Invoice", {"return_against": invoice, "docstatus": 1}, "name"):
-		frappe.throw(_("Hoá đơn này đã được trả trước đó."))
+
+	lines = frappe.parse_json(lines) if isinstance(lines, str) else lines
+	want = None
+	if lines:
+		want = {}
+		for it in lines:
+			code = (it or {}).get("item_code")
+			qty = flt((it or {}).get("qty"))
+			if code and qty > 0:
+				want[code] = want.get(code, 0) + qty
+		if not want:
+			frappe.throw(_("Chưa chọn số lượng trả."))
 
 	from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
 
@@ -457,7 +503,33 @@ def return_sale(invoice):
 	# invisible to that person's till shift (drawer would look short by the refund amount).
 	cashier = frappe.session.user
 	with as_user("Administrator"):
-		ret = make_sales_return(invoice)
+		ret = make_sales_return(invoice)  # template: negative qty = remaining returnable per line
+		if want is not None:
+			kept = []
+			for it in ret.items:
+				remaining = abs(flt(it.qty))
+				q = want.get(it.item_code, 0)
+				if q <= 0 or remaining <= 1e-9:
+					continue
+				it.qty = -min(q, remaining)  # never return more than what's left
+				kept.append(it)
+			if not kept:
+				frappe.throw(_("Hoá đơn này đã trả hết hoặc số lượng không hợp lệ."))
+			ret.set("items", kept)
+			# A partial return refunds only the chosen lines. make_sales_return copies the whole
+			# invoice's discount + payment, which no longer match the reduced total — so drop the
+			# discount and set the refund payment to the partial total (negative). Refund = sum of
+			# returned line amounts (discounts aren't pro-rated on partial returns).
+			ret.discount_amount = 0
+			ret.additional_discount_percentage = 0
+			partial_total = sum(flt(x.qty) * flt(x.rate) for x in kept)  # negative
+			if ret.is_pos and ret.get("payments"):
+				first = ret.payments[0]
+				first.amount = partial_total
+				first.base_amount = partial_total
+				ret.set("payments", [first])
+		elif not [it for it in ret.items if abs(flt(it.qty)) > 1e-9]:
+			frappe.throw(_("Hoá đơn này đã được trả hết trước đó."))
 		ret.flags.ignore_permissions = True
 		ret.update_stock = 1
 		ret.cago_cashier = cashier
