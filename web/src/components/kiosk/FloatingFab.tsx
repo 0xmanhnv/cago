@@ -41,15 +41,19 @@ export function FloatingFab({
     };
     // Dock the button to the nearest vertical edge (left/right), keeping its Y. Used on load and
     // on release so the FAB only ever lives on an edge instead of floating over the content.
+    let snapTimer: ReturnType<typeof setTimeout> | undefined;
     const snapToEdge = (animate = false) => {
       const w = el.offsetWidth;
       const h = el.offsetHeight;
       const r = el.getBoundingClientRect();
       const x = r.left + w / 2 < window.innerWidth / 2 ? PAD : window.innerWidth - w - PAD;
       const y = Math.max(PAD, Math.min(r.top, window.innerHeight - h - PAD));
+      clearTimeout(snapTimer);
       if (animate) {
         el.style.transition = "left .18s ease, top .18s ease";
-        window.setTimeout(() => (el.style.transition = ""), 220);
+        snapTimer = setTimeout(() => (el.style.transition = ""), 220);
+      } else {
+        el.style.transition = "";
       }
       el.style.left = x + "px";
       el.style.top = y + "px";
@@ -123,9 +127,18 @@ export function FloatingFab({
       }
     };
 
+    // Re-dock on viewport change (tablet rotate / on-screen keyboard) so the FAB never ends up
+    // off-screen or stranded mid-content after a resize.
+    const onResize = () => snapToEdge();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("click", onClick, true);
     return () => {
+      clearTimeout(snapTimer);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("click", onClick, true);
     };

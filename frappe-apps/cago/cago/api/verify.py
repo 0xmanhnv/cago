@@ -84,9 +84,11 @@ def set_price_edit(on):
 
 
 def _owes(customer):
+	# Company-scoped to match sales._customer_outstanding — a multi-company site must not sum a
+	# customer's receivables across companies in the kiosk debt lookup.
 	rows = frappe.get_all(
 		"GL Entry",
-		filters={"party_type": "Customer", "party": customer, "is_cancelled": 0},
+		filters={"party_type": "Customer", "party": customer, "is_cancelled": 0, "company": debt._company()},
 		fields=["debit", "credit"],
 	)
 	return flt(sum(flt(r.debit) - flt(r.credit) for r in rows))

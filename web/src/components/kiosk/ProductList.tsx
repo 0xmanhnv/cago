@@ -10,9 +10,9 @@ import type { ProductCard } from "@/lib/types";
 
 type Sort = "default" | "price_asc" | "price_desc";
 
-function priceNum(p: ProductCard) {
+function priceNum(p: ProductCard): number | null {
   const digits = (p.price_text || "").replace(/[^\d]/g, "");
-  return digits ? parseInt(digits, 10) : Number.MAX_SAFE_INTEGER; // "Liên hệ" sorts last
+  return digits ? parseInt(digits, 10) : null; // null = no price ("Liên hệ") → always sorted last
 }
 const inStock = (p: ProductCard) => (p.stock_status || "").includes("Còn");
 
@@ -80,8 +80,9 @@ export function ProductList() {
   const view = useMemo(() => {
     let arr = products;
     if (stockOnly) arr = arr.filter(inStock);
-    if (sort === "price_asc") arr = [...arr].sort((a, b) => priceNum(a) - priceNum(b));
-    else if (sort === "price_desc") arr = [...arr].sort((a, b) => priceNum(b) - priceNum(a));
+    // Price-less items ("Liên hệ") always sort last, in BOTH directions.
+    if (sort === "price_asc") arr = [...arr].sort((a, b) => (priceNum(a) ?? Infinity) - (priceNum(b) ?? Infinity));
+    else if (sort === "price_desc") arr = [...arr].sort((a, b) => (priceNum(b) ?? -Infinity) - (priceNum(a) ?? -Infinity));
     return arr;
   }, [products, sort, stockOnly]);
 
