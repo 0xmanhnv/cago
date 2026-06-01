@@ -30,7 +30,17 @@ export function ProductList() {
   const [products, setProducts] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [qInput, setQInput] = useState(q);
+  const [viewMode, setViewMode] = useState<"card" | "list">("card"); // default card; remembered per device
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    const v = window.localStorage?.getItem("cago_kiosk_view");
+    if (v === "list" || v === "card") setViewMode(v);
+  }, []);
+  const chooseView = (v: "card" | "list") => {
+    setViewMode(v);
+    window.localStorage?.setItem("cago_kiosk_view", v);
+  };
 
   // assistant focus follows the category being browsed
   useEffect(() => {
@@ -96,22 +106,41 @@ export function ProductList() {
         placeholder={category ? `Tìm trong ${category}...` : "Tìm sản phẩm..."}
         className="mb-2.5 w-full rounded-2xl border-2 border-emerald-200 bg-white p-3.5 text-lg shadow-soft outline-none transition focus:border-brand"
       />
-      <div className="mb-3.5 flex gap-2 overflow-x-auto pb-1">
-        <button onClick={() => setParams({ stock: stockOnly ? undefined : "1" })} className={chip(stockOnly)}>
-          ✅ Còn hàng
-        </button>
-        <button
-          onClick={() => setParams({ sort: sort === "price_asc" ? undefined : "price_asc" })}
-          className={chip(sort === "price_asc")}
-        >
-          ⬆️ Giá thấp
-        </button>
-        <button
-          onClick={() => setParams({ sort: sort === "price_desc" ? undefined : "price_desc" })}
-          className={chip(sort === "price_desc")}
-        >
-          ⬇️ Giá cao
-        </button>
+      <div className="mb-3.5 flex items-center gap-2">
+        <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
+          <button onClick={() => setParams({ stock: stockOnly ? undefined : "1" })} className={chip(stockOnly)}>
+            ✅ Còn hàng
+          </button>
+          <button
+            onClick={() => setParams({ sort: sort === "price_asc" ? undefined : "price_asc" })}
+            className={chip(sort === "price_asc")}
+          >
+            ⬆️ Giá thấp
+          </button>
+          <button
+            onClick={() => setParams({ sort: sort === "price_desc" ? undefined : "price_desc" })}
+            className={chip(sort === "price_desc")}
+          >
+            ⬇️ Giá cao
+          </button>
+        </div>
+        {/* Card ⟷ List view toggle (default card) */}
+        <div className="flex shrink-0 overflow-hidden rounded-full border border-emerald-300 bg-white">
+          <button
+            onClick={() => chooseView("card")}
+            aria-label="Dạng thẻ"
+            className={`px-3 py-2 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-brand-dark"}`}
+          >
+            ▦
+          </button>
+          <button
+            onClick={() => chooseView("list")}
+            aria-label="Dạng danh sách"
+            className={`px-3 py-2 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-brand-dark"}`}
+          >
+            ☰
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -119,6 +148,35 @@ export function ProductList() {
       ) : view.length === 0 ? (
         <div className="py-8 text-center text-slate-500">
           {q.trim() || stockOnly ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm."}
+        </div>
+      ) : viewMode === "list" ? (
+        <div className="flex flex-col gap-2.5">
+          {view.map((p, i) => {
+            const out = !inStock(p);
+            return (
+              <button
+                key={p.item_code}
+                onClick={() => nav.openDetail(p.item_code)}
+                style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
+                className="animate-rise-in flex items-center gap-3 overflow-hidden rounded-2xl border border-emerald-100 bg-white p-2.5 text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-card active:scale-[0.99]"
+              >
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl">
+                  <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-[17px] font-extrabold text-brand-dark">{p.display_name}</span>
+                    {p.is_chemical && <span className="rounded-full bg-harvest-light px-1.5 py-0.5 text-[11px] font-bold text-harvest-dark">⚠️</span>}
+                  </div>
+                  <div className={`text-sm font-semibold ${out ? "text-slate-400" : "text-brand/80"}`}>{p.stock_status}</div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-lg font-extrabold text-brand">{p.price_text}</div>
+                </div>
+                <span className="shrink-0 text-2xl text-slate-300">›</span>
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">

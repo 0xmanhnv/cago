@@ -39,9 +39,31 @@ export function FloatingFab({
       el.style.right = "auto";
       el.style.bottom = "auto";
     };
+    // Dock the button to the nearest vertical edge (left/right), keeping its Y. Used on load and
+    // on release so the FAB only ever lives on an edge instead of floating over the content.
+    const snapToEdge = (animate = false) => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      const r = el.getBoundingClientRect();
+      const x = r.left + w / 2 < window.innerWidth / 2 ? PAD : window.innerWidth - w - PAD;
+      const y = Math.max(PAD, Math.min(r.top, window.innerHeight - h - PAD));
+      if (animate) {
+        el.style.transition = "left .18s ease, top .18s ease";
+        window.setTimeout(() => (el.style.transition = ""), 220);
+      }
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+      el.style.right = "auto";
+      el.style.bottom = "auto";
+      return { x, y };
+    };
+
     try {
       const p = JSON.parse(localStorage.getItem(storageKey) || "null");
-      if (p && typeof p.x === "number") clampApply(p.x, p.y);
+      if (p && typeof p.x === "number") {
+        clampApply(p.x, p.y);
+        snapToEdge(); // older free-floating saves (or a resized window) snap back to an edge
+      }
     } catch {
       /* ignore */
     }
@@ -66,9 +88,9 @@ export function FloatingFab({
       el.removeEventListener("pointercancel", onUp);
       el.classList.remove("opacity-90");
       if (moved) {
-        const r = el.getBoundingClientRect();
+        const pos = snapToEdge(true); // dock to the nearest left/right edge, keep Y
         try {
-          localStorage.setItem(storageKey, JSON.stringify({ x: r.left, y: r.top }));
+          localStorage.setItem(storageKey, JSON.stringify(pos));
         } catch {
           /* ignore */
         }
