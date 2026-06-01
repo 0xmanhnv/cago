@@ -77,6 +77,9 @@ POS_VI = {
 	"Switched to: ": "Đã chuyển sang: ", "Day Δ": "Δ ngày", "Week Δ": "Δ tuần", "Month Δ": "Δ tháng",
 	# Proper names — keep untranslated (app's vi.csv wrongly renders "POS Awesome" as "POS tuyệt vời")
 	"POS Awesome": "POS Awesome", "Awesome": "Awesome", "POS Awesome App": "POS Awesome",
+	# Fix machine-mistranslations in the app's vi.csv (e.g. Party -> "Đảng" = political party!)
+	"Party": "Đối tượng", "Party Type": "Loại đối tượng", "Difference": "Chênh lệch",
+	"Invoice Total": "Tổng hóa đơn", "Transaction ID": "Mã giao dịch", "Receive": "Nhận tiền",
 }
 
 
