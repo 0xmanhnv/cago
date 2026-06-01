@@ -710,33 +710,61 @@ export function Checkout() {
         ) : list.length === 0 ? (
           <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy sản phẩm.</div>
         ) : (
-          <div className={`grid items-start gap-2.5 ${viewMode === "list" ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3"}`}>
+          <div className={`grid items-start gap-2.5 ${viewMode === "list" ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"}`}>
           {list.map((p) => {
             const line = lines[p.item_code];
             const m = meta[p.item_code];
             const multi = (m?.sale_units?.length || 0) > 1;
             return (
               <div key={p.item_code} className={`rounded-xl border-2 p-3 shadow-sm ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`${viewMode === "card" ? "h-16 w-16" : "h-12 w-12"} shrink-0 overflow-hidden rounded-lg`}>
-                    <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="line-clamp-2 font-bold leading-tight">{p.display_name}</div>
-                    <div className="text-sm font-bold text-brand">{p.price_text}</div>
-                    <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                      {cardOOS(p) ? "⚠ Hết hàng" : (m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}
+                {viewMode === "card" ? (
+                  // Card = vertical: thumb + info on top, a full-width Add button below (no cramped
+                  // horizontal squeeze on a 2-column grid).
+                  <div className="flex flex-col">
+                    <div className="flex items-start gap-3">
+                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg">
+                        <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="line-clamp-2 font-bold leading-tight">{p.display_name}</div>
+                        <div className="text-sm font-bold text-brand">{p.price_text}</div>
+                        <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
+                          {cardOOS(p) ? "⚠ Hết hàng" : (m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}
+                        </div>
+                      </div>
                     </div>
+                    {!line && (
+                      <button
+                        onClick={() => add(p.item_code, p)}
+                        className={`mt-3 min-h-touch w-full rounded-lg text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
+                      >
+                        {cardOOS(p) ? "Vẫn bán" : "＋ Thêm"}
+                      </button>
+                    )}
                   </div>
-                  {!line && (
-                    <button
-                      onClick={() => add(p.item_code, p)}
-                      className={`h-11 shrink-0 rounded-lg px-4 text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
-                    >
-                      {cardOOS(p) ? "Vẫn bán" : "＋ Thêm"}
-                    </button>
-                  )}
-                </div>
+                ) : (
+                  // List = compact horizontal row.
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                      <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="line-clamp-2 font-bold leading-tight">{p.display_name}</div>
+                      <div className="text-sm font-bold text-brand">{p.price_text}</div>
+                      <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
+                        {cardOOS(p) ? "⚠ Hết hàng" : (m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}
+                      </div>
+                    </div>
+                    {!line && (
+                      <button
+                        onClick={() => add(p.item_code, p)}
+                        className={`h-11 shrink-0 rounded-lg px-4 text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
+                      >
+                        {cardOOS(p) ? "Vẫn bán" : "＋ Thêm"}
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {line && (
                   <div className="mt-2.5 border-t border-brand/20 pt-2.5">
