@@ -13,7 +13,9 @@ const nextConfig = {
   reactStrictMode: true,
   // Product images are served by Frappe under /files — use plain <img>, no domain config.
   async rewrites() {
-    const passthrough = ["/api", "/app", "/files", "/private", "/assets", "/socket.io"];
+    // /desk: Frappe v16 redirects /app/* -> /desk/* (the desk SPA), so proxy it too —
+    // otherwise POS Awesome (/app/posapp) and "Quản lý ERPNext" (/app) 404 after the redirect.
+    const passthrough = ["/api", "/app", "/desk", "/files", "/private", "/assets", "/socket.io"];
     return passthrough.map((p) => ({
       source: `${p}/:path*`,
       destination: `${FRAPPE}${p}/:path*`,
