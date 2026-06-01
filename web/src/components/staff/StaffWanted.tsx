@@ -46,7 +46,6 @@ export function StaffWanted() {
   const [loading, setLoading] = useState(true);
   const [includeDone, setIncludeDone] = useState(false);
   const [listQ, setListQ] = useState("");
-  const [code, setCode] = useState("");
   const [wl, setWl] = useState<WantedList | null>(null);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -79,6 +78,15 @@ export function StaffWanted() {
       setMsg("Không tìm thấy đơn với mã này.");
     }
   };
+  // Typing/scanning a full code (WL-YYYY-NNNNN) opens that order directly — even if it's not in
+  // the currently loaded/open list — so one search box replaces the old separate "tra theo mã".
+  useEffect(() => {
+    const c = listQ.trim();
+    if (!/^WL-\d{4}-\d+$/i.test(c)) return;
+    const id = setTimeout(() => void open(c.toUpperCase()), 250);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listQ]);
   const setStatus = async (status: string) => {
     if (!wl || busy) return;
     setBusy(true);
@@ -176,21 +184,11 @@ export function StaffWanted() {
         <div className="flex-1 text-2xl font-bold">KHÁCH ĐÃ CHỌN</div>
       </div>
 
-      <div className="mb-3 flex gap-2">
-        <input
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && code.trim() && open(code)}
-          placeholder="Tra theo mã (VD: WL-2026-00001)"
-          className="flex-1 rounded-xl border-2 border-slate-300 p-3 text-base"
-        />
-        <button onClick={() => code.trim() && open(code)} className="rounded-xl bg-teal-600 px-4 font-bold text-white">
-          Tìm
-        </button>
-      </div>
       {msg && <div className="mb-3 rounded-lg border border-amber-400 bg-amber-100 p-3 text-amber-900">{msg}</div>}
 
-      <SearchInput value={listQ} onChange={setListQ} placeholder="🔎 Tìm theo mã đơn / tên hàng..." />
+      {/* One search: filters the list live, and opens the order directly when a full code
+          (WL-YYYY-NNNNN) is typed or scanned — no separate "tra theo mã" box. */}
+      <SearchInput value={listQ} onChange={setListQ} placeholder="🔎 Tìm / quét mã đơn, hoặc tên hàng..." />
       <FilterTabs
         active={includeDone ? "all" : "open"}
         onChange={(k) => {

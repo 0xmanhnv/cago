@@ -67,31 +67,33 @@ export function StaffSearch() {
 
   return (
     <div>
+      {/* Top row: back + the rarely-typed barcode field (scanned, short). */}
       <div className="mb-2.5 flex items-center gap-2.5">
         <button onClick={() => router.push("/staff")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ← Trang chủ
         </button>
         <input
-          autoFocus
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            clearTimeout(tRef.current);
-            tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
+          placeholder="⌨ Quét mã vạch..."
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              void findBarcode((e.target as HTMLInputElement).value);
+              (e.target as HTMLInputElement).value = "";
+            }
           }}
-          placeholder="Tên, tên hay gọi, màu, công dụng..."
-          className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
+          className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base"
         />
       </div>
+      {/* The frequently-used name search gets a full-width, larger input. */}
       <input
-        placeholder="⌨ Quét/nhập mã vạch rồi Enter"
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            void findBarcode((e.target as HTMLInputElement).value);
-            (e.target as HTMLInputElement).value = "";
-          }
+        autoFocus
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+          clearTimeout(tRef.current);
+          tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
         }}
-        className="mb-3.5 w-full rounded-xl border-2 border-emerald-300 p-3 text-base"
+        placeholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
+        className="mb-3.5 w-full rounded-xl border-2 border-slate-300 p-3.5 text-lg"
       />
       {loading ? (
         <div className="py-6 text-center text-slate-500">Đang tải...</div>
