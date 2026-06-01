@@ -41,3 +41,27 @@
 .payment-cancel-btn .v-btn__overlay {
 	opacity: 0 !important;
 }
+
+/* --- Edit-line expansion (ItemsTableExpandedRow): fix the cramped/faded/overlapping panel ---
+ * POS Awesome animates the panel in with opacity 0 + scale .95 + translateY(-20px); on re-render
+ * it can get stuck looking faded and shifted up over the table header. Kill the animation and the
+ * hover "lift", force a solid opaque full-width block in normal flow so fields are clearly usable. */
+.posa-expanded-content,
+.posa-expanded-content.responsive-expanded-content {
+	animation: none !important;
+	opacity: 1 !important;
+	transform: none !important;
+	position: relative !important;
+	z-index: 1 !important;
+	background: #ffffff !important;
+}
+.posa-form-section,
+.posa-form-section:hover {
+	transform: none !important;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
+}
+/* Two readable columns per row on a tablet; stack on a phone. */
+.posa-form-field {
+	flex: 1 1 280px !important;
+	min-width: 240px !important;
+}
