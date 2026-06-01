@@ -20,6 +20,7 @@ def ensure_company():
 	if frappe.get_all("Company", limit=1):
 		print(f"Company already exists: {frappe.get_all('Company', pluck='name')}")
 		_ensure_pos_profile()
+		_apply_store_settings()  # idempotent — also (re)applies the VND number format
 		return
 
 	# In a `bench execute`/console context frappe.local.lang is None, which trips a
@@ -62,8 +63,16 @@ def ensure_company():
 
 def _apply_store_settings():
 	"""Store-friendly defaults: login by phone (rural users have phones, not email),
-	no public signup, AgriMate brand on the login page."""
+	no public signup, AgriMate brand on the login page, and VND number formatting
+	(no decimals, dot thousands → 1.234.567đ — đồng has no sub-unit)."""
 	frappe.db.set_single_value("System Settings", "allow_login_using_mobile_number", 1)
+	# VND has no fractional unit. fmt_money(currency=) reads the GLOBAL DEFAULTS, so set both
+	# the Single and the default (POS Awesome + ERPNext desk then show "320.000" not "320.000,00";
+	# Cago's own /staff/sell already formats VND manually).
+	frappe.db.set_single_value("System Settings", "number_format", "#.###")
+	frappe.db.set_single_value("System Settings", "currency_precision", 0)
+	frappe.db.set_default("number_format", "#.###")
+	frappe.db.set_default("currency_precision", "0")
 	try:
 		frappe.db.set_single_value("Website Settings", "app_name", "AgriMate")
 		frappe.db.set_single_value("Website Settings", "disable_signup", 1)
