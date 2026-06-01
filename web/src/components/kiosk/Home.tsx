@@ -12,6 +12,7 @@ export function Home() {
   const nav = useKioskNav();
   const kiosk = useKiosk();
   const { boot } = useSession();
+  const brand = boot?.brand || "Minh Tuyết";
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
 
@@ -25,66 +26,114 @@ export function Home() {
 
   return (
     <div>
-      <div className="my-5 text-center text-3xl font-extrabold text-brand-dark">BÁC CẦN MUA GÌ?</div>
-      <div className="mb-4">
+      {/* Brand banner */}
+      <div className="animate-rise-in mb-5 rounded-3xl bg-gradient-to-br from-brand to-brand-dark px-6 py-6 text-center text-white shadow-card">
+        <div className="text-4xl leading-none">🌾</div>
+        <div className="mt-1 text-3xl font-extrabold tracking-tight">{brand}</div>
+        <div className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-100">Vật tư nông nghiệp</div>
+        <div className="mt-3 text-lg font-bold text-emerald-50">Bác cần mua gì hôm nay?</div>
+      </div>
+
+      {/* Search */}
+      <div className="animate-rise-in relative mb-6" style={{ animationDelay: "60ms" }}>
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-2xl">🔎</span>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && nav.openList("", search.trim())}
           placeholder="Tìm sản phẩm..."
-          className="w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
+          className="w-full rounded-2xl border-2 border-emerald-200 bg-white py-4 pr-4 text-lg shadow-soft outline-none transition focus:border-brand"
+          style={{ paddingLeft: "3.25rem" }}
         />
       </div>
 
-      <div className="mx-1 mb-2 text-base font-extrabold text-brand-dark">🧺 Chọn loại hàng</div>
+      <SectionTitle>🧺 Chọn loại hàng</SectionTitle>
       <div className="grid grid-cols-2 gap-4">
-        {categories.map((c) => (
-          <button
+        {categories.map((c, i) => (
+          <CategoryCard
             key={c.category}
             onClick={() => nav.openList(c.category)}
-            className="flex min-h-[120px] flex-col items-center justify-center gap-1 rounded-2xl p-3 text-xl font-extrabold text-brand-dark"
-            style={{ background: catColor(c.color) }}
-          >
-            <span className="text-5xl leading-none">{catIcon(c.icon)}</span>
-            <span>{c.category}</span>
-            <span className="text-sm font-semibold opacity-80">{c.count} loại</span>
-          </button>
+            color={catColor(c.color)}
+            icon={catIcon(c.icon)}
+            title={c.category}
+            sub={`${c.count} loại`}
+            delay={120 + i * 50}
+          />
         ))}
-        <button
+        <CategoryCard
           onClick={() => nav.openList("")}
-          className="flex min-h-[120px] flex-col items-center justify-center gap-1 rounded-2xl bg-slate-500 p-3 text-xl font-extrabold text-white"
-        >
-          <span className="text-5xl leading-none">🛒</span>
-          <span>Xem tất cả</span>
-        </button>
+          color="#e2e8f0"
+          icon="🛒"
+          title="Xem tất cả"
+          sub="toàn bộ sản phẩm"
+          delay={120 + categories.length * 50}
+        />
       </div>
 
-      <div className="mx-1 mb-2 mt-5 text-base font-extrabold text-brand-dark">💬 Cần giúp đỡ?</div>
+      <SectionTitle className="mt-7">💬 Cần giúp đỡ?</SectionTitle>
       <div className="grid grid-cols-2 gap-4">
-        <button
-          onClick={nav.openChat}
-          className="flex min-h-[120px] flex-col items-center justify-center gap-1 rounded-2xl bg-violet-600 p-3 text-xl font-extrabold text-white"
-        >
-          <span className="text-5xl leading-none">🤖</span>
-          <span>Hỏi trợ lý</span>
-        </button>
-        <button
-          onClick={kiosk.openCallStaff}
-          className="flex min-h-[120px] flex-col items-center justify-center gap-1 rounded-2xl bg-red-600 p-3 text-xl font-extrabold text-white"
-        >
-          <span className="text-5xl leading-none">🔔</span>
-          <span>Gọi người bán</span>
-        </button>
+        <HelpCard onClick={nav.openChat} icon="🤖" title="Hỏi trợ lý" from="from-violet-500" to="to-violet-700" />
+        <HelpCard onClick={kiosk.openCallStaff} icon="🔔" title="Gọi người bán" from="from-rose-500" to="to-red-600" />
         {boot?.kiosk_debt_visible && (
-          <button
-            onClick={nav.openMyDebt}
-            className="flex min-h-[120px] flex-col items-center justify-center gap-1 rounded-2xl bg-amber-500 p-3 text-xl font-extrabold text-white"
-          >
-            <span className="text-5xl leading-none">📒</span>
-            <span>Công nợ của tôi</span>
-          </button>
+          <HelpCard onClick={nav.openMyDebt} icon="📒" title="Công nợ của tôi" from="from-amber-400" to="to-harvest-dark" />
         )}
       </div>
     </div>
+  );
+}
+
+function SectionTitle({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`mb-2.5 ml-1 text-lg font-extrabold text-brand-dark ${className}`}>{children}</div>;
+}
+
+function CategoryCard({
+  onClick,
+  color,
+  icon,
+  title,
+  sub,
+  delay,
+}: {
+  onClick: () => void;
+  color: string;
+  icon: string;
+  title: string;
+  sub: string;
+  delay: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{ background: `linear-gradient(160deg, ${color} 0%, #ffffff 130%)`, animationDelay: `${delay}ms` }}
+      className="animate-rise-in flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-3xl border border-white/60 p-4 text-center shadow-soft transition hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97]"
+    >
+      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/80 text-4xl shadow-sm">{icon}</span>
+      <span className="text-xl font-extrabold text-brand-dark">{title}</span>
+      <span className="rounded-full bg-white/70 px-3 py-0.5 text-sm font-bold text-brand-dark/70">{sub}</span>
+    </button>
+  );
+}
+
+function HelpCard({
+  onClick,
+  icon,
+  title,
+  from,
+  to,
+}: {
+  onClick: () => void;
+  icon: string;
+  title: string;
+  from: string;
+  to: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`animate-rise-in flex min-h-[110px] flex-col items-center justify-center gap-2 rounded-3xl bg-gradient-to-br ${from} ${to} p-4 text-white shadow-card transition hover:-translate-y-0.5 active:scale-[0.97]`}
+    >
+      <span className="text-4xl leading-none">{icon}</span>
+      <span className="text-xl font-extrabold">{title}</span>
+    </button>
   );
 }

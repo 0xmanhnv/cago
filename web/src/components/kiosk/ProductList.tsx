@@ -94,7 +94,7 @@ export function ProductList() {
         value={qInput}
         onChange={(e) => onSearch(e.target.value)}
         placeholder={category ? `Tìm trong ${category}...` : "Tìm sản phẩm..."}
-        className="mb-2.5 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
+        className="mb-2.5 w-full rounded-2xl border-2 border-emerald-200 bg-white p-3.5 text-lg shadow-soft outline-none transition focus:border-brand"
       />
       <div className="mb-3.5 flex gap-2 overflow-x-auto pb-1">
         <button onClick={() => setParams({ stock: stockOnly ? undefined : "1" })} className={chip(stockOnly)}>
@@ -121,26 +121,37 @@ export function ProductList() {
           {q.trim() || stockOnly ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm."}
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3.5">
-          {view.map((p) => (
-            <button
-              key={p.item_code}
-              onClick={() => nav.openDetail(p.item_code)}
-              className="overflow-hidden rounded-2xl bg-white text-left shadow"
-            >
-              <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="grid" />
-              <div className="p-2.5">
-                <div className="text-[17px] font-extrabold">{p.display_name}</div>
-                <div className="mt-1 font-extrabold text-brand">{p.price_text}</div>
-                <div className="text-sm text-slate-500">{p.stock_status}</div>
-                {p.is_chemical && (
-                  <span className="mt-1.5 inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
-                    ⚠️ Hóa chất
-                  </span>
-                )}
-              </div>
-            </button>
-          ))}
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
+          {view.map((p, i) => {
+            const out = !inStock(p);
+            return (
+              <button
+                key={p.item_code}
+                onClick={() => nav.openDetail(p.item_code)}
+                style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                className="animate-rise-in group flex flex-col overflow-hidden rounded-3xl border border-emerald-100 bg-white text-left shadow-soft transition hover:-translate-y-1 hover:shadow-card active:scale-[0.98]"
+              >
+                <div className="relative">
+                  <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="grid" />
+                  {p.is_chemical && (
+                    <span className="absolute left-2 top-2 rounded-full bg-harvest-light px-2 py-0.5 text-xs font-bold text-harvest-dark shadow-sm">
+                      ⚠️ Hóa chất
+                    </span>
+                  )}
+                  {out && (
+                    <span className="absolute right-2 top-2 rounded-full bg-slate-700/85 px-2 py-0.5 text-xs font-bold text-white">
+                      Hết hàng
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col p-3">
+                  <div className="line-clamp-2 text-[17px] font-extrabold leading-snug text-brand-dark">{p.display_name}</div>
+                  <div className="mt-auto pt-2 text-xl font-extrabold text-brand">{p.price_text}</div>
+                  <div className={`text-sm font-semibold ${out ? "text-slate-400" : "text-brand/80"}`}>{p.stock_status}</div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

@@ -9,12 +9,17 @@
 
 html,
 body {
-  background: var(--background);
   color: var(--foreground);
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Comfortable base size for non-tech / older users. */
+/* Soft sunny-field gradient: pale sky → fresh leaf, fixed so it doesn't scroll. */
 body {
   font-size: 17px;
+  font-family: var(--font-be-vietnam), system-ui, sans-serif;
+  background:
+    radial-gradient(120% 60% at 50% -10%, #eafff1 0%, rgba(234, 255, 241, 0) 60%),
+    linear-gradient(180deg, #f4fbf5 0%, #ecf9ee 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
 }

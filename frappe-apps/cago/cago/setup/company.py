@@ -74,7 +74,7 @@ def _apply_store_settings():
 	frappe.db.set_default("number_format", "#.###")
 	frappe.db.set_default("currency_precision", "0")
 	try:
-		frappe.db.set_single_value("Website Settings", "app_name", "AgriMate")
+		frappe.db.set_single_value("Website Settings", "app_name", "Minh Tuyết")
 		frappe.db.set_single_value("Website Settings", "disable_signup", 1)
 	except Exception:
 		pass
