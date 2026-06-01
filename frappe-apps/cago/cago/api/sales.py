@@ -373,27 +373,39 @@ def get_receipt(invoice):
 
 
 @frappe.whitelist()
-def list_recent_sales(limit=60):
-	"""Staff: recent submitted sales (for returns / lookup). Newest first, with a date-group
-	label + time so the UI can group (Hôm nay / Hôm qua / dd/MM) and filter cleanly."""
+def list_recent_sales(limit=60, start=0, status="all", query=None):
+	"""Staff: recent submitted sales (for returns / lookup), paginated + filterable SERVER-side.
+	`status` = returnable | returned | all. Newest first, with a date-group label + time."""
 	ensure_staff()
 	from frappe.utils import cint, format_datetime, getdate, nowdate
 
+	company = debt._company()
+	returned_names = {n for n in frappe.get_all("Sales Invoice", filters={"is_return": 1, "docstatus": 1, "company": company}, pluck="return_against") if n}
+
+	base = {"docstatus": 1, "is_return": 0, "company": company}
+	if status == "returned":
+		base["name"] = ["in", list(returned_names) or ["__none__"]]
+	elif status == "returnable" and returned_names:
+		base["name"] = ["not in", list(returned_names)]
+
+	q = (query or "").strip()
+	or_filters = [["name", "like", f"%{q}%"], ["customer_name", "like", f"%{q}%"]] if q else None
+
 	rows = frappe.get_all(
 		"Sales Invoice",
-		filters={"docstatus": 1, "is_return": 0, "company": debt._company()},
+		filters=base,
+		or_filters=or_filters,
 		fields=["name", "customer", "customer_name", "grand_total", "outstanding_amount", "creation", "is_pos"],
 		order_by="creation desc",
 		limit=cint(limit) or 60,
+		limit_start=cint(start),
 	)
 	today = getdate(nowdate())
 	out = []
 	for r in rows:
 		n_items = frappe.db.count("Sales Invoice Item", {"parent": r.name})
-		returned = frappe.db.get_value("Sales Invoice", {"return_against": r.name, "docstatus": 1}, "name")
 		delta = (today - getdate(r.creation)).days
 		group = "Hôm nay" if delta == 0 else "Hôm qua" if delta == 1 else format_datetime(r.creation, "dd/MM/yyyy")
-		# payment kind: paid POS, on-credit, or partially paid
 		owed = flt(r.outstanding_amount)
 		kind = "credit" if (not r.is_pos and owed > 0) else "partial" if owed > 0 else "paid"
 		out.append(
@@ -404,11 +416,22 @@ def list_recent_sales(limit=60):
 				"date_group": group,
 				"time": format_datetime(r.creation, "HH:mm"),
 				"item_count": n_items,
-				"returned": bool(returned),
+				"returned": r.name in returned_names,
 				"kind": kind,  # paid | credit | partial
 			}
 		)
 	return out
+
+
+@frappe.whitelist()
+def recent_sales_counts():
+	"""True totals for the returns filter tabs (independent of pagination)."""
+	ensure_staff()
+	company = debt._company()
+	all_n = frappe.db.count("Sales Invoice", {"docstatus": 1, "is_return": 0, "company": company})
+	returned_names = {n for n in frappe.get_all("Sales Invoice", filters={"is_return": 1, "docstatus": 1, "company": company}, pluck="return_against") if n}
+	rn = len(returned_names)
+	return {"all": all_n, "returned": rn, "returnable": max(0, all_n - rn)}
 
 
 @frappe.whitelist()

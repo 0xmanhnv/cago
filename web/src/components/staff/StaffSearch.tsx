@@ -3,28 +3,56 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { confirmDialog, alertDialog } from "@/components/ui/dialog";
+import { alertDialog } from "@/components/ui/dialog";
+import { CatThumb } from "@/components/kiosk/CatThumb";
 import type { ProductCard } from "@/lib/types";
+
+const PAGE = 30;
 
 export function StaffSearch() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [list, setList] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const run = async (query: string) => {
     setLoading(true);
     try {
-      const r = await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query }, { method: "GET" });
-      setList(r || []);
+      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, start: 0 }, { method: "GET" })) || [];
+      setList(r);
+      setHasMore(r.length >= PAGE);
     } finally {
       setLoading(false);
+    }
+  };
+  const loadMore = async () => {
+    if (loadingMore || loading) return;
+    setLoadingMore(true);
+    try {
+      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q.trim(), start: list.length }, { method: "GET" })) || [];
+      setList((prev) => [...prev, ...r]);
+      setHasMore(r.length >= PAGE);
+    } finally {
+      setLoadingMore(false);
     }
   };
   useEffect(() => {
     void run("");
   }, []);
+  // Auto load-more when the bottom sentinel scrolls into view.
+  useEffect(() => {
+    if (!hasMore || loading) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver((es) => es[0]?.isIntersecting && void loadMore(), { rootMargin: "400px" });
+    io.observe(el);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, loading, loadingMore, list.length, q]);
 
   const findBarcode = async (code: string) => {
     if (!code.trim()) return;
@@ -70,23 +98,28 @@ export function StaffSearch() {
       ) : list.length === 0 ? (
         <div className="text-slate-500">Không tìm thấy.</div>
       ) : (
-        list.map((p) => (
-          <button
-            key={p.item_code}
-            onClick={() => router.push(`/staff/products/${encodeURIComponent(p.item_code)}`)}
-            className="mb-3 flex w-full gap-3 rounded-xl bg-white p-3.5 text-left shadow"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {p.image && <img src={p.image} alt="" className="h-[76px] w-[76px] rounded-lg object-cover" />}
-            <div>
-              <div className="font-bold">{p.display_name}</div>
-              <div className="font-bold text-brand">{p.price_text}</div>
-              <div className="text-slate-500">
-                {p.stock_status} {p.category ? `· ${p.category}` : ""}
+        <>
+          {list.map((p) => (
+            <button
+              key={p.item_code}
+              onClick={() => router.push(`/staff/products/${encodeURIComponent(p.item_code)}`)}
+              className="mb-3 flex w-full items-center gap-3 rounded-xl bg-white p-3.5 text-left shadow"
+            >
+              <div className="h-[64px] w-[64px] shrink-0 overflow-hidden rounded-lg">
+                <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
               </div>
-            </div>
-          </button>
-        ))
+              <div className="min-w-0 flex-1">
+                <div className="font-bold leading-tight">{p.display_name}</div>
+                <div className="font-bold text-brand">{p.price_text}</div>
+                <div className="text-slate-500">
+                  {p.stock_status} {p.category ? `· ${p.category}` : ""}
+                </div>
+              </div>
+            </button>
+          ))}
+          {hasMore && <div ref={sentinelRef} className="h-1" />}
+          {loadingMore && <div className="py-4 text-center text-slate-400">Đang tải thêm...</div>}
+        </>
       )}
     </div>
   );
