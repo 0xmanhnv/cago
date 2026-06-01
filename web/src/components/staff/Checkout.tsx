@@ -49,6 +49,11 @@ interface RecentSale {
 }
 
 const money = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
+// Live thousands-grouping for a money input as the user types: "10000" → "10.000".
+const fmtAmt = (s: string) => {
+  const d = (s || "").replace(/[^\d]/g, "");
+  return d ? Number(d).toLocaleString("vi-VN") : "";
+};
 const parsePrice = (t: string) => parseInt((t || "").replace(/[^\d]/g, ""), 10) || 0;
 const trim = (n: number) => (Number.isInteger(n) ? n : Math.round(n * 100) / 100);
 const MODE_VI: Record<PayMode, string> = { cash: "Tiền mặt", bank: "Chuyển khoản", credit: "Ghi nợ", split: "Nhiều hình thức" };
@@ -598,7 +603,7 @@ export function Checkout() {
               autoFocus
               inputMode="numeric"
               value={openCash}
-              onChange={(e) => setOpenCash(e.target.value)}
+              onChange={(e) => setOpenCash(fmtAmt(e.target.value))}
               placeholder="0"
               className="mt-1 w-full rounded-2xl border-2 border-emerald-300 p-3.5 text-2xl font-extrabold text-right"
             />
@@ -614,7 +619,7 @@ export function Checkout() {
 
       {showReprint && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setShowReprint(false)}>
-          <div className="max-h-[85vh] w-full max-w-[560px] overflow-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="no-scrollbar max-h-[85vh] w-full max-w-[560px] overflow-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
               <div className="text-xl font-bold">🖨 In lại hoá đơn</div>
               <button onClick={() => setShowReprint(false)} className="rounded-lg bg-slate-200 px-3 py-1.5 font-bold">Đóng</button>
@@ -835,9 +840,9 @@ export function Checkout() {
                         <span className="text-slate-500">Đơn giá:</span>
                         <input
                           inputMode="numeric"
-                          value={line.rate ?? ""}
+                          value={line.rate != null ? line.rate.toLocaleString("vi-VN") : ""}
                           onChange={(e) => setRate(p.item_code, e.target.value)}
-                          placeholder={String(unitPrice(p.item_code, line.uom))}
+                          placeholder={fmtAmt(String(unitPrice(p.item_code, line.uom)))}
                           className={`h-9 w-28 rounded-lg border-2 px-2 text-right font-bold ${line.rate != null ? "border-amber-400 bg-amber-50" : "border-slate-300"}`}
                         />
                         <span className="text-slate-400">/ {labelOf(p.item_code, line.uom)}</span>
@@ -877,7 +882,7 @@ export function Checkout() {
                   <span className="shrink-0 rounded-xl bg-brand px-5 py-3 text-lg font-extrabold text-white">Thanh toán ▲</span>
                 </button>
               ) : (
-                <div className="max-h-[82vh] overflow-auto p-3">
+                <div className="no-scrollbar max-h-[82vh] overflow-auto p-3">
                   <button onClick={() => setPayOpen(false)} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500">
                     ▼ Thu gọn — chọn thêm hàng
                   </button>
@@ -921,7 +926,7 @@ export function Checkout() {
                           <input
                             inputMode="numeric"
                             value={discount}
-                            onChange={(e) => setDiscount(e.target.value)}
+                            onChange={(e) => setDiscount(fmtAmt(e.target.value))}
                             placeholder="0"
                             className="h-9 w-20 rounded-lg border-2 border-amber-300 px-2 text-right"
                           />
@@ -982,11 +987,11 @@ export function Checkout() {
                 <div className="grid grid-cols-2 gap-2">
                   <label className="text-sm font-bold text-slate-600">
                     💵 Tiền mặt
-                    <input inputMode="numeric" value={splitCash} onChange={(e) => setSplitCash(e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2 text-right" />
+                    <input inputMode="numeric" value={splitCash} onChange={(e) => setSplitCash(fmtAmt(e.target.value))} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2 text-right" />
                   </label>
                   <label className="text-sm font-bold text-slate-600">
                     💳 Chuyển khoản
-                    <input inputMode="numeric" value={splitBank} onChange={(e) => setSplitBank(e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-violet-300 p-2 text-right" />
+                    <input inputMode="numeric" value={splitBank} onChange={(e) => setSplitBank(fmtAmt(e.target.value))} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-violet-300 p-2 text-right" />
                   </label>
                 </div>
                 {(() => {
@@ -1094,7 +1099,7 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
             className="w-full rounded-lg border-2 border-slate-300 p-2.5"
           />
           <button onClick={onWalkIn} className="mt-2 w-full rounded-lg bg-slate-100 py-2 text-left font-bold text-slate-600">👤 Khách lẻ (không ghi nợ)</button>
-          <div className="mt-1 max-h-56 overflow-auto">
+          <div className="no-scrollbar mt-1 max-h-56 overflow-auto">
             {rows.map((c) => (
               <button key={c.customer} onClick={() => onPick(c)} className="flex w-full items-center justify-between border-b border-slate-100 py-2 text-left">
                 <span>
@@ -1212,7 +1217,7 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
           <div className="w-full max-w-[380px] rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 text-xl font-bold">🟢 Mở ca</div>
             <label className="block font-bold text-slate-600">Tiền mặt có sẵn trong két (đầu ca)</label>
-            <input autoFocus inputMode="numeric" value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-emerald-300 p-3 text-right text-2xl font-extrabold" />
+            <input autoFocus inputMode="numeric" value={opening} onChange={(e) => setOpening(fmtAmt(e.target.value))} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-emerald-300 p-3 text-right text-2xl font-extrabold" />
             <div className="mt-3 flex gap-2">
               <button onClick={() => setMode("none")} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold">Huỷ</button>
               <button onClick={doOpen} disabled={busy} className="flex-[2] rounded-xl bg-emerald-600 py-3 text-lg font-extrabold text-white disabled:opacity-50">Mở ca</button>
@@ -1229,9 +1234,9 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
               Đầu ca {shift.opening_text} + Tiền mặt bán {shift.cash_sales_text} = <b>dự kiến {shift.expected_text}</b>
             </div>
             <label className="block font-bold text-slate-600">Chi ra trong ca (nếu có)</label>
-            <input inputMode="numeric" value={payouts} onChange={(e) => setPayouts(e.target.value)} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-amber-300 p-2.5 text-right font-bold" />
+            <input inputMode="numeric" value={payouts} onChange={(e) => setPayouts(fmtAmt(e.target.value))} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-amber-300 p-2.5 text-right font-bold" />
             <label className="mt-2 block font-bold text-slate-600">Đếm tiền mặt thực tế trong két</label>
-            <input autoFocus inputMode="numeric" value={counted} onChange={(e) => setCounted(e.target.value)} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-emerald-300 p-3 text-right text-2xl font-extrabold" />
+            <input autoFocus inputMode="numeric" value={counted} onChange={(e) => setCounted(fmtAmt(e.target.value))} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-emerald-300 p-3 text-right text-2xl font-extrabold" />
             <div className="mt-3 flex gap-2">
               <button onClick={() => setMode("none")} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold">Huỷ</button>
               <button onClick={doClose} disabled={busy} className="flex-[2] rounded-xl bg-red-600 py-3 text-lg font-extrabold text-white disabled:opacity-50">Đóng ca</button>
