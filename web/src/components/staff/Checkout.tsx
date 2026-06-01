@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { CategoryNav } from "@/components/ui/CategoryNav";
+import { CatThumb } from "@/components/kiosk/CatThumb";
 import type { ProductCard, Product, Category } from "@/lib/types";
 
 type PayMode = "cash" | "bank" | "credit" | "split";
@@ -151,6 +152,7 @@ export function Checkout() {
   const [discount, setDiscount] = useState("");
   const [discountMode, setDiscountMode] = useState<"amount" | "percent">("amount");
   const [custInPanel, setCustInPanel] = useState(false); // change-customer picker inside the pay panel
+  const [viewMode, setViewMode] = useState<"list" | "card">("list"); // staff default = dense list (speed)
   const [autoPrint, setAutoPrint] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
   const [splitCash, setSplitCash] = useState("");
@@ -179,7 +181,13 @@ export function Checkout() {
     setHeld(loadHeld());
     setAutoPrint(window.localStorage?.getItem("cago_pos_autoprint") === "1");
     setPaperState(loadPaper());
+    const v = window.localStorage?.getItem("cago_sell_view");
+    if (v === "list" || v === "card") setViewMode(v);
   }, []);
+  const chooseView = (v: "list" | "card") => {
+    setViewMode(v);
+    window.localStorage?.setItem("cago_sell_view", v);
+  };
 
   const setPaper = (p: PaperSize) => {
     setPaperState(p);
@@ -632,12 +640,20 @@ export function Checkout() {
             <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />
           </div>
         )}
+        {/* List ⟷ Card view: staff default to dense List for speed; Card is bigger/visual. */}
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm text-slate-400">{list.length} sản phẩm</span>
+          <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
+            <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
+            <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
+          </div>
+        </div>
         {loading ? (
           <div className="py-6 text-center text-slate-500">Đang tải...</div>
         ) : list.length === 0 ? (
           <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy sản phẩm.</div>
         ) : (
-          <div className="grid grid-cols-1 items-start gap-2.5 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3">
+          <div className={`grid items-start gap-2.5 ${viewMode === "list" ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3"}`}>
           {list.map((p) => {
             const line = lines[p.item_code];
             const m = meta[p.item_code];
@@ -645,8 +661,9 @@ export function Checkout() {
             return (
               <div key={p.item_code} className={`rounded-xl border-2 p-3 shadow-sm ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
                 <div className="flex items-center gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {p.image && <img src={p.image} alt="" className="h-14 w-14 rounded-lg object-cover" />}
+                  <div className={`${viewMode === "card" ? "h-16 w-16" : "h-12 w-12"} shrink-0 overflow-hidden rounded-lg`}>
+                    <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="line-clamp-2 font-bold leading-tight">{p.display_name}</div>
                     <div className="text-sm font-bold text-brand">{p.price_text}</div>
