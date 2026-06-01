@@ -156,6 +156,31 @@ POS_VI.update(
 	}
 )
 
+# Printed invoice (print format "Sales Invoice with Item Image") — labels still in English.
+# These are the EXACT _() source strings in the format + the field labels it renders (colons and
+# trailing spaces matter). "No" (row-number column) is intentionally NOT translated: it collides
+# with the boolean "No" shown elsewhere, so a global override would mistranslate Yes/No.
+POS_VI.update(
+	{
+		"Sales Invoice": "Hóa đơn bán hàng",
+		"Customer Name": "Tên khách hàng",
+		"Bill to": "Người mua",
+		"Bill To": "Người mua",
+		"Invoice Number": "Số hóa đơn",
+		"Invoice Date": "Ngày bán",
+		"Payment Due Date": "Hạn thanh toán",
+		"Item": "Sản phẩm",
+		"Item Code": "Mã hàng",
+		"Sub Total:": "Cộng tiền hàng:",
+		"Grand Total:": "Tổng cộng:",
+		"In Words: ": "Bằng chữ: ",
+		"Only": "chẵn",
+		"Terms and Conditions": "Điều khoản",
+		"CANCELLED": "ĐÃ HUỶ",
+		"DRAFT": "NHÁP",
+	}
+)
+
 
 def _upsert(source, translated):
 	"""Idempotent upsert of a context-less Translation for LANG."""

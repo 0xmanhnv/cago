@@ -69,6 +69,12 @@ def apply_minimal_pos(profile=None):
 		if p.meta.has_field(f):
 			p.set(f, 1)
 			non += 1
+	# VND has no decimals. Leave posa_decimal_precision EMPTY so POS Awesome falls back to the
+	# system currency_precision (0 → money shows "320.000", no .00) while quantity still uses its
+	# own default of 2 decimals (so selling 1.5 Kg/Lạng stays correct). Setting it to "0" would
+	# wrongly strip quantity decimals too.
+	if p.meta.has_field("posa_decimal_precision"):
+		p.set("posa_decimal_precision", "")
 	p.flags.ignore_permissions = True
 	p.save(ignore_permissions=True)
 	frappe.db.commit()
