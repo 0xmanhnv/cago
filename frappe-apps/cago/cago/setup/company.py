@@ -138,6 +138,12 @@ def ensure_payment_modes():
 	company = frappe.get_all("Company", pluck="name")[0]
 	bank_mode = "Chuyển khoản"
 
+	# Localize the default cash mode: POS Awesome shows the Mode of Payment record name raw
+	# (not via __()), so the only way it reads "Tiền mặt" instead of "Cash" is to rename the
+	# record. ERPNext ships a "Cash" mode (type Cash) on company setup; rename it once.
+	if frappe.db.exists("Mode of Payment", "Cash") and not frappe.db.exists("Mode of Payment", "Tiền mặt"):
+		frappe.rename_doc("Mode of Payment", "Cash", "Tiền mặt", force=True)
+
 	# 1) A leaf bank account under the Bank Accounts group.
 	bank_acc = frappe.db.get_value("Account", {"company": company, "account_type": "Bank", "is_group": 0}, "name")
 	if not bank_acc:
@@ -171,11 +177,15 @@ def ensure_payment_modes():
 	profile_name = frappe.db.get_value("POS Profile", {"company": company}, "name")
 	if profile_name:
 		prof = frappe.get_doc("POS Profile", profile_name)
+		# Resolve the cash mode by TYPE, not the literal name "Cash" — it is renamed to the
+		# Vietnamese "Tiền mặt" so the POS shows a Vietnamese method name (POS Awesome renders the
+		# mode_of_payment record name raw, not via __()).
+		cash_mode = frappe.db.get_value("Mode of Payment", {"type": "Cash"}, "name") or "Tiền mặt"
 		existing = {p.mode_of_payment for p in prof.payments}
 		changed = False
-		for m in ("Cash", bank_mode):
+		for m, is_default in ((cash_mode, 1), (bank_mode, 0)):
 			if frappe.db.exists("Mode of Payment", m) and m not in existing:
-				prof.append("payments", {"mode_of_payment": m, "default": 1 if m == "Cash" else 0})
+				prof.append("payments", {"mode_of_payment": m, "default": is_default})
 				changed = True
 		if changed:
 			prof.save(ignore_permissions=True)
