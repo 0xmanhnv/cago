@@ -30,8 +30,8 @@ This evaluation was run on a **disposable bench** in throwaway containers (`paw-
 | T2 | `bench build --app posawesome` (Vite) | ✅ PASS — built in ~8s, assets emitted + copied |
 | T3 | `bench migrate` (+ 11 `after_migrate` patches) | ✅ PASS — no errors |
 | T4 | Page `/app/posapp` | ✅ server-side (desk 200, entry bundle 200, Page `posapp` registered). **Vue mount / white-screen requires a human browser.** |
-| T5 | Functional POS flow | ⏳ pending human browser test |
-| T6 | Correctness vs native (GL/SLE/stock) | ✅ structural — see §3 |
+| T5 | Functional POS flow (server-side, via `update_invoice`+`submit_invoice`) | ✅ PASS — a cash sale posted through POS Awesome's own API submitted a Sales Invoice (is_pos, paid, stock reduced). *Browser UI flow still recommended before go-live.* Note: POS Awesome's submit needs `company` + the payment-mode account resolvable from the POS Profile (the Vue UI supplies these; a minimal Cago POS Profile must have Mode-of-Payment accounts set). |
+| T6 | Correctness vs native (GL/SLE/stock) | ✅ **MATCH** — same item via POS Awesome vs native is_pos Sales Invoice: both `docstatus=1, is_pos=1, grand=320000, outstanding=0, SLE=1, GL=4`. Identical posting. Confirms §3. |
 | T7 | Native POS intact | ✅ PASS — POS Profile "AgriMate POS" + `point-of-sale` page present |
 | T8 | Privacy / security | ⚠️ one real issue — see §4 |
 | T9 | Cago integration | ✅ PASS — **all 76 Cago tests pass with posawesome installed**; no hook conflict; Cago code untouched |
