@@ -157,6 +157,26 @@ class TestQuickSale(FrappeTestCase):
 
 		frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
 
+	def test_price_override_cannot_go_below_floor(self):
+		"""Even with price edit on, an override below the item's giá sàn (cago_min_price) is rejected
+		so staff can't sell under cost while bargaining."""
+		from cago.api import debt, purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		company = debt._company()
+		frappe.db.set_value("Company", company, "cago_allow_price_edit", 1)
+		old_floor = frappe.db.get_value("Item", ITEM, "cago_min_price")
+		frappe.db.set_value("Item", ITEM, "cago_min_price", 50000)
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1, "rate": 1000}]), "cash")
+			# at/above the floor is fine
+			r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1, "rate": 60000}]), "cash")
+			self.assertAlmostEqual(frappe.get_doc("Sales Invoice", r["invoice"]).items[0].rate, 60000, places=2)
+		finally:
+			frappe.db.set_value("Item", ITEM, "cago_min_price", old_floor or 0)
+			frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
+
 	def test_oversell_is_blocked_with_friendly_message(self):
 		from cago.api import purchasing, sales
 

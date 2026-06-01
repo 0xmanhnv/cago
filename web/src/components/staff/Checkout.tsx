@@ -97,6 +97,9 @@ const loadPaper = (): PaperSize => {
 };
 
 async function printReceipt(invoice: string, size: PaperSize = loadPaper()) {
+  // Open the print window SYNCHRONOUSLY (still inside the click gesture) — if we opened it after
+  // the awaited fetch below, popup blockers would silently kill it.
+  const w = window.open("", "_blank", "width=380,height=640");
   const r = await frappeCall<Receipt>("cago.api.sales.get_receipt", { invoice }, { method: "GET" });
   const p = PAPER[size];
   const rows = r.lines
@@ -121,7 +124,6 @@ async function printReceipt(invoice: string, size: PaperSize = loadPaper()) {
   <div class="c" style="margin-top:6px">Cảm ơn quý khách!</div>
   <script>window.onload=function(){window.print()}</script>
   </body></html>`;
-  const w = window.open("", "_blank", "width=380,height=640");
   if (w) {
     w.document.write(html);
     w.document.close();
@@ -154,6 +156,7 @@ export function Checkout() {
   const [recent, setRecent] = useState<RecentSale[]>([]);
   const [recentQ, setRecentQ] = useState("");
   const [keypad, setKeypad] = useState<string | null>(null); // item_code whose qty is being typed
+  const [shiftRefresh, setShiftRefresh] = useState(0); // bump to re-pull the till shift after a sale
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -213,7 +216,9 @@ export function Checkout() {
   const setQty = (code: string, qty: number) =>
     setLines((l) => {
       const copy = { ...l };
-      if (qty <= 0) delete copy[code];
+      // Guard !copy[code]: the keypad can commit after its line was removed — don't resurrect a
+      // line with no uom (which would break pricing and send uom:undefined to quick_sale).
+      if (qty <= 0 || !copy[code]) delete copy[code];
       else copy[code] = { ...copy[code], qty: trim(qty) };
       return copy;
     });
@@ -230,7 +235,7 @@ export function Checkout() {
     return parsePrice(u?.price_text || list.find((p) => p.item_code === code)?.price_text || "");
   };
   // Price actually charged for a line: manual override (if owner allows + set) else price-list rate.
-  const linePrice = (code: string) => lines[code]?.rate ?? unitPrice(code, lines[code].uom);
+  const linePrice = (code: string) => lines[code]?.rate ?? unitPrice(code, lines[code]?.uom ?? "");
   const cartCodes = Object.keys(lines);
   const subtotal = cartCodes.reduce((s, c) => s + linePrice(c) * lines[c].qty, 0);
   const disc = Math.max(0, Math.min(parseInt((discount || "").replace(/[^\d]/g, ""), 10) || 0, subtotal));
@@ -288,6 +293,7 @@ export function Checkout() {
         discount_amount: disc || 0,
       });
       setResult(r);
+      setShiftRefresh((n) => n + 1);
       setLines({});
       setDiscount("");
       if (autoPrint) void printReceipt(r.invoice, paper);
@@ -328,6 +334,7 @@ export function Checkout() {
         ].filter((p) => p.amount > 0),
       });
       setResult(r);
+      setShiftRefresh((n) => n + 1);
       setLines({});
       setDiscount("");
       setSplitCash("");
@@ -408,7 +415,7 @@ export function Checkout() {
         )}
       </div>
 
-      <ShiftBar />
+      <ShiftBar refreshKey={shiftRefresh} />
 
       {showReprint && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setShowReprint(false)}>
@@ -794,7 +801,7 @@ interface CloseResult {
 }
 const num = (s: string) => parseInt((s || "").replace(/[^\d]/g, ""), 10) || 0;
 
-function ShiftBar() {
+function ShiftBar({ refreshKey }: { refreshKey: number }) {
   const [shift, setShift] = useState<ShiftState | null>(null);
   const [mode, setMode] = useState<"none" | "open" | "close">("none");
   const [opening, setOpening] = useState("");
@@ -810,9 +817,11 @@ function ShiftBar() {
       setShift({ open: false });
     }
   };
+  // Reload on mount AND after each sale (refreshKey bumps) so the running "tiền mặt bán" and the
+  // close-shift "dự kiến" preview stay current instead of showing the figure from page load.
   useEffect(() => {
     void load();
-  }, []);
+  }, [refreshKey]);
 
   const doOpen = async () => {
     if (busy) return;

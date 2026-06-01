@@ -361,10 +361,15 @@ def return_sale(invoice):
 
 	from erpnext.accounts.doctype.sales_invoice.sales_invoice import make_sales_return
 
+	# Capture the cashier handling the refund BEFORE elevation. cago_cashier is no_copy, so
+	# make_sales_return blanks it — without re-stamping, the refund's negative cash would be
+	# invisible to that person's till shift (drawer would look short by the refund amount).
+	cashier = frappe.session.user
 	with as_user("Administrator"):
 		ret = make_sales_return(invoice)
 		ret.flags.ignore_permissions = True
 		ret.update_stock = 1
+		ret.cago_cashier = cashier
 		for it in ret.items:
 			it.allow_zero_valuation_rate = 1
 		ret.insert(ignore_permissions=True)
@@ -446,7 +451,8 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
 		_check_stock(code, qty, uom, stock_uom)
 		rate = _rate_for_uom(code, uom, stock_uom, pl)
-		overridden = allow_price_edit and it and (it.get("rate") not in (None, "")) and flt(it.get("rate")) >= 0
+		# A 0/empty rate means "no override" (use the catalogue price), not "sell for free".
+		overridden = allow_price_edit and it and (it.get("rate") not in (None, "")) and flt(it.get("rate")) > 0
 		row = {
 			"item_code": code,
 			"qty": qty,
@@ -459,10 +465,21 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			"allow_zero_valuation_rate": 1,
 		}
 		if overridden:
-			# A manual rate (mặc cả) must stick — pin price_list_rate to it so ERPNext does not
-			# re-apply the catalogue price on validate and lose the bargained amount.
-			row["rate"] = flt(it.get("rate"))
-			row["price_list_rate"] = row["rate"]
+			new_rate = flt(it.get("rate"))
+			# Bargaining ("bớt giá") still cannot go below the owner's price floor (giá sàn),
+			# which is meant to stop selling under cost. min_price is per stock unit; scale it
+			# to the chosen selling unit (1 Bao = 25 Kg → floor × 25).
+			min_price = flt(frappe.db.get_value("Item", code, "cago_min_price"))
+			if min_price:
+				floor = min_price * _conversion_factor(code, uom, stock_uom)
+				if new_rate < floor:
+					frappe.throw(
+						_("Giá {0}/{1} thấp hơn giá sàn {2}.").format(dto.format_price(new_rate), uom, dto.format_price(floor))
+					)
+			# A manual rate must stick — pin price_list_rate to it so ERPNext does not re-apply
+			# the catalogue price on validate and lose the bargained amount.
+			row["rate"] = new_rate
+			row["price_list_rate"] = new_rate
 		rows.append(row)
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))

@@ -21,9 +21,16 @@ def _open_shift_name(user):
 
 
 def _cashier_cash_sales(user, since):
-	"""Net cash that should be in THIS cashier's drawer since `since`: the sum of Cash-type
-	payment rows on their submitted invoices (a return's negative cash naturally subtracts)."""
-	row = frappe.db.sql(
+	"""Net cash that should be in THIS cashier's drawer since `since`.
+
+	= Cash-type payment rows on their submitted invoices (a return's negative cash subtracts,
+	  now that return_sale stamps cago_cashier)
+	− change_amount handed back (overpaid cash: the payment row keeps the full tendered amount
+	  while change goes back to the customer, so it must be netted out of the drawer).
+	The change subtraction is computed per-invoice (not in the payment join) so an invoice with
+	several payment rows doesn't subtract its change more than once.
+	"""
+	cash_in = frappe.db.sql(
 		"""
 		select coalesce(sum(sip.amount), 0)
 		from `tabSales Invoice Payment` sip
@@ -33,7 +40,15 @@ def _cashier_cash_sales(user, since):
 		""",
 		(user, since),
 	)
-	return flt(row[0][0]) if row else 0.0
+	change_out = frappe.db.sql(
+		"""
+		select coalesce(sum(change_amount), 0)
+		from `tabSales Invoice`
+		where docstatus = 1 and cago_cashier = %s and creation >= %s
+		""",
+		(user, since),
+	)
+	return (flt(cash_in[0][0]) if cash_in else 0.0) - (flt(change_out[0][0]) if change_out else 0.0)
 
 
 def _shift_dto(doc):

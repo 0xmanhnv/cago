@@ -38,7 +38,9 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   if (!info) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
 
   const save = async () => {
-    const val = parseFloat(amt);
+    // VND has no decimals and users may type grouping dots ("1.000"); parseFloat("1.000") = 1,
+    // which would record 1đ instead of 1000đ. Strip to digits like the rest of the money inputs.
+    const val = parseInt((amt || "").replace(/[^\d]/g, ""), 10) || 0;
     setMsg(null);
     if (busy) return;
     if (!val || val <= 0) return setMsg(<Warn>Số tiền phải lớn hơn 0.</Warn>);

@@ -54,6 +54,26 @@ class TestTillShift(FrappeTestCase):
 		self.assertTrue(closed["match"])
 		self.assertAlmostEqual(closed["diff"], 0, places=2)
 
+	def test_return_and_change_net_out_of_drawer_cash(self):
+		"""A refund must subtract from the cashier's drawer (return_sale stamps cago_cashier), and
+		overpaid cash must net out the change handed back — otherwise reconciliation drifts."""
+		from cago.api import purchasing, sales, shift
+
+		purchasing.receive_stock(ITEM, 10)
+		opened = shift.open_shift(opening_cash=0)
+		since = frappe.db.get_value("Cago Till Shift", opened["name"], "opened_at")
+
+		# cash sale then full return -> net cash 0
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash")
+		ret = sales.return_sale(r["invoice"])
+		self.assertEqual(frappe.db.get_value("Sales Invoice", ret["return_invoice"], "cago_cashier"), frappe.session.user)
+		self.assertAlmostEqual(shift._cashier_cash_sales(frappe.session.user, since), 0, places=2)
+
+		# split overpay (tender 20000 over) -> drawer holds grand_total, not the tendered amount
+		total = flt(r["total"])
+		sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), payments=json.dumps([{"mode": "cash", "amount": total + 20000}]))
+		self.assertAlmostEqual(shift._cashier_cash_sales(frappe.session.user, since), total, places=2)
+
 	def test_shortfall_shows_negative_difference(self):
 		from cago.api import purchasing, sales, shift
 

@@ -30,6 +30,17 @@
 
 Keep everything mobile-first: one column, ≥56px tap targets, big totals, Vietnamese, no ERP jargon (design system docs/16).
 
+## Bug audit (2026-06-01) — deep-dive on the new money/permission paths, all verified on live + fixed
+Parallel review of the S6–S10 code (frontend + backend), each finding reproduced on the real site before fixing; regression tests added (→ 83 Cago tests).
+- **[HIGH] Refund không trừ két:** `Sales Invoice.cago_cashier` là `no_copy`, nên credit note từ `return_sale` có cashier=NULL → ca không trừ tiền hoàn (thu ngân bị báo thiếu đúng bằng tiền hoàn). **Fix:** `return_sale` gán `ret.cago_cashier = cashier`. (verified: bán+trả ⇒ net 0)
+- **[HIGH] Trả dư tiền mặt cộng dư két:** split trả dư → payment row giữ số đưa (119k) còn `change_amount` (20k) trả lại; `_cashier_cash_sales` đếm 119k. **Fix:** trừ `change_amount` theo từng hoá đơn → net = grand_total (99k). (verified)
+- **[HIGH] Override bỏ qua giá sàn:** sửa giá từng dòng (S9) không kiểm `cago_min_price` → bán dưới vốn. **Fix:** override kiểm sàn `min_price × hệ số quy đổi`; chặn nếu thấp hơn; override `>0` (0/trống = dùng giá bảng). (verified: rate=1 bị chặn, trên sàn OK)
+- **[HIGH] In phiếu bị chặn popup:** `printReceipt` mở `window.open` SAU `await` → trình duyệt chặn. **Fix:** mở cửa sổ đồng bộ trong cú click rồi mới fetch.
+- **[MED] Bàn phím số dựng lại dòng đã xoá:** `setQty` ghi vào dòng không tồn tại → dòng thiếu `uom`. **Fix:** guard xoá nếu `!copy[code]`.
+- **[MED] Ghi nợ/trả nợ parseFloat:** `parseFloat("1.000")=1` → ghi 1đ thay vì 1000đ. **Fix:** strip còn chữ số như các ô tiền khác.
+- **[MED] Thanh ca cũ sau khi bán:** `ShiftBar` chỉ load lúc mount → "tiền mặt bán"/"dự kiến" cũ. **Fix:** `refreshKey` bump sau mỗi đơn để tải lại.
+- Còn lại (LOW, đã ghi nhận, chưa sửa): debt-limit nhánh credit dùng ước tính trước giảm giá; `verify._owes` chưa lọc theo company (chỉ ảnh hưởng multi-company); keypad cho nhập số lẻ với mặt hàng đếm nguyên.
+
 ## Status (2026-06-01): S1–S10 ALL DONE ✅
 - **S7 Mở/đóng ca tại quầy (đếm két, theo từng người bán):** DocType `Cago Till Shift` + `cago.api.shift` (`open_shift`/`current_shift`/`close_shift`). Mở ca nhập tiền đầu ca; mỗi hoá đơn quầy gắn `Sales Invoice.cago_cashier` (người bán thật, vì hoá đơn submit dưới Administrator nên `owner` không phải thu ngân); đóng ca cộng tiền mặt **của riêng thu ngân** từ lúc mở ca → dự kiến = đầu ca + tiền mặt bán − chi ra, so với đếm thực tế (khớp/thừa/thiếu). UI: thanh ca trên `/staff/sell` + dialog mở/đóng + màn đối soát. Tests `test_shift.py` (gán đúng thu ngân, khớp két, thiếu tiền). Bổ sung tới **81 Cago tests**.
 
