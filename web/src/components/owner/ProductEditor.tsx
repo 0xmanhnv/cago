@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { frappeCall, uploadFile } from "@/lib/api";
 import type { Batch } from "@/lib/types";
@@ -175,7 +176,7 @@ export function ProductEditor({ code }: { code: string }) {
             </div>
             <button
               onClick={async () => {
-                if (confirm("Xoá ảnh này?")) setImgs(await frappeCall<{ main?: string; images: string[] }>("cago.api.owner.remove_product_image", { item_code: code, image_url: u }));
+                if (await confirmDialog("Xoá ảnh này?", { danger: true, confirmLabel: "Xoá" })) setImgs(await frappeCall<{ main?: string; images: string[] }>("cago.api.owner.remove_product_image", { item_code: code, image_url: u }));
               }}
               className="rounded bg-red-100 px-2 py-1 text-sm font-bold text-red-700"
             >
@@ -275,7 +276,7 @@ function StockSection({ code }: { code: string }) {
     if (busy) return;
     const n = parseFloat(counted);
     if (counted === "" || isNaN(n) || n < 0) return setMsg(<Warn>Nhập số đếm thực tế (≥ 0).</Warn>);
-    if (!confirm(`Đặt tồn thực tế = ${n} ${stock?.uom || ""}? (dùng khi kiểm kê, lệch do hao hụt/vỡ)`)) return;
+    if (!(await confirmDialog(`Đặt tồn thực tế = ${n} ${stock?.uom || ""}? (dùng khi kiểm kê, lệch do hao hụt/vỡ)`, { confirmLabel: "Đặt tồn" }))) return;
     setBusy(true);
     try {
       const r = await frappeCall<{ before: number; qty: number }>("cago.api.purchasing.adjust_stock", { item_code: code, counted_qty: n });
@@ -381,7 +382,7 @@ function UnitsSection({ code }: { code: string }) {
     }
   };
   const remove = async (u: string, label?: string) => {
-    if (confirm(`Xoá đơn vị bán ${label || u}?`)) setD(await frappeCall<Data>("cago.api.units.remove_unit", { item_code: code, uom: u }));
+    if (await confirmDialog(`Xoá đơn vị bán ${label || u}?`, { danger: true, confirmLabel: "Xoá" })) setD(await frappeCall<Data>("cago.api.units.remove_unit", { item_code: code, uom: u }));
   };
   const toggle = async () => {
     await frappeCall("cago.api.units.set_retail_visible", { item_code: code, visible: d.show_retail ? 0 : 1 });

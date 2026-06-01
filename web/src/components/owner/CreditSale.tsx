@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { BackBar, CustomerPicker, Ok, Warn } from "./OwnerShared";
 import type { ProductCard } from "@/lib/types";
 
@@ -52,7 +53,7 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
     const items = Object.values(lines).map((x) => ({ item_code: x.p.item_code, qty: x.qty }));
     if (!items.length) return setMsg(<Warn>Chưa chọn sản phẩm.</Warn>);
     const total = items.reduce((s, i) => s + i.qty, 0);
-    if (!confirm(`Tạo hoá đơn bán chịu (giao ${total} món, ghi nợ khách)?`)) return;
+    if (!(await confirmDialog(`Tạo hoá đơn bán chịu (giao ${total} món, ghi nợ khách)?`, { danger: true, confirmLabel: "Tạo & ghi nợ" }))) return;
     setBusy(true);
     try {
       const r = await frappeCall<{ total_text: string; outstanding_text: string }>("cago.api.sales.credit_sale", {

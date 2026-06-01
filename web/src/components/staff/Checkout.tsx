@@ -6,6 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { CatThumb } from "@/components/kiosk/CatThumb";
+import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import type { ProductCard, Product, Category } from "@/lib/types";
 
 type PayMode = "cash" | "bank" | "credit" | "split";
@@ -157,16 +158,9 @@ export function Checkout() {
   const [coupon, setCoupon] = useState<string | null>(null); // applied code
   const [couponDisc, setCouponDisc] = useState(0);
   const [couponMsg, setCouponMsg] = useState<React.ReactNode>(null);
-  // In-app confirm/alert (replaces the browser's ugly native confirm()/alert()).
-  const [dialog, setDialog] = useState<{ message: string; confirmLabel?: string; danger?: boolean; alert?: boolean; resolve: (v: boolean) => void } | null>(null);
-  const ask = (message: string, opts?: { confirmLabel?: string; danger?: boolean }) =>
-    new Promise<boolean>((resolve) => setDialog({ message, confirmLabel: opts?.confirmLabel, danger: opts?.danger, resolve }));
-  const notify = (message: string, opts?: { danger?: boolean }) =>
-    new Promise<boolean>((resolve) => setDialog({ message, alert: true, danger: opts?.danger, resolve }));
-  const closeDialog = (v: boolean) => {
-    dialog?.resolve(v);
-    setDialog(null);
-  };
+  // App-wide styled confirm/alert (see components/ui/dialog).
+  const ask = confirmDialog;
+  const notify = alertDialog;
   const [autoPrint, setAutoPrint] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
   const [splitCash, setSplitCash] = useState("");
@@ -559,27 +553,6 @@ export function Checkout() {
           </button>
         )}
       </div>
-
-      {dialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5" onClick={() => closeDialog(false)}>
-          <div className="w-full max-w-[400px] rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="whitespace-pre-line text-lg font-bold text-slate-800">{dialog.message}</div>
-            <div className="mt-4 flex gap-2">
-              {!dialog.alert && (
-                <button onClick={() => closeDialog(false)} className="min-h-touch flex-1 rounded-xl bg-slate-200 py-3 text-lg font-bold text-slate-700">
-                  Huỷ
-                </button>
-              )}
-              <button
-                onClick={() => closeDialog(true)}
-                className={`min-h-touch py-3 text-lg font-extrabold text-white ${dialog.alert ? "w-full rounded-xl" : "flex-[2] rounded-xl"} ${dialog.danger ? "bg-red-600" : "bg-brand"}`}
-              >
-                {dialog.confirmLabel || (dialog.alert ? "OK" : "Đồng ý")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <ShiftBar refreshKey={shiftRefresh} onState={setShiftState} />
 
@@ -1006,7 +979,7 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
 
   const create = async () => {
     if (busy) return;
-    if (!form.name.trim()) return alert("Nhập tên khách.");
+    if (!form.name.trim()) { await alertDialog("Nhập tên khách."); return; }
     setBusy(true);
     try {
       const r = await frappeCall<{ customer: string; customer_name: string }>("cago.api.sales.add_customer_lite", {
@@ -1016,7 +989,7 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
       });
       onPick({ customer: r.customer, customer_name: r.customer_name, outstanding_text: "Không nợ" });
     } catch (e) {
-      alert(`Lỗi: ${e instanceof Error ? e.message : "không tạo được khách."}`);
+      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không tạo được khách."}`, { danger: true });
     } finally {
       setBusy(false);
     }
@@ -1122,7 +1095,7 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
       setMode("none");
       setOpening("");
     } catch (e) {
-      alert(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`);
+      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`, { danger: true });
     } finally {
       setBusy(false);
     }
@@ -1138,7 +1111,7 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
       setPayouts("");
       await load();
     } catch (e) {
-      alert(`Lỗi: ${e instanceof Error ? e.message : "không đóng được ca."}`);
+      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không đóng được ca."}`, { danger: true });
     } finally {
       setBusy(false);
     }

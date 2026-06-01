@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import type { ProductCard } from "@/lib/types";
 
 export const money = (n: number) => n.toLocaleString("vi-VN") + "đ";
@@ -72,7 +73,7 @@ export function ProductPicker({ title, onBack, onPick }: { title: string; onBack
       { method: "GET" },
     );
     if (r.item_code) onPick(r.item_code);
-    else alert("Không tìm thấy sản phẩm với mã vạch này.");
+    else await alertDialog("Không tìm thấy sản phẩm với mã vạch này.");
   };
   return (
     <div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialog";
 import { BackBar, Ok, Warn, money } from "./OwnerShared";
 
 interface Coupon {
@@ -63,7 +64,7 @@ export function Coupons() {
   };
   const toggle = async (code: string) => setRows(await frappeCall<Coupon[]>("cago.api.coupon.toggle_coupon", { coupon_code: code }));
   const remove = async (code: string) => {
-    if (confirm(`Xoá mã ${code}?`)) setRows(await frappeCall<Coupon[]>("cago.api.coupon.delete_coupon", { coupon_code: code }));
+    if (await confirmDialog(`Xoá mã ${code}?`, { danger: true, confirmLabel: "Xoá" })) setRows(await frappeCall<Coupon[]>("cago.api.coupon.delete_coupon", { coupon_code: code }));
   };
 
   const valueText = (c: Coupon) => (c.discount_type === "Percent" ? `${c.discount_value}%` : money(c.discount_value));

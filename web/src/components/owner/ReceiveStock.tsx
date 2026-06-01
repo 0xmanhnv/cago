@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialog";
 import { BackBar, ProductPicker, Ok, Warn, money } from "./OwnerShared";
 
 interface Stock {
@@ -76,7 +77,7 @@ export function ReceiveStock() {
     const q = num(qty);
     if (q <= 0) return setMsg(<Warn>Nhập số lượng lớn hơn 0.</Warn>);
     if (stock?.has_batch && !batch) return setMsg(<Warn>Chọn lô (hoặc thêm lô mới) trước khi nhập.</Warn>);
-    if (!confirm(`Nhập ${q} ${stock?.uom || ""}${cost ? ` · giá vốn ${money(num(cost))}/${stock?.uom || ""}` : ""}?`)) return;
+    if (!(await confirmDialog(`Nhập ${q} ${stock?.uom || ""}${cost ? ` · giá vốn ${money(num(cost))}/${stock?.uom || ""}` : ""}?`, { confirmLabel: "Nhập kho" }))) return;
     setBusy(true);
     setMsg(null);
     try {

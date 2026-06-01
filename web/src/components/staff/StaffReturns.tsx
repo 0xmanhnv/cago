@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialog";
 import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
 
 interface SaleRow {
@@ -49,7 +50,7 @@ export function StaffReturns() {
 
   const doReturn = async (inv: string) => {
     if (busy) return;
-    if (!confirm(`Trả lại toàn bộ hoá đơn ${inv}? Hàng về kho, hoàn tiền khách.`)) return;
+    if (!(await confirmDialog(`Trả lại toàn bộ hoá đơn ${inv}? Hàng về kho, hoàn tiền khách.`, { danger: true, confirmLabel: "Trả hàng" }))) return;
     setBusy(inv);
     setMsg(null);
     try {

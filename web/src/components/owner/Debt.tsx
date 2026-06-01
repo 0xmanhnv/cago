@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { SearchInput } from "@/components/ui/ListUI";
 import { BackBar, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
 
@@ -44,7 +45,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
     setMsg(null);
     if (busy) return;
     if (!val || val <= 0) return setMsg(<Warn>Số tiền phải lớn hơn 0.</Warn>);
-    if (!confirm(`${mode === "add" ? "Ghi nợ " : "Khách trả "}${money(val)} cho ${info.customer_name}?`)) return;
+    if (!(await confirmDialog(`${mode === "add" ? "Ghi nợ " : "Khách trả "}${money(val)} cho ${info.customer_name}?`))) return;
     setBusy(true);
     try {
       const r = await frappeCall<{ outstanding_text: string }>(method, { customer: cust, amount: val });
@@ -231,7 +232,7 @@ export function CustomerLedger({ customer }: { customer: string }) {
               <br />
               <button
                 onClick={async () => {
-                  if (!confirm("Huỷ bút toán này? (dùng khi ghi nhầm)")) return;
+                  if (!(await confirmDialog("Huỷ bút toán này? (dùng khi ghi nhầm)", { danger: true, confirmLabel: "Huỷ bút toán" }))) return;
                   await frappeCall("cago.api.debt.cancel_entry", { voucher_type: e.voucher_type, voucher_no: e.voucher_no, customer });
                   await load();
                 }}

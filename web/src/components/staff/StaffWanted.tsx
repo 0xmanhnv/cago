@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
 
 const STATUS_VI: Record<string, string> = {
@@ -86,21 +87,21 @@ export function StaffWanted() {
       setWl({ ...wl, status: r.status });
       void loadList();
     } catch (e) {
-      alert(`Lỗi: ${e instanceof Error ? e.message : "không đổi được trạng thái."}`);
+      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không đổi được trạng thái."}`, { danger: true });
     } finally {
       setBusy(false);
     }
   };
   const cancelOrder = async () => {
     if (!wl || busy) return;
-    if (!confirm(`Huỷ đơn ${wl.code}? (khách không lấy nữa)`)) return;
+    if (!(await confirmDialog(`Huỷ đơn ${wl.code}? (khách không lấy nữa)`, { danger: true, confirmLabel: "Huỷ đơn" }))) return;
     setBusy(true);
     try {
       await frappeCall<{ status: string }>("cago.api.staff.cancel_wanted_list", { code: wl.code });
       setWl(null);
       void loadList();
     } catch (e) {
-      alert(`Lỗi: ${e instanceof Error ? e.message : "không huỷ được."}`);
+      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không huỷ được."}`, { danger: true });
     } finally {
       setBusy(false);
     }
@@ -113,7 +114,7 @@ export function StaffWanted() {
       window.open(r.url, "_blank");
       void loadList();
     } catch (e) {
-      alert(`Lỗi: ${e instanceof Error ? e.message : "không tạo được hoá đơn."}`);
+      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không tạo được hoá đơn."}`, { danger: true });
     } finally {
       setBusy(false);
     }

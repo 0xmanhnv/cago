@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import type { ProductCard } from "@/lib/types";
 
 export function StaffSearch() {
@@ -33,7 +34,7 @@ export function StaffSearch() {
       { method: "GET" },
     );
     if (r.item_code) router.push(`/staff/products/${encodeURIComponent(r.item_code)}`);
-    else alert("Không tìm thấy sản phẩm với mã vạch này.");
+    else await alertDialog("Không tìm thấy sản phẩm với mã vạch này.");
   };
 
   return (

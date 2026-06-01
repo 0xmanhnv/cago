@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialog";
 import { useSession } from "@/lib/session";
 import { useKiosk } from "@/store/kiosk";
 import { catIcon, mdLight, normalizePhone, validPhone } from "@/lib/kioskUi";
@@ -103,8 +104,8 @@ export function Assistant({
         </button>
         <h2 className="m-0 flex-1 text-xl font-bold">🤖 {persona?.name || "Trợ lý"} — Trợ lý</h2>
         <button
-          onClick={() => {
-            if (confirm("Kết thúc và xoá cuộc trò chuyện cho khách mới?")) {
+          onClick={async () => {
+            if (await confirmDialog("Kết thúc và xoá cuộc trò chuyện cho khách mới?", { confirmLabel: "Khách mới" })) {
               newSession();
               onClose();
             }
