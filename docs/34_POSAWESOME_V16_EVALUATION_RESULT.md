@@ -84,9 +84,25 @@ bench build --app posawesome
 bench --site <site> migrate
 bench restart   # or recreate the python services
 
-# 3) scope to owner: in POS Profile used by POS Awesome, set
-#    "Applicable for Users" = the owner user only (staff not enrolled).
+# 3) scope to owner — REQUIRED, not just for privacy:
+#    POS Awesome's opening dialog (get_opening_dialog_data) lists profiles via an INNER JOIN
+#    on `POS Profile User`. A profile with an empty "Applicable for Users" shows an EMPTY
+#    dialog (no Company/Profile/Payment). So add the OWNER (only) to
+#    POS Profile → "Applicable for Users". Staff stay off it → owner-only gating for free.
+#    Also ensure each POS Profile payment mode (Cash / Chuyển khoản) has a Mode-of-Payment
+#    account for the company (cago.setup.company.ensure_payment_modes does this).
+
+# 4) each shift: the owner creates a "POS Opening Shift" from the POS UI (pick Company +
+#    POS Profile, opening amounts, Submit) — or pre-create one headless:
+#      POS Opening Shift {company, pos_profile, user, period_start_date,
+#        balance_details:[{mode_of_payment, amount}], status:"Open"} -> submit
+#    POS Awesome then skips the dialog (check_opening_shift finds the open shift).
 ```
+
+> **Gotchas confirmed during evaluation (all config, no code):** (a) prod image has no Node on
+> PATH — use the image's nvm for `get-app`/`build`; (b) the POS Profile must list the user in
+> *Applicable for Users* or the opening dialog is empty; (c) payment modes need company
+> accounts; (d) an open POS Opening Shift is required before the POS screen appears.
 
 ## 7. Rollback / uninstall
 
