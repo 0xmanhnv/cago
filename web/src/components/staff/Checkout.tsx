@@ -162,6 +162,15 @@ export function Checkout() {
   const [payOpen, setPayOpen] = useState(false); // bottom bar: collapsed summary vs full payment panel
   const [cats, setCats] = useState<Category[]>([]); // category quick-filter (sidebar/chips)
   const [category, setCategory] = useState(""); // active category filter ("" = all)
+  const [shiftOpen, setShiftOpen] = useState(true); // till shift status (lifted from ShiftBar); selling requires it
+  const shiftOpenRef = useRef(true); // mirror for synchronous reads (guard fires inside the same tick as open)
+  const [openShiftFor, setOpenShiftFor] = useState(false); // show "open shift" prompt before completing a sale
+  const [openCash, setOpenCash] = useState("");
+  const pendingPayRef = useRef<null | (() => void)>(null); // checkout to resume once the shift is opened
+  const setShiftState = (open: boolean) => {
+    shiftOpenRef.current = open;
+    setShiftOpen(open);
+  };
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -305,12 +314,40 @@ export function Checkout() {
     saveHeld(next);
   };
 
+  // Selling requires an open till shift (so the day's cash reconciles). Instead of blocking the
+  // whole screen, we gate at payment: stash the intended sale and prompt to open the shift first.
+  const guardShift = (resume: () => void) => {
+    if (shiftOpenRef.current) return true;
+    pendingPayRef.current = resume;
+    setOpenShiftFor(true);
+    return false;
+  };
+  const confirmOpenShift = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await frappeCall("cago.api.shift.open_shift", { opening_cash: parseInt((openCash || "").replace(/[^\d]/g, ""), 10) || 0 });
+      setShiftState(true);
+      setShiftRefresh((n) => n + 1);
+      setOpenShiftFor(false);
+      setOpenCash("");
+      const resume = pendingPayRef.current;
+      pendingPayRef.current = null;
+      resume?.();
+    } catch (e) {
+      alert(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const checkout = async (payment_mode: PayMode) => {
     if (cartCodes.length === 0 || busy) return;
     if (payment_mode === "credit" && !cust) {
       alert("Chọn khách hàng để ghi nợ (bấm vào ô khách ở trên).");
       return;
     }
+    if (!guardShift(() => checkout(payment_mode))) return;
     const who = cust ? ` cho ${cust.customer_name}` : "";
     if (!confirm(`${MODE_VI[payment_mode]} ${cartCodes.length} mặt hàng${who}?`)) return;
     setBusy(true);
@@ -349,6 +386,7 @@ export function Checkout() {
     const paid = cashAmt + bankAmt;
     if (paid <= 0) return alert("Nhập số tiền tiền mặt và/hoặc chuyển khoản.");
     if (paid < estimate && !cust) return alert("Trả thiếu thì phải chọn khách (phần còn lại ghi nợ).");
+    if (!guardShift(() => checkoutSplit())) return;
     const rest = estimate - paid;
     const msg = rest > 0 ? `Còn lại ${money(rest)} ghi nợ cho ${cust?.customer_name}.` : rest < 0 ? `Thối lại ${money(-rest)}.` : "";
     if (!confirm(`Thu Tiền mặt ${money(cashAmt)} + Chuyển khoản ${money(bankAmt)}. ${msg} Xác nhận?`)) return;
@@ -446,7 +484,31 @@ export function Checkout() {
         )}
       </div>
 
-      <ShiftBar refreshKey={shiftRefresh} />
+      <ShiftBar refreshKey={shiftRefresh} onState={setShiftState} />
+
+      {openShiftFor && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => { setOpenShiftFor(false); pendingPayRef.current = null; }}>
+          <div className="w-full max-w-[420px] rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-xl font-extrabold text-emerald-800">🟢 Mở ca bán hàng</div>
+            <p className="mt-1 text-sm text-slate-500">Cần mở ca trước khi bán. Đếm tiền mặt có sẵn trong két đầu ca (để cuối ca đối chiếu).</p>
+            <label className="mt-3 block font-bold text-slate-700">Tiền mặt đầu ca</label>
+            <input
+              autoFocus
+              inputMode="numeric"
+              value={openCash}
+              onChange={(e) => setOpenCash(e.target.value)}
+              placeholder="0"
+              className="mt-1 w-full rounded-2xl border-2 border-emerald-300 p-3.5 text-2xl font-extrabold text-right"
+            />
+            <button onClick={confirmOpenShift} disabled={busy} className="mt-3 min-h-touch w-full rounded-2xl bg-brand py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
+              {busy ? "Đang mở ca..." : "Mở ca & bán tiếp"}
+            </button>
+            <button onClick={() => { setOpenShiftFor(false); pendingPayRef.current = null; }} className="mt-2 w-full rounded-xl bg-slate-100 py-2.5 font-bold text-slate-500">
+              Để sau
+            </button>
+          </div>
+        </div>
+      )}
 
       {showReprint && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setShowReprint(false)}>
@@ -581,7 +643,7 @@ export function Checkout() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {p.image && <img src={p.image} alt="" className="h-14 w-14 rounded-lg object-cover" />}
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-bold">{p.display_name}</div>
+                    <div className="line-clamp-2 font-bold leading-tight">{p.display_name}</div>
                     <div className="text-sm font-bold text-brand">{p.price_text}</div>
                     <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
                       {cardOOS(p) ? "⚠ Hết hàng" : (m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}
@@ -877,7 +939,7 @@ interface CloseResult {
 }
 const num = (s: string) => parseInt((s || "").replace(/[^\d]/g, ""), 10) || 0;
 
-function ShiftBar({ refreshKey }: { refreshKey: number }) {
+function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open: boolean) => void }) {
   const [shift, setShift] = useState<ShiftState | null>(null);
   const [mode, setMode] = useState<"none" | "open" | "close">("none");
   const [opening, setOpening] = useState("");
@@ -886,11 +948,15 @@ function ShiftBar({ refreshKey }: { refreshKey: number }) {
   const [busy, setBusy] = useState(false);
   const [closed, setClosed] = useState<CloseResult | null>(null);
 
+  const apply = (s: ShiftState) => {
+    setShift(s);
+    onState?.(!!s.open);
+  };
   const load = async () => {
     try {
-      setShift(await frappeCall<ShiftState>("cago.api.shift.current_shift", {}, { method: "GET" }));
+      apply(await frappeCall<ShiftState>("cago.api.shift.current_shift", {}, { method: "GET" }));
     } catch {
-      setShift({ open: false });
+      apply({ open: false });
     }
   };
   // Reload on mount AND after each sale (refreshKey bumps) so the running "tiền mặt bán" and the
@@ -903,7 +969,7 @@ function ShiftBar({ refreshKey }: { refreshKey: number }) {
     if (busy) return;
     setBusy(true);
     try {
-      setShift(await frappeCall<ShiftState>("cago.api.shift.open_shift", { opening_cash: num(opening) }));
+      apply(await frappeCall<ShiftState>("cago.api.shift.open_shift", { opening_cash: num(opening) }));
       setMode("none");
       setOpening("");
     } catch (e) {
