@@ -113,6 +113,14 @@ export function ProductList() {
     tRef.current = setTimeout(() => setParams({ q: val.trim() || undefined }), 300);
   };
 
+  // In-page category switch (sidebar + chips). We can't reuse nav.openList("") here: pushing the
+  // bare "/products" while the URL still has ?category=… is a no-op in the App Router (it only
+  // *removes* params on the same path), so clicking "Tất cả" did nothing. Keeping an explicit
+  // (empty) category= guarantees the query string actually changes and the navigation fires.
+  const switchCategory = (c: string) => {
+    router.push(c ? `/products?category=${encodeURIComponent(c)}` : "/products?category=");
+  };
+
   const view = useMemo(() => {
     let arr = products;
     if (stockOnly) arr = arr.filter(inStock);
@@ -152,7 +160,7 @@ export function ProductList() {
           without returning to the home screen. (On phones it's a chip strip in the sticky bar.)
           The <aside> itself is sticky + self-start so it stays put while the product list scrolls. */}
       <aside className="hidden lg:block lg:w-48 lg:shrink-0 lg:self-start lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:overflow-auto">
-        <CategoryNav variant="sidebar" cats={cats} active={category} onPick={(c) => nav.openList(c)} />
+        <CategoryNav variant="sidebar" cats={cats} active={category} onPick={switchCategory} />
       </aside>
 
       <div className="min-w-0 flex-1">
@@ -213,7 +221,7 @@ export function ProductList() {
         </div>
         {/* Phone: category chip strip (sidebar shows on tablet+) */}
         <div className="mt-2 lg:hidden">
-          <CategoryNav variant="chips" cats={cats} active={category} onPick={(c) => nav.openList(c)} />
+          <CategoryNav variant="chips" cats={cats} active={category} onPick={switchCategory} />
         </div>
       </div>
 
