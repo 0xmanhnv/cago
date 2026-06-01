@@ -157,6 +157,7 @@ export function Checkout() {
   const [recentQ, setRecentQ] = useState("");
   const [keypad, setKeypad] = useState<string | null>(null); // item_code whose qty is being typed
   const [shiftRefresh, setShiftRefresh] = useState(0); // bump to re-pull the till shift after a sale
+  const [payOpen, setPayOpen] = useState(false); // bottom bar: collapsed summary vs full payment panel
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -263,6 +264,7 @@ export function Checkout() {
     saveHeld(next);
     setLines({});
     setCust(null);
+    setPayOpen(false);
   };
   const resumeOrder = (h: Held) => {
     setLines(h.lines);
@@ -299,6 +301,7 @@ export function Checkout() {
       setShiftRefresh((n) => n + 1);
       setLines({});
       setDiscount("");
+      setPayOpen(false);
       if (autoPrint) void printReceipt(r.invoice, paper);
       if (payment_mode === "bank") {
         const v = await frappeCall<{ configured: boolean; url: string | null }>(
@@ -343,6 +346,7 @@ export function Checkout() {
       setSplitCash("");
       setSplitBank("");
       setShowSplit(false);
+      setPayOpen(false);
       if (autoPrint) void printReceipt(r.invoice, paper);
     } catch (e) {
       alert(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
@@ -402,7 +406,7 @@ export function Checkout() {
   }
 
   return (
-    <div className="pb-44">
+    <div className="pb-24">
       <div className="mb-2.5 flex items-center gap-2.5">
         <button onClick={() => router.push("/staff")} className="rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ← Trang chủ
@@ -566,22 +570,22 @@ export function Checkout() {
                         ))}
                       </div>
                     )}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setQty(p.item_code, line.qty - 1)} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <button onClick={() => setQty(p.item_code, line.qty - 1)} className="h-11 w-11 shrink-0 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
                         <button
                           onClick={() => setKeypad(p.item_code)}
                           title="Bấm để nhập số lượng"
-                          className="h-11 w-16 rounded-lg border-2 border-emerald-300 text-center text-xl font-extrabold"
+                          className="h-11 w-14 shrink-0 rounded-lg border-2 border-emerald-300 text-center text-xl font-extrabold"
                         >
                           {trim(line.qty)}
                         </button>
-                        <button onClick={() => setQty(p.item_code, line.qty + 1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
-                        <span className="text-slate-500">{labelOf(p.item_code, line.uom)}</span>
+                        <button onClick={() => setQty(p.item_code, line.qty + 1)} className="h-11 w-11 shrink-0 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
+                        <span className="truncate text-slate-500">{labelOf(p.item_code, line.uom)}</span>
                       </div>
-                      <div className="text-right">
-                        <div className="font-extrabold text-brand">{money(linePrice(p.item_code) * line.qty)}</div>
-                        <button onClick={() => setQty(p.item_code, 0)} className="text-sm text-red-600">Bỏ</button>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span className="font-extrabold text-brand">{money(linePrice(p.item_code) * line.qty)}</span>
+                        <button onClick={() => setQty(p.item_code, 0)} className="rounded-lg bg-red-50 px-2.5 py-1 text-sm font-bold text-red-600">Bỏ</button>
                       </div>
                     </div>
                     {allowPriceEdit && (
@@ -610,28 +614,48 @@ export function Checkout() {
       </div>
 
       {cartCodes.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
-          <div className="mx-auto max-w-[960px]">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm text-slate-500">
-                {cartCodes.length} mặt hàng{cust ? ` · ${cust.customer_name}` : ""}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm text-slate-500">Giảm:</span>
-                <input
-                  inputMode="numeric"
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  placeholder="0"
-                  className="h-9 w-24 rounded-lg border-2 border-amber-300 px-2 text-right"
-                />
-              </div>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-slate-500">{disc > 0 ? `Tổng (đã giảm ${money(disc)})` : "Tổng tiền"}</span>
-              <span className="text-2xl font-extrabold text-brand">{money(estimate)}</span>
-            </div>
-            <div className="mt-2 grid grid-cols-3 gap-2">
+        <>
+          {/* Dim the page when the payment panel is open so it reads as a deliberate sheet. */}
+          {payOpen && <div className="fixed inset-0 z-10 bg-black/30" onClick={() => setPayOpen(false)} aria-hidden />}
+          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+            <div className="mx-auto max-w-[960px]">
+              {!payOpen ? (
+                // COLLAPSED — one slim row. Keeps the product list visible so staff can keep
+                // searching/adding; tap to open the full payment panel only when ready.
+                <button onClick={() => setPayOpen(true)} className="flex w-full items-center justify-between gap-3 p-3 text-left">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-slate-500">
+                      🛒 {cartCodes.length} mặt hàng{cust ? ` · ${cust.customer_name}` : ""}
+                    </span>
+                    <span className="text-2xl font-extrabold text-brand">{money(estimate)}</span>
+                  </span>
+                  <span className="shrink-0 rounded-xl bg-brand px-5 py-3 text-lg font-extrabold text-white">Thanh toán ▲</span>
+                </button>
+              ) : (
+                <div className="max-h-[82vh] overflow-auto p-3">
+                  <button onClick={() => setPayOpen(false)} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500">
+                    ▼ Thu gọn — chọn thêm hàng
+                  </button>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-slate-500">
+                      {cartCodes.length} mặt hàng{cust ? ` · ${cust.customer_name}` : ""}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm text-slate-500">Giảm:</span>
+                      <input
+                        inputMode="numeric"
+                        value={discount}
+                        onChange={(e) => setDiscount(e.target.value)}
+                        placeholder="0"
+                        className="h-9 w-24 rounded-lg border-2 border-amber-300 px-2 text-right"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-slate-500">{disc > 0 ? `Tổng (đã giảm ${money(disc)})` : "Tổng tiền"}</span>
+                    <span className="text-2xl font-extrabold text-brand">{money(estimate)}</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
               <button onClick={() => checkout("cash")} disabled={busy} className="min-h-touch rounded-xl bg-brand py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
                 💵 Tiền mặt
               </button>
@@ -693,9 +717,12 @@ export function Checkout() {
                 Tự in phiếu
               </label>
             </div>
-            {!cust && <div className="mt-1 text-center text-xs text-slate-400">Muốn ghi nợ? Chọn khách ở ô trên cùng.</div>}
+                  {!cust && <div className="mt-1 text-center text-xs text-slate-400">Muốn ghi nợ? Chọn khách ở ô trên cùng.</div>}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
