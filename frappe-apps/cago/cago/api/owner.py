@@ -415,3 +415,25 @@ def zalo_draft(kind, customer=None, item_code=None):
 		return {"text": text}
 
 	frappe.throw(_("Loại tin không hợp lệ."))
+
+
+@frappe.whitelist()
+def list_categories():
+	"""Owner: the kiosk-visible categories in their current display order, for the reorder screen."""
+	ensure_owner()
+	from cago.api import kiosk
+
+	return kiosk.get_categories()
+
+
+@frappe.whitelist()
+def set_category_order(categories):
+	"""Owner: persist the display order. `categories` is a JSON list of Item Group names in the
+	desired order; we write cago_sort_order = 1..N so the kiosk lists them that way."""
+	ensure_owner()
+	names = frappe.parse_json(categories) if isinstance(categories, str) else (categories or [])
+	for i, name in enumerate(names, start=1):
+		if frappe.db.exists("Item Group", name):
+			frappe.db.set_value("Item Group", name, "cago_sort_order", i)
+	frappe.db.commit()
+	return {"ordered": len(names)}

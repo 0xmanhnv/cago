@@ -22,26 +22,65 @@ MAX_NOTE_LEN = 500
 
 @frappe.whitelist(allow_guest=True)
 def get_categories():
-	"""Item Groups that contain at least one kiosk-visible product, with counts."""
+	"""Top-level kiosk categories (Item Group tree), each with its visible-product subtree count
+	and child categories. A flat shop (no parent groups) just returns its leaf categories with
+	empty children, so the kiosk renders the same as before. Ordered by the owner's cago_sort_order."""
 	item = frappe.qb.DocType("Item")
 	rows = (
 		frappe.qb.from_(item)
 		.select(item.item_group, Count(item.name).as_("count"))
 		.where((item.disabled == 0) & (item.cago_is_public_visible == 1))
 		.groupby(item.item_group)
-		.orderby(item.item_group)
 	).run(as_dict=True)
-	rows = [r for r in rows if r.item_group]
-	meta = dto.category_meta_map([r.item_group for r in rows])
-	return [
-		{
-			"category": r.item_group,
-			"count": r.count,
-			"icon": meta[r.item_group]["icon"],
-			"color": meta[r.item_group]["color"],
+	leaf_counts = {r.item_group: r.count for r in rows if r.item_group}
+	if not leaf_counts:
+		return []
+
+	# Whole Item Group tree (one query) to resolve parents + presentation.
+	groups = {
+		g.name: g
+		for g in frappe.get_all(
+			"Item Group",
+			fields=["name", "parent_item_group", "cago_icon", "cago_color", "cago_sort_order"],
+		)
+	}
+	roots = {n for n, g in groups.items() if not g.parent_item_group or g.parent_item_group not in groups}
+
+	def top_level(name):
+		"""The category's ancestor that sits directly under a tree root (or itself)."""
+		seen = set()
+		cur = name
+		while cur in groups and cur not in seen:
+			seen.add(cur)
+			parent = groups[cur].parent_item_group
+			if not parent or parent in roots or parent not in groups:
+				return cur
+			cur = parent
+		return name
+
+	def present(name, count):
+		g = groups.get(name)
+		return {
+			"category": name,
+			"count": count,
+			"icon": (g and g.cago_icon) or dto.DEFAULT_CATEGORY_ICON,
+			"color": (g and g.cago_color) or dto.DEFAULT_CATEGORY_COLOR,
+			"sort": (g and g.cago_sort_order) or 0,
 		}
-		for r in rows
-	]
+
+	tops = {}
+	for leaf, count in leaf_counts.items():
+		tl = top_level(leaf)
+		node = tops.setdefault(tl, {**present(tl, 0), "children": []})
+		node["count"] += count
+		if leaf != tl:
+			node["children"].append(present(leaf, count))
+
+	out = list(tops.values())
+	for node in out:
+		node["children"].sort(key=lambda c: (c["sort"], c["category"]))
+	out.sort(key=lambda c: (c["sort"], c["category"]))
+	return out
 
 
 @frappe.whitelist(allow_guest=True)

@@ -56,6 +56,8 @@ export interface Category {
   count: number;
   icon: string;
   color: string;
+  sort?: number;
+  children?: Category[]; // sub-categories (parent → child); empty/absent for a flat shop
 }
 
 export interface KioskChips {

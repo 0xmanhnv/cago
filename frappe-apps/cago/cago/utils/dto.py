@@ -70,21 +70,22 @@ DEFAULT_CATEGORY_COLOR = "#e6f4ea"
 
 
 def category_meta_map(groups):
-	"""Batch-fetch {group: {icon, color}} in one query (avoids N+1 in lists)."""
+	"""Batch-fetch {group: {icon, color, sort}} in one query (avoids N+1 in lists)."""
 	groups = [g for g in set(groups) if g]
 	out = {}
 	if groups:
 		for r in frappe.get_all(
 			"Item Group",
 			filters={"name": ["in", groups]},
-			fields=["name", "cago_icon", "cago_color"],
+			fields=["name", "cago_icon", "cago_color", "cago_sort_order"],
 		):
 			out[r.name] = {
 				"icon": r.cago_icon or DEFAULT_CATEGORY_ICON,
 				"color": r.cago_color or DEFAULT_CATEGORY_COLOR,
+				"sort": r.cago_sort_order or 0,
 			}
 	for g in groups:
-		out.setdefault(g, {"icon": DEFAULT_CATEGORY_ICON, "color": DEFAULT_CATEGORY_COLOR})
+		out.setdefault(g, {"icon": DEFAULT_CATEGORY_ICON, "color": DEFAULT_CATEGORY_COLOR, "sort": 0})
 	return out
 
 
@@ -293,7 +294,17 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 	if public_only:
 		base["cago_is_public_visible"] = 1
 	if category:
-		base["item_group"] = category
+		# A parent category shows its whole subtree (children's products too); a leaf is just itself.
+		# Query the nested set by lft/rgt with frappe.get_all (NOT get_list) so it works for guests
+		# too — get_descendants_of applies user permissions and returns nothing for the kiosk Guest.
+		node = frappe.db.get_value("Item Group", category, ["lft", "rgt"], as_dict=True)
+		if node and node.lft is not None and node.rgt:
+			subtree = frappe.get_all(
+				"Item Group", filters={"lft": [">=", node.lft], "rgt": ["<=", node.rgt]}, pluck="name"
+			)
+			base["item_group"] = ["in", subtree or [category]]
+		else:
+			base["item_group"] = category
 
 	if query and query.strip():
 		like = f"%{query.strip()}%"

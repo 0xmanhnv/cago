@@ -32,12 +32,19 @@ def ensure_category_fields():
 					"insert_after": "cago_icon",
 					"description": "Màu nền danh mục trên kiosk (vd #fef3c7).",
 				},
+				{
+					"fieldname": "cago_sort_order",
+					"label": "Cago Sort Order",
+					"fieldtype": "Int",
+					"insert_after": "cago_color",
+					"description": "Thứ tự hiển thị danh mục trên kiosk (số nhỏ hiện trước). Owner sắp được.",
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Item Group fields ensured: cago_icon, cago_color")
+	print("Item Group fields ensured: cago_icon, cago_color, cago_sort_order")
 
 
 def ensure_retail_field():

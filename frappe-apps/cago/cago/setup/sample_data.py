@@ -96,6 +96,7 @@ def import_sample_products(csv_path=None):
 				created += 1
 			print(f"  {'updated' if existed else 'created'}: {item_code}")
 
+	seed_category_tree()
 	seed_category_presets()
 	seed_sample_batches()
 	frappe.db.commit()
@@ -157,6 +158,39 @@ CATEGORY_PRESETS = {
 	# Khác (tạp hoá)
 	"Tạp hoá": ("🛒", "#fce7f3"),
 }
+
+
+# Parent → child grouping for the kiosk category tree. "Thuốc bảo vệ thực vật" is the umbrella
+# (BVTV); the three pesticide types are its children. Owners can re-tree any Item Group later.
+CATEGORY_TREE = {
+	"Thuốc bảo vệ thực vật": ["Thuốc trừ sâu bệnh", "Thuốc cỏ", "Thuốc chuột"],
+}
+
+
+def seed_category_tree():
+	"""Make the configured parent groups and re-parent their children (idempotent)."""
+	root = _ensure_root_item_group()
+	moved = False
+	for parent, children in CATEGORY_TREE.items():
+		if not frappe.db.exists("Item Group", parent):
+			frappe.get_doc(
+				{"doctype": "Item Group", "item_group_name": parent, "parent_item_group": root, "is_group": 1}
+			).insert(ignore_permissions=True)
+			moved = True
+		for child in children:
+			if frappe.db.exists("Item Group", child) and frappe.db.get_value("Item Group", child, "parent_item_group") != parent:
+				g = frappe.get_doc("Item Group", child)
+				g.parent_item_group = parent
+				g.is_group = 0
+				g.save(ignore_permissions=True)  # NestedSet recomputes lft/rgt
+				moved = True
+	if moved:
+		try:
+			from frappe.utils.nestedset import rebuild_tree
+
+			rebuild_tree("Item Group")
+		except Exception:
+			pass
 
 
 def seed_category_presets():

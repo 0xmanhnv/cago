@@ -44,6 +44,22 @@ export function ProductList() {
       .catch(() => {});
   }, []);
 
+  // Hide the controls bar when scrolling DOWN (more room for products), reveal it instantly when
+  // scrolling UP (scrolling up signals the customer wants to search / switch category).
+  const [hideBar, setHideBar] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (y < 80) setHideBar(false);
+      else if (y > last + 6) setHideBar(true);
+      else if (y < last - 6) setHideBar(false);
+      last = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   useEffect(() => {
     const v = window.localStorage?.getItem("cago_kiosk_view");
     if (v === "list" || v === "card") setViewMode(v);
@@ -122,19 +138,21 @@ export function ProductList() {
     }`;
 
   return (
-    <div className="lg:flex lg:items-start lg:gap-5">
+    <div className="lg:flex lg:gap-5">
       {/* Category quick-switch — sidebar on tablet/desktop so customers jump between categories
-          without returning to the home screen. (On phones it's a chip strip in the sticky bar.) */}
-      <aside className="hidden lg:block lg:w-48 lg:shrink-0">
-        <div className="sticky top-3 max-h-[calc(100vh-1.5rem)] overflow-auto pb-4">
-          <CategoryNav variant="sidebar" cats={cats} active={category} onPick={(c) => nav.openList(c)} />
-        </div>
+          without returning to the home screen. (On phones it's a chip strip in the sticky bar.)
+          The <aside> itself is sticky + self-start so it stays put while the product list scrolls. */}
+      <aside className="hidden lg:block lg:w-48 lg:shrink-0 lg:self-start lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:overflow-auto">
+        <CategoryNav variant="sidebar" cats={cats} active={category} onPick={(c) => nav.openList(c)} />
       </aside>
 
       <div className="min-w-0 flex-1">
-      {/* Sticky controls: search + filters + view toggle stay reachable while the list scrolls,
-          so a customer never has to scroll back to the top to search or filter. */}
-      <div className="sticky top-0 z-20 -mx-4 mb-3 border-b border-emerald-100/60 bg-[#eef9f0]/95 px-4 pb-2 pt-3 backdrop-blur-sm">
+      {/* Sticky controls: hide on scroll-down (more room for products), reveal instantly on
+          scroll-up so the customer can search / switch category without scrolling to the top. */}
+      <div
+        className="sticky top-0 z-20 -mx-4 mb-3 border-b border-emerald-100/60 bg-[#eef9f0]/95 px-4 pb-2 pt-3 backdrop-blur-sm transition-transform duration-300 will-change-transform"
+        style={{ transform: hideBar ? "translateY(-115%)" : "translateY(0)" }}
+      >
         <div className="mb-2.5 flex items-center gap-2.5">
           <button onClick={nav.goHome} className="rounded-xl bg-brand-light px-4 py-2.5 text-lg font-extrabold text-brand-dark">
             ← Trang chủ
@@ -276,8 +294,9 @@ export function ProductList() {
   );
 }
 
-// Category quick-switch. "sidebar" = vertical list (tablet/desktop); "chips" = horizontal strip
-// (phones). Lets the customer jump between categories without going back to the home screen.
+// Category quick-switch (parent → child aware). "sidebar" = vertical accordion (tablet/desktop);
+// "chips" = horizontal strip (phones). The active parent's children expand inline so a customer
+// can browse a whole group or drill into a sub-category without going back to the home screen.
 function CategoryNav({
   variant,
   cats,
@@ -289,47 +308,79 @@ function CategoryNav({
   active: string;
   onPick: (category: string) => void;
 }) {
-  const all = [{ category: "", icon: "🛒", color: "#e2e8f0", count: 0 } as Category & { _all?: boolean }, ...cats];
+  // Which top-level branch is currently active (so we expand its children).
+  const isActiveBranch = (t: Category) => t.category === active || (t.children || []).some((c) => c.category === active);
+
   if (variant === "chips") {
+    // Flat strip: All + top-level; expand the active branch's children right after their parent.
+    const strip: { category: string; icon: string; label: string; child?: boolean; on: boolean }[] = [
+      { category: "", icon: "🛒", label: "Tất cả", on: active === "" },
+    ];
+    for (const t of cats) {
+      strip.push({ category: t.category, icon: t.icon, label: t.category, on: t.category === active });
+      if ((t.children?.length || 0) > 0 && isActiveBranch(t)) {
+        for (const c of t.children!) strip.push({ category: c.category, icon: c.icon, label: c.category, child: true, on: c.category === active });
+      }
+    }
     return (
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {all.map((c) => {
-          const on = (c.category || "") === active;
-          return (
-            <button
-              key={c.category || "__all"}
-              onClick={() => onPick(c.category)}
-              className={`flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-bold ${
-                on ? "border-brand bg-brand text-white" : "border-emerald-200 bg-white text-brand-dark"
-              }`}
-            >
-              <span>{c.category ? c.icon : "🛒"}</span>
-              {c.category || "Tất cả"}
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-2xl border border-emerald-100 bg-white p-2 shadow-soft">
-      <div className="px-2 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-slate-400">Loại hàng</div>
-      {all.map((c) => {
-        const on = (c.category || "") === active;
-        return (
+        {strip.map((c) => (
           <button
             key={c.category || "__all"}
             onClick={() => onPick(c.category)}
-            className={`mb-0.5 flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[15px] font-bold transition ${
-              on ? "bg-brand text-white" : "text-brand-dark hover:bg-brand-light"
+            className={`flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-bold ${
+              c.on ? "border-brand bg-brand text-white" : c.child ? "border-emerald-200 bg-emerald-50 text-brand-dark" : "border-emerald-200 bg-white text-brand-dark"
             }`}
           >
-            <span className="text-xl leading-none">{c.category ? c.icon : "🛒"}</span>
-            <span className="min-w-0 flex-1 truncate">{c.category || "Tất cả"}</span>
-            {c.category ? <span className={`text-xs ${on ? "text-emerald-100" : "text-slate-400"}`}>{c.count}</span> : null}
+            <span>{c.child ? "›" : c.icon}</span>
+            {c.label}
           </button>
-        );
-      })}
+        ))}
+      </div>
+    );
+  }
+
+  const Row = ({
+    icon,
+    label,
+    count,
+    on,
+    child,
+    onClick,
+  }: {
+    icon: string;
+    label: string;
+    count?: number;
+    on: boolean;
+    child?: boolean;
+    onClick: () => void;
+  }) => (
+    <button
+      onClick={onClick}
+      className={`mb-0.5 flex w-full items-center gap-2 rounded-xl py-2 text-left text-[15px] font-bold transition ${
+        child ? "pl-7 pr-2.5" : "px-2.5"
+      } ${on ? "bg-brand text-white" : "text-brand-dark hover:bg-brand-light"}`}
+    >
+      <span className="text-xl leading-none">{icon}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {count != null ? <span className={`text-xs ${on ? "text-emerald-100" : "text-slate-400"}`}>{count}</span> : null}
+    </button>
+  );
+
+  return (
+    <div className="rounded-2xl border border-emerald-100 bg-white p-2 shadow-soft">
+      <div className="px-2 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-slate-400">Loại hàng</div>
+      <Row icon="🛒" label="Tất cả" on={active === ""} onClick={() => onPick("")} />
+      {cats.map((t) => (
+        <div key={t.category}>
+          <Row icon={t.icon} label={t.category} count={t.count} on={t.category === active} onClick={() => onPick(t.category)} />
+          {(t.children?.length || 0) > 0 && isActiveBranch(t)
+            ? t.children!.map((c) => (
+                <Row key={c.category} icon={c.icon} label={c.category} count={c.count} on={c.category === active} child onClick={() => onPick(c.category)} />
+              ))
+            : null}
+        </div>
+      ))}
     </div>
   );
 }
