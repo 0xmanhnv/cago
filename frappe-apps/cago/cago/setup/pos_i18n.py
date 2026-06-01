@@ -93,7 +93,68 @@ POS_VI = {
 	"Payment methods refreshed": "Đã làm mới các hình thức thanh toán",
 	"Please review before proceeding.": "Vui lòng kiểm tra lại trước khi tiếp tục.",
 	"Please review before proceeding": "Vui lòng kiểm tra lại trước khi tiếp tục",
+	# Payment dialog (cashier-critical) strings still in English on the Pay screen
+	"METHOD": "HÌNH THỨC",
+	"Method": "Hình thức",
+	"Tax and Charges": "Thuế và phụ phí",
+	"Item / Rate Discounts": "Giảm giá theo mặt hàng",
+	"Total Discount": "Tổng giảm giá",
+	"Rounded Total": "Tổng làm tròn",
+	"Change": "Tiền thối lại",
+	"Change (VND)": "Tiền thối lại (VND)",
+	"Credit Sale?": "Bán ghi nợ?",
+	"Credit Sale": "Bán ghi nợ",
+	"Select an option on the left to view its settings.": "Chọn một mục bên trái để xem cài đặt.",
+	"Sales Person": "Nhân viên bán hàng",
+	"Sales Persons": "Nhân viên bán hàng",
+	"{0} sales persons found": "Tìm thấy {0} nhân viên bán hàng",
+	"No sales persons found": "Không có nhân viên bán hàng",
+	"Credit and Output": "Tín dụng và đầu ra",
+	"Conversion and Totals": "Quy đổi và Tổng số",
+	"Payment Summary": "Tổng kết thanh toán",
+	"Amount Paid": "Số tiền đã thanh toán",
 }
+
+# Polish for a rural counter / less tech-savvy seller: shorter, plainer, less ERP/e-commerce
+# wording. These override the generic entries above (reviewed for the AgriMate shop, docs/35).
+POS_VI.update(
+	{
+		# Counter sale, not online "giỏ hàng"
+		"Cart": "Đơn đang bán",
+		"Your Cart": "Đơn đang bán",
+		"No items in cart": "Chưa có sản phẩm trong đơn",
+		"Waiting for cart items": "Chưa có sản phẩm trong đơn",
+		"Items added to invoice": "Đã thêm sản phẩm vào đơn",
+		"Item order updated": "Đã cập nhật đơn bán",
+		# Stock / quantity — plainer than the ERP "tồn khả dụng"
+		"Available QTY": "Tồn có thể bán",
+		"Available Qty": "Tồn có thể bán",
+		"Free Qty": "Số lượng tặng",
+		"Minimum Qty": "Số lượng tối thiểu",
+		# Customer / debt — rural shops say "công nợ"
+		"Customer Balance": "Công nợ khách",
+		"Balance": "Công nợ",
+		"Outstanding": "Còn nợ",
+		# Payment — action button reads "Thanh toán"
+		"Pay": "Thanh toán",
+		"PAY": "THANH TOÁN",
+		"Paid": "Đã thanh toán",
+		"Paid:": "Đã thanh toán:",
+		"Amount Paid": "Đã thanh toán",
+		# Shift / cash drawer
+		"Opening Amount": "Tiền đầu ca",
+		"Opening Cash": "Tiền mặt đầu ca",
+		"Closing Amount": "Tiền cuối ca",
+		"Open drawer": "Mở két tiền",
+		# View modes / profile
+		"Profile": "Quầy bán",
+		"Profiles": "Quầy bán",
+		"Card": "Dạng thẻ",
+		# Admin/accounting-ish labels — plainer than machine ERP wording
+		"Credit and Output": "Công nợ và tài khoản ghi nhận",
+		"Conversion and Totals": "Quy đổi và tổng tiền",
+	}
+)
 
 
 def _upsert(source, translated):

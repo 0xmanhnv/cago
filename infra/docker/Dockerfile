@@ -53,3 +53,7 @@ RUN bash -lc 'export NVM_DIR=/home/frappe/.nvm && . "$NVM_DIR/nvm.sh" \
 # runtime entrypoint doesn't recreate per-app symlinks for apps added after the base image).
 RUN ln -sfn /home/frappe/frappe-bench/apps/posawesome/posawesome/public \
     /home/frappe/frappe-bench/assets/posawesome
+# Same for cago's static assets (public/css/posawesome.css recolours POS Awesome buttons via
+# app_include_css). cago ships no JS bundle, so just symlink its public dir for nginx.
+RUN ln -sfn /home/frappe/frappe-bench/apps/cago/cago/public \
+    /home/frappe/frappe-bench/assets/cago
