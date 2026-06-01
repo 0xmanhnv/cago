@@ -324,7 +324,15 @@ def seed_sample_batches():
 					"expiry_date": add_days(nowdate(), days),
 				}
 			).insert(ignore_permissions=True)
-			print(f"  batch: {batch_id} (HSD +{days}d)")
+			# Receive a little stock into the lot so the chemical is sellable out of the box
+			# (selling a batch item needs a received lot — see cago.api.sales._assign_batch).
+			try:
+				from cago.api import purchasing
+
+				purchasing.receive_stock(item_code, 20, cost_rate=0, batch_no=batch_id)
+			except Exception:
+				pass
+			print(f"  batch: {batch_id} (HSD +{days}d, +20 tồn)")
 
 
 def _default_csv_path():

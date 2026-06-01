@@ -82,6 +82,11 @@ def _apply_store_settings():
 	# physically there even when the count shows 0). The POS warns the staff up-front, but the
 	# sale must still go through — so permit negative stock instead of failing at payment time.
 	frappe.db.set_single_value("Stock Settings", "allow_negative_stock", 1)
+	# Batch/HSD items (chemicals): use the simple batch_no field on rows + activate the batch
+	# system so the POS can auto-assign a lot (FEFO) without the Serial-and-Batch-Bundle dance.
+	frappe.db.set_single_value("Stock Settings", "use_serial_batch_fields", 1)
+	frappe.db.set_single_value("Stock Settings", "enable_serial_and_batch_no_for_item", 1)
+	frappe.db.set_single_value("Stock Settings", "allow_negative_stock_for_batch", 1)
 	frappe.db.commit()
 
 

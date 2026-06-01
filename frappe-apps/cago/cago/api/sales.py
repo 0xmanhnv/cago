@@ -109,6 +109,47 @@ def _trim(n):
 	return int(n) if n == int(n) else round(n, 2)
 
 
+def _auto_batch(code, wh):
+	"""Pick a batch for a batch-tracked item so staff never sees ERPNext's raw
+	'Batch No are mandatory' at checkout. FEFO: sell the nearest-expiry lot first (correct for
+	chemicals/HSD), preferring lots that still have stock in this warehouse. Returns None for
+	non-batch items, or when the item has no batch at all (owner must create one via Nhập hàng)."""
+	if not frappe.db.get_value("Item", code, "has_batch_no"):
+		return None
+	try:
+		from erpnext.stock.doctype.batch.batch import get_batch_qty
+	except Exception:
+		return None
+	batches = frappe.get_all("Batch", filters={"item": code, "disabled": 0}, fields=["name", "expiry_date"])
+	scored = []
+	for bz in batches:
+		try:
+			qty = flt(get_batch_qty(bz.name, wh, code))
+		except Exception:
+			qty = 0
+		scored.append((qty, bz.expiry_date, bz.name))
+	in_stock = [s for s in scored if s[0] > 0]
+	if not in_stock:
+		# Expiry-tracked goods must sell from a real received lot (ERPNext blocks negative batch
+		# stock, and "which lot's HSD?" is unanswerable otherwise). Caller raises a friendly error.
+		return None
+	# FEFO: nearest expiry first; undated lots last.
+	in_stock.sort(key=lambda s: (s[1] is None, str(s[1] or "9999-12-31")))
+	return in_stock[0][2]
+
+
+def _assign_batch(row, code, wh):
+	"""Auto-assign a FEFO lot to a batch-tracked sale row, or raise a clear Vietnamese error
+	(not ERPNext's raw English) telling the owner to receive the lot first via Nhập hàng."""
+	if not frappe.db.get_value("Item", code, "has_batch_no"):
+		return
+	batch = _auto_batch(code, wh)
+	if not batch:
+		name = frappe.db.get_value("Item", code, "cago_display_name") or frappe.db.get_value("Item", code, "item_name") or code
+		frappe.throw(_("{0} cần nhập lô/HSD trước khi bán. Vào 'Nhập hàng' để nhập lô.").format(name))
+	row["batch_no"] = batch
+
+
 @frappe.whitelist()
 def credit_sale(customer, items, note=None):
 	"""Create + submit an unpaid Sales Invoice (stock-reducing credit sale)."""
@@ -148,6 +189,7 @@ def credit_sale(customer, items, note=None):
 				"allow_zero_valuation_rate": 1,
 			}
 		)
+		_assign_batch(rows[-1], code, wh)
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 
@@ -480,6 +522,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			# the catalogue price on validate and lose the bargained amount.
 			row["rate"] = new_rate
 			row["price_list_rate"] = new_rate
+		_assign_batch(row, code, wh)
 		rows.append(row)
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
