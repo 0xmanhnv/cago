@@ -42,12 +42,27 @@
 	opacity: 0 !important;
 }
 
-/* --- Edit-line expansion (ItemsTableExpandedRow) ---
- * POS Awesome's per-line "details" expansion is a heavy ERP-style form (stock info, warehouse,
- * item group, pricing) that renders cramped/faded and is overkill for this shop — everything
- * needed to sell (quantity, unit price, discount) is already editable in the cart row itself.
- * Hide the expansion so a row tap never opens that broken panel. Reversible (remove this block). */
-.posa-expanded-row-cell,
-.posa-expanded-content {
-	display: none !important;
+/* --- Edit-line expansion (ItemsTableExpandedRow): verified via headless browser ---
+ * Kill the entrance animation that left the panel faded/shifted, and make the form a bit more
+ * compact so it doesn't look cramped on a narrow/zoomed screen. ALL rules scoped strictly inside
+ * .posa-expanded-content so nothing else on the page is affected (the earlier global rule wasn't). */
+.posa-expanded-content,
+.posa-expanded-content.responsive-expanded-content {
+	animation: none !important;
+	opacity: 1 !important;
+	transform: none !important;
+}
+.posa-expanded-content .posa-form-section {
+	padding: 12px !important;
+}
+.posa-expanded-content .posa-form-section:hover {
+	transform: none !important;
+}
+.posa-expanded-content .posa-form-row {
+	gap: 12px !important;
+	margin-bottom: 8px !important;
+}
+.posa-expanded-content .posa-form-field {
+	flex: 1 1 220px !important;
+	min-width: 200px !important;
 }

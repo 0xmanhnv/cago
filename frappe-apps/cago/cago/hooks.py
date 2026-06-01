@@ -16,7 +16,7 @@ required_apps = ["frappe", "erpnext"]
 # Recolour POS Awesome's look-alike payment buttons (see public/css/posawesome.css). Loaded on
 # the whole desk, but the selectors only exist on the POS Awesome page, so it is effectively
 # scoped there and is a no-op everywhere else. NOT a fork — posawesome source is untouched.
-app_include_css = ["/assets/cago/css/posawesome.css"]
+app_include_css = ["/assets/cago/css/posawesome.css?v=2"]
 
 # ---------------------------------------------------------------------------
 # Home page redirect after login
