@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
 
 const STATUS_VI: Record<string, string> = {
   New: "Mới",
@@ -33,6 +34,8 @@ interface WantedSummary {
   summary: string;
   note?: string;
   created: string;
+  date_group?: string;
+  time?: string;
   is_expired?: boolean;
 }
 
@@ -41,6 +44,7 @@ export function StaffWanted() {
   const [orders, setOrders] = useState<WantedSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [includeDone, setIncludeDone] = useState(false);
+  const [listQ, setListQ] = useState("");
   const [code, setCode] = useState("");
   const [wl, setWl] = useState<WantedList | null>(null);
   const [msg, setMsg] = useState("");
@@ -192,46 +196,52 @@ export function StaffWanted() {
       </div>
       {msg && <div className="mb-3 rounded-lg border border-amber-400 bg-amber-100 p-3 text-amber-900">{msg}</div>}
 
-      <div className="mb-2 flex items-center justify-between">
-        <div className="font-bold text-slate-600">{includeDone ? "Tất cả đơn" : "Đơn đang chờ"}</div>
-        <button
-          onClick={() => {
-            const v = !includeDone;
-            setIncludeDone(v);
-            void loadList(v);
-          }}
-          className="rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-bold"
-        >
-          {includeDone ? "Chỉ đơn đang chờ" : "Xem cả đơn xong"}
-        </button>
-      </div>
+      <SearchInput value={listQ} onChange={setListQ} placeholder="🔎 Tìm theo mã đơn / tên hàng..." />
+      <FilterTabs
+        active={includeDone ? "all" : "open"}
+        onChange={(k) => {
+          const v = k === "all";
+          setIncludeDone(v);
+          void loadList(v);
+        }}
+        tabs={[
+          { key: "open", label: "Đang chờ" },
+          { key: "all", label: "Tất cả" },
+        ]}
+      />
 
-      {loading ? (
-        <div className="py-6 text-center text-slate-500">Đang tải...</div>
-      ) : orders.length === 0 ? (
-        <div className="rounded-xl bg-white p-6 text-center text-slate-400">Chưa có đơn nào khách chọn.</div>
-      ) : (
-        orders.map((o) => (
-          <button
-            key={o.code}
-            onClick={() => open(o.code)}
-            className="mb-2.5 flex w-full items-center justify-between gap-3 rounded-xl bg-white p-3.5 text-left shadow-sm"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-bold">{o.code}</span>
-                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold">{STATUS_VI[o.status] || o.status}</span>
-                {o.is_expired && <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">quá hạn</span>}
-              </div>
-              <div className="truncate text-slate-600">{o.summary}</div>
-              <div className="text-xs text-slate-400">
-                {o.item_count} mặt hàng · {o.created}
-              </div>
-            </div>
-            <div className="text-2xl text-slate-300">›</div>
-          </button>
-        ))
-      )}
+      {(() => {
+        const t = listQ.trim().toLowerCase();
+        const list = t ? orders.filter((o) => `${o.code} ${o.summary}`.toLowerCase().includes(t)) : orders;
+        if (loading) return <div className="py-6 text-center text-slate-500">Đang tải...</div>;
+        if (list.length === 0)
+          return <div className="rounded-xl bg-white p-6 text-center text-slate-400">{t ? "Không tìm thấy đơn." : "Chưa có đơn nào khách chọn."}</div>;
+        return groupOrdered(list, (o) => o.date_group || o.created).map((g) => (
+          <div key={g.label}>
+            <DateHeader label={g.label} />
+            {g.items.map((o) => (
+              <button
+                key={o.code}
+                onClick={() => open(o.code)}
+                className="mb-2.5 flex w-full items-center justify-between gap-3 rounded-xl bg-white p-3.5 text-left shadow-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">{o.code}</span>
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold">{STATUS_VI[o.status] || o.status}</span>
+                    {o.is_expired && <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">quá hạn</span>}
+                  </div>
+                  <div className="truncate text-slate-600">{o.summary}</div>
+                  <div className="text-xs text-slate-400">
+                    {o.item_count} mặt hàng · {o.time || o.created}
+                  </div>
+                </div>
+                <div className="text-2xl text-slate-300">›</div>
+              </button>
+            ))}
+          </div>
+        ));
+      })()}
     </div>
   );
 }

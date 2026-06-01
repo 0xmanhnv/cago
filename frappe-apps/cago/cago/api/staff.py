@@ -32,6 +32,9 @@ def list_wanted_lists(include_done=0):
 		order_by="creation desc",
 		limit=50,
 	)
+	from frappe.utils import getdate, nowdate
+
+	today = getdate(nowdate())
 	out = []
 	for r in rows:
 		items = frappe.get_all("Cago Wanted List Item", filters={"parent": r.name}, fields=["item_code", "qty"])
@@ -45,6 +48,8 @@ def list_wanted_lists(include_done=0):
 			)
 			names.append(disp)
 		summary = ", ".join(names[:3]) + (f" +{len(names) - 3}" if len(names) > 3 else "")
+		delta = (today - getdate(r.creation)).days
+		group = "Hôm nay" if delta == 0 else "Hôm qua" if delta == 1 else format_datetime(r.creation, "dd/MM/yyyy")
 		out.append(
 			{
 				"code": r.code or r.name,
@@ -54,6 +59,8 @@ def list_wanted_lists(include_done=0):
 				"summary": summary,
 				"note": r.note,
 				"created": format_datetime(r.creation, "dd/MM HH:mm"),
+				"date_group": group,
+				"time": format_datetime(r.creation, "HH:mm"),
 				"is_expired": bool(r.expires_at and get_datetime(r.expires_at) < now_datetime()),
 			}
 		)

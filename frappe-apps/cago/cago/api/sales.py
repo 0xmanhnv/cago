@@ -305,31 +305,39 @@ def get_receipt(invoice):
 
 
 @frappe.whitelist()
-def list_recent_sales(limit=30):
-	"""Staff: recent submitted sales (for returns / lookup). Newest first."""
+def list_recent_sales(limit=60):
+	"""Staff: recent submitted sales (for returns / lookup). Newest first, with a date-group
+	label + time so the UI can group (Hôm nay / Hôm qua / dd/MM) and filter cleanly."""
 	ensure_staff()
-	from frappe.utils import cint, format_datetime
+	from frappe.utils import cint, format_datetime, getdate, nowdate
 
 	rows = frappe.get_all(
 		"Sales Invoice",
 		filters={"docstatus": 1, "is_return": 0, "company": debt._company()},
-		fields=["name", "customer", "customer_name", "grand_total", "posting_date", "creation", "is_pos"],
+		fields=["name", "customer", "customer_name", "grand_total", "outstanding_amount", "creation", "is_pos"],
 		order_by="creation desc",
-		limit=cint(limit) or 30,
+		limit=cint(limit) or 60,
 	)
+	today = getdate(nowdate())
 	out = []
 	for r in rows:
 		n_items = frappe.db.count("Sales Invoice Item", {"parent": r.name})
 		returned = frappe.db.get_value("Sales Invoice", {"return_against": r.name, "docstatus": 1}, "name")
+		delta = (today - getdate(r.creation)).days
+		group = "Hôm nay" if delta == 0 else "Hôm qua" if delta == 1 else format_datetime(r.creation, "dd/MM/yyyy")
+		# payment kind: paid POS, on-credit, or partially paid
+		owed = flt(r.outstanding_amount)
+		kind = "credit" if (not r.is_pos and owed > 0) else "partial" if owed > 0 else "paid"
 		out.append(
 			{
 				"invoice": r.name,
 				"customer_name": r.customer_name,
 				"total_text": dto.format_price(flt(r.grand_total)),
-				"when": format_datetime(r.creation, "dd/MM HH:mm"),
+				"date_group": group,
+				"time": format_datetime(r.creation, "HH:mm"),
 				"item_count": n_items,
 				"returned": bool(returned),
-				"paid": "POS" if r.is_pos else "Nợ",
+				"kind": kind,  # paid | credit | partial
 			}
 		)
 	return out
