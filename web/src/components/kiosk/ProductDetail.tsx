@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
@@ -10,7 +11,15 @@ import type { Product, ProductCard } from "@/lib/types";
 
 export function ProductDetail({ code }: { code: string }) {
   const nav = useKioskNav();
+  const router = useRouter();
   const kiosk = useKiosk();
+  // "Quay lại" returns to wherever the customer came FROM (the assistant chat, a category list,
+  // or another product) so they can keep browsing the chat's suggestions. Fall back to the
+  // category list on a fresh/deep-linked load with no in-app history.
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else nav.openList(product?.category || "");
+  };
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +66,7 @@ export function ProductDetail({ code }: { code: string }) {
     <div>
       <div className="mb-4 flex items-center gap-2.5">
         <button
-          onClick={() => nav.openList(product.category || "")}
+          onClick={goBack}
           className="rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark"
         >
           ← Quay lại
