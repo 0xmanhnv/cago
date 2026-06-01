@@ -26,19 +26,26 @@ export function Home() {
 
   return (
     <div>
-      {/* Brand banner — green field + golden-harvest accent */}
-      <div className="animate-rise-in relative mb-5 overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-dark px-6 py-6 text-center text-white shadow-card">
-        <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-harvest via-amber-300 to-harvest" />
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-harvest/20 text-4xl leading-none ring-2 ring-harvest/60">
-          🌾
+      {/* Brand banner — compact: logo + name on one row, slogan beneath; keeps the fold for products */}
+      <div className="animate-rise-in relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-dark px-5 py-4 text-white shadow-card">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-harvest via-amber-300 to-harvest" />
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-harvest/20 text-2xl leading-none ring-2 ring-harvest/60">
+            🌾
+          </span>
+          <div className="min-w-0">
+            <div className="text-2xl font-extrabold leading-tight tracking-tight">{brand}</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-100">Vật tư nông nghiệp</div>
+          </div>
+          <span className="ml-auto hidden rounded-full bg-harvest/25 px-3 py-1 text-sm font-bold text-amber-50 sm:inline">
+            🌾 Đồng hành cùng nhà nông
+          </span>
         </div>
-        <div className="mt-2 text-3xl font-extrabold tracking-tight">{brand}</div>
-        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100">Vật tư nông nghiệp</div>
-        <div className="mt-2 inline-block rounded-full bg-harvest/25 px-3 py-1 text-sm font-bold text-amber-50">
-          🌾 Đồng hành cùng nhà nông
+        <div className="mt-2 flex items-center gap-2 sm:hidden">
+          <span className="rounded-full bg-harvest/25 px-2.5 py-0.5 text-xs font-bold text-amber-50">🌾 Đồng hành cùng nhà nông</span>
         </div>
-        <div className="mt-3 text-lg font-bold text-emerald-50">Bác cần mua gì hôm nay?</div>
       </div>
+      <div className="mb-3 ml-1 text-lg font-bold text-brand-dark">Bác cần mua gì hôm nay?</div>
 
       {/* Search */}
       <div className="animate-rise-in relative mb-6" style={{ animationDelay: "60ms" }}>
