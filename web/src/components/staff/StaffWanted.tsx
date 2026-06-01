@@ -106,18 +106,11 @@ export function StaffWanted() {
       setBusy(false);
     }
   };
-  const createInvoice = async () => {
-    if (!wl || busy) return;
-    setBusy(true);
-    try {
-      const r = await frappeCall<{ url: string }>("cago.api.pos.create_invoice_from_wanted", { code: wl.code });
-      window.open(r.url, "_blank");
-      void loadList();
-    } catch (e) {
-      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không tạo được hoá đơn."}`, { danger: true });
-    } finally {
-      setBusy(false);
-    }
+  // Bring the order into the Cago POS to collect payment (cash/bank/credit) — NOT the raw
+  // ERPNext desk invoice. The sell screen pre-loads these items and marks the order Completed.
+  const createInvoice = () => {
+    if (!wl) return;
+    router.push(`/staff/sell?wanted=${encodeURIComponent(wl.code)}`);
   };
 
   // ---- Detail view -------------------------------------------------------
@@ -161,7 +154,7 @@ export function StaffWanted() {
             </button>
           </div>
           <button onClick={createInvoice} disabled={busy} className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-bold text-white disabled:opacity-50">
-            {busy ? "Đang xử lý..." : "🧾 Tạo hoá đơn (mở để thu tiền)"}
+            {busy ? "Đang xử lý..." : "🛒 Bán / thu tiền cho đơn này"}
           </button>
           {wl.status !== "Cancelled" && wl.status !== "Completed" && (
             <button onClick={cancelOrder} className="mt-2.5 min-h-touch w-full rounded-xl border-2 border-red-300 bg-white font-bold text-red-600">

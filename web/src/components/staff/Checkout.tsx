@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { CategoryNav } from "@/components/ui/CategoryNav";
@@ -16,8 +16,12 @@ interface SaleResult {
   total_text: string;
   payment_mode: PayMode;
   item_count: number;
+  customer_name?: string;
+  lines?: { name: string; qty: number; uom: string; amount_text: string }[];
   outstanding_text?: string | null;
   paid_text?: string | null;
+  cash_text?: string | null;
+  bank_text?: string | null;
   change_text?: string | null;
 }
 interface Cust {
@@ -141,6 +145,9 @@ async function printReceipt(invoice: string, size: PaperSize = loadPaper()) {
 
 export function Checkout() {
   const router = useRouter();
+  const sp = useSearchParams();
+  const wantedParam = sp.get("wanted"); // pre-load a kiosk wanted-list into the cart for payment
+  const [wantedCode, setWantedCode] = useState<string | null>(null);
   const { boot } = useSession();
   const allowPriceEdit = !!boot?.allow_price_edit; // server re-checks; this only shows the field
   const [list, setList] = useState<ProductCard[]>([]);
@@ -182,6 +189,7 @@ export function Checkout() {
   const [keypad, setKeypad] = useState<string | null>(null); // item_code whose qty is being typed
   const [shiftRefresh, setShiftRefresh] = useState(0); // bump to re-pull the till shift after a sale
   const [payOpen, setPayOpen] = useState(false); // bottom bar: collapsed summary vs full payment panel
+  const [payClosing, setPayClosing] = useState(false); // play the slide-down before unmounting
   const [cats, setCats] = useState<Category[]>([]); // category quick-filter (sidebar/chips)
   const [category, setCategory] = useState(""); // active category filter ("" = all)
   const [shiftOpen, setShiftOpen] = useState(true); // till shift status (lifted from ShiftBar); selling requires it
@@ -302,6 +310,33 @@ export function Checkout() {
     const m = await ensureMeta(code);
     setLines((l) => (l[code] ? l : { ...l, [code]: { qty: 1, uom: m?.stock_uom || "" } }));
   };
+  // Pre-load a kiosk wanted-list into the cart (from "/staff/sell?wanted=CODE") so staff collect
+  // payment in the Cago POS instead of being dumped into the raw ERPNext desk invoice.
+  useEffect(() => {
+    if (!wantedParam) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const wl = await frappeCall<{ items: { item_code: string; qty: number }[] }>(
+          "cago.api.staff.get_wanted_list",
+          { code: wantedParam },
+          { method: "GET" },
+        );
+        for (const it of wl.items || []) {
+          if (cancelled) return;
+          const m = await ensureMeta(it.item_code);
+          setLines((l) => ({ ...l, [it.item_code]: { qty: it.qty || 1, uom: l[it.item_code]?.uom || m?.stock_uom || "" } }));
+        }
+        if (!cancelled) setWantedCode(wantedParam);
+      } catch {
+        /* invalid code → ignore, staff sells normally */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedParam]);
   const setQty = (code: string, qty: number) =>
     setLines((l) => {
       const copy = { ...l };
@@ -361,6 +396,20 @@ export function Checkout() {
     setCouponDisc(0);
     setCouponInput("");
     setCouponMsg(null);
+  };
+  // Collapse the pay panel with a slide-down (play the exit animation, then unmount).
+  const closePay = () => {
+    setPayClosing(true);
+    setTimeout(() => {
+      setPayClosing(false);
+      setPayOpen(false);
+    }, 200);
+  };
+  // After a wanted-list sale completes, mark it Completed so it leaves the staff's open queue.
+  const markWantedDone = () => {
+    if (!wantedCode) return;
+    void frappeCall("cago.api.staff.set_wanted_list_status", { code: wantedCode, status: "Completed" }).catch(() => {});
+    setWantedCode(null);
   };
   // Keep a % coupon's preview in sync when the cart changes; drop it if it no longer qualifies.
   useEffect(() => {
@@ -464,6 +513,7 @@ export function Checkout() {
       });
       setResult(r);
       setShiftRefresh((n) => n + 1);
+      markWantedDone();
       setLines({});
       setDiscount("");
       clearCoupon();
@@ -509,6 +559,7 @@ export function Checkout() {
       });
       setResult(r);
       setShiftRefresh((n) => n + 1);
+      markWantedDone();
       setLines({});
       setDiscount("");
       clearCoupon();
@@ -531,17 +582,37 @@ export function Checkout() {
         <div className="rounded-2xl bg-white p-6 shadow">
           <div className="text-6xl">✅</div>
           <div className="mt-2 text-lg font-bold">Đã bán xong</div>
-          <div className="mt-1 text-slate-500">
-            {result.item_count} mặt hàng · {MODE_VI[result.payment_mode]}
-          </div>
           <div className="mt-2 text-4xl font-extrabold text-brand">{result.total_text}</div>
-          {result.outstanding_text && (
+          <div className="mt-1 text-slate-500">
+            {MODE_VI[result.payment_mode]}
+            {result.customer_name && ` · 👤 ${result.customer_name}`}
+          </div>
+          {/* What was sold */}
+          {result.lines && result.lines.length > 0 && (
+            <div className="mx-auto mt-3 max-w-sm border-t border-slate-100 pt-3 text-left">
+              {result.lines.map((l, i) => (
+                <div key={i} className="flex justify-between gap-2 py-0.5 text-sm">
+                  <span className="min-w-0 truncate text-slate-600">
+                    {l.name} <span className="text-slate-400">× {l.qty} {l.uom}</span>
+                  </span>
+                  <span className="shrink-0 font-bold text-slate-700">{l.amount_text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Payment breakdown */}
+          {result.payment_mode === "split" && (result.cash_text || result.bank_text) && (
+            <div className="mt-2 text-sm text-slate-500">
+              Đã trả: {[result.cash_text && `💵 ${result.cash_text}`, result.bank_text && `💳 ${result.bank_text}`].filter(Boolean).join(" · ")}
+            </div>
+          )}
+          {result.outstanding_text && result.outstanding_text !== "Không nợ" && (
             <div className="mt-1 text-lg font-bold text-red-600">Khách đang nợ: {result.outstanding_text}</div>
           )}
           {result.change_text && (
             <div className="mt-1 text-lg font-bold text-brand">Thối lại: {result.change_text}</div>
           )}
-          <div className="mt-1 text-sm text-slate-400">Hoá đơn {result.invoice}</div>
+          <div className="mt-2 text-xs text-slate-400">Hoá đơn {result.invoice}</div>
           {qr && (
             <div className="mt-4">
               <div className="text-slate-600">Khách quét mã để chuyển khoản:</div>
@@ -694,7 +765,7 @@ export function Checkout() {
             <span className="ml-2 text-sm font-bold text-red-600">(đang nợ {cust.outstanding_text})</span>
           )}
         </span>
-        <span className="text-slate-400">{showCust ? "▲" : "đổi ▾"}</span>
+        <span className="text-2xl leading-none text-slate-400">{showCust ? "▲" : "▾"}</span>
       </button>
       {showCust && <CustomerPicker onPick={(c) => { setCust(c); setShowCust(false); }} onWalkIn={() => { setCust(null); setShowCust(false); }} />}
 
@@ -866,7 +937,7 @@ export function Checkout() {
       {cartCodes.length > 0 && (
         <>
           {/* Dim the page when the payment panel is open so it reads as a deliberate sheet. */}
-          {payOpen && <div className="fixed inset-0 z-10 bg-black/30" onClick={() => setPayOpen(false)} aria-hidden />}
+          {payOpen && <div className={`fixed inset-0 z-10 bg-black/30 ${payClosing ? "animate-fade-out" : "animate-fade-in"}`} onClick={closePay} aria-hidden />}
           <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
             <div className="mx-auto max-w-[960px]">
               {!payOpen ? (
@@ -882,8 +953,8 @@ export function Checkout() {
                   <span className="shrink-0 rounded-xl bg-brand px-5 py-3 text-lg font-extrabold text-white">Thanh toán ▲</span>
                 </button>
               ) : (
-                <div className="no-scrollbar max-h-[82vh] overflow-auto p-3">
-                  <button onClick={() => setPayOpen(false)} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500">
+                <div className={`no-scrollbar max-h-[82vh] overflow-auto p-3 ${payClosing ? "animate-sheet-down" : "animate-sheet-up"}`}>
+                  <button onClick={closePay} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500">
                     ▼ Thu gọn — chọn thêm hàng
                   </button>
                   {/* Customer — changeable right here so staff don't have to scroll up to ghi nợ. */}
@@ -897,7 +968,7 @@ export function Checkout() {
                         <span className="ml-2 text-sm font-bold text-red-600">(đang nợ {cust.outstanding_text})</span>
                       )}
                     </span>
-                    <span className="text-slate-400">{custInPanel ? "▲" : "đổi ▾"}</span>
+                    <span className="text-2xl leading-none text-slate-400">{custInPanel ? "▲" : "▾"}</span>
                   </button>
                   {custInPanel && (
                     <div className="mb-2">
@@ -1042,13 +1113,27 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", village: "" });
   const [busy, setBusy] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const PAGE = 20;
 
   const run = async (query: string) => {
     try {
-      setRows((await frappeCall<Cust[]>("cago.api.sales.search_customers_lite", { query }, { method: "GET" })) || []);
+      const r = (await frappeCall<Cust[]>("cago.api.sales.search_customers_lite", { query, start: 0 }, { method: "GET" })) || [];
+      setRows(r);
+      setHasMore(r.length >= PAGE);
     } catch {
       setRows([]);
+      setHasMore(false);
+    }
+  };
+  const more = async () => {
+    try {
+      const r = (await frappeCall<Cust[]>("cago.api.sales.search_customers_lite", { query: q.trim(), start: rows.length }, { method: "GET" })) || [];
+      setRows((prev) => [...prev, ...r]);
+      setHasMore(r.length >= PAGE);
+    } catch {
+      setHasMore(false);
     }
   };
   useEffect(() => {
@@ -1109,6 +1194,9 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
                 <span className={`text-sm font-bold ${c.outstanding_text && c.outstanding_text !== "Không nợ" ? "text-red-600" : "text-slate-400"}`}>{c.outstanding_text}</span>
               </button>
             ))}
+            {hasMore && (
+              <button onClick={more} className="mt-1 w-full rounded-lg bg-slate-100 py-2 text-sm font-bold text-slate-600">⌄ Xem thêm khách</button>
+            )}
           </div>
           <button onClick={() => setAdding(true)} className="mt-2 w-full rounded-lg bg-teal-600 py-2.5 font-bold text-white">➕ Thêm khách mới</button>
         </div>

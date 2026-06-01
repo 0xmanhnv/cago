@@ -109,6 +109,28 @@ def _trim(n):
 	return int(n) if n == int(n) else round(n, 2)
 
 
+def _sale_lines(rows):
+	"""Brief item list for the post-sale confirmation screen (what was sold)."""
+	out = []
+	for r in rows:
+		code = r["item_code"]
+		name = frappe.db.get_value("Item", code, "cago_display_name") or frappe.db.get_value("Item", code, "item_name") or code
+		out.append(
+			{
+				"name": name,
+				"qty": _trim(r["qty"]),
+				"uom": dto.uom_label(r.get("uom")),
+				"amount_text": dto.format_price(flt(r["qty"]) * flt(r["rate"])),
+			}
+		)
+	return out
+
+
+def _customer_label(customer):
+	"""Display name of the buyer (who it was sold to), or walk-in."""
+	return (customer and frappe.db.get_value("Customer", customer, "customer_name")) or "Khách lẻ"
+
+
 def _auto_batch(code, wh):
 	"""Pick a batch for a batch-tracked item so staff never sees ERPNext's raw
 	'Batch No are mandatory' at checkout. FEFO: sell the nearest-expiry lot first (correct for
@@ -240,10 +262,12 @@ def _customer_outstanding(customer):
 
 
 @frappe.whitelist()
-def search_customers_lite(query=None):
+def search_customers_lite(query=None, start=0):
 	"""Staff: pick a customer at the till (for ghi nợ). Returns name/village/phone + current
-	debt text only — no buying price/margin (that stays owner-only)."""
+	debt text only — no buying price/margin (that stays owner-only). Paginated (20/page)."""
 	ensure_staff()
+	from frappe.utils import cint
+
 	query = (query or "").strip()
 	or_filters = (
 		[["customer_name", "like", f"%{query}%"], ["mobile_no", "like", f"%{query}%"], ["cago_zalo_phone", "like", f"%{query}%"]]
@@ -256,6 +280,7 @@ def search_customers_lite(query=None):
 		or_filters=or_filters,
 		fields=["name", "customer_name", "cago_village", "mobile_no"],
 		limit=20,
+		limit_start=cint(start),
 		order_by="customer_name asc",
 	)
 	out = []
@@ -604,7 +629,11 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			"total_text": dto.format_price(total),
 			"payment_mode": "split",
 			"item_count": len(rows),
+			"customer_name": _customer_label(cust),
+			"lines": _sale_lines(rows),
 			"paid_text": dto.format_price(paid),
+			"cash_text": dto.format_price(_cash) if (_cash := sum(flt((p or {}).get("amount")) for p in payments if (p or {}).get("mode") == "cash")) > 0 else None,
+			"bank_text": dto.format_price(_bank) if (_bank := sum(flt((p or {}).get("amount")) for p in payments if (p or {}).get("mode") == "bank")) > 0 else None,
 			"change_text": dto.format_price(change) if change > 0 else None,
 			"outstanding_text": dto.format_price(out) if out > 0 else None,
 		}
@@ -648,6 +677,8 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			"total_text": dto.format_price(total),
 			"payment_mode": "credit",
 			"item_count": len(rows),
+			"customer_name": _customer_label(cust),
+			"lines": _sale_lines(rows),
 			"outstanding_text": dto.format_price(bal) if bal > 0 else "Không nợ",
 		}
 
@@ -693,4 +724,6 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		"total_text": dto.format_price(total),
 		"payment_mode": payment_mode,
 		"item_count": len(rows),
+		"customer_name": _customer_label(cust),
+		"lines": _sale_lines(rows),
 	}
