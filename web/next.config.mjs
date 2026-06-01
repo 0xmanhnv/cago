@@ -11,15 +11,19 @@ const FRAPPE = process.env.FRAPPE_INTERNAL_URL || "http://frontend:8080";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Product images are served by Frappe under /files — use plain <img>, no domain config.
+  // Proxy strategy: Next OWNS its own routes (/, /login, /owner/*, /staff/*, /products/*,
+  // /cart, /assistant, /my-debt, /_next/*). EVERYTHING else is Frappe — and Frappe has many
+  // top-level paths (/api, /app, /desk, /printview, /print, /report, /method, /files, /assets,
+  // /socket.io, /private, website pages...). A hardcoded whitelist always leaks (e.g. /printview
+  // 404'd). So:
+  //   - beforeFiles: infra paths that must ALWAYS reach Frappe (never shadowed by a Next route).
+  //   - fallback:    catch-all — anything Next didn't match → Frappe. Future-proof, no leaks.
   async rewrites() {
-    // /desk: Frappe v16 redirects /app/* -> /desk/* (the desk SPA), so proxy it too —
-    // otherwise POS Awesome (/app/posapp) and "Quản lý ERPNext" (/app) 404 after the redirect.
-    const passthrough = ["/api", "/app", "/desk", "/files", "/private", "/assets", "/socket.io"];
-    return passthrough.map((p) => ({
-      source: `${p}/:path*`,
-      destination: `${FRAPPE}${p}/:path*`,
-    }));
+    const toFrappe = (p) => ({ source: `${p}/:path*`, destination: `${FRAPPE}${p}/:path*` });
+    return {
+      beforeFiles: ["/api", "/assets", "/files", "/private", "/socket.io"].map(toFrappe),
+      fallback: [{ source: "/:path*", destination: `${FRAPPE}/:path*` }],
+    };
   },
 };
 
