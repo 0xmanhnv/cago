@@ -37,6 +37,35 @@ Keep everything mobile-first: one column, ≥56px tap targets, big totals, Vietn
 - **S4 Giảm giá + tự in:** optional total discount (recorded on the invoice, owner sees it) + auto-print toggle.
 - Verified live (proxy): credit + discount (310k = 320k−10k), session stays staff; **78 Cago tests pass**; native POS + kiosk untouched. Product list already shows image thumbnails (mobile-friendly); a full image-grid toggle was deemed unnecessary for now.
 
+## Finalized gap list (2026-06-01) — to make /staff/sell the complete primary POS
+
+Already in /staff/sell (S1–S5): search+barcode, image thumbnails, retail UOM (Bao/Kg/Lạng) +
+decimal qty, live stock + oversell block, customer pick + add + ghi nợ (debt-limit),
+Tiền mặt/Chuyển khoản/Ghi nợ, total discount, hold/resume, VietQR, 58mm receipt + auto-print,
+loyalty, returns (/staff/returns).
+
+**A — WILL ADD (necessary; S6–S10):**
+| # | Feature | Why (rural agri shop) |
+|---|---|---|
+| S6 | **Split / partial payment** | one sale = tiền mặt + chuyển khoản, or pay part now + rest as ghi nợ |
+| S7 | **Cashier shift at the till** (mở/đóng ca + đếm két) | per-device accountability; wire the existing cashbook into the sell flow |
+| S8 | **Reprint past invoice + printer size** (58/80mm, A5) | find a recent sale → reprint; shops use different printers |
+| S9 | **Owner-gated per-line price/discount edit** | bargaining ("bớt giá") is normal; allow only if owner enables it |
+| S10 | **Number keypad + bigger product grid (tablet)** | faster entry; a wide layout so the counter can use a tablet too |
+
+**B — LATER (nice-to-have):**
+- Simple promotions (mua N giảm / theo nhóm khách) — a light version, not the full pricing-rule engine.
+- Named/parked multi-orders (current hold/resume already covers the basics).
+- Find-sale + reprint surfaced inside the sell screen.
+
+**C — SKIP for this shop (use POS Awesome on a tablet only if ever truly needed):**
+gift cards, m-pesa, multi-currency, quotations, internal sales/purchase orders, secondary
+customer display, in-POS analytics dashboard, multi-warehouse, offline-write, bulk label print.
+
+**Verdict:** build A (S6–S10) so `/staff/sell` is the complete primary POS for owner + staff,
+counter + phone — 100% Vietnamese, modern UI we control, zero-config, resilient. POS Awesome
+stays installed as an optional owner/tablet power-tool (already working) but isn't the daily driver.
+
 ## Milestones
 - **S1 — Ghi nợ tại quầy (G1+G2):** highest value for a rural shop. quick_sale credit mode + staff-safe customer pick + debt-limit guard + "đang nợ" hint. Test: credit sale reduces stock, raises receivable, respects limit; cash/bank unchanged.
 - **S2 — Quét mã vạch + thẻ hàng có ảnh (G3+G5):** faster, more visual.
