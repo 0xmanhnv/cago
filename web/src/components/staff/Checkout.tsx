@@ -683,17 +683,11 @@ export function Checkout() {
         className="mt-2 w-full rounded-xl border-2 border-emerald-300 p-3 text-base"
       />
 
-      <div className="mt-3 lg:flex lg:gap-4">
-        {/* Category quick-filter: sidebar on tablet/desktop, chip strip on phones. Lets staff
-            browse by loại (Cám/Phân/Thuốc/Nông sản) instead of only typing. */}
+      <div className="mt-3">
+        {/* Category quick-filter: a horizontal chip strip at every width (no sidebar) so the
+            product grid gets the full width and the browse-by-loại UX is consistent. */}
         {cats.length > 0 && (
-          <aside className="hidden lg:sticky lg:top-2 lg:block lg:max-h-[calc(100vh-1rem)] lg:w-48 lg:shrink-0 lg:self-start lg:overflow-auto">
-            <CategoryNav variant="sidebar" cats={cats} active={category} onPick={pickCategory} />
-          </aside>
-        )}
-        <div className="min-w-0 flex-1">
-        {cats.length > 0 && (
-          <div className="mb-2 lg:hidden">
+          <div className="mb-2">
             <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />
           </div>
         )}
@@ -825,7 +819,6 @@ export function Checkout() {
           })}
           </div>
         )}
-        </div>
       </div>
 
       {cartCodes.length > 0 && (
