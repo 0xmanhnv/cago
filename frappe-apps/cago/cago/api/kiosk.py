@@ -22,14 +22,24 @@ MAX_NOTE_LEN = 500
 
 @frappe.whitelist(allow_guest=True)
 def get_categories():
-	"""Top-level kiosk categories (Item Group tree), each with its visible-product subtree count
-	and child categories. A flat shop (no parent groups) just returns its leaf categories with
-	empty children, so the kiosk renders the same as before. Ordered by the owner's cago_sort_order."""
+	"""Top-level kiosk categories (public-visible items only). See category_tree()."""
+	return category_tree(public_only=True)
+
+
+def category_tree(public_only=True):
+	"""Top-level categories (Item Group tree), each with its product subtree count and child
+	categories. `public_only` counts only kiosk-visible items (kiosk/guest); staff pass False to
+	count every non-disabled item so categories with only internal items still appear. A flat shop
+	(no parent groups) just returns its leaf categories with empty children. Ordered by the owner's
+	cago_sort_order."""
 	item = frappe.qb.DocType("Item")
+	where = item.disabled == 0
+	if public_only:
+		where = where & (item.cago_is_public_visible == 1)
 	rows = (
 		frappe.qb.from_(item)
 		.select(item.item_group, Count(item.name).as_("count"))
-		.where((item.disabled == 0) & (item.cago_is_public_visible == 1))
+		.where(where)
 		.groupby(item.item_group)
 	).run(as_dict=True)
 	leaf_counts = {r.item_group: r.count for r in rows if r.item_group}

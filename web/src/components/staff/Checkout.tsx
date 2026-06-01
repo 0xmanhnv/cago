@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import type { ProductCard, Product } from "@/lib/types";
+import { CategoryNav } from "@/components/ui/CategoryNav";
+import type { ProductCard, Product, Category } from "@/lib/types";
 
 type PayMode = "cash" | "bank" | "credit" | "split";
 interface SaleResult {
@@ -158,6 +159,8 @@ export function Checkout() {
   const [keypad, setKeypad] = useState<string | null>(null); // item_code whose qty is being typed
   const [shiftRefresh, setShiftRefresh] = useState(0); // bump to re-pull the till shift after a sale
   const [payOpen, setPayOpen] = useState(false); // bottom bar: collapsed summary vs full payment panel
+  const [cats, setCats] = useState<Category[]>([]); // category quick-filter (sidebar/chips)
+  const [category, setCategory] = useState(""); // active category filter ("" = all)
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -179,10 +182,10 @@ export function Checkout() {
     }
   };
 
-  const run = async (query: string) => {
+  const run = async (query: string, cat: string = category) => {
     setLoading(true);
     try {
-      setList((await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query }, { method: "GET" })) || []);
+      setList((await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, category: cat || null }, { method: "GET" })) || []);
     } catch {
       setList([]);
     } finally {
@@ -191,7 +194,15 @@ export function Checkout() {
   };
   useEffect(() => {
     void run("");
+    frappeCall<Category[]>("cago.api.staff.list_categories", {}, { method: "GET" }).then((d) => setCats(d || [])).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Switching category clears the text search and lists that category (browse mode).
+  const pickCategory = (c: string) => {
+    setCategory(c);
+    setQ("");
+    void run("", c);
+  };
 
   const ensureMeta = async (code: string): Promise<Meta | null> => {
     if (meta[code]) return meta[code];
@@ -527,13 +538,26 @@ export function Checkout() {
         className="mt-2 w-full rounded-xl border-2 border-emerald-300 p-3 text-base"
       />
 
-      <div className="mt-3">
+      <div className="mt-3 lg:flex lg:gap-4">
+        {/* Category quick-filter: sidebar on tablet/desktop, chip strip on phones. Lets staff
+            browse by loại (Cám/Phân/Thuốc/Nông sản) instead of only typing. */}
+        {cats.length > 0 && (
+          <aside className="hidden lg:sticky lg:top-2 lg:block lg:max-h-[calc(100vh-1rem)] lg:w-48 lg:shrink-0 lg:self-start lg:overflow-auto">
+            <CategoryNav variant="sidebar" cats={cats} active={category} onPick={pickCategory} />
+          </aside>
+        )}
+        <div className="min-w-0 flex-1">
+        {cats.length > 0 && (
+          <div className="mb-2 lg:hidden">
+            <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />
+          </div>
+        )}
         {loading ? (
           <div className="py-6 text-center text-slate-500">Đang tải...</div>
         ) : list.length === 0 ? (
           <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy sản phẩm.</div>
         ) : (
-          <div className="grid grid-cols-1 items-start gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 items-start gap-2.5 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3">
           {list.map((p) => {
             const line = lines[p.item_code];
             const m = meta[p.item_code];
@@ -549,7 +573,7 @@ export function Checkout() {
                     <div className="text-xs text-slate-400">{(m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}</div>
                   </div>
                   {!line && (
-                    <button onClick={() => add(p.item_code)} className="h-11 rounded-lg bg-brand px-4 text-lg font-bold text-white">
+                    <button onClick={() => add(p.item_code)} className="h-11 shrink-0 rounded-lg bg-brand px-4 text-lg font-bold text-white">
                       ＋ Thêm
                     </button>
                   )}
@@ -611,6 +635,7 @@ export function Checkout() {
           })}
           </div>
         )}
+        </div>
       </div>
 
       {cartCodes.length > 0 && (

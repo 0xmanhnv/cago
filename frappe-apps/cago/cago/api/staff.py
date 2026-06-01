@@ -68,9 +68,19 @@ def list_wanted_lists(include_done=0):
 
 
 @frappe.whitelist()
-def search_products(query=None):
+def search_products(query=None, category=None):
 	ensure_staff()
-	return dto.list_dtos(query, audience="staff", public_only=False)
+	return dto.list_dtos(query, audience="staff", public_only=False, category=category)
+
+
+@frappe.whitelist()
+def list_categories():
+	"""Category tree for the staff sell screen — counts every non-disabled item (incl. internal),
+	not just kiosk-visible ones, so staff can browse any category."""
+	ensure_staff()
+	from cago.api.kiosk import category_tree
+
+	return category_tree(public_only=False)
 
 
 @frappe.whitelist()
