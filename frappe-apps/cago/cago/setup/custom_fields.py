@@ -153,6 +153,31 @@ def ensure_loyalty_fields():
 	print("Sales Invoice loyalty field ensured: cago_points_awarded")
 
 
+def ensure_shift_fields():
+	"""Stamp the real cashier on each till sale so a Cago Till Shift can reconcile the drawer
+	per person — quick_sale submits the invoice under Administrator (staff lack the perms), so
+	`owner` is not the cashier; this field is."""
+	create_custom_fields(
+		{
+			"Sales Invoice": [
+				{
+					"fieldname": "cago_cashier",
+					"label": "Cago Cashier",
+					"fieldtype": "Link",
+					"options": "User",
+					"insert_after": "cago_points_awarded",
+					"read_only": 1,
+					"no_copy": 1,
+					"print_hide": 1,
+				}
+			]
+		},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("Sales Invoice shift field ensured: cago_cashier")
+
+
 def ensure_payment_fields():
 	"""Store bank account for VietQR (hiện QR để khách chuyển khoản)."""
 	create_custom_fields(

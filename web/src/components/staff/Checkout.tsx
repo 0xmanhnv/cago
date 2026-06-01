@@ -408,6 +408,8 @@ export function Checkout() {
         )}
       </div>
 
+      <ShiftBar />
+
       {showReprint && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setShowReprint(false)}>
           <div className="max-h-[85vh] w-full max-w-[560px] overflow-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
@@ -764,6 +766,149 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
             ))}
           </div>
           <button onClick={() => setAdding(true)} className="mt-2 w-full rounded-lg bg-teal-600 py-2.5 font-bold text-white">➕ Thêm khách mới</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Till shift (S7): per-cashier drawer accountability wired into the sell flow. Open with a
+// starting float, sell, then count the drawer at close and see expected vs counted.
+interface ShiftState {
+  open: boolean;
+  opened_at?: string;
+  opening_text?: string;
+  cash_sales_text?: string;
+  expected?: number;
+  expected_text?: string;
+}
+interface CloseResult {
+  expected_text: string;
+  counted_text: string | null;
+  diff_text: string;
+  match: boolean | null;
+  over: boolean;
+  cash_sales_text: string;
+  opening_text: string;
+  payouts_text: string;
+}
+const num = (s: string) => parseInt((s || "").replace(/[^\d]/g, ""), 10) || 0;
+
+function ShiftBar() {
+  const [shift, setShift] = useState<ShiftState | null>(null);
+  const [mode, setMode] = useState<"none" | "open" | "close">("none");
+  const [opening, setOpening] = useState("");
+  const [counted, setCounted] = useState("");
+  const [payouts, setPayouts] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [closed, setClosed] = useState<CloseResult | null>(null);
+
+  const load = async () => {
+    try {
+      setShift(await frappeCall<ShiftState>("cago.api.shift.current_shift", {}, { method: "GET" }));
+    } catch {
+      setShift({ open: false });
+    }
+  };
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const doOpen = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      setShift(await frappeCall<ShiftState>("cago.api.shift.open_shift", { opening_cash: num(opening) }));
+      setMode("none");
+      setOpening("");
+    } catch (e) {
+      alert(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const doClose = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await frappeCall<CloseResult>("cago.api.shift.close_shift", { counted_cash: num(counted), payouts: num(payouts) });
+      setClosed(r);
+      setMode("none");
+      setCounted("");
+      setPayouts("");
+      await load();
+    } catch (e) {
+      alert(`Lỗi: ${e instanceof Error ? e.message : "không đóng được ca."}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!shift) return null;
+  return (
+    <div className="mb-2.5">
+      {!shift.open ? (
+        <button onClick={() => setMode("open")} className="w-full rounded-xl border-2 border-dashed border-emerald-400 bg-emerald-50 py-2.5 font-bold text-emerald-700">
+          🟢 Mở ca bán hàng (đếm tiền đầu ca)
+        </button>
+      ) : (
+        <div className="flex items-center justify-between gap-2 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-2.5">
+          <div className="min-w-0 text-sm">
+            <div className="font-bold text-emerald-800">🟢 Ca mở {shift.opened_at}</div>
+            <div className="text-emerald-700">Đầu ca {shift.opening_text} · Tiền mặt bán {shift.cash_sales_text}</div>
+          </div>
+          <button onClick={() => setMode("close")} className="shrink-0 rounded-lg bg-red-600 px-3 py-2 font-bold text-white">🔴 Đóng ca</button>
+        </div>
+      )}
+
+      {mode === "open" && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
+          <div className="w-full max-w-[380px] rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 text-xl font-bold">🟢 Mở ca</div>
+            <label className="block font-bold text-slate-600">Tiền mặt có sẵn trong két (đầu ca)</label>
+            <input autoFocus inputMode="numeric" value={opening} onChange={(e) => setOpening(e.target.value)} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-emerald-300 p-3 text-right text-2xl font-extrabold" />
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => setMode("none")} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold">Huỷ</button>
+              <button onClick={doOpen} disabled={busy} className="flex-[2] rounded-xl bg-emerald-600 py-3 text-lg font-extrabold text-white disabled:opacity-50">Mở ca</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mode === "close" && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
+          <div className="w-full max-w-[380px] rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-1 text-xl font-bold">🔴 Đóng ca · đếm két</div>
+            <div className="mb-2 rounded-lg bg-slate-50 p-2 text-sm text-slate-600">
+              Đầu ca {shift.opening_text} + Tiền mặt bán {shift.cash_sales_text} = <b>dự kiến {shift.expected_text}</b>
+            </div>
+            <label className="block font-bold text-slate-600">Chi ra trong ca (nếu có)</label>
+            <input inputMode="numeric" value={payouts} onChange={(e) => setPayouts(e.target.value)} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-amber-300 p-2.5 text-right font-bold" />
+            <label className="mt-2 block font-bold text-slate-600">Đếm tiền mặt thực tế trong két</label>
+            <input autoFocus inputMode="numeric" value={counted} onChange={(e) => setCounted(e.target.value)} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-emerald-300 p-3 text-right text-2xl font-extrabold" />
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => setMode("none")} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold">Huỷ</button>
+              <button onClick={doClose} disabled={busy} className="flex-[2] rounded-xl bg-red-600 py-3 text-lg font-extrabold text-white disabled:opacity-50">Đóng ca</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {closed && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={() => setClosed(null)}>
+          <div className="w-full max-w-[380px] rounded-2xl bg-white p-5 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-5xl">{closed.match ? "✅" : closed.over ? "📈" : "📉"}</div>
+            <div className="mt-1 text-xl font-bold">{closed.match ? "Khớp két!" : closed.over ? "Thừa tiền" : "Thiếu tiền"}</div>
+            {!closed.match && <div className={`text-2xl font-extrabold ${closed.over ? "text-emerald-600" : "text-red-600"}`}>{closed.over ? "+" : "−"}{closed.diff_text}</div>}
+            <div className="mt-3 space-y-1 text-left text-sm text-slate-600">
+              <div className="flex justify-between"><span>Tiền đầu ca</span><b>{closed.opening_text}</b></div>
+              <div className="flex justify-between"><span>Tiền mặt bán được</span><b>{closed.cash_sales_text}</b></div>
+              <div className="flex justify-between"><span>Chi ra trong ca</span><b>{closed.payouts_text}</b></div>
+              <div className="flex justify-between border-t pt-1"><span>Dự kiến trong két</span><b>{closed.expected_text}</b></div>
+              <div className="flex justify-between"><span>Đếm thực tế</span><b>{closed.counted_text}</b></div>
+            </div>
+            <button onClick={() => setClosed(null)} className="mt-4 w-full rounded-xl bg-brand py-3 text-lg font-extrabold text-white">Xong</button>
+          </div>
         </div>
       )}
     </div>

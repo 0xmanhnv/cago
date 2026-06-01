@@ -413,6 +413,9 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	"""
 	ensure_staff()
 	ensure_lang()
+	# Capture the real cashier BEFORE any Administrator elevation (as_user), so the till-shift
+	# reconciliation can attribute this sale's cash to the person who made it.
+	cashier = frappe.session.user
 	items = frappe.parse_json(items) if isinstance(items, str) else (items or [])
 	payments = frappe.parse_json(payments) if isinstance(payments, str) else payments
 	if not items:
@@ -497,6 +500,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 					"set_warehouse": wh,
 					"selling_price_list": pl,
 					"remarks": "Bán hàng tại quầy (nhiều hình thức)",
+					"cago_cashier": cashier,
 					"items": rows,
 				}
 			)
@@ -556,6 +560,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				"set_warehouse": wh,
 				"selling_price_list": pl,
 				"remarks": "Bán chịu tại quầy",
+				"cago_cashier": cashier,
 				"items": rows,
 			}
 		)
@@ -597,6 +602,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				"set_warehouse": wh,
 				"selling_price_list": pl,
 				"remarks": f"Bán hàng tại quầy ({'chuyển khoản' if payment_mode == 'bank' else 'tiền mặt'})",
+				"cago_cashier": cashier,
 				"items": rows,
 			}
 		)

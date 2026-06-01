@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { SearchInput } from "@/components/ui/ListUI";
 import type { Batch } from "@/lib/types";
 import { BackBar, Ok } from "./OwnerShared";
 
@@ -10,12 +11,15 @@ export function LowStock() {
   const router = useRouter();
   const [list, setList] = useState<{ display_name: string; shelf_location?: string; status: string; qty?: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
   useEffect(() => {
     frappeCall<typeof list>("cago.api.reports.low_stock", {}, { method: "GET" }).then((r) => {
       setList(r || []);
       setLoading(false);
     });
   }, []);
+  const text = q.trim().toLowerCase();
+  const filtered = text ? list.filter((p) => `${p.display_name} ${p.shelf_location || ""}`.toLowerCase().includes(text)) : list;
   return (
     <div>
       <BackBar onBack={() => router.push("/owner")} title="HÀNG SẮP HẾT" />
@@ -24,18 +28,26 @@ export function LowStock() {
       ) : list.length === 0 ? (
         <Ok>Không có hàng nào sắp hết. 👍</Ok>
       ) : (
-        list.map((p, i) => (
-          <div key={i} className="mb-2 flex items-center justify-between rounded-xl bg-white p-3.5 shadow">
-            <div>
-              <div className="font-bold">{p.display_name}</div>
-              <div className="text-slate-500">
-                {p.shelf_location || ""}
-                {p.qty ? ` · còn ${p.qty}` : ""}
+        <>
+          <div className="mb-2 rounded-xl bg-amber-50 p-2.5 text-center font-bold text-amber-700">{list.length} mặt hàng sắp hết</div>
+          <SearchInput value={q} onChange={setQ} placeholder="🔎 Tìm theo tên / vị trí kệ..." />
+          {filtered.length === 0 ? (
+            <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy mặt hàng.</div>
+          ) : (
+            filtered.map((p, i) => (
+              <div key={i} className="mb-2 flex items-center justify-between rounded-xl bg-white p-3.5 shadow">
+                <div>
+                  <div className="font-bold">{p.display_name}</div>
+                  <div className="text-slate-500">
+                    {p.shelf_location || ""}
+                    {p.qty ? ` · còn ${p.qty}` : ""}
+                  </div>
+                </div>
+                <div className="font-bold text-red-600">{p.status}</div>
               </div>
-            </div>
-            <div className="font-bold text-red-600">{p.status}</div>
-          </div>
-        ))
+            ))
+          )}
+        </>
       )}
     </div>
   );

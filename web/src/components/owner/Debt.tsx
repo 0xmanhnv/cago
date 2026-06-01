@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { SearchInput } from "@/components/ui/ListUI";
 import { BackBar, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
 
 export function DebtAction({ mode }: { mode: "add" | "repay" }) {
@@ -106,14 +107,18 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
 
 export function DebtList() {
   const router = useRouter();
-  const [list, setList] = useState<{ customer: string; customer_name: string; village?: string; outstanding_text: string }[]>([]);
+  const [list, setList] = useState<{ customer: string; customer_name: string; village?: string; outstanding_text: string; outstanding?: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
   useEffect(() => {
     frappeCall<typeof list>("cago.api.reports.debt_list", {}, { method: "GET" }).then((r) => {
       setList(r || []);
       setLoading(false);
     });
   }, []);
+
+  const text = q.trim().toLowerCase();
+  const filtered = text ? list.filter((c) => `${c.customer_name} ${c.village || ""}`.toLowerCase().includes(text)) : list;
   return (
     <div>
       <BackBar onBack={() => router.push("/owner")} title="CÔNG NỢ KHÁCH HÀNG" />
@@ -122,19 +127,27 @@ export function DebtList() {
       ) : list.length === 0 ? (
         <Ok>Không có khách nào đang nợ. 🎉</Ok>
       ) : (
-        list.map((c) => (
-          <button
-            key={c.customer}
-            onClick={() => router.push(`/owner/debt/${encodeURIComponent(c.customer)}`)}
-            className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
-          >
-            <div>
-              <div className="font-bold">{c.customer_name}</div>
-              <div className="text-slate-500">{c.village || ""} · bấm xem chi tiết</div>
-            </div>
-            <div className="text-xl font-bold text-red-600">{c.outstanding_text}</div>
-          </button>
-        ))
+        <>
+          <div className="mb-2 rounded-xl bg-red-50 p-2.5 text-center font-bold text-red-700">{list.length} khách đang nợ</div>
+          <SearchInput value={q} onChange={setQ} placeholder="🔎 Tìm khách theo tên / xóm..." />
+          {filtered.length === 0 ? (
+            <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy khách.</div>
+          ) : (
+            filtered.map((c) => (
+              <button
+                key={c.customer}
+                onClick={() => router.push(`/owner/debt/${encodeURIComponent(c.customer)}`)}
+                className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
+              >
+                <div>
+                  <div className="font-bold">{c.customer_name}</div>
+                  <div className="text-slate-500">{c.village || ""} · bấm xem chi tiết</div>
+                </div>
+                <div className="text-xl font-bold text-red-600">{c.outstanding_text}</div>
+              </button>
+            ))
+          )}
+        </>
       )}
     </div>
   );

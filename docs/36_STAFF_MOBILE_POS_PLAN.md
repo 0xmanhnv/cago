@@ -30,7 +30,10 @@
 
 Keep everything mobile-first: one column, ≥56px tap targets, big totals, Vietnamese, no ERP jargon (design system docs/16).
 
-## Status (2026-06-01): S1–S6, S8, S9, S10 DONE; S7 remaining
+## Status (2026-06-01): S1–S10 ALL DONE ✅
+- **S7 Mở/đóng ca tại quầy (đếm két, theo từng người bán):** DocType `Cago Till Shift` + `cago.api.shift` (`open_shift`/`current_shift`/`close_shift`). Mở ca nhập tiền đầu ca; mỗi hoá đơn quầy gắn `Sales Invoice.cago_cashier` (người bán thật, vì hoá đơn submit dưới Administrator nên `owner` không phải thu ngân); đóng ca cộng tiền mặt **của riêng thu ngân** từ lúc mở ca → dự kiến = đầu ca + tiền mặt bán − chi ra, so với đếm thực tế (khớp/thừa/thiếu). UI: thanh ca trên `/staff/sell` + dialog mở/đóng + màn đối soát. Tests `test_shift.py` (gán đúng thu ngân, khớp két, thiếu tiền). Bổ sung tới **81 Cago tests**.
+
+## Status (2026-06-01): S1–S6, S8, S9, S10 DONE (lịch sử)
 - **S6 Split / trả một phần:** `quick_sale(payments=[{mode,amount}])` — tiền mặt + chuyển khoản; thiếu → ghi nợ (cần khách thật, kiểm hạn mức); UI "➗ Tách / trả một phần".
 - **S8 In lại + khổ giấy:** nút "🖨 In lại" mở danh sách hoá đơn gần đây (`list_recent_sales`) → tìm → in lại; chọn khổ **58mm / 80mm / A5** (nhớ trong localStorage); áp cho cả màn kết quả + tự in.
 - **S9 Sửa giá từng dòng (owner cho phép):** cờ Company `cago_allow_price_edit` (OwnerSettings bật/tắt) → khi bật, mỗi dòng có ô "Đơn giá" sửa được (mặc cả); **server `quick_sale` tự kiểm cờ**, tắt thì bỏ qua giá client gửi. Có test `test_price_override_only_when_owner_enables_it`.

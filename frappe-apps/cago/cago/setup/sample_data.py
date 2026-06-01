@@ -63,6 +63,7 @@ def import_sample_products(csv_path=None):
 		ensure_loyalty_fields,
 		ensure_payment_fields,
 		ensure_retail_field,
+		ensure_shift_fields,
 		ensure_stock_fields,
 	)
 
@@ -72,6 +73,7 @@ def import_sample_products(csv_path=None):
 	ensure_customer_fields()
 	ensure_payment_fields()
 	ensure_loyalty_fields()
+	ensure_shift_fields()
 
 	created, updated = 0, 0
 	with open(csv_path, encoding="utf-8-sig") as fh:
