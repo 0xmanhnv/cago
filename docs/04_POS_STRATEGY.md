@@ -103,3 +103,13 @@ is just a clean Cago surface. `setup.company.ensure_payment_modes` wires up Cash
 `Chuyển khoản` Mode of Payment (with a leaf bank account) into the POS Profile so both
 payment types submit. Native Desk POS remains a working fallback for the **owner** (who has
 Desk access) via "⚙️ Quản lý ERPNext". `cago` does not depend on POS Awesome.
+
+## 9. POS Awesome V15 → v16 evaluation outcome (2026-06-01)
+
+Evaluated `defendicon/POS-Awesome-V15` @ `c7e2b93` on a disposable Frappe/ERPNext v16
+bench (live site untouched). Result: **CONDITIONAL-GO** — usable directly as an *optional,
+owner-scoped* enhanced POS; native POS + Cago `/staff/sell` stay the primary paths; no fork
+needed for that scope. Accounting/stock post through native ERPNext (the POS Invoice override
+only handles shift validation). One issue: the item API exposes `valuation_rate` with no role
+gate → gate POS Awesome to the owner, or fork-patch if staff must use it. Full report, install
+runbook, and rollback: **docs/34_POSAWESOME_V16_EVALUATION_RESULT.md**.
