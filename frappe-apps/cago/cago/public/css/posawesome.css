@@ -1,0 +1,43 @@
+/*
+ * Cago overrides for POS Awesome button colours (loaded via app_include_css on the desk).
+ * POS Awesome ships three teal/"primary" buttons in the payment dialog — the two payment-method
+ * buttons (Cash / Chuyển khoản) and the Submit button — which are hard to tell apart. These rules
+ * recolour them into distinct hues. They target POS Awesome's own stable classes/data-test hooks;
+ * this is NOT a fork (posawesome source is untouched) and degrades to harmless no-ops if those
+ * class names ever change. Selectors only exist on the POS Awesome page, so loading desk-wide is safe.
+ */
+
+/* --- Payment method buttons: give each method its own colour --- */
+.payment-method-action-btn {
+	color: #ffffff !important;
+}
+.payment-method-action-btn .v-btn__overlay {
+	opacity: 0 !important;
+}
+/* Cash = amber (tiền mặt) */
+.payment-method-action-btn[data-test="payment-method-action-Cash"] {
+	background-color: #f59e0b !important;
+}
+/* Every other method (e.g. Chuyển khoản) = blue */
+.payment-method-action-btn:not([data-test="payment-method-action-Cash"]):not(.payment-method-action-btn--success) {
+	background-color: #2563eb !important;
+}
+
+/* --- Footer action buttons: reinforce three clearly distinct colours --- */
+.payment-submit-btn {
+	background-color: #0d9488 !important; /* teal — Hoàn tất */
+	color: #ffffff !important;
+}
+.payment-submit-print-btn {
+	background-color: #15803d !important; /* deep green — Hoàn tất & In */
+	color: #ffffff !important;
+}
+.payment-cancel-btn {
+	background-color: #dc2626 !important; /* red — Huỷ thanh toán */
+	color: #ffffff !important;
+}
+.payment-submit-btn .v-btn__overlay,
+.payment-submit-print-btn .v-btn__overlay,
+.payment-cancel-btn .v-btn__overlay {
+	opacity: 0 !important;
+}

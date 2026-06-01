@@ -11,6 +11,14 @@ app_license = "MIT"
 required_apps = ["frappe", "erpnext"]
 
 # ---------------------------------------------------------------------------
+# Desk CSS overrides
+# ---------------------------------------------------------------------------
+# Recolour POS Awesome's look-alike payment buttons (see public/css/posawesome.css). Loaded on
+# the whole desk, but the selectors only exist on the POS Awesome page, so it is effectively
+# scoped there and is a no-op everywhere else. NOT a fork — posawesome source is untouched.
+app_include_css = ["/assets/cago/css/posawesome.css"]
+
+# ---------------------------------------------------------------------------
 # Home page redirect after login
 # ---------------------------------------------------------------------------
 # The website root "/" serves the public customer kiosk.
