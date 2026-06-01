@@ -22,6 +22,34 @@ RUN ./env/bin/pip install --no-cache-dir --upgrade pip \
     && ./env/bin/pip install --no-cache-dir -e apps/cago \
     && ls -1 apps > sites/apps.txt
 
-# The app currently ships no JS/CSS bundles, so no `bench build` is needed.
-# Add it here later if `public/` gains buildable assets:
-#   RUN bench build --app cago
+# The cago app ships no JS/CSS bundles, so no `bench build` is needed for it.
+
+# --------------------------------------------------------------------------- #
+# Optional enhanced POS for the COUNTER station (tablet): POS Awesome.
+# Pinned to a verified commit. GPL-3.0, a SEPARATE installed app — cago does NOT
+# depend on it (no fork). Only the Python code is baked here; the Vue/Vite assets
+# (`bench build --app posawesome`) and `install-app` run at RUNTIME because
+# `sites/` is a Docker volume that masks the image's sites/ at run time.
+# Mobile staff use Cago's own /staff/sell instead (docs/36).
+ARG POSAWESOME_COMMIT=c7e2b93e943ec7e9226f7c3ae9501b03e5f5d020
+RUN git clone --branch develop https://github.com/defendicon/POS-Awesome-V15 apps/posawesome \
+    && git -C apps/posawesome checkout ${POSAWESOME_COMMIT} \
+    && ./env/bin/pip install --no-cache-dir -e apps/posawesome \
+    && ls -1 apps > sites/apps.txt
+
+# Build the POS Awesome Vue/Vite assets INTO the image so every container (backend serves
+# the page; frontend nginx serves /assets) has apps/posawesome/posawesome/public/dist.
+# (Assets are NOT in the `sites` volume — sites/assets symlinks to the image; so this must
+# be baked, not built at runtime.) Node comes from the image's bundled nvm; make its cache
+# writable by `frappe` first (the base image's ~/.nvm is root-owned).
+USER root
+RUN chown -R frappe:frappe /home/frappe/.nvm
+USER frappe
+RUN bash -lc 'export NVM_DIR=/home/frappe/.nvm && . "$NVM_DIR/nvm.sh" \
+    && nvm install 24 && nvm use 24 \
+    && corepack enable && corepack prepare yarn@1.22.22 --activate \
+    && bench build --app posawesome'
+# Ensure the asset symlink exists so the frontend nginx serves /assets/posawesome/* (the
+# runtime entrypoint doesn't recreate per-app symlinks for apps added after the base image).
+RUN ln -sfn /home/frappe/frappe-bench/apps/posawesome/posawesome/public \
+    /home/frappe/frappe-bench/assets/posawesome
