@@ -391,11 +391,16 @@ function CategoryNav({
       {cats.map((t) => (
         <div key={t.category}>
           <Row icon={t.icon} label={t.category} count={t.count} on={t.category === active} onClick={() => onPick(t.category)} />
-          {(t.children?.length || 0) > 0 && isActiveBranch(t)
-            ? t.children!.map((c) => (
-                <Row key={c.category} icon={c.icon} label={c.category} count={c.count} on={c.category === active} child onClick={() => onPick(c.category)} />
-              ))
-            : null}
+          {/* Children expand/collapse smoothly (grid-rows 0fr↔1fr animates height both ways). */}
+          {(t.children?.length || 0) > 0 && (
+            <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isActiveBranch(t) ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+              <div className="overflow-hidden">
+                {t.children!.map((c) => (
+                  <Row key={c.category} icon={c.icon} label={c.category} count={c.count} on={c.category === active} child onClick={() => onPick(c.category)} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>
