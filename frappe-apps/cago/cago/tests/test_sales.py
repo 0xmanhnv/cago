@@ -144,6 +144,26 @@ class TestQuickSale(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": on_hand + 100}]), "cash")
 
+	def test_credit_at_till_reduces_stock_and_raises_debt(self):
+		from cago.api import debt, purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		before = flt_qty(ITEM)
+		cust = debt.add_customer("KH Quay Credit")["customer"]
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 2}]), "credit", cust)
+		self.assertEqual(r["payment_mode"], "credit")
+		si = frappe.get_doc("Sales Invoice", r["invoice"])
+		self.assertEqual(si.docstatus, 1)
+		self.assertEqual(si.is_pos, 0)  # credit = unpaid, non-pos
+		self.assertGreater(si.outstanding_amount, 0)
+		self.assertAlmostEqual(flt_qty(ITEM), before - 2, places=2)
+
+	def test_credit_requires_real_customer(self):
+		from cago.api import sales
+
+		with self.assertRaises(frappe.ValidationError):
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "credit", None)
+
 	def test_sell_zero_valuation_item(self):
 		"""An item received with no cost (zero valuation) must still be sellable
 		(COGS=0), not blocked by 'Allow Zero Valuation Rate not enabled'."""

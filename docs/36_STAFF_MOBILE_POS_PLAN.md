@@ -30,6 +30,13 @@
 
 Keep everything mobile-first: one column, ≥56px tap targets, big totals, Vietnamese, no ERP jargon (design system docs/16).
 
+## Status (2026-06-01): S1–S4 DONE, deployed + verified live
+- **S1 Ghi nợ tại quầy:** `quick_sale(payment_mode="credit", customer)` → unpaid stock-reducing invoice, respects `cago_debt_limit`; staff-safe `search_customers_lite` + `add_customer_lite` (no cost shown); customer bar + **Ghi nợ** button; customer attached to cash/bank too (loyalty).
+- **S2 Mã vạch:** barcode quick-add (`catalog.find_by_barcode`) in the sell screen.
+- **S3 Giữ đơn / mở lại:** park sales to sessionStorage, resume/drop.
+- **S4 Giảm giá + tự in:** optional total discount (recorded on the invoice, owner sees it) + auto-print toggle.
+- Verified live (proxy): credit + discount (310k = 320k−10k), session stays staff; **78 Cago tests pass**; native POS + kiosk untouched. Product list already shows image thumbnails (mobile-friendly); a full image-grid toggle was deemed unnecessary for now.
+
 ## Milestones
 - **S1 — Ghi nợ tại quầy (G1+G2):** highest value for a rural shop. quick_sale credit mode + staff-safe customer pick + debt-limit guard + "đang nợ" hint. Test: credit sale reduces stock, raises receivable, respects limit; cash/bank unchanged.
 - **S2 — Quét mã vạch + thẻ hàng có ảnh (G3+G5):** faster, more visual.

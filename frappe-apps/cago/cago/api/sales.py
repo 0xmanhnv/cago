@@ -187,6 +187,85 @@ def credit_sale(customer, items, note=None):
 	}
 
 
+def _customer_outstanding(customer):
+	"""Receivable balance for a customer (company-scoped). Debt only — never cost/margin."""
+	rows = frappe.get_all(
+		"GL Entry",
+		filters={"party_type": "Customer", "party": customer, "is_cancelled": 0, "company": debt._company()},
+		fields=["debit", "credit"],
+	)
+	return flt(sum(flt(r.debit) - flt(r.credit) for r in rows))
+
+
+@frappe.whitelist()
+def search_customers_lite(query=None):
+	"""Staff: pick a customer at the till (for ghi nợ). Returns name/village/phone + current
+	debt text only — no buying price/margin (that stays owner-only)."""
+	ensure_staff()
+	query = (query or "").strip()
+	or_filters = (
+		[["customer_name", "like", f"%{query}%"], ["mobile_no", "like", f"%{query}%"], ["cago_zalo_phone", "like", f"%{query}%"]]
+		if query
+		else None
+	)
+	rows = frappe.get_all(
+		"Customer",
+		filters={"disabled": 0},
+		or_filters=or_filters,
+		fields=["name", "customer_name", "cago_village", "mobile_no"],
+		limit=20,
+		order_by="customer_name asc",
+	)
+	out = []
+	for c in rows:
+		if c.customer_name == "Khách lẻ":
+			continue  # walk-in isn't a credit customer
+		bal = _customer_outstanding(c.name)
+		out.append(
+			{
+				"customer": c.name,
+				"customer_name": c.customer_name,
+				"village": c.cago_village,
+				"mobile": c.mobile_no,
+				"outstanding_text": dto.format_price(bal) if bal > 0 else "Không nợ",
+			}
+		)
+	return out
+
+
+@frappe.whitelist()
+def add_customer_lite(customer_name, phone=None, village=None):
+	"""Staff: quickly add a new customer at the till (e.g. a new debtor). Owner sets limits later."""
+	ensure_staff()
+	name = (customer_name or "").strip()
+	if not name:
+		frappe.throw(_("Nhập tên khách hàng."))
+	from cago.chatbot.observability import clean_phone
+
+	mobile = clean_phone(phone)
+	doc = frappe.get_doc(
+		{
+			"doctype": "Customer",
+			"customer_name": name,
+			"customer_type": "Individual",
+			"cago_village": (village or "").strip() or None,
+			"mobile_no": mobile or None,
+			"cago_zalo_phone": mobile or None,
+		}
+	)
+	group = frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
+	territory = frappe.db.get_value("Territory", {"is_group": 0}, "name")
+	if group:
+		doc.customer_group = group
+	if territory:
+		doc.territory = territory
+	with as_user("Administrator"):
+		doc.flags.ignore_permissions = True
+		doc.insert(ignore_permissions=True)
+	frappe.db.commit()
+	return {"customer": doc.name, "customer_name": name}
+
+
 @frappe.whitelist()
 def get_receipt(invoice):
 	"""Staff: data for a printable 58mm bill (store header + lines + total + safety note)."""
@@ -315,7 +394,7 @@ def _mode_of_payment(company, payment_mode):
 
 
 @frappe.whitelist()
-def quick_sale(items, payment_mode="cash", customer=None):
+def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0):
 	"""Cago-native checkout: a paid POS Sales Invoice (cash/bank) that reduces stock.
 
 	This is the staff selling tool — a clean Cago cart instead of the raw ERPNext Desk POS
@@ -328,21 +407,17 @@ def quick_sale(items, payment_mode="cash", customer=None):
 	items = frappe.parse_json(items) if isinstance(items, str) else (items or [])
 	if not items:
 		frappe.throw(_("Chưa chọn sản phẩm."))
-	if payment_mode not in ("cash", "bank"):
+	if payment_mode not in ("cash", "bank", "credit"):
 		frappe.throw(_("Hình thức thanh toán không hợp lệ."))
 
 	company = debt._company()
 	wh = _warehouse()
 	if not wh:
 		frappe.throw(_("Chưa cấu hình kho."))
-	profile = _pos_profile(company)
-	if not profile:
-		frappe.throw(_("Chưa cấu hình điểm bán hàng (POS Profile)."))
-	mode = _mode_of_payment(company, payment_mode)
-	if not mode:
-		frappe.throw(_("Chưa cấu hình hình thức thanh toán."))
 
 	cust = customer if (customer and frappe.db.exists("Customer", customer)) else walkin_customer()
+	if payment_mode == "credit" and cust == walkin_customer():
+		frappe.throw(_("Ghi nợ cần chọn đúng khách hàng (không dùng khách lẻ)."))
 	pl = _price_list_for(cust)
 
 	rows = []
@@ -369,7 +444,56 @@ def quick_sale(items, payment_mode="cash", customer=None):
 		)
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
+	disc = flt(discount_amount)
 
+	if payment_mode == "credit":
+		# Bán chịu tại quầy: unpaid, stock-reducing Sales Invoice (NOT is_pos). Respects limit.
+		limit = flt(frappe.db.get_value("Customer", cust, "cago_debt_limit"))
+		if limit:
+			current = _customer_outstanding(cust)
+			est = sum(r["qty"] * r["rate"] for r in rows)
+			if current + est > limit:
+				frappe.throw(
+					_("Vượt hạn mức nợ {0} (đang nợ {1}).").format(dto.format_price(limit), dto.format_price(current))
+				)
+		si = frappe.get_doc(
+			{
+				"doctype": "Sales Invoice",
+				"customer": cust,
+				"company": company,
+				"posting_date": nowdate(),
+				"due_date": nowdate(),
+				"update_stock": 1,
+				"set_warehouse": wh,
+				"selling_price_list": pl,
+				"remarks": "Bán chịu tại quầy",
+				"items": rows,
+			}
+		)
+		if disc > 0:
+			si.apply_discount_on = "Grand Total"
+			si.discount_amount = disc
+		debt._submit_privileged(si)
+		record_action("Debt Add", ref_doctype="Sales Invoice", ref_name=si.name, new_value=flt(si.grand_total))
+		frappe.db.commit()
+		total = flt(si.grand_total)
+		bal = _customer_outstanding(cust)
+		return {
+			"invoice": si.name,
+			"total": total,
+			"total_text": dto.format_price(total),
+			"payment_mode": "credit",
+			"item_count": len(rows),
+			"outstanding_text": dto.format_price(bal) if bal > 0 else "Không nợ",
+		}
+
+	# cash / bank — paid is_pos invoice
+	profile = _pos_profile(company)
+	if not profile:
+		frappe.throw(_("Chưa cấu hình điểm bán hàng (POS Profile)."))
+	mode = _mode_of_payment(company, payment_mode)
+	if not mode:
+		frappe.throw(_("Chưa cấu hình hình thức thanh toán."))
 	with as_user("Administrator"):  # staff lacks Sales Invoice/Payment perms; ERPNext still validates
 		si = frappe.get_doc(
 			{
@@ -387,8 +511,11 @@ def quick_sale(items, payment_mode="cash", customer=None):
 				"items": rows,
 			}
 		)
+		if disc > 0:
+			si.apply_discount_on = "Grand Total"
+			si.discount_amount = disc
 		si.flags.ignore_permissions = True
-		si.insert(ignore_permissions=True)  # totals computed
+		si.insert(ignore_permissions=True)  # totals computed (after discount)
 		si.append("payments", {"mode_of_payment": mode, "amount": flt(si.grand_total)})
 		si.save(ignore_permissions=True)
 		si.submit()
