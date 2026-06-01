@@ -162,6 +162,7 @@ export function Checkout() {
   const [coupon, setCoupon] = useState<string | null>(null); // applied code
   const [couponDisc, setCouponDisc] = useState(0);
   const [couponMsg, setCouponMsg] = useState<React.ReactNode>(null);
+  const [discOpen, setDiscOpen] = useState(false); // collapsible discount/coupon section in the pay panel
   // App-wide styled confirm/alert (see components/ui/dialog).
   const ask = confirmDialog;
   const notify = alertDialog;
@@ -901,48 +902,63 @@ export function Checkout() {
                       />
                     </div>
                   )}
+                  {/* Count + a single collapsible Giảm giá/Mã (most sales have no discount, so it
+                      stays out of the way; auto-opens when a discount/coupon is already applied). */}
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm text-slate-500">{cartCodes.length} mặt hàng</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-slate-500">Giảm:</span>
-                      <input
-                        inputMode="numeric"
-                        value={discount}
-                        onChange={(e) => setDiscount(e.target.value)}
-                        placeholder="0"
-                        className="h-9 w-20 rounded-lg border-2 border-amber-300 px-2 text-right"
-                      />
-                      <div className="flex overflow-hidden rounded-lg border-2 border-amber-300 text-sm font-bold">
-                        <button onClick={() => setDiscountMode("amount")} className={discountMode === "amount" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>đ</button>
-                        <button onClick={() => setDiscountMode("percent")} className={discountMode === "percent" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>%</button>
+                    <button
+                      onClick={() => setDiscOpen((v) => !v)}
+                      className={`rounded-lg border-2 px-3 py-1.5 text-sm font-bold ${disc + couponDisc > 0 ? "border-amber-400 bg-amber-50 text-amber-800" : "border-slate-300 text-slate-600"}`}
+                    >
+                      🏷️ Giảm giá / Mã{disc + couponDisc > 0 ? ` · −${money(disc + couponDisc)}` : discOpen || disc + couponDisc > 0 ? " ▲" : " ▾"}
+                    </button>
+                  </div>
+                  {(discOpen || disc + couponDisc > 0 || !!coupon) && (
+                    <div className="mt-2 space-y-2 rounded-xl border border-amber-200 bg-amber-50/50 p-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-slate-600">Giảm trực tiếp</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            inputMode="numeric"
+                            value={discount}
+                            onChange={(e) => setDiscount(e.target.value)}
+                            placeholder="0"
+                            className="h-9 w-20 rounded-lg border-2 border-amber-300 px-2 text-right"
+                          />
+                          <div className="flex overflow-hidden rounded-lg border-2 border-amber-300 text-sm font-bold">
+                            <button onClick={() => setDiscountMode("amount")} className={discountMode === "amount" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>đ</button>
+                            <button onClick={() => setDiscountMode("percent")} className={discountMode === "percent" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>%</button>
+                          </div>
+                        </div>
                       </div>
+                      {discountMode === "percent" && disc > 0 && <div className="text-right text-xs text-amber-700">= giảm {money(disc)}</div>}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-600">🎟 Mã</span>
+                        <input
+                          value={couponInput}
+                          onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                          onKeyDown={(e) => e.key === "Enter" && applyCoupon()}
+                          placeholder="Nhập mã giảm giá"
+                          className="h-9 min-w-0 flex-1 rounded-lg border-2 border-violet-300 px-2 uppercase"
+                        />
+                        {coupon ? (
+                          <button onClick={clearCoupon} className="shrink-0 rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-bold">Bỏ</button>
+                        ) : (
+                          <button onClick={applyCoupon} className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-bold text-white">Áp dụng</button>
+                        )}
+                      </div>
+                      {couponMsg && <div className="text-right text-xs">{couponMsg}</div>}
                     </div>
-                  </div>
-                  {discountMode === "percent" && disc > 0 && (
-                    <div className="text-right text-xs text-amber-700">= giảm {money(disc)}</div>
                   )}
-                  {/* Coupon (mã giảm giá) — validated + counted server-side. */}
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-sm text-slate-500">🎟 Mã:</span>
-                    <input
-                      value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === "Enter" && applyCoupon()}
-                      placeholder="Nhập mã giảm giá"
-                      className="h-9 flex-1 rounded-lg border-2 border-violet-300 px-2 uppercase"
-                    />
-                    {coupon ? (
-                      <button onClick={clearCoupon} className="shrink-0 rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-bold">Bỏ</button>
-                    ) : (
-                      <button onClick={applyCoupon} className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-bold text-white">Áp dụng</button>
-                    )}
+                  {/* Total — the number to confirm: prominent, boxed, right above the pay buttons. */}
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-brand-light/60 px-3.5 py-3">
+                    <div>
+                      <div className="text-sm font-bold text-slate-500">Tổng tiền</div>
+                      {disc + couponDisc > 0 && <div className="text-xs font-bold text-amber-700">đã giảm {money(disc + couponDisc)}</div>}
+                    </div>
+                    <span className="text-3xl font-extrabold text-brand">{money(estimate)}</span>
                   </div>
-                  {couponMsg && <div className="mt-1 text-right text-xs">{couponMsg}</div>}
-                  <div className="mt-2 flex items-baseline justify-between">
-                    <span className="text-slate-500">{disc + couponDisc > 0 ? `Tổng (đã giảm ${money(disc + couponDisc)})` : "Tổng tiền"}</span>
-                    <span className="text-2xl font-extrabold text-brand">{money(estimate)}</span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
+                  <div className="mt-3 grid grid-cols-3 gap-2">
               <button onClick={() => checkout("cash")} disabled={busy} className="min-h-touch rounded-xl bg-brand py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
                 💵 Tiền mặt
               </button>
@@ -1004,7 +1020,7 @@ export function Checkout() {
                 Tự in phiếu
               </label>
             </div>
-                  {!cust && <div className="mt-1 text-center text-xs text-slate-400">Muốn ghi nợ? Chọn khách ở ô trên cùng.</div>}
+                  {!cust && <div className="mt-1 text-center text-xs text-slate-400">Muốn ghi nợ? Bấm 👤 Khách lẻ ở trên để chọn khách.</div>}
                 </div>
               )}
             </div>
