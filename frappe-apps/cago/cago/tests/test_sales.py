@@ -136,6 +136,27 @@ class TestQuickSale(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "bitcoin")
 
+	def test_price_override_only_when_owner_enables_it(self):
+		"""Mặc cả: a per-line rate is honoured ONLY when cago_allow_price_edit is on; otherwise
+		the price-list rate stands (client cannot bargain a price the owner hasn't allowed)."""
+		from cago.api import debt, purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		company = debt._company()
+		base = sales._rate_for_uom(ITEM, frappe.db.get_value("Item", ITEM, "stock_uom"), frappe.db.get_value("Item", ITEM, "stock_uom"))
+
+		# OFF: override ignored
+		frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
+		r_off = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1, "rate": 1}]), "cash")
+		self.assertAlmostEqual(frappe.get_doc("Sales Invoice", r_off["invoice"]).items[0].rate, base, places=2)
+
+		# ON: override honoured
+		frappe.db.set_value("Company", company, "cago_allow_price_edit", 1)
+		r_on = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1, "rate": 1234}]), "cash")
+		self.assertAlmostEqual(frappe.get_doc("Sales Invoice", r_on["invoice"]).items[0].rate, 1234, places=2)
+
+		frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
+
 	def test_oversell_is_blocked_with_friendly_message(self):
 		from cago.api import purchasing, sales
 

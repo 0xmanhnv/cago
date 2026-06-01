@@ -29,3 +29,6 @@ Thumbs.db
 
 # Local Claude Code config
 .claude/
+
+# Local site backups (DB dumps + site_config secrets — never commit)
+backups/

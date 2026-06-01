@@ -30,6 +30,14 @@
 
 Keep everything mobile-first: one column, ≥56px tap targets, big totals, Vietnamese, no ERP jargon (design system docs/16).
 
+## Status (2026-06-01): S1–S6, S8, S9, S10 DONE; S7 remaining
+- **S6 Split / trả một phần:** `quick_sale(payments=[{mode,amount}])` — tiền mặt + chuyển khoản; thiếu → ghi nợ (cần khách thật, kiểm hạn mức); UI "➗ Tách / trả một phần".
+- **S8 In lại + khổ giấy:** nút "🖨 In lại" mở danh sách hoá đơn gần đây (`list_recent_sales`) → tìm → in lại; chọn khổ **58mm / 80mm / A5** (nhớ trong localStorage); áp cho cả màn kết quả + tự in.
+- **S9 Sửa giá từng dòng (owner cho phép):** cờ Company `cago_allow_price_edit` (OwnerSettings bật/tắt) → khi bật, mỗi dòng có ô "Đơn giá" sửa được (mặc cả); **server `quick_sale` tự kiểm cờ**, tắt thì bỏ qua giá client gửi. Có test `test_price_override_only_when_owner_enables_it`.
+- **S10 Bàn phím số + layout tablet:** lưới sản phẩm `sm:2 / lg:3` cột cho tablet; bấm số lượng mở bàn phím số cảm ứng (nút to); thanh tổng rộng tới 960px.
+- **Còn lại — S7 (mở/đóng ca tại quầy):** chưa làm; cần model trách nhiệm theo người bán/thiết bị (xem mục dưới).
+- Verified live: 79 Cago tests pass; sửa luôn lỗi tồn CAM-GA-CON-25KG bị định giá âm (chặn bán) bằng Stock Reconciliation. Web image build (next build) sạch lint+type.
+
 ## Status (2026-06-01): S1–S4 DONE, deployed + verified live
 - **S1 Ghi nợ tại quầy:** `quick_sale(payment_mode="credit", customer)` → unpaid stock-reducing invoice, respects `cago_debt_limit`; staff-safe `search_customers_lite` + `add_customer_lite` (no cost shown); customer bar + **Ghi nợ** button; customer attached to cash/bank too (loyalty).
 - **S2 Mã vạch:** barcode quick-add (`catalog.find_by_barcode`) in the sell screen.

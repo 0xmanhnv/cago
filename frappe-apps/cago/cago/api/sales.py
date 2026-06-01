@@ -429,6 +429,9 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	if payment_mode == "credit" and cust == walkin_customer():
 		frappe.throw(_("Ghi nợ cần chọn đúng khách hàng (không dùng khách lẻ)."))
 	pl = _price_list_for(cust)
+	# Per-line price override (mặc cả) is honoured ONLY when the owner has enabled it on the
+	# Company — never trust the client flag. Off → always sell at the price-list rate.
+	allow_price_edit = bool(frappe.db.get_value("Company", company, "cago_allow_price_edit"))
 
 	rows = []
 	for it in items:
@@ -439,19 +442,25 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
 		_check_stock(code, qty, uom, stock_uom)
-		rows.append(
-			{
-				"item_code": code,
-				"qty": qty,
-				"uom": uom,
-				"rate": _rate_for_uom(code, uom, stock_uom, pl),
-				"warehouse": wh,
-				# Items received without a cost have zero valuation; selling them via
-				# update_stock would otherwise fail ("Allow Zero Valuation Rate not enabled").
-				# COGS is 0 for those until a cost is recorded — owner enters cost on nhập hàng.
-				"allow_zero_valuation_rate": 1,
-			}
-		)
+		rate = _rate_for_uom(code, uom, stock_uom, pl)
+		overridden = allow_price_edit and it and (it.get("rate") not in (None, "")) and flt(it.get("rate")) >= 0
+		row = {
+			"item_code": code,
+			"qty": qty,
+			"uom": uom,
+			"rate": rate,
+			"warehouse": wh,
+			# Items received without a cost have zero valuation; selling them via
+			# update_stock would otherwise fail ("Allow Zero Valuation Rate not enabled").
+			# COGS is 0 for those until a cost is recorded — owner enters cost on nhập hàng.
+			"allow_zero_valuation_rate": 1,
+		}
+		if overridden:
+			# A manual rate (mặc cả) must stick — pin price_list_rate to it so ERPNext does not
+			# re-apply the catalogue price on validate and lose the bargained amount.
+			row["rate"] = flt(it.get("rate"))
+			row["price_list_rate"] = row["rate"]
+		rows.append(row)
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 	disc = flt(discount_amount)

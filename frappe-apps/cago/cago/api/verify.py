@@ -66,6 +66,23 @@ def set_visible(on):
 	return {"enabled": bool(val)}
 
 
+@frappe.whitelist()
+def get_price_edit():
+	"""Owner: may staff edit the per-line price at the till (mặc cả / bớt giá)?"""
+	ensure_owner()
+	return {"enabled": bool(frappe.db.get_value("Company", debt._company(), "cago_allow_price_edit"))}
+
+
+@frappe.whitelist()
+def set_price_edit(on):
+	"""Owner: enable/disable per-line price override in the sell screen."""
+	ensure_owner()
+	val = 1 if cint(on) else 0
+	frappe.db.set_value("Company", debt._company(), "cago_allow_price_edit", val)
+	frappe.db.commit()
+	return {"enabled": bool(val)}
+
+
 def _owes(customer):
 	rows = frappe.get_all(
 		"GL Entry",

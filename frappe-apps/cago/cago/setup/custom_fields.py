@@ -168,9 +168,16 @@ def ensure_payment_fields():
 					"insert_after": "cago_bank_account_name",
 					"description": "Bật: khách nhập SĐT trên kiosk, người bán xác nhận, rồi khách xem được nợ của mình.",
 				},
+				{
+					"fieldname": "cago_allow_price_edit",
+					"label": "Cho phép sửa giá từng dòng khi bán (mặc cả)",
+					"fieldtype": "Check",
+					"insert_after": "cago_kiosk_debt_visible",
+					"description": "Bật: người bán được sửa đơn giá từng mặt hàng ngay khi bán (bớt giá). Tắt: luôn bán theo bảng giá.",
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Company bank fields ensured: cago_bank_*, cago_kiosk_debt_visible")
+	print("Company bank fields ensured: cago_bank_*, cago_kiosk_debt_visible, cago_allow_price_edit")

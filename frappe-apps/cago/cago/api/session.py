@@ -35,6 +35,7 @@ def bootstrap():
 		"persona": chatbot_config.persona(),
 		"kiosk_chips": chatbot_config.kiosk_chips(),
 		"kiosk_debt_visible": _kiosk_debt_visible(),
+		"allow_price_edit": _allow_price_edit(),
 		"has_posawesome": has_posawesome,
 		# Single source of truth for the POS Awesome desk URL (frontend never hardcodes the
 		# desk path), gated to users who can open it. None = hide the button.
@@ -42,6 +43,17 @@ def bootstrap():
 	}
 
 
+def _company():
+	return frappe.defaults.get_global_default("company") or (frappe.get_all("Company", pluck="name") or [None])[0]
+
+
 def _kiosk_debt_visible():
-	company = frappe.defaults.get_global_default("company") or (frappe.get_all("Company", pluck="name") or [None])[0]
+	company = _company()
 	return bool(company and frappe.db.get_value("Company", company, "cago_kiosk_debt_visible"))
+
+
+def _allow_price_edit():
+	"""Owner toggle: may staff edit the per-line price at the till (mặc cả / bớt giá)?
+	UI hint only — the server re-checks this before honouring any rate override in quick_sale."""
+	company = _company()
+	return bool(company and frappe.db.get_value("Company", company, "cago_allow_price_edit"))

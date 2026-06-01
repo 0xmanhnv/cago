@@ -90,6 +90,7 @@ export interface Bootstrap {
   persona: Persona;
   kiosk_chips: KioskChips;
   kiosk_debt_visible: boolean;
+  allow_price_edit: boolean;
   has_posawesome: boolean;
   pos_url?: string | null;
 }

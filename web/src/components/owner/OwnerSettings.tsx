@@ -9,6 +9,7 @@ export function OwnerSettings() {
   const router = useRouter();
   const [b, setB] = useState({ bank_bin: "", account: "", account_name: "" });
   const [debtVisible, setDebtVisible] = useState(false);
+  const [priceEdit, setPriceEdit] = useState(false);
   const [msg, setMsg] = useState<React.ReactNode>(null);
 
   useEffect(() => {
@@ -18,12 +19,20 @@ export function OwnerSettings() {
     frappeCall<{ enabled: boolean }>("cago.api.verify.get_visible", {}, { method: "GET" })
       .then((d) => setDebtVisible(!!d.enabled))
       .catch(() => {});
+    frappeCall<{ enabled: boolean }>("cago.api.verify.get_price_edit", {}, { method: "GET" })
+      .then((d) => setPriceEdit(!!d.enabled))
+      .catch(() => {});
   }, []);
 
   const toggleDebt = async () => {
     const next = !debtVisible;
     await frappeCall("cago.api.verify.set_visible", { on: next ? 1 : 0 });
     setDebtVisible(next);
+  };
+  const togglePriceEdit = async () => {
+    const next = !priceEdit;
+    await frappeCall("cago.api.verify.set_price_edit", { on: next ? 1 : 0 });
+    setPriceEdit(next);
   };
 
   const save = async () => {
@@ -59,6 +68,15 @@ export function OwnerSettings() {
         <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
           <input type="checkbox" checked={debtVisible} onChange={toggleDebt} className="h-5 w-5" />
           Cho phép xem công nợ trên kiosk
+        </label>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-4">
+        <div className="font-extrabold">Cho phép sửa giá khi bán (mặc cả)</div>
+        <p className="text-slate-500">Khi bật: lúc bán, người bán được sửa đơn giá từng mặt hàng (bớt giá cho khách). Khi tắt: luôn bán đúng bảng giá.</p>
+        <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
+          <input type="checkbox" checked={priceEdit} onChange={togglePriceEdit} className="h-5 w-5" />
+          Cho phép sửa giá từng dòng ở màn hình bán
         </label>
       </div>
     </div>
