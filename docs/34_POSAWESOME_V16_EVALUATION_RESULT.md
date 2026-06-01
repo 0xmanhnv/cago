@@ -59,7 +59,15 @@ Per Cago rules, `valuation_rate` is **owner-only**. This is a leak **only if sta
 
 ## 5. Decision & recommended path
 
-**Use `posawesome` directly as an OPTIONAL, OWNER-scoped POS**, pinned to `c7e2b93`. No fork.
+> **UPDATE 2026-06-01 (owner decision):** staff will also sell via POS Awesome, and the owner
+> **waived hiding `valuation_rate` from staff in the POS** ("không cần che giá vốn"). So POS
+> Awesome is adopted **directly for owner + staff — NO `cago_posawesome` fork** (the fork's
+> only purpose was the cost gate). The §4 leak finding is an **accepted owner decision for the
+> POS screen**, not a defect. Enroll both owner and staff in the POS Profile's *Applicable for
+> Users*. Cago kiosk/staff-search DTOs still hide cost; native POS stays the fallback; Cago
+> does not depend on POS Awesome. Vietnamese localization: see docs/35.
+
+**Use `posawesome` directly as the enhanced POS (owner + staff)**, pinned to `c7e2b93`. No fork.
 
 1. Gate POS Awesome to the **Owner** (the owner may see cost anyway). Staff continue on Cago's privacy-safe **`/staff/sell`** + native POS. → the cost leak never reaches staff.
 2. **Native ERPNext POS** stays the mandatory fallback; **Cago never imports or depends on `posawesome`.**

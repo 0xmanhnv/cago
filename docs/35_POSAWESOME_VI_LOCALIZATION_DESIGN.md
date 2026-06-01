@@ -4,6 +4,12 @@
 
 Hard constraints honored: no ERPNext core, no Frappe core, no Cago business logic inside POS Awesome, **Cago does not depend on POS Awesome**, native ERPNext POS stays usable.
 
+> **Direction update 2026-06-01:** POS Awesome is now for **owner + staff** (the owner waived
+> hiding cost from staff in the POS — see docs/34 §5 / memory). So **no fork is needed for
+> privacy**; localization uses the no-fork path below (Frappe i18n + `Translation` overrides).
+> A `cago_posawesome` fork would only be considered if the M2 audit finds cashier-critical
+> *hardcoded* (non-`__()`) strings that can't be reached via translations.
+
 ---
 
 ## 1. Current localization support found (inspected on the eval checkout @ `c7e2b93`)
