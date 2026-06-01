@@ -71,6 +71,7 @@ export function OwnerHome() {
         {item("🧮 Chốt ca / Sổ quỹ", "bg-blue-700", "/owner/cashbook")}
         {item("📊 Báo cáo", "bg-blue-600", "/owner/reports")}
         {item("🔀 Sắp xếp loại hàng", "bg-teal-600", "/owner/categories")}
+        {item("🎟 Mã giảm giá", "bg-violet-600", "/owner/coupons")}
         {item("💳 QR thu tiền", "bg-violet-600", "/owner/settings")}
         {item("🛒 Bán hàng", "bg-brand", "/staff/sell")}
         {posUrl && (

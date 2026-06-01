@@ -449,7 +449,7 @@ def _mode_of_payment(company, payment_mode):
 
 
 @frappe.whitelist()
-def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None):
+def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None):
 	"""Cago-native checkout: a stock-reducing Sales Invoice (cash/bank/credit/split) for staff.
 
 	ERPNext is the engine (submitted Sales Invoice, update_stock → stock + GL + loyalty).
@@ -527,6 +527,15 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 	disc = flt(discount_amount)
+	# A coupon's discount is validated + computed SERVER-side (never trust a client amount) and
+	# its usage counted only here, on a completed sale. Stacks on top of any manual discount.
+	coupon_code = None
+	if coupon:
+		from cago.api import coupon as coupon_mod
+
+		subtotal = sum(flt(r["qty"]) * flt(r["rate"]) for r in rows)
+		coupon_code, cdisc = coupon_mod.redeem(coupon, subtotal)
+		disc = min(flt(subtotal), disc + flt(cdisc))
 
 	if payments:
 		# Split / partial: one or more cash/bank methods; any shortfall becomes the customer's

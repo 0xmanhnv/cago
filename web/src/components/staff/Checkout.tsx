@@ -153,6 +153,10 @@ export function Checkout() {
   const [discountMode, setDiscountMode] = useState<"amount" | "percent">("amount");
   const [custInPanel, setCustInPanel] = useState(false); // change-customer picker inside the pay panel
   const [viewMode, setViewMode] = useState<"list" | "card">("list"); // staff default = dense list (speed)
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState<string | null>(null); // applied code
+  const [couponDisc, setCouponDisc] = useState(0);
+  const [couponMsg, setCouponMsg] = useState<React.ReactNode>(null);
   const [autoPrint, setAutoPrint] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
   const [splitCash, setSplitCash] = useState("");
@@ -289,7 +293,51 @@ export function Checkout() {
   // Discount can be a fixed đồng amount or a % of the subtotal (rural staff say "bớt 10%").
   const discRaw = discountMode === "percent" ? Math.round((subtotal * Math.min(discountNum, 100)) / 100) : discountNum;
   const disc = Math.max(0, Math.min(discRaw, subtotal));
-  const estimate = subtotal - disc;
+  const estimate = Math.max(0, subtotal - disc - couponDisc);
+
+  const applyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponMsg(null);
+    try {
+      const r = await frappeCall<{ code: string; discount_amount: number; discount_text: string }>(
+        "cago.api.coupon.apply_coupon",
+        { code, subtotal },
+        { method: "GET" },
+      );
+      setCoupon(r.code);
+      setCouponDisc(r.discount_amount);
+      setCouponInput(r.code);
+      setCouponMsg(<span className="font-bold text-brand">🎟 Đã áp mã {r.code}: −{r.discount_text}</span>);
+    } catch (e) {
+      setCoupon(null);
+      setCouponDisc(0);
+      setCouponMsg(<span className="font-bold text-red-600">{e instanceof Error ? e.message : "Mã không dùng được."}</span>);
+    }
+  };
+  const clearCoupon = () => {
+    setCoupon(null);
+    setCouponDisc(0);
+    setCouponInput("");
+    setCouponMsg(null);
+  };
+  // Keep a % coupon's preview in sync when the cart changes; drop it if it no longer qualifies.
+  useEffect(() => {
+    if (!coupon) return;
+    let cancelled = false;
+    frappeCall<{ discount_amount: number }>("cago.api.coupon.apply_coupon", { code: coupon, subtotal }, { method: "GET" })
+      .then((r) => !cancelled && setCouponDisc(r.discount_amount))
+      .catch(() => {
+        if (cancelled) return;
+        setCoupon(null);
+        setCouponDisc(0);
+        setCouponMsg(<span className="font-bold text-red-600">Mã không còn áp dụng được (đơn đã thay đổi).</span>);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotal, coupon]);
 
   const findBarcode = async (code: string) => {
     if (!code.trim()) return;
@@ -310,6 +358,7 @@ export function Checkout() {
     saveHeld(next);
     setLines({});
     setCust(null);
+    clearCoupon();
     setPayOpen(false);
   };
   const resumeOrder = (h: Held) => {
@@ -370,11 +419,13 @@ export function Checkout() {
         payment_mode,
         customer: cust?.customer || null,
         discount_amount: disc || 0,
+        coupon: coupon || undefined,
       });
       setResult(r);
       setShiftRefresh((n) => n + 1);
       setLines({});
       setDiscount("");
+      clearCoupon();
       setPayOpen(false);
       if (autoPrint) void printReceipt(r.invoice, paper);
       if (payment_mode === "bank") {
@@ -409,6 +460,7 @@ export function Checkout() {
         items: cartCodes.map((c) => ({ item_code: c, qty: lines[c].qty, uom: lines[c].uom, rate: allowPriceEdit ? lines[c].rate : undefined })),
         customer: cust?.customer || null,
         discount_amount: disc || 0,
+        coupon: coupon || undefined,
         payments: [
           { mode: "cash", amount: cashAmt },
           { mode: "bank", amount: bankAmt },
@@ -418,6 +470,7 @@ export function Checkout() {
       setShiftRefresh((n) => n + 1);
       setLines({});
       setDiscount("");
+      clearCoupon();
       setSplitCash("");
       setSplitBank("");
       setShowSplit(false);
@@ -807,8 +860,25 @@ export function Checkout() {
                   {discountMode === "percent" && disc > 0 && (
                     <div className="text-right text-xs text-amber-700">= giảm {money(disc)}</div>
                   )}
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-slate-500">{disc > 0 ? `Tổng (đã giảm ${money(disc)})` : "Tổng tiền"}</span>
+                  {/* Coupon (mã giảm giá) — validated + counted server-side. */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-sm text-slate-500">🎟 Mã:</span>
+                    <input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === "Enter" && applyCoupon()}
+                      placeholder="Nhập mã giảm giá"
+                      className="h-9 flex-1 rounded-lg border-2 border-violet-300 px-2 uppercase"
+                    />
+                    {coupon ? (
+                      <button onClick={clearCoupon} className="shrink-0 rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-bold">Bỏ</button>
+                    ) : (
+                      <button onClick={applyCoupon} className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-bold text-white">Áp dụng</button>
+                    )}
+                  </div>
+                  {couponMsg && <div className="mt-1 text-right text-xs">{couponMsg}</div>}
+                  <div className="mt-2 flex items-baseline justify-between">
+                    <span className="text-slate-500">{disc + couponDisc > 0 ? `Tổng (đã giảm ${money(disc + couponDisc)})` : "Tổng tiền"}</span>
                     <span className="text-2xl font-extrabold text-brand">{money(estimate)}</span>
                   </div>
                   <div className="mt-2 grid grid-cols-3 gap-2">
