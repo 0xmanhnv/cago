@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall, logout } from "@/lib/api";
+import { useSession } from "@/lib/session";
 
 interface Digest {
   low_stock: number;
@@ -14,6 +15,8 @@ interface Digest {
 
 export function OwnerHome() {
   const router = useRouter();
+  const { boot } = useSession();
+  const hasPos = !!boot?.has_posawesome;
   const [digest, setDigest] = useState<Digest | null>(null);
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
@@ -70,6 +73,16 @@ export function OwnerHome() {
         {item("📊 Báo cáo", "bg-blue-600", "/owner/reports")}
         {item("💳 QR thu tiền", "bg-violet-600", "/owner/settings")}
         {item("🛒 Bán hàng", "bg-brand", "/staff/sell")}
+        {hasPos && (
+          <a
+            href="/app/posapp"
+            target="_blank"
+            rel="noopener"
+            className="flex min-h-[84px] items-center justify-center rounded-2xl bg-slate-600 p-2.5 text-center text-[19px] font-bold text-white"
+          >
+            🧾 POS Awesome (quầy)
+          </a>
+        )}
       </div>
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
         <a href="/app" target="_blank" rel="noopener" className="flex min-h-[64px] items-center justify-center rounded-2xl bg-slate-500 p-2.5 text-center text-lg font-bold text-white">
