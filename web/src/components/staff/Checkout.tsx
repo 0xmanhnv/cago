@@ -155,6 +155,30 @@ export function Checkout() {
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const STAFF_PAGE = 30;
+  // Headroom: hide the search/category bar on scroll-down (more room for products), reveal it
+  // instantly on scroll-up — so staff find/filter without scrolling to the very top.
+  const [hideBar, setHideBar] = useState(false);
+  const [showTop, setShowTop] = useState(false); // back-to-top FAB after scrolling down
+  useEffect(() => {
+    let last = window.scrollY;
+    let ticking = false;
+    const apply = () => {
+      ticking = false;
+      const y = Math.max(0, window.scrollY);
+      if (y < 90) setHideBar(false);
+      else if (y > last + 12) setHideBar(true);
+      else if (y < last - 12) setHideBar(false);
+      last = y;
+      setShowTop(y > 600);
+    };
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(apply);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [lines, setLines] = useState<Record<string, Line>>({});
@@ -769,35 +793,37 @@ export function Checkout() {
       </button>
       {showCust && <CustomerPicker onPick={(c) => { setCust(c); setShowCust(false); }} onWalkIn={() => { setCust(null); setShowCust(false); }} />}
 
-      {/* Search + barcode share one row on wider screens (stack on phones) — less vertical
-          stacking so the products surface sooner. */}
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          autoFocus
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            clearTimeout(tRef.current);
-            tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
-          }}
-          placeholder="🔎 Tìm theo tên, công dụng... (để trống xem tất cả)"
-          className="w-full rounded-xl border-2 border-slate-300 p-3.5 text-lg sm:flex-1"
-        />
-        <input
-          placeholder="⌨ Quét/nhập mã vạch rồi Enter"
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              void findBarcode((e.target as HTMLInputElement).value);
-              (e.target as HTMLInputElement).value = "";
-            }
-          }}
-          className="w-full rounded-xl border-2 border-emerald-300 p-3 text-base sm:w-72"
-        />
-      </div>
-
-      <div className="mt-3">
-        {/* One compact row: category chips (scrollable) + product count + List/Card toggle. */}
-        <div className="mb-2 flex items-center gap-2">
+      {/* Sticky headroom bar: search + barcode + category chips stay reachable while scrolling
+          (hide on scroll-down, reveal on scroll-up) so staff needn't scroll to the top. */}
+      <div
+        className="sticky top-0 z-20 -mx-4 mb-3 bg-[#eef9f0]/95 px-4 py-2 backdrop-blur-sm transition-transform duration-300 will-change-transform"
+        style={{ transform: hideBar ? "translateY(-130%)" : "translateY(0)" }}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            autoFocus
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              clearTimeout(tRef.current);
+              tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
+            }}
+            placeholder="🔎 Tìm theo tên, công dụng... (để trống xem tất cả)"
+            className="w-full rounded-xl border-2 border-slate-300 p-3.5 text-lg sm:flex-1"
+          />
+          <input
+            placeholder="⌨ Quét/nhập mã vạch rồi Enter"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                void findBarcode((e.target as HTMLInputElement).value);
+                (e.target as HTMLInputElement).value = "";
+              }
+            }}
+            className="w-full rounded-xl border-2 border-emerald-300 p-3 text-base sm:w-72"
+          />
+        </div>
+        {/* category chips (scrollable) + product count + List/Card toggle */}
+        <div className="mt-2 flex items-center gap-2">
           <div className="min-w-0 flex-1">
             {cats.length > 0 && <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />}
           </div>
@@ -809,6 +835,9 @@ export function Checkout() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div>
         {loading ? (
           <div className="py-6 text-center text-slate-500">Đang tải...</div>
         ) : list.length === 0 ? (
@@ -933,6 +962,16 @@ export function Checkout() {
         {hasMore && <div ref={sentinelRef} className="h-1" />}
         {loadingMore && <div className="py-4 text-center text-slate-400">Đang tải thêm...</div>}
       </div>
+
+      {showTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="Lên đầu trang"
+          className={`fixed right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-slate-700/90 text-2xl font-bold text-white shadow-lg backdrop-blur ${cartCodes.length > 0 ? "bottom-24" : "bottom-5"}`}
+        >
+          ↑
+        </button>
+      )}
 
       {cartCodes.length > 0 && (
         <>
