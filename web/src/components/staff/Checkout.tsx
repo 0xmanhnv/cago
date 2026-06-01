@@ -29,6 +29,7 @@ interface Meta {
   sale_units: { uom: string; label?: string; price_text: string }[];
   stock_uom: string;
   stock_qty: number;
+  stock_auto?: boolean;
   stock_status?: string | null;
 }
 interface Line {
@@ -212,6 +213,7 @@ export function Checkout() {
         sale_units: p.sale_units && p.sale_units.length ? p.sale_units : [{ uom: p.unit || "", price_text: p.price_text }],
         stock_uom: p.unit || "",
         stock_qty: p.actual_stock_qty ?? 0,
+        stock_auto: p.stock_auto,
         stock_status: p.stock_status,
       };
       setMeta((x) => ({ ...x, [code]: m }));
@@ -221,7 +223,18 @@ export function Checkout() {
     }
   };
 
-  const add = async (code: string) => {
+  // Out of stock only matters for items that actually track on-hand (stock_auto).
+  const cardOOS = (p: ProductCard) => !!p.stock_auto && (p.actual_stock_qty ?? 0) <= 0;
+  const lineOOS = (code: string) => {
+    const m = meta[code];
+    return !!m?.stock_auto && (m.stock_qty ?? 0) <= 0;
+  };
+
+  const add = async (code: string, card?: ProductCard) => {
+    // Warn up-front instead of failing at payment: out-of-stock is sellable (back-order) but
+    // the staff must confirm so it's never a surprise. Negative stock is allowed server-side.
+    // (Barcode scans pass no card → no warning, since scanning implies the item is in hand.)
+    if (card && cardOOS(card) && !confirm(`"${card.display_name}" đang hết hàng trên hệ thống. Vẫn bán (bán âm tồn)?`)) return;
     const m = await ensureMeta(code);
     setLines((l) => (l[code] ? l : { ...l, [code]: { qty: 1, uom: m?.stock_uom || "" } }));
   };
@@ -570,17 +583,25 @@ export function Checkout() {
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-bold">{p.display_name}</div>
                     <div className="text-sm font-bold text-brand">{p.price_text}</div>
-                    <div className="text-xs text-slate-400">{(m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}</div>
+                    <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
+                      {cardOOS(p) ? "⚠ Hết hàng" : (m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}
+                    </div>
                   </div>
                   {!line && (
-                    <button onClick={() => add(p.item_code)} className="h-11 shrink-0 rounded-lg bg-brand px-4 text-lg font-bold text-white">
-                      ＋ Thêm
+                    <button
+                      onClick={() => add(p.item_code, p)}
+                      className={`h-11 shrink-0 rounded-lg px-4 text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
+                    >
+                      {cardOOS(p) ? "Vẫn bán" : "＋ Thêm"}
                     </button>
                   )}
                 </div>
 
                 {line && (
                   <div className="mt-2.5 border-t border-brand/20 pt-2.5">
+                    {lineOOS(p.item_code) && (
+                      <div className="mb-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-sm font-bold text-red-600">⚠ Đang bán quá tồn (hệ thống còn 0)</div>
+                    )}
                     {multi && (
                       <div className="mb-2 flex flex-wrap gap-1.5">
                         {m!.sale_units.map((u) => (

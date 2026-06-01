@@ -372,7 +372,16 @@ def _list_dto(r, rate, audience, cat_meta=None, qty_map=None):
 			}
 		)
 	else:  # staff / owner
-		out.update({"shelf_location": r.cago_shelf_location, "selling_price": rate})
+		out.update(
+			{
+				"shelf_location": r.cago_shelf_location,
+				"selling_price": rate,
+				# Real on-hand so the sell screen can warn BEFORE checkout. Only meaningful when the
+				# item auto-tracks stock; manual-status items report stock_auto=False (don't enforce).
+				"stock_auto": bool(r.cago_stock_auto),
+				"actual_stock_qty": (qty_map or {}).get(r.name, 0) if r.get("cago_stock_auto") else None,
+			}
+		)
 	return out
 
 
@@ -481,6 +490,7 @@ def staff_dto(item):
 		"unit": item.stock_uom,
 		"stock_status": stock_status_for(item, qty),
 		"actual_stock_qty": qty,
+		"stock_auto": bool(_get(item, "cago_stock_auto")),
 		"shelf_location": item.cago_shelf_location,
 		"public_description": item.cago_public_description,
 		"staff_advice": item.cago_staff_advice,

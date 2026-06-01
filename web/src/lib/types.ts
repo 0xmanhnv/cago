@@ -14,6 +14,8 @@ export interface ProductCard {
   stock_status?: string | null;
   short_description?: string;
   is_chemical?: boolean;
+  stock_auto?: boolean; // true = on-hand is tracked (so 0 means really out of stock)
+  actual_stock_qty?: number | null; // real on-hand in stock units (null when not tracked)
 }
 
 export interface Product {
@@ -30,6 +32,7 @@ export interface Product {
   use_cases?: string | null;
   package_color?: string | null;
   stock_status?: string | null;
+  stock_auto?: boolean;
   is_chemical?: boolean;
   safety_notes?: string | null;
   // expiry (Phase 1)

@@ -78,6 +78,10 @@ def _apply_store_settings():
 		frappe.db.set_single_value("Website Settings", "disable_signup", 1)
 	except Exception:
 		pass
+	# Allow selling past on-hand: rural shops' system stock often lags reality (a bag is
+	# physically there even when the count shows 0). The POS warns the staff up-front, but the
+	# sale must still go through — so permit negative stock instead of failing at payment time.
+	frappe.db.set_single_value("Stock Settings", "allow_negative_stock", 1)
 	frappe.db.commit()
 
 
