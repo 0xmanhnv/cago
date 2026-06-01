@@ -38,26 +38,29 @@ export function Cart() {
       </div>
 
       {result ? (
-        <div className="rounded-2xl bg-white p-4 text-center">
-          <div className="my-4 rounded-2xl border-2 border-dashed border-brand bg-brand-light px-5 py-5 text-4xl font-black tracking-widest text-brand-dark">
+        <div className="animate-rise-in rounded-3xl border border-emerald-100 bg-white p-5 text-center shadow-card">
+          <div className="text-5xl">🌾</div>
+          <p className="mt-1 text-lg font-bold text-brand-dark">Đã gửi cho người bán!</p>
+          <div className="my-4 rounded-2xl border-2 border-dashed border-harvest bg-harvest-light px-5 py-5 text-4xl font-black tracking-widest text-harvest-dark">
             {result}
           </div>
           <p className="text-lg">Bác đọc mã này cho người bán để lấy hàng nhé!</p>
-          <button onClick={nav.goHome} className="mt-3 min-h-touch w-full rounded-xl bg-teal-600 py-3.5 text-lg font-extrabold text-white">
+          <button onClick={nav.goHome} className="mt-3 min-h-touch w-full rounded-2xl bg-brand py-3.5 text-lg font-extrabold text-white shadow-soft">
             Xong
           </button>
         </div>
       ) : lines.length === 0 ? (
-        <div className="rounded-2xl bg-white p-6 text-center text-slate-500">
-          Giỏ chưa có sản phẩm nào.
-          <button onClick={nav.goHome} className="mt-3 block w-full rounded-xl bg-brand py-3 font-extrabold text-white">
+        <div className="animate-rise-in rounded-3xl border border-emerald-100 bg-white p-8 text-center text-slate-500 shadow-soft">
+          <div className="text-5xl">🧺</div>
+          <div className="mt-2">Giỏ chưa có sản phẩm nào.</div>
+          <button onClick={nav.goHome} className="mt-4 block w-full rounded-2xl bg-brand py-3.5 font-extrabold text-white shadow-soft">
             Chọn sản phẩm
           </button>
         </div>
       ) : (
-        <div className="rounded-2xl bg-white p-4">
+        <div className="animate-rise-in rounded-3xl border border-emerald-100 bg-white p-4 shadow-card">
           {lines.map((x) => (
-            <div key={x.product.item_code} className="flex items-center justify-between border-b border-slate-100 py-2.5">
+            <div key={x.product.item_code} className="flex items-center justify-between border-b border-slate-100 py-3 last:border-0">
               <span>
                 <b>{x.product.display_name}</b>
                 <br />
@@ -83,7 +86,7 @@ export function Cart() {
           <button
             disabled={submitting}
             onClick={submit}
-            className="mt-3.5 min-h-touch w-full rounded-xl bg-brand py-4 text-xl font-extrabold text-white disabled:opacity-50"
+            className="mt-4 min-h-touch w-full rounded-2xl bg-brand py-4 text-xl font-extrabold text-white shadow-soft transition hover:-translate-y-0.5 disabled:opacity-50"
           >
             📨 Gửi cho người bán
           </button>

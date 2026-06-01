@@ -26,11 +26,17 @@ export function Home() {
 
   return (
     <div>
-      {/* Brand banner */}
-      <div className="animate-rise-in mb-5 rounded-3xl bg-gradient-to-br from-brand to-brand-dark px-6 py-6 text-center text-white shadow-card">
-        <div className="text-4xl leading-none">🌾</div>
-        <div className="mt-1 text-3xl font-extrabold tracking-tight">{brand}</div>
-        <div className="text-sm font-semibold uppercase tracking-[0.22em] text-emerald-100">Vật tư nông nghiệp</div>
+      {/* Brand banner — green field + golden-harvest accent */}
+      <div className="animate-rise-in relative mb-5 overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-dark px-6 py-6 text-center text-white shadow-card">
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-harvest via-amber-300 to-harvest" />
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-harvest/20 text-4xl leading-none ring-2 ring-harvest/60">
+          🌾
+        </div>
+        <div className="mt-2 text-3xl font-extrabold tracking-tight">{brand}</div>
+        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-emerald-100">Vật tư nông nghiệp</div>
+        <div className="mt-2 inline-block rounded-full bg-harvest/25 px-3 py-1 text-sm font-bold text-amber-50">
+          🌾 Đồng hành cùng nhà nông
+        </div>
         <div className="mt-3 text-lg font-bold text-emerald-50">Bác cần mua gì hôm nay?</div>
       </div>
 

@@ -64,10 +64,10 @@ export function ProductDetail({ code }: { code: string }) {
         </button>
       </div>
 
-      <div className="rounded-2xl bg-white p-4">
+      <div className="animate-rise-in rounded-3xl border border-emerald-100 bg-white p-4 shadow-card">
         {mainImg ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={mainImg} alt={product.display_name} className="max-h-80 w-full rounded-xl bg-emerald-50 object-contain" />
+          <img src={mainImg} alt={product.display_name} className="max-h-80 w-full rounded-2xl bg-emerald-50 object-contain" />
         ) : (
           <CatThumb icon={product.category_icon} color={product.category_color} name={product.display_name} variant="big" />
         )}
@@ -107,13 +107,13 @@ export function ProductDetail({ code }: { code: string }) {
         )}
         <button
           onClick={() => speak(`${product.display_name}. Giá ${product.price_text}. Dùng cho ${product.use_cases || ""}.`)}
-          className="mt-2.5 rounded-lg bg-teal-600 px-4 py-2.5 font-extrabold text-white"
+          className="mt-2.5 rounded-full bg-harvest px-4 py-2.5 font-extrabold text-white shadow-soft"
         >
           🔊 Đọc to
         </button>
 
         {/* quantity picker — choose how many, no need to tap once per unit */}
-        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
           <div className="mb-2 font-bold text-brand-dark">Số lượng{product.unit ? ` (${product.unit})` : ""}</div>
           <div className="flex items-center gap-3">
             <button
@@ -191,10 +191,10 @@ export function ProductDetail({ code }: { code: string }) {
               <button
                 key={r.item_code}
                 onClick={() => nav.openDetail(r.item_code)}
-                className="w-[140px] flex-none overflow-hidden rounded-xl bg-white text-left shadow"
+                className="w-[140px] flex-none overflow-hidden rounded-2xl border border-emerald-100 bg-white text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-card"
               >
                 <CatThumb image={r.image} icon={r.category_icon} color={r.category_color} name={r.display_name} variant="grid" />
-                <div className="p-1.5">
+                <div className="p-2">
                   <div className="text-sm font-bold">{r.display_name}</div>
                   <div className="text-[13px] font-bold text-brand">{r.price_text}</div>
                 </div>
