@@ -51,17 +51,10 @@
 	animation: none !important;
 	opacity: 1 !important;
 	transform: none !important;
-	position: relative !important;
-	z-index: 1 !important;
-	background: #ffffff !important;
 }
-.posa-form-section,
-.posa-form-section:hover {
+/* Scope the rest STRICTLY inside the expanded row so nothing else on the page is affected. */
+.posa-expanded-content .posa-form-section,
+.posa-expanded-content .posa-form-section:hover {
 	transform: none !important;
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
-}
-/* Two readable columns per row on a tablet; stack on a phone. */
-.posa-form-field {
-	flex: 1 1 280px !important;
-	min-width: 240px !important;
 }

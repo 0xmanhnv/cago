@@ -57,3 +57,10 @@ RUN ln -sfn /home/frappe/frappe-bench/apps/posawesome/posawesome/public \
 # app_include_css). cago ships no JS bundle, so just symlink its public dir for nginx.
 RUN ln -sfn /home/frappe/frappe-bench/apps/cago/cago/public \
     /home/frappe/frappe-bench/assets/cago
+# POS Awesome's loader injects <link href="/assets/posawesome/node_modules/vuetify/dist/vuetify.min.css">.
+# That node_modules path isn't under public in a production build → 404 (text/html) → blocked by
+# nosniff and the table/dialogs lose Vuetify styles. Expose the real package file via a symlink so
+# the link resolves (200 text/css). Vuetify is also in the bundle, so this is just the fallback.
+RUN mkdir -p /home/frappe/frappe-bench/apps/posawesome/posawesome/public/node_modules \
+    && ln -sfn /home/frappe/frappe-bench/apps/posawesome/frontend/node_modules/vuetify \
+       /home/frappe/frappe-bench/apps/posawesome/posawesome/public/node_modules/vuetify
