@@ -80,6 +80,12 @@ POS_VI = {
 	# Fix machine-mistranslations in the app's vi.csv (e.g. Party -> "Đảng" = political party!)
 	"Party": "Đối tượng", "Party Type": "Loại đối tượng", "Difference": "Chênh lệch",
 	"Invoice Total": "Tổng hóa đơn", "Transaction ID": "Mã giao dịch", "Receive": "Nhận tiền",
+	# Menu + filters + default ERPNext item-group names visible on the POS
+	"Purchase Order": "Đơn đặt mua", "Barcode Printing": "In mã vạch", "Items Group": "Nhóm hàng",
+	"Item Group": "Nhóm hàng", "All Item Groups": "Tất cả nhóm hàng", "Price List": "Bảng giá",
+	"Standard Selling": "Bảng giá bán", "Products": "Hàng hoá", "Raw Material": "Nguyên liệu",
+	"Raw Materials": "Nguyên liệu", "Services": "Dịch vụ", "Sub Assemblies": "Bán thành phẩm",
+	"Consumable": "Vật tư tiêu hao", "All Warehouses": "Tất cả kho", "List": "Danh sách", "Card": "Thẻ",
 }
 
 

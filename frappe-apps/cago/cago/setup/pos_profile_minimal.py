@@ -47,6 +47,19 @@ def apply_minimal_pos(profile=None):
 		print("No POS Profile to configure (posawesome not set up?).")
 		return
 	p = frappe.get_doc("POS Profile", profile)
+	# Default walk-in customer so POS Awesome doesn't error "Value missing for Customer" on a
+	# quick cash sale (cashier can still pick a named customer for credit).
+	if not p.customer:
+		walkin = frappe.db.get_value("Customer", {"customer_name": "Khách lẻ"}, "name")
+		if not walkin:
+			try:
+				from cago.api.sales import walkin_customer
+
+				walkin = walkin_customer()
+			except Exception:
+				walkin = None
+		if walkin:
+			p.customer = walkin
 	noff = non = 0
 	for f in OFF:
 		if p.meta.has_field(f):
@@ -82,9 +95,12 @@ def enroll_users(profile=None, users=None):
 		if u not in have:
 			p.append("applicable_for_users", {"user": u})
 			added += 1
-		# Grant the role the posapp desk page requires (idempotent).
-		if u != "Administrator" and "Sales User" not in frappe.get_roles(u):
-			frappe.get_doc("User", u).add_roles("Sales User")
+		# Grant the roles POS Awesome needs: "Sales User" opens the posapp page; "Accounts User"
+		# grants Sales Invoice create/submit (the POS posts Sales Invoices). Idempotent.
+		if u != "Administrator":
+			need = [r for r in ("Sales User", "Accounts User") if r not in frappe.get_roles(u)]
+			if need:
+				frappe.get_doc("User", u).add_roles(*need)
 	if added:
 		p.flags.ignore_permissions = True
 		p.save(ignore_permissions=True)
