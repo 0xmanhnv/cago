@@ -23,10 +23,11 @@ from cago.utils.permissions import ensure_owner, ensure_staff
 SELLING_PRICE_LIST = dto.SELLING_PRICE_LIST
 
 # Suggestions only — owner enters how many fit in one stock unit + the retail price.
+# (Yến/Tạ/Tấn are offered separately as one-tap "bigger unit" presets in the UI; they store
+# math-style codes kg10/kg100/kg1000 — see cago.utils.dto.UOM_LABELS.)
 RETAIL_PRESETS = [
 	{"uom": "Kg", "hint": "ki-lô-gam"},
 	{"uom": "Lạng", "hint": "100g (1 kg = 10 lạng)"},
-	{"uom": "Yến", "hint": "10 kg"},
 	{"uom": "Gói", "hint": ""},
 	{"uom": "Chai", "hint": ""},
 ]
@@ -74,6 +75,7 @@ def get_units(item_code):
 	units = [
 		{
 			"uom": stock_uom,
+			"label": dto.uom_label(stock_uom),
 			"is_stock": 1,
 			"units_per_stock": 1,
 			"rate": main_rate,
@@ -88,6 +90,7 @@ def get_units(item_code):
 		units.append(
 			{
 				"uom": row.uom,
+				"label": dto.uom_label(row.uom),
 				"is_stock": 0,
 				"conversion_factor": row.conversion_factor,
 				"units_per_stock": ups,

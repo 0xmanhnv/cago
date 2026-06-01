@@ -157,6 +157,11 @@ CATEGORY_PRESETS = {
 	"Bạt / lưới / dây": ("🕸️", "#e7e5e4"),
 	"Ống / tưới tiêu": ("🚿", "#cffafe"),
 	"Bảo hộ (găng / ủng / khẩu trang)": ("🧤", "#e0f2fe"),
+	# Nông sản (bán theo cân: kg / yến / tạ / tấn)
+	"Nông sản": ("🌾", "#fef9c3"),
+	"Thóc / gạo": ("🌾", "#fef9c3"),
+	"Ngô / khoai": ("🌽", "#fef9c3"),
+	"Lạc / đậu": ("🥜", "#fef9c3"),
 	# Khác (tạp hoá)
 	"Tạp hoá": ("🛒", "#fce7f3"),
 }
@@ -169,7 +174,82 @@ CATEGORY_TREE = {
 	"Phân bón": ["Phân vô cơ", "Phân hữu cơ", "Phân vi sinh"],
 	"Hạt giống": ["Giống lúa", "Giống ngô", "Giống rau", "Giống đậu / lạc"],
 	"Thuốc bảo vệ thực vật": ["Thuốc trừ sâu bệnh", "Thuốc cỏ", "Thuốc chuột"],
+	"Nông sản": ["Thóc / gạo", "Ngô / khoai", "Lạc / đậu"],
 }
+
+
+# Bulk produce sold by weight. Stored with neutral math-style unit codes (see
+# cago.utils.dto.UOM_LABELS): kg10 = yến (10kg), kg100 = tạ (100kg), kg1000 = tấn (1000kg).
+# Every UI shows the Vietnamese label; the data layer only ever sees the code.
+PRODUCE_WEIGHT_UNITS = [("kg10", 10), ("kg100", 100), ("kg1000", 1000)]
+PRODUCE_SAMPLES = [
+	# (item_code, name, sub_group, price_per_kg, local_names, public_description)
+	("NS-GAO-TE", "Gạo tẻ", "Thóc / gạo", 18000, "gạo,gạo tẻ", "Gạo tẻ bán theo cân."),
+	("NS-THOC-KHO", "Thóc khô", "Thóc / gạo", 9000, "lúa,thóc", "Thóc khô, bán theo cân/yến/tạ/tấn."),
+	("NS-NGO-HAT", "Ngô hạt khô", "Ngô / khoai", 10000, "bắp,ngô,ngô hạt", "Ngô hạt khô."),
+	("NS-LAC-NHAN", "Lạc nhân", "Lạc / đậu", 38000, "đậu phộng,lạc,lạc nhân", "Lạc nhân (đậu phộng) đã bóc vỏ."),
+	("NS-DO-TUONG", "Đỗ tương", "Lạc / đậu", 25000, "đậu nành,đỗ tương,đậu tương", "Đỗ tương (đậu nành) khô."),
+]
+
+
+def seed_produce_samples():
+	"""Create the 'Nông sản' tree + bulk-weight produce items sold by kg/yến/tạ/tấn (idempotent)."""
+	root = _ensure_root_item_group()
+	if not frappe.db.exists("Item Group", "Nông sản"):
+		frappe.get_doc(
+			{"doctype": "Item Group", "item_group_name": "Nông sản", "parent_item_group": root, "is_group": 1}
+		).insert(ignore_permissions=True)
+	for child in CATEGORY_TREE["Nông sản"]:
+		if not frappe.db.exists("Item Group", child):
+			frappe.get_doc(
+				{"doctype": "Item Group", "item_group_name": child, "parent_item_group": "Nông sản", "is_group": 0}
+			).insert(ignore_permissions=True)
+		elif frappe.db.get_value("Item Group", child, "parent_item_group") != "Nông sản":
+			g = frappe.get_doc("Item Group", child)
+			g.parent_item_group, g.is_group = "Nông sản", 0
+			g.save(ignore_permissions=True)
+
+	_ensure_uom("Kg")
+	for uom_code, _ in PRODUCE_WEIGHT_UNITS:
+		_ensure_uom(uom_code)
+
+	for code, name, grp, kg_price, locals_, desc in PRODUCE_SAMPLES:
+		_upsert_item(
+			{
+				"item_code": code,
+				"item_name": name,
+				"item_group": grp,
+				"stock_uom": "Kg",
+				"cago_display_name": name,
+				"cago_local_names": locals_,
+				"cago_public_description": desc,
+				"cago_use_cases": "Nông sản",
+				"cago_shelf_location": "Kho nông sản",
+				"cago_stock_status_manual": "Còn hàng",
+				"cago_is_public_visible": "1",
+			}
+		)
+		item = frappe.get_doc("Item", code)
+		for uom_code, factor in PRODUCE_WEIGHT_UNITS:
+			r = next((x for x in item.uoms if x.uom == uom_code), None)
+			if r:
+				r.conversion_factor = factor
+			else:
+				item.append("uoms", {"uom": uom_code, "conversion_factor": factor})
+		item.cago_show_retail_on_kiosk = 1  # show yến/tạ/tấn prices to customers
+		item.save(ignore_permissions=True)
+		_upsert_selling_price(code, kg_price, "Kg")
+		for uom_code, factor in PRODUCE_WEIGHT_UNITS:
+			_upsert_selling_price(code, kg_price * factor, uom_code)
+		print(f"  produce: {code} {name} {kg_price:,}đ/Kg (+ yến/tạ/tấn)")
+
+	seed_category_presets()
+	try:
+		from frappe.utils.nestedset import rebuild_tree
+
+		rebuild_tree("Item Group")
+	except Exception:
+		pass
 
 
 def seed_category_tree():

@@ -329,7 +329,7 @@ function StockSection({ code }: { code: string }) {
 }
 
 function UnitsSection({ code }: { code: string }) {
-  type U = { uom: string; is_stock?: number; units_per_stock?: number; conversion_factor?: number; price_text: string };
+  type U = { uom: string; label?: string; is_stock?: number; units_per_stock?: number; conversion_factor?: number; price_text: string };
   type Data = { stock_uom: string; units: U[]; show_retail: boolean; presets: { uom: string; hint: string }[] };
   const [d, setD] = useState<Data | null>(null);
   const [uom, setUom] = useState("");
@@ -347,14 +347,16 @@ function UnitsSection({ code }: { code: string }) {
   }, [code]);
   if (!d) return null;
 
-  // Bigger Vietnamese weight units, expressed naturally as "1 [unit] = N [stock]".
+  // Bigger Vietnamese weight units, shown in Vietnamese but STORED as neutral math-style codes
+  // (base kg + factor) so the data layer never carries Vietnamese strings. 1 [unit] = N [stock].
   const WEIGHT = [
-    { uom: "Yến", n: 10 },
-    { uom: "Tạ", n: 100 },
-    { uom: "Tấn", n: 1000 },
+    { code: "kg10", label: "Yến", n: 10 },
+    { code: "kg100", label: "Tạ", n: 100 },
+    { code: "kg1000", label: "Tấn", n: 1000 },
   ];
-  const pickWeight = (w: { uom: string; n: number }) => {
-    setUom(w.uom);
+  const weightOf = (c: string) => WEIGHT.find((w) => w.code === c);
+  const pickWeight = (w: { code: string; n: number }) => {
+    setUom(w.code);
     setDir("perUnit");
     setUps(String(w.n));
   };
@@ -378,8 +380,8 @@ function UnitsSection({ code }: { code: string }) {
       setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi lưu đơn vị."}</Warn>);
     }
   };
-  const remove = async (u: string) => {
-    if (confirm(`Xoá đơn vị bán ${u}?`)) setD(await frappeCall<Data>("cago.api.units.remove_unit", { item_code: code, uom: u }));
+  const remove = async (u: string, label?: string) => {
+    if (confirm(`Xoá đơn vị bán ${label || u}?`)) setD(await frappeCall<Data>("cago.api.units.remove_unit", { item_code: code, uom: u }));
   };
   const toggle = async () => {
     await frappeCall("cago.api.units.set_retail_visible", { item_code: code, visible: d.show_retail ? 0 : 1 });
@@ -395,15 +397,15 @@ function UnitsSection({ code }: { code: string }) {
       {d.units.map((u) => (
         <div key={u.uom} className="mt-1.5 flex items-center justify-between rounded-lg border border-slate-200 px-2.5 py-2">
           <span>
-            <b>{u.uom}</b>{" "}
+            <b>{u.label || u.uom}</b>{" "}
             {u.is_stock ? (
               "(tồn kho)"
             ) : (u.conversion_factor ?? 0) > 1 ? (
               // Bigger unit (yến/tạ/tấn): 1 Yến = 10 Kg
-              <span className="text-slate-500">· 1 {u.uom} = {u.conversion_factor} {d.stock_uom}</span>
+              <span className="text-slate-500">· 1 {u.label || u.uom} = {u.conversion_factor} {d.stock_uom}</span>
             ) : u.units_per_stock ? (
               // Smaller retail unit: 1 Bao = 25 Kg
-              <span className="text-slate-500">· 1 {d.stock_uom} = {u.units_per_stock} {u.uom}</span>
+              <span className="text-slate-500">· 1 {d.stock_uom} = {u.units_per_stock} {u.label || u.uom}</span>
             ) : (
               ""
             )}
@@ -411,7 +413,7 @@ function UnitsSection({ code }: { code: string }) {
           <span className="flex items-center gap-2">
             <b className="text-brand">{u.price_text}</b>
             {!u.is_stock && (
-              <button onClick={() => remove(u.uom)} className="rounded bg-red-100 px-2 py-1 text-xs font-bold text-red-700">
+              <button onClick={() => remove(u.uom, u.label)} className="rounded bg-red-100 px-2 py-1 text-xs font-bold text-red-700">
                 Xoá
               </button>
             )}
@@ -425,36 +427,49 @@ function UnitsSection({ code }: { code: string }) {
           </button>
         ))}
         {WEIGHT.map((w) => (
-          <button key={w.uom} onClick={() => pickWeight(w)} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-800" title={`1 ${w.uom} = ${w.n} ${d.stock_uom}`}>
-            {w.uom} <span className="font-normal">(={w.n} {d.stock_uom})</span>
+          <button key={w.code} onClick={() => pickWeight(w)} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-800" title={`1 ${w.label} = ${w.n} ${d.stock_uom}`}>
+            {w.label} <span className="font-normal">(={w.n} {d.stock_uom})</span>
           </button>
         ))}
       </div>
-      {/* Direction toggle — let the owner type the conversion the natural way for either size. */}
-      <div className="mt-2 inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm font-bold">
-        <button onClick={() => setDir("perStock")} className={dir === "perStock" ? "bg-brand px-3 py-1.5 text-white" : "bg-white px-3 py-1.5 text-slate-600"}>
-          Đơn vị nhỏ hơn
-        </button>
-        <button onClick={() => setDir("perUnit")} className={dir === "perUnit" ? "bg-brand px-3 py-1.5 text-white" : "bg-white px-3 py-1.5 text-slate-600"}>
-          Đơn vị lớn hơn
-        </button>
-      </div>
-      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <input value={uom} onChange={(e) => setUom(e.target.value)} placeholder="Đơn vị (vd Kg, Yến)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
-        <input
-          value={ups}
-          onChange={(e) => setUps(e.target.value)}
-          inputMode="numeric"
-          placeholder={dir === "perStock" ? `1 ${d.stock_uom} = ? ${uom || "đơn vị"}` : `1 ${uom || "đơn vị"} = ? ${d.stock_uom}`}
-          className="rounded-lg border-2 border-emerald-300 p-2.5"
-        />
-        <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder="Giá / đơn vị (đồng)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
-      </div>
-      <p className="mt-1 text-xs text-slate-500">
-        {dir === "perStock"
-          ? `Đơn vị bán nhỏ hơn đơn vị tồn — vd 1 ${d.stock_uom} = 25 Kg.`
-          : `Đơn vị bán lớn hơn đơn vị tồn — vd 1 Yến = 10 ${d.stock_uom}.`}
-      </p>
+      {weightOf(uom) ? (
+        // A bigger weight unit (Yến/Tạ/Tấn) was picked — code is fixed, owner only enters the price.
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-bold text-amber-800">
+            {weightOf(uom)!.label} = {weightOf(uom)!.n} {d.stock_uom}
+            <button onClick={() => { setUom(""); setUps(""); setDir("perStock"); }} className="text-amber-700" aria-label="Bỏ chọn">✕</button>
+          </span>
+          <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder={`Giá / ${weightOf(uom)!.label} (đồng)`} className="min-w-0 flex-1 rounded-lg border-2 border-emerald-300 p-2.5" />
+        </div>
+      ) : (
+        <>
+          {/* Direction toggle — let the owner type the conversion the natural way for either size. */}
+          <div className="mt-2 inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm font-bold">
+            <button onClick={() => setDir("perStock")} className={dir === "perStock" ? "bg-brand px-3 py-1.5 text-white" : "bg-white px-3 py-1.5 text-slate-600"}>
+              Đơn vị nhỏ hơn
+            </button>
+            <button onClick={() => setDir("perUnit")} className={dir === "perUnit" ? "bg-brand px-3 py-1.5 text-white" : "bg-white px-3 py-1.5 text-slate-600"}>
+              Đơn vị lớn hơn
+            </button>
+          </div>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <input value={uom} onChange={(e) => setUom(e.target.value)} placeholder="Đơn vị (vd Kg, Lạng)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
+            <input
+              value={ups}
+              onChange={(e) => setUps(e.target.value)}
+              inputMode="numeric"
+              placeholder={dir === "perStock" ? `1 ${d.stock_uom} = ? ${uom || "đơn vị"}` : `1 ${uom || "đơn vị"} = ? ${d.stock_uom}`}
+              className="rounded-lg border-2 border-emerald-300 p-2.5"
+            />
+            <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder="Giá / đơn vị (đồng)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            {dir === "perStock"
+              ? `Đơn vị bán nhỏ hơn đơn vị tồn — vd 1 ${d.stock_uom} = 25 Kg.`
+              : `Đơn vị bán lớn hơn đơn vị tồn — vd 1 Yến = 10 ${d.stock_uom}.`}
+          </p>
+        </>
+      )}
       <button onClick={add} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
         + Lưu đơn vị bán
       </button>

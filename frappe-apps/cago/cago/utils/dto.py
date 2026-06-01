@@ -112,13 +112,25 @@ def get_selling_price(item_code):
 	return _rate_for(_price_map([item_code]).get(item_code) or {}, stock_uom)
 
 
+# Weight sale units are stored with neutral, math-style codes (base "Kg" + factor) so the
+# data layer never carries Vietnamese strings, while the UI always shows the Vietnamese name.
+# Codes: kg10 = yến (10kg), kg100 = tạ (100kg), kg1000 = tấn (1000kg). Anything not in the map
+# (Bao, Kg, Gói, Chai, …) is shown verbatim.
+UOM_LABELS = {"kg10": "Yến", "kg100": "Tạ", "kg1000": "Tấn"}
+
+
+def uom_label(uom):
+	"""Vietnamese display label for a UOM code (codes pass through if not a weight code)."""
+	return UOM_LABELS.get(uom, uom)
+
+
 def format_price(rate, uom=None):
 	"""Format a VND amount the way a rural customer reads it: 320.000đ / Bao."""
 	if not rate:
 		return "Liên hệ"
 	text = f"{int(round(rate)):,}".replace(",", ".") + "đ"
 	if uom:
-		text += f" / {uom}"
+		text += f" / {uom_label(uom)}"
 	return text
 
 
@@ -407,7 +419,13 @@ def sale_units(item):
 	"""Sale units + display prices: the stock unit plus any priced retail units
 	(kg/lạng/yến…). Each retail price is its own Item Price (may differ from bulk)."""
 	code = item.name
-	out = [{"uom": item.stock_uom, "price_text": format_price(get_selling_price(code), item.stock_uom)}]
+	out = [
+		{
+			"uom": item.stock_uom,
+			"label": uom_label(item.stock_uom),
+			"price_text": format_price(get_selling_price(code), item.stock_uom),
+		}
+	]
 	for row in _get(item, "uoms") or []:
 		if row.uom == item.stock_uom:
 			continue
@@ -417,7 +435,7 @@ def sale_units(item):
 			"price_list_rate",
 		)
 		if rate:
-			out.append({"uom": row.uom, "price_text": format_price(rate, row.uom)})
+			out.append({"uom": row.uom, "label": uom_label(row.uom), "price_text": format_price(rate, row.uom)})
 	return out
 
 

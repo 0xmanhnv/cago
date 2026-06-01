@@ -37,7 +37,7 @@ export interface Product {
   expiry_text?: string | null;
   expiry_status?: ExpiryStatus;
   // multi-UOM retail selling (Bao / Kg / Lạng…)
-  sale_units?: { uom: string; price_text: string }[];
+  sale_units?: { uom: string; label?: string; price_text: string }[];
   // staff/owner-only
   official_name?: string;
   local_names?: string | null;

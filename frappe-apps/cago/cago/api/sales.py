@@ -284,7 +284,7 @@ def get_receipt(invoice):
 			{
 				"name": frappe.db.get_value("Item", it.item_code, "cago_display_name") or it.item_name,
 				"qty": flt(it.qty),
-				"uom": it.uom,
+				"uom": dto.uom_label(it.uom),
 				"rate_text": dto.format_price(flt(it.rate)),
 				"amount_text": dto.format_price(flt(it.amount)),
 			}

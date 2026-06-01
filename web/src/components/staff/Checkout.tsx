@@ -25,7 +25,7 @@ interface Cust {
   outstanding_text?: string;
 }
 interface Meta {
-  sale_units: { uom: string; price_text: string }[];
+  sale_units: { uom: string; label?: string; price_text: string }[];
   stock_uom: string;
   stock_qty: number;
   stock_status?: string | null;
@@ -234,6 +234,9 @@ export function Checkout() {
     const u = meta[code]?.sale_units.find((s) => s.uom === uom);
     return parsePrice(u?.price_text || list.find((p) => p.item_code === code)?.price_text || "");
   };
+  // Vietnamese label for a stored unit code (kg10 → "Yến"); falls back to the code itself.
+  const labelOf = (code: string, uom: string) =>
+    meta[code]?.sale_units.find((s) => s.uom === uom)?.label || uom;
   // Price actually charged for a line: manual override (if owner allows + set) else price-list rate.
   const linePrice = (code: string) => lines[code]?.rate ?? unitPrice(code, lines[code]?.uom ?? "");
   const cartCodes = Object.keys(lines);
@@ -460,7 +463,7 @@ export function Checkout() {
         <Keypad
           label={list.find((p) => p.item_code === keypad)?.display_name || "Số lượng"}
           value={lines[keypad]?.qty ?? 0}
-          uom={lines[keypad]?.uom || ""}
+          uom={labelOf(keypad, lines[keypad]?.uom || "")}
           onClose={() => setKeypad(null)}
           onSet={(v) => setQty(keypad, v)}
         />
@@ -558,7 +561,7 @@ export function Checkout() {
                             onClick={() => setUom(p.item_code, u.uom)}
                             className={`rounded-lg px-3 py-1.5 text-sm font-bold ${line.uom === u.uom ? "bg-brand text-white" : "bg-slate-200 text-slate-700"}`}
                           >
-                            {u.uom} · {u.price_text}
+                            {(u.label || u.uom)} · {u.price_text}
                           </button>
                         ))}
                       </div>
@@ -574,7 +577,7 @@ export function Checkout() {
                           {trim(line.qty)}
                         </button>
                         <button onClick={() => setQty(p.item_code, line.qty + 1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
-                        <span className="text-slate-500">{line.uom}</span>
+                        <span className="text-slate-500">{labelOf(p.item_code, line.uom)}</span>
                       </div>
                       <div className="text-right">
                         <div className="font-extrabold text-brand">{money(linePrice(p.item_code) * line.qty)}</div>
@@ -591,7 +594,7 @@ export function Checkout() {
                           placeholder={String(unitPrice(p.item_code, line.uom))}
                           className={`h-9 w-28 rounded-lg border-2 px-2 text-right font-bold ${line.rate != null ? "border-amber-400 bg-amber-50" : "border-slate-300"}`}
                         />
-                        <span className="text-slate-400">/ {line.uom}</span>
+                        <span className="text-slate-400">/ {labelOf(p.item_code, line.uom)}</span>
                         {line.rate != null && (
                           <button onClick={() => setRate(p.item_code, "")} className="text-amber-700 underline">gốc {money(unitPrice(p.item_code, line.uom))}</button>
                         )}
