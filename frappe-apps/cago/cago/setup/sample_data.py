@@ -123,6 +123,7 @@ CATEGORY_PRESETS = {
 	# Phân bón
 	"Phân bón": ("🌱", "#dcfce7"),
 	"Phân vô cơ (đạm/lân/kali/NPK)": ("🧪", "#dcfce7"),
+	"Phân vô cơ": ("🧪", "#dcfce7"),
 	"Phân hữu cơ": ("🍂", "#d9f99d"),
 	"Phân vi sinh": ("🦠", "#d1fae5"),
 	"Phân bón lá": ("💧", "#cffafe"),
@@ -140,6 +141,7 @@ CATEGORY_PRESETS = {
 	"Giống lúa": ("🌾", "#fef9c3"),
 	"Giống ngô": ("🌽", "#fef9c3"),
 	"Giống rau": ("🥬", "#dcfce7"),
+	"Giống đậu / lạc": ("🥜", "#fef9c3"),
 	"Giống cây ăn quả": ("🍎", "#fee2e2"),
 	"Giống hoa": ("🌸", "#fce7f3"),
 	# Thú y
@@ -163,6 +165,9 @@ CATEGORY_PRESETS = {
 # Parent → child grouping for the kiosk category tree. "Thuốc bảo vệ thực vật" is the umbrella
 # (BVTV); the three pesticide types are its children. Owners can re-tree any Item Group later.
 CATEGORY_TREE = {
+	"Cám chăn nuôi": ["Cám gà", "Cám vịt / ngan", "Cám lợn", "Cám cá", "Cám bò / trâu"],
+	"Phân bón": ["Phân vô cơ", "Phân hữu cơ", "Phân vi sinh"],
+	"Hạt giống": ["Giống lúa", "Giống ngô", "Giống rau", "Giống đậu / lạc"],
 	"Thuốc bảo vệ thực vật": ["Thuốc trừ sâu bệnh", "Thuốc cỏ", "Thuốc chuột"],
 }
 
@@ -176,6 +181,10 @@ def seed_category_tree():
 			frappe.get_doc(
 				{"doctype": "Item Group", "item_group_name": parent, "parent_item_group": root, "is_group": 1}
 			).insert(ignore_permissions=True)
+			moved = True
+		elif not frappe.db.get_value("Item Group", parent, "is_group"):
+			# An existing leaf category becoming a parent (e.g. "Cám chăn nuôi") must be a group node.
+			frappe.db.set_value("Item Group", parent, "is_group", 1)
 			moved = True
 		for child in children:
 			if frappe.db.exists("Item Group", child) and frappe.db.get_value("Item Group", child, "parent_item_group") != parent:

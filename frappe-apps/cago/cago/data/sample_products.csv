@@ -1,27 +1,27 @@
 ﻿item_code,item_name,item_group,stock_uom,selling_price,cago_display_name,cago_local_names,cago_public_description,cago_staff_advice,cago_use_cases,cago_crop_or_animal_targets,cago_package_color,cago_shelf_location,cago_stock_status_manual,cago_safety_notes,cago_is_chemical,cago_is_public_visible
-CAM-GA-CON-25KG,Cám cò gà con 25kg,Cám chăn nuôi,Bao,320000,Cám cò gà con 25kg,,Cám cò gà con 25kg.,,Thức ăn chăn nuôi,Gà con 1-21 ngày,,Kệ cám,Còn hàng,,0,1
-CAM-GA-THIT-25KG,Cám gà thịt 25kg,Cám chăn nuôi,Bao,300000,Cám gà thịt 25kg,,Cám gà thịt 25kg.,,Thức ăn chăn nuôi,Gà thịt,,Kệ cám,Còn hàng,,0,1
-CAM-GA-DE-25KG,Cám gà đẻ 25kg,Cám chăn nuôi,Bao,310000,Cám gà đẻ 25kg,,Cám gà đẻ 25kg.,,Thức ăn chăn nuôi,Gà đẻ,,Kệ cám,Còn hàng,,0,1
-CAM-VIT-CON-25KG,Cám vịt con 25kg,Cám chăn nuôi,Bao,305000,Cám vịt con 25kg,,Cám vịt con 25kg.,,Thức ăn chăn nuôi,Vịt con,,Kệ cám,Còn hàng,,0,1
-CAM-VIT-THIT-25KG,Cám vịt thịt 25kg,Cám chăn nuôi,Bao,295000,Cám vịt thịt 25kg,,Cám vịt thịt 25kg.,,Thức ăn chăn nuôi,Vịt thịt,,Kệ cám,Còn hàng,,0,1
-CAM-NGAN-25KG,Cám ngan 25kg,Cám chăn nuôi,Bao,300000,Cám ngan 25kg,,Cám ngan 25kg.,,Thức ăn chăn nuôi,Ngan/vịt xiêm,,Kệ cám,Còn hàng,,0,1
-CAM-LON-TAP-25KG,Cám lợn tập ăn 25kg,Cám chăn nuôi,Bao,360000,Cám lợn tập ăn 25kg,,Cám lợn tập ăn 25kg.,,Thức ăn chăn nuôi,Lợn con tập ăn,,Kệ cám,Còn hàng,,0,1
-CAM-LON-THIT-25KG,Cám lợn thịt 25kg,Cám chăn nuôi,Bao,330000,Cám lợn thịt 25kg,,Cám lợn thịt 25kg.,,Thức ăn chăn nuôi,Lợn thịt,,Kệ cám,Còn hàng,,0,1
-CAM-DAM-DAC-25KG,Cám đậm đặc cho lợn 25kg,Cám chăn nuôi,Bao,480000,Cám đậm đặc cho lợn 25kg,,Cám đậm đặc cho lợn 25kg.,,Thức ăn chăn nuôi,Lợn,,Kệ cám,Còn hàng,,0,1
-CAM-CA-25KG,Cám cá 25kg,Cám chăn nuôi,Bao,280000,Cám cá 25kg,,Cám cá 25kg.,,Thức ăn chăn nuôi,Cá nước ngọt,,Kệ cám,Còn hàng,,0,1
-CAM-BO-25KG,Cám bò vỗ béo 25kg,Cám chăn nuôi,Bao,270000,Cám bò vỗ béo 25kg,,Cám bò vỗ béo 25kg.,,Thức ăn chăn nuôi,Bò,,Kệ cám,Còn hàng,,0,1
-PHAN-LAN-VD-25KG,Phân lân Văn Điển 25kg,Phân bón,Bao,220000,Phân lân Văn Điển 25kg,,Phân lân Văn Điển 25kg.,,Bón cho cây trồng,"Lúa, ngô, cây ăn quả",,Kho phân,Còn hàng,,0,1
-PHAN-URE-50KG,Đạm urea 50kg,Phân bón,Bao,600000,Đạm urea 50kg,,Đạm urea 50kg.,,Bón cho cây trồng,"Lúa, ngô, rau màu",,Kho phân,Còn hàng,,0,1
-NPK-16-16-8-50KG,Phân NPK 16-16-8 bao 50kg,Phân bón,Bao,720000,Phân NPK 16-16-8 bao 50kg,,Phân NPK 16-16-8 bao 50kg.,,Bón cho cây trồng,"Lúa, ngô, cây ăn quả",,Kho phân,Còn ít,,0,1
-NPK-20-20-15-50KG,Phân NPK 20-20-15+TE 50kg,Phân bón,Bao,900000,Phân NPK 20-20-15+TE 50kg,,Phân NPK 20-20-15+TE 50kg.,,Bón cho cây trồng,"Cây ăn quả, cà phê",,Kho phân,Còn hàng,,0,1
-PHAN-KALI-50KG,Phân kali (KCl) 50kg,Phân bón,Bao,720000,Phân kali (KCl) 50kg,,Phân kali (KCl) 50kg.,,Bón cho cây trồng,"Cây ăn quả, lúa",,Kho phân,Còn hàng,,0,1
-PHAN-DAP-50KG,Phân DAP 50kg,Phân bón,Bao,850000,Phân DAP 50kg,,Phân DAP 50kg.,,Bón cho cây trồng,"Lúa, rau màu",,Kho phân,Còn hàng,,0,1
-PHAN-NPK-THUONG-50KG,Phân NPK thường 50kg,Phân bón,Bao,560000,Phân NPK thường 50kg,,Phân NPK thường 50kg.,,Bón cho cây trồng,Cây trồng nói chung,,Kho phân,Còn hàng,,0,1
-PHAN-HC-TRUNQUE-25KG,Phân hữu cơ trùn quế 25kg,Phân bón,Bao,245000,Phân hữu cơ trùn quế 25kg,,Phân hữu cơ trùn quế 25kg.,,Bón cho cây trồng,"Rau, hoa, cây cảnh",,Kho phân,Còn hàng,,0,1
-PHAN-HC-TRUNQUE-2KG,Phân hữu cơ trùn quế 2kg,Phân bón,Bao,28000,Phân hữu cơ trùn quế 2kg,,Phân hữu cơ trùn quế 2kg.,,Bón cho cây trồng,"Rau, hoa, cây cảnh",,Kho phân,Còn hàng,,0,1
-PHAN-GA-25KG,Phân gà hữu cơ 25kg,Phân bón,Bao,268000,Phân gà hữu cơ 25kg,,Phân gà hữu cơ 25kg.,,Bón cho cây trồng,"Cây ăn quả, rau",,Kho phân,Còn hàng,,0,1
-PHAN-GA-1KG,Phân gà hữu cơ 1kg,Phân bón,Gói,24000,Phân gà hữu cơ 1kg,,Phân gà hữu cơ 1kg.,,Bón cho cây trồng,"Rau, hoa",,Kho phân,Còn hàng,,0,1
-PHAN-VISINH-25KG,Phân vi sinh 25kg,Phân bón,Bao,230000,Phân vi sinh 25kg,,Phân vi sinh 25kg.,,Bón cho cây trồng,Cải tạo đất,,Kho phân,Còn hàng,,0,1
+CAM-GA-CON-25KG,Cám cò gà con 25kg,Cám gà,Bao,320000,Cám cò gà con 25kg,,Cám cò gà con 25kg.,,Thức ăn chăn nuôi,Gà con 1-21 ngày,,Kệ cám,Còn hàng,,0,1
+CAM-GA-THIT-25KG,Cám gà thịt 25kg,Cám gà,Bao,300000,Cám gà thịt 25kg,,Cám gà thịt 25kg.,,Thức ăn chăn nuôi,Gà thịt,,Kệ cám,Còn hàng,,0,1
+CAM-GA-DE-25KG,Cám gà đẻ 25kg,Cám gà,Bao,310000,Cám gà đẻ 25kg,,Cám gà đẻ 25kg.,,Thức ăn chăn nuôi,Gà đẻ,,Kệ cám,Còn hàng,,0,1
+CAM-VIT-CON-25KG,Cám vịt con 25kg,Cám vịt / ngan,Bao,305000,Cám vịt con 25kg,,Cám vịt con 25kg.,,Thức ăn chăn nuôi,Vịt con,,Kệ cám,Còn hàng,,0,1
+CAM-VIT-THIT-25KG,Cám vịt thịt 25kg,Cám vịt / ngan,Bao,295000,Cám vịt thịt 25kg,,Cám vịt thịt 25kg.,,Thức ăn chăn nuôi,Vịt thịt,,Kệ cám,Còn hàng,,0,1
+CAM-NGAN-25KG,Cám ngan 25kg,Cám vịt / ngan,Bao,300000,Cám ngan 25kg,,Cám ngan 25kg.,,Thức ăn chăn nuôi,Ngan/vịt xiêm,,Kệ cám,Còn hàng,,0,1
+CAM-LON-TAP-25KG,Cám lợn tập ăn 25kg,Cám lợn,Bao,360000,Cám lợn tập ăn 25kg,,Cám lợn tập ăn 25kg.,,Thức ăn chăn nuôi,Lợn con tập ăn,,Kệ cám,Còn hàng,,0,1
+CAM-LON-THIT-25KG,Cám lợn thịt 25kg,Cám lợn,Bao,330000,Cám lợn thịt 25kg,,Cám lợn thịt 25kg.,,Thức ăn chăn nuôi,Lợn thịt,,Kệ cám,Còn hàng,,0,1
+CAM-DAM-DAC-25KG,Cám đậm đặc cho lợn 25kg,Cám lợn,Bao,480000,Cám đậm đặc cho lợn 25kg,,Cám đậm đặc cho lợn 25kg.,,Thức ăn chăn nuôi,Lợn,,Kệ cám,Còn hàng,,0,1
+CAM-CA-25KG,Cám cá 25kg,Cám cá,Bao,280000,Cám cá 25kg,,Cám cá 25kg.,,Thức ăn chăn nuôi,Cá nước ngọt,,Kệ cám,Còn hàng,,0,1
+CAM-BO-25KG,Cám bò vỗ béo 25kg,Cám bò / trâu,Bao,270000,Cám bò vỗ béo 25kg,,Cám bò vỗ béo 25kg.,,Thức ăn chăn nuôi,Bò,,Kệ cám,Còn hàng,,0,1
+PHAN-LAN-VD-25KG,Phân lân Văn Điển 25kg,Phân vô cơ,Bao,220000,Phân lân Văn Điển 25kg,,Phân lân Văn Điển 25kg.,,Bón cho cây trồng,"Lúa, ngô, cây ăn quả",,Kho phân,Còn hàng,,0,1
+PHAN-URE-50KG,Đạm urea 50kg,Phân vô cơ,Bao,600000,Đạm urea 50kg,,Đạm urea 50kg.,,Bón cho cây trồng,"Lúa, ngô, rau màu",,Kho phân,Còn hàng,,0,1
+NPK-16-16-8-50KG,Phân NPK 16-16-8 bao 50kg,Phân vô cơ,Bao,720000,Phân NPK 16-16-8 bao 50kg,,Phân NPK 16-16-8 bao 50kg.,,Bón cho cây trồng,"Lúa, ngô, cây ăn quả",,Kho phân,Còn ít,,0,1
+NPK-20-20-15-50KG,Phân NPK 20-20-15+TE 50kg,Phân vô cơ,Bao,900000,Phân NPK 20-20-15+TE 50kg,,Phân NPK 20-20-15+TE 50kg.,,Bón cho cây trồng,"Cây ăn quả, cà phê",,Kho phân,Còn hàng,,0,1
+PHAN-KALI-50KG,Phân kali (KCl) 50kg,Phân vô cơ,Bao,720000,Phân kali (KCl) 50kg,,Phân kali (KCl) 50kg.,,Bón cho cây trồng,"Cây ăn quả, lúa",,Kho phân,Còn hàng,,0,1
+PHAN-DAP-50KG,Phân DAP 50kg,Phân vô cơ,Bao,850000,Phân DAP 50kg,,Phân DAP 50kg.,,Bón cho cây trồng,"Lúa, rau màu",,Kho phân,Còn hàng,,0,1
+PHAN-NPK-THUONG-50KG,Phân NPK thường 50kg,Phân vô cơ,Bao,560000,Phân NPK thường 50kg,,Phân NPK thường 50kg.,,Bón cho cây trồng,Cây trồng nói chung,,Kho phân,Còn hàng,,0,1
+PHAN-HC-TRUNQUE-25KG,Phân hữu cơ trùn quế 25kg,Phân hữu cơ,Bao,245000,Phân hữu cơ trùn quế 25kg,,Phân hữu cơ trùn quế 25kg.,,Bón cho cây trồng,"Rau, hoa, cây cảnh",,Kho phân,Còn hàng,,0,1
+PHAN-HC-TRUNQUE-2KG,Phân hữu cơ trùn quế 2kg,Phân hữu cơ,Bao,28000,Phân hữu cơ trùn quế 2kg,,Phân hữu cơ trùn quế 2kg.,,Bón cho cây trồng,"Rau, hoa, cây cảnh",,Kho phân,Còn hàng,,0,1
+PHAN-GA-25KG,Phân gà hữu cơ 25kg,Phân hữu cơ,Bao,268000,Phân gà hữu cơ 25kg,,Phân gà hữu cơ 25kg.,,Bón cho cây trồng,"Cây ăn quả, rau",,Kho phân,Còn hàng,,0,1
+PHAN-GA-1KG,Phân gà hữu cơ 1kg,Phân hữu cơ,Gói,24000,Phân gà hữu cơ 1kg,,Phân gà hữu cơ 1kg.,,Bón cho cây trồng,"Rau, hoa",,Kho phân,Còn hàng,,0,1
+PHAN-VISINH-25KG,Phân vi sinh 25kg,Phân vi sinh,Bao,230000,Phân vi sinh 25kg,,Phân vi sinh 25kg.,,Bón cho cây trồng,Cải tạo đất,,Kho phân,Còn hàng,,0,1
 BVTV-TRU-SAU-100ML,Thuốc trừ sâu phổ rộng chai 100ml,Thuốc trừ sâu bệnh,Chai,35000,Thuốc trừ sâu phổ rộng chai 100ml,,Thuốc trừ sâu phổ rộng chai 100ml. Sản phẩm dùng đúng theo hướng dẫn trên nhãn.,Khách chưa rõ cách dùng thì hỏi chủ/người có chuyên môn; không tự ý hướng dẫn liều lượng.,Phòng trừ sâu bệnh hại,Sâu hại,,Tủ thuốc (có khóa),Còn hàng,"Đọc kỹ hướng dẫn trên nhãn sản phẩm trước khi sử dụng. Để xa trẻ em, vật nuôi, thức ăn và nguồn nước. Không tự ý tăng liều hoặc trộn với sản phẩm khác nếu chưa có hướng dẫn rõ ràng.",1,1
 BVTV-TRU-SAU-240ML,Thuốc trừ sâu chai 240ml,Thuốc trừ sâu bệnh,Chai,65000,Thuốc trừ sâu chai 240ml,,Thuốc trừ sâu chai 240ml. Sản phẩm dùng đúng theo hướng dẫn trên nhãn.,Khách chưa rõ cách dùng thì hỏi chủ/người có chuyên môn; không tự ý hướng dẫn liều lượng.,Phòng trừ sâu bệnh hại,Sâu hại,,Tủ thuốc (có khóa),Còn hàng,"Đọc kỹ hướng dẫn trên nhãn sản phẩm trước khi sử dụng. Để xa trẻ em, vật nuôi, thức ăn và nguồn nước. Không tự ý tăng liều hoặc trộn với sản phẩm khác nếu chưa có hướng dẫn rõ ràng.",1,1
 BVTV-TRU-RAY-GOI,Thuốc trừ rầy gói,Thuốc trừ sâu bệnh,Gói,18000,Thuốc trừ rầy gói,,Thuốc trừ rầy gói. Sản phẩm dùng đúng theo hướng dẫn trên nhãn.,Khách chưa rõ cách dùng thì hỏi chủ/người có chuyên môn; không tự ý hướng dẫn liều lượng.,Phòng trừ sâu bệnh hại,Rầy nâu,,Tủ thuốc (có khóa),Còn ít,"Đọc kỹ hướng dẫn trên nhãn sản phẩm trước khi sử dụng. Để xa trẻ em, vật nuôi, thức ăn và nguồn nước. Không tự ý tăng liều hoặc trộn với sản phẩm khác nếu chưa có hướng dẫn rõ ràng.",1,1
@@ -36,17 +36,17 @@ CO-CHAY-1L,Thuốc trừ cỏ cháy chai 1 lít,Thuốc cỏ,Chai,95000,Thuốc 
 THUOC-CHUOT-A-GOI,Thuốc chuột A dạng gói,Thuốc chuột,Gói,15000,Thuốc chuột A dạng gói,,Thuốc chuột A dạng gói. Sản phẩm dùng đúng theo hướng dẫn trên nhãn.,Khách chưa rõ cách dùng thì hỏi chủ/người có chuyên môn; không tự ý hướng dẫn liều lượng.,Kiểm soát chuột,Chuột,,Tủ thuốc (có khóa),Còn hàng,"Đọc kỹ hướng dẫn trên nhãn sản phẩm trước khi sử dụng. Để xa trẻ em, vật nuôi, thức ăn và nguồn nước. Không tự ý tăng liều hoặc trộn với sản phẩm khác nếu chưa có hướng dẫn rõ ràng.",1,1
 THUOC-CHUOT-VIEN-GOI,Thuốc diệt chuột dạng viên gói,Thuốc chuột,Gói,18000,Thuốc diệt chuột dạng viên gói,,Thuốc diệt chuột dạng viên gói. Sản phẩm dùng đúng theo hướng dẫn trên nhãn.,Khách chưa rõ cách dùng thì hỏi chủ/người có chuyên môn; không tự ý hướng dẫn liều lượng.,Kiểm soát chuột,Chuột,,Tủ thuốc (có khóa),Còn hàng,"Đọc kỹ hướng dẫn trên nhãn sản phẩm trước khi sử dụng. Để xa trẻ em, vật nuôi, thức ăn và nguồn nước. Không tự ý tăng liều hoặc trộn với sản phẩm khác nếu chưa có hướng dẫn rõ ràng.",1,1
 BA-CHUOT-50G,Bả diệt chuột gói 50g,Thuốc chuột,Gói,12000,Bả diệt chuột gói 50g,,Bả diệt chuột gói 50g. Sản phẩm dùng đúng theo hướng dẫn trên nhãn.,Khách chưa rõ cách dùng thì hỏi chủ/người có chuyên môn; không tự ý hướng dẫn liều lượng.,Kiểm soát chuột,Chuột,,Tủ thuốc (có khóa),Còn hàng,"Đọc kỹ hướng dẫn trên nhãn sản phẩm trước khi sử dụng. Để xa trẻ em, vật nuôi, thức ăn và nguồn nước. Không tự ý tăng liều hoặc trộn với sản phẩm khác nếu chưa có hướng dẫn rõ ràng.",1,1
-GIONG-LUA-10KG,Lúa giống bao 10kg,Hạt giống,Bao,180000,Lúa giống bao 10kg,,Lúa giống bao 10kg.,,Gieo trồng,Lúa,,Kệ hạt giống,Còn hàng,,0,1
-GIONG-NGO-1KG,Ngô (bắp) giống gói 1kg,Hạt giống,Gói,90000,Ngô (bắp) giống gói 1kg,,Ngô (bắp) giống gói 1kg.,,Gieo trồng,Ngô,,Kệ hạt giống,Còn hàng,,0,1
-GIONG-RAU-MUONG,Hạt giống rau muống gói,Hạt giống,Gói,12000,Hạt giống rau muống gói,,Hạt giống rau muống gói.,,Gieo trồng,Rau muống,,Kệ hạt giống,Còn hàng,,0,1
-GIONG-CAI-XANH,Hạt giống cải xanh gói,Hạt giống,Gói,10000,Hạt giống cải xanh gói,,Hạt giống cải xanh gói.,,Gieo trồng,Cải xanh,,Kệ hạt giống,Còn hàng,,0,1
-GIONG-RAU-DEN,Hạt giống rau dền gói,Hạt giống,Gói,10000,Hạt giống rau dền gói,,Hạt giống rau dền gói.,,Gieo trồng,Rau dền,,Kệ hạt giống,Còn hàng,,0,1
-GIONG-DUA-LEO,Hạt giống dưa leo gói,Hạt giống,Gói,18000,Hạt giống dưa leo gói,,Hạt giống dưa leo gói.,,Gieo trồng,Dưa leo,,Kệ hạt giống,Còn hàng,,0,1
-GIONG-BI-XANH,Hạt giống bí xanh gói,Hạt giống,Gói,16000,Hạt giống bí xanh gói,,Hạt giống bí xanh gói.,,Gieo trồng,Bí xanh,,Kệ hạt giống,Còn hàng,,0,1
-GIONG-MUOP,Hạt giống mướp gói,Hạt giống,Gói,14000,Hạt giống mướp gói,,Hạt giống mướp gói.,,Gieo trồng,Mướp,,Kệ hạt giống,Còn hàng,,0,1
-GIONG-OT,Hạt giống ớt gói,Hạt giống,Gói,20000,Hạt giống ớt gói,,Hạt giống ớt gói.,,Gieo trồng,Ớt,,Kệ hạt giống,Còn ít,,0,1
-GIONG-CA-CHUA,Hạt giống cà chua gói,Hạt giống,Gói,22000,Hạt giống cà chua gói,,Hạt giống cà chua gói.,,Gieo trồng,Cà chua,,Kệ hạt giống,Còn hàng,,0,1
-GIONG-DAU-XANH-1KG,Đậu xanh giống gói 1kg,Hạt giống,Gói,60000,Đậu xanh giống gói 1kg,,Đậu xanh giống gói 1kg.,,Gieo trồng,Đậu xanh,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-LUA-10KG,Lúa giống bao 10kg,Giống lúa,Bao,180000,Lúa giống bao 10kg,,Lúa giống bao 10kg.,,Gieo trồng,Lúa,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-NGO-1KG,Ngô (bắp) giống gói 1kg,Giống ngô,Gói,90000,Ngô (bắp) giống gói 1kg,,Ngô (bắp) giống gói 1kg.,,Gieo trồng,Ngô,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-RAU-MUONG,Hạt giống rau muống gói,Giống rau,Gói,12000,Hạt giống rau muống gói,,Hạt giống rau muống gói.,,Gieo trồng,Rau muống,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-CAI-XANH,Hạt giống cải xanh gói,Giống rau,Gói,10000,Hạt giống cải xanh gói,,Hạt giống cải xanh gói.,,Gieo trồng,Cải xanh,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-RAU-DEN,Hạt giống rau dền gói,Giống rau,Gói,10000,Hạt giống rau dền gói,,Hạt giống rau dền gói.,,Gieo trồng,Rau dền,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-DUA-LEO,Hạt giống dưa leo gói,Giống rau,Gói,18000,Hạt giống dưa leo gói,,Hạt giống dưa leo gói.,,Gieo trồng,Dưa leo,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-BI-XANH,Hạt giống bí xanh gói,Giống rau,Gói,16000,Hạt giống bí xanh gói,,Hạt giống bí xanh gói.,,Gieo trồng,Bí xanh,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-MUOP,Hạt giống mướp gói,Giống rau,Gói,14000,Hạt giống mướp gói,,Hạt giống mướp gói.,,Gieo trồng,Mướp,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-OT,Hạt giống ớt gói,Giống rau,Gói,20000,Hạt giống ớt gói,,Hạt giống ớt gói.,,Gieo trồng,Ớt,,Kệ hạt giống,Còn ít,,0,1
+GIONG-CA-CHUA,Hạt giống cà chua gói,Giống rau,Gói,22000,Hạt giống cà chua gói,,Hạt giống cà chua gói.,,Gieo trồng,Cà chua,,Kệ hạt giống,Còn hàng,,0,1
+GIONG-DAU-XANH-1KG,Đậu xanh giống gói 1kg,Giống đậu / lạc,Gói,60000,Đậu xanh giống gói 1kg,,Đậu xanh giống gói 1kg.,,Gieo trồng,Đậu xanh,,Kệ hạt giống,Còn hàng,,0,1
 DC-BINH-PHUN-16L,Bình phun thuốc 16 lít,Dụng cụ,Cái,250000,Bình phun thuốc 16 lít,,Bình phun thuốc 16 lít.,,Dụng cụ làm vườn/đồng,,,Khu dụng cụ,Còn hàng,,0,1
 DC-GANG-TAY,Găng tay làm vườn (đôi),Dụng cụ,Đôi,15000,Găng tay làm vườn (đôi),,Găng tay làm vườn (đôi).,,Dụng cụ làm vườn/đồng,,,Khu dụng cụ,Còn hàng,,0,1
 DC-CUOC,Cuốc làm vườn,Dụng cụ,Cái,90000,Cuốc làm vườn,,Cuốc làm vườn.,,Dụng cụ làm vườn/đồng,,,Khu dụng cụ,Còn hàng,,0,1
