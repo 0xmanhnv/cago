@@ -394,20 +394,22 @@ def _mode_of_payment(company, payment_mode):
 
 
 @frappe.whitelist()
-def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0):
-	"""Cago-native checkout: a paid POS Sales Invoice (cash/bank) that reduces stock.
+def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None):
+	"""Cago-native checkout: a stock-reducing Sales Invoice (cash/bank/credit/split) for staff.
 
-	This is the staff selling tool — a clean Cago cart instead of the raw ERPNext Desk POS
-	(which staff lack permission for). ERPNext is still the engine: a submitted is_pos
-	Sales Invoice (update_stock) moves stock + records the payment + GL. Native Desk POS
-	stays available to the owner as a documented fallback (docs/04).
+	ERPNext is the engine (submitted Sales Invoice, update_stock → stock + GL + loyalty).
+	- payment_mode cash/bank → fully paid is_pos invoice (one method).
+	- payment_mode credit    → unpaid invoice (ghi nợ), respects credit limit.
+	- payments=[{mode,amount}] → SPLIT/PARTIAL: multiple methods; any shortfall becomes the
+	  customer's debt (requires a real customer); overpay in cash returns change.
 	"""
 	ensure_staff()
 	ensure_lang()
 	items = frappe.parse_json(items) if isinstance(items, str) else (items or [])
+	payments = frappe.parse_json(payments) if isinstance(payments, str) else payments
 	if not items:
 		frappe.throw(_("Chưa chọn sản phẩm."))
-	if payment_mode not in ("cash", "bank", "credit"):
+	if not payments and payment_mode not in ("cash", "bank", "credit"):
 		frappe.throw(_("Hình thức thanh toán không hợp lệ."))
 
 	company = debt._company()
@@ -445,6 +447,76 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0):
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 	disc = flt(discount_amount)
+
+	if payments:
+		# Split / partial: one or more cash/bank methods; any shortfall becomes the customer's
+		# debt (requires a real customer). is_pos invoice with the payment rows.
+		profile = _pos_profile(company)
+		if not profile:
+			frappe.throw(_("Chưa cấu hình điểm bán hàng (POS Profile)."))
+		paid_rows, paid = [], 0.0
+		for p in payments:
+			amt = flt((p or {}).get("amount"))
+			if amt <= 0:
+				continue
+			m = _mode_of_payment(company, (p or {}).get("mode"))
+			if not m:
+				frappe.throw(_("Chưa cấu hình hình thức thanh toán."))
+			paid_rows.append({"mode_of_payment": m, "amount": amt})
+			paid += amt
+		if not paid_rows:
+			frappe.throw(_("Chưa nhập số tiền thanh toán."))
+		with as_user("Administrator"):
+			si = frappe.get_doc(
+				{
+					"doctype": "Sales Invoice",
+					"customer": cust,
+					"company": company,
+					"posting_date": nowdate(),
+					"due_date": nowdate(),
+					"is_pos": 1,
+					"pos_profile": profile,
+					"update_stock": 1,
+					"set_warehouse": wh,
+					"selling_price_list": pl,
+					"remarks": "Bán hàng tại quầy (nhiều hình thức)",
+					"items": rows,
+				}
+			)
+			if disc > 0:
+				si.apply_discount_on = "Grand Total"
+				si.discount_amount = disc
+			si.flags.ignore_permissions = True
+			si.insert(ignore_permissions=True)
+			total = flt(si.grand_total)
+			if paid < total - 1:  # shortfall -> the rest is debt
+				if cust == walkin_customer():
+					frappe.throw(_("Trả thiếu thì phải chọn khách hàng (phần còn lại ghi nợ)."))
+				limit = flt(frappe.db.get_value("Customer", cust, "cago_debt_limit"))
+				if limit:
+					current = _customer_outstanding(cust)
+					if current + (total - paid) > limit:
+						frappe.throw(
+							_("Vượt hạn mức nợ {0} (đang nợ {1}).").format(dto.format_price(limit), dto.format_price(current))
+						)
+			for pr in paid_rows:
+				si.append("payments", pr)
+			si.save(ignore_permissions=True)
+			si.submit()
+		frappe.db.commit()
+		total = flt(si.grand_total)
+		out = flt(si.outstanding_amount)
+		change = flt(getattr(si, "change_amount", 0)) or max(0.0, paid - total)
+		return {
+			"invoice": si.name,
+			"total": total,
+			"total_text": dto.format_price(total),
+			"payment_mode": "split",
+			"item_count": len(rows),
+			"paid_text": dto.format_price(paid),
+			"change_text": dto.format_price(change) if change > 0 else None,
+			"outstanding_text": dto.format_price(out) if out > 0 else None,
+		}
 
 	if payment_mode == "credit":
 		# Bán chịu tại quầy: unpaid, stock-reducing Sales Invoice (NOT is_pos). Respects limit.

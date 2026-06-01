@@ -5,14 +5,16 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import type { ProductCard, Product } from "@/lib/types";
 
-type PayMode = "cash" | "bank" | "credit";
+type PayMode = "cash" | "bank" | "credit" | "split";
 interface SaleResult {
   invoice: string;
   total: number;
   total_text: string;
   payment_mode: PayMode;
   item_count: number;
-  outstanding_text?: string;
+  outstanding_text?: string | null;
+  paid_text?: string | null;
+  change_text?: string | null;
 }
 interface Cust {
   customer: string;
@@ -35,7 +37,7 @@ interface Line {
 const money = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
 const parsePrice = (t: string) => parseInt((t || "").replace(/[^\d]/g, ""), 10) || 0;
 const trim = (n: number) => (Number.isInteger(n) ? n : Math.round(n * 100) / 100);
-const MODE_VI: Record<PayMode, string> = { cash: "Tiền mặt", bank: "Chuyển khoản", credit: "Ghi nợ" };
+const MODE_VI: Record<PayMode, string> = { cash: "Tiền mặt", bank: "Chuyển khoản", credit: "Ghi nợ", split: "Nhiều hình thức" };
 
 // Held (parked) orders — let staff pause a sale to serve another customer. sessionStorage so
 // a refresh doesn't lose them; tied to the browser session.
@@ -117,6 +119,9 @@ export function Checkout() {
   const [showHeld, setShowHeld] = useState(false);
   const [discount, setDiscount] = useState("");
   const [autoPrint, setAutoPrint] = useState(false);
+  const [showSplit, setShowSplit] = useState(false);
+  const [splitCash, setSplitCash] = useState("");
+  const [splitBank, setSplitBank] = useState("");
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -247,6 +252,41 @@ export function Checkout() {
     }
   };
 
+  const checkoutSplit = async () => {
+    if (cartCodes.length === 0 || busy) return;
+    const cashAmt = parseInt((splitCash || "").replace(/[^\d]/g, ""), 10) || 0;
+    const bankAmt = parseInt((splitBank || "").replace(/[^\d]/g, ""), 10) || 0;
+    const paid = cashAmt + bankAmt;
+    if (paid <= 0) return alert("Nhập số tiền tiền mặt và/hoặc chuyển khoản.");
+    if (paid < estimate && !cust) return alert("Trả thiếu thì phải chọn khách (phần còn lại ghi nợ).");
+    const rest = estimate - paid;
+    const msg = rest > 0 ? `Còn lại ${money(rest)} ghi nợ cho ${cust?.customer_name}.` : rest < 0 ? `Thối lại ${money(-rest)}.` : "";
+    if (!confirm(`Thu Tiền mặt ${money(cashAmt)} + Chuyển khoản ${money(bankAmt)}. ${msg} Xác nhận?`)) return;
+    setBusy(true);
+    try {
+      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", {
+        items: cartCodes.map((c) => ({ item_code: c, qty: lines[c].qty, uom: lines[c].uom })),
+        customer: cust?.customer || null,
+        discount_amount: disc || 0,
+        payments: [
+          { mode: "cash", amount: cashAmt },
+          { mode: "bank", amount: bankAmt },
+        ].filter((p) => p.amount > 0),
+      });
+      setResult(r);
+      setLines({});
+      setDiscount("");
+      setSplitCash("");
+      setSplitBank("");
+      setShowSplit(false);
+      if (autoPrint) void printReceipt(r.invoice);
+    } catch (e) {
+      alert(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // ---- result screen ----
   if (result) {
     return (
@@ -258,8 +298,11 @@ export function Checkout() {
             {result.item_count} mặt hàng · {MODE_VI[result.payment_mode]}
           </div>
           <div className="mt-2 text-4xl font-extrabold text-brand">{result.total_text}</div>
-          {result.payment_mode === "credit" && result.outstanding_text && (
+          {result.outstanding_text && (
             <div className="mt-1 text-lg font-bold text-red-600">Khách đang nợ: {result.outstanding_text}</div>
+          )}
+          {result.change_text && (
+            <div className="mt-1 text-lg font-bold text-brand">Thối lại: {result.change_text}</div>
           )}
           <div className="mt-1 text-sm text-slate-400">Hoá đơn {result.invoice}</div>
           {qr && (
@@ -467,6 +510,35 @@ export function Checkout() {
                 📝 Ghi nợ
               </button>
             </div>
+            <button onClick={() => setShowSplit((v) => !v)} className="mt-2 w-full rounded-xl border-2 border-slate-300 bg-white py-2.5 font-bold text-slate-700">
+              ➗ Tách / trả một phần {showSplit ? "▲" : "▾"}
+            </button>
+            {showSplit && (
+              <div className="mt-2 rounded-xl border-2 border-slate-200 p-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-sm font-bold text-slate-600">
+                    💵 Tiền mặt
+                    <input inputMode="numeric" value={splitCash} onChange={(e) => setSplitCash(e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2 text-right" />
+                  </label>
+                  <label className="text-sm font-bold text-slate-600">
+                    💳 Chuyển khoản
+                    <input inputMode="numeric" value={splitBank} onChange={(e) => setSplitBank(e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-violet-300 p-2 text-right" />
+                  </label>
+                </div>
+                {(() => {
+                  const paid = (parseInt(splitCash.replace(/[^\d]/g, ""), 10) || 0) + (parseInt(splitBank.replace(/[^\d]/g, ""), 10) || 0);
+                  const rest = estimate - paid;
+                  return (
+                    <div className="mt-1.5 text-center text-sm font-bold">
+                      {rest > 0 ? <span className="text-red-600">Còn lại ghi nợ: {money(rest)}{!cust && " (cần chọn khách)"}</span> : rest < 0 ? <span className="text-brand">Thối lại: {money(-rest)}</span> : <span className="text-brand">Đủ tiền ✓</span>}
+                    </div>
+                  );
+                })()}
+                <button onClick={checkoutSplit} disabled={busy} className="mt-2 min-h-touch w-full rounded-xl bg-brand py-3 text-lg font-extrabold text-white disabled:opacity-50">
+                  ✅ Hoàn tất (nhiều hình thức)
+                </button>
+              </div>
+            )}
             <div className="mt-2 flex items-center gap-2">
               <button onClick={holdOrder} disabled={busy} className="flex-1 rounded-xl border-2 border-amber-400 bg-white py-2.5 font-bold text-amber-700 disabled:opacity-50">
                 🗂 Giữ đơn
