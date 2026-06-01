@@ -157,6 +157,16 @@ export function Checkout() {
   const [coupon, setCoupon] = useState<string | null>(null); // applied code
   const [couponDisc, setCouponDisc] = useState(0);
   const [couponMsg, setCouponMsg] = useState<React.ReactNode>(null);
+  // In-app confirm/alert (replaces the browser's ugly native confirm()/alert()).
+  const [dialog, setDialog] = useState<{ message: string; confirmLabel?: string; danger?: boolean; alert?: boolean; resolve: (v: boolean) => void } | null>(null);
+  const ask = (message: string, opts?: { confirmLabel?: string; danger?: boolean }) =>
+    new Promise<boolean>((resolve) => setDialog({ message, confirmLabel: opts?.confirmLabel, danger: opts?.danger, resolve }));
+  const notify = (message: string, opts?: { danger?: boolean }) =>
+    new Promise<boolean>((resolve) => setDialog({ message, alert: true, danger: opts?.danger, resolve }));
+  const closeDialog = (v: boolean) => {
+    dialog?.resolve(v);
+    setDialog(null);
+  };
   const [autoPrint, setAutoPrint] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
   const [splitCash, setSplitCash] = useState("");
@@ -257,7 +267,7 @@ export function Checkout() {
     // Warn up-front instead of failing at payment: out-of-stock is sellable (back-order) but
     // the staff must confirm so it's never a surprise. Negative stock is allowed server-side.
     // (Barcode scans pass no card → no warning, since scanning implies the item is in hand.)
-    if (card && cardOOS(card) && !confirm(`"${card.display_name}" đang hết hàng trên hệ thống. Vẫn bán (bán âm tồn)?`)) return;
+    if (card && cardOOS(card) && !(await ask(`"${card.display_name}" đang hết hàng trên hệ thống. Vẫn bán (bán âm tồn)?`, { danger: true, confirmLabel: "Vẫn bán" }))) return;
     const m = await ensureMeta(code);
     setLines((l) => (l[code] ? l : { ...l, [code]: { qty: 1, uom: m?.stock_uom || "" } }));
   };
@@ -344,9 +354,9 @@ export function Checkout() {
     try {
       const r = await frappeCall<{ item_code: string | null }>("cago.api.catalog.find_by_barcode", { barcode: code.trim() }, { method: "GET" });
       if (r.item_code) await add(r.item_code);
-      else alert("Không tìm thấy sản phẩm với mã vạch này.");
+      else await notify("Không tìm thấy sản phẩm với mã vạch này.");
     } catch {
-      alert("Không tra được mã vạch.");
+      await notify("Không tra được mã vạch.", { danger: true });
     }
   };
 
@@ -397,7 +407,7 @@ export function Checkout() {
       pendingPayRef.current = null;
       resume?.();
     } catch (e) {
-      alert(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`);
+      await notify(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`, { danger: true });
     } finally {
       setBusy(false);
     }
@@ -406,12 +416,12 @@ export function Checkout() {
   const checkout = async (payment_mode: PayMode) => {
     if (cartCodes.length === 0 || busy) return;
     if (payment_mode === "credit" && !cust) {
-      alert("Chọn khách hàng để ghi nợ (bấm vào ô khách ở trên).");
+      await notify("Chọn khách hàng để ghi nợ (bấm vào ô khách ở trên).");
       return;
     }
     if (!guardShift(() => checkout(payment_mode))) return;
     const who = cust ? ` cho ${cust.customer_name}` : "";
-    if (!confirm(`${MODE_VI[payment_mode]} ${cartCodes.length} mặt hàng${who}?`)) return;
+    if (!(await ask(`${MODE_VI[payment_mode]} ${cartCodes.length} mặt hàng${who}?`, { confirmLabel: MODE_VI[payment_mode] }))) return;
     setBusy(true);
     try {
       const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", {
@@ -437,7 +447,7 @@ export function Checkout() {
         setQr(v.url);
       }
     } catch (e) {
-      alert(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
+      await notify(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`, { danger: true });
     } finally {
       setBusy(false);
     }
@@ -448,12 +458,12 @@ export function Checkout() {
     const cashAmt = parseInt((splitCash || "").replace(/[^\d]/g, ""), 10) || 0;
     const bankAmt = parseInt((splitBank || "").replace(/[^\d]/g, ""), 10) || 0;
     const paid = cashAmt + bankAmt;
-    if (paid <= 0) return alert("Nhập số tiền tiền mặt và/hoặc chuyển khoản.");
-    if (paid < estimate && !cust) return alert("Trả thiếu thì phải chọn khách (phần còn lại ghi nợ).");
+    if (paid <= 0) { await notify("Nhập số tiền tiền mặt và/hoặc chuyển khoản."); return; }
+    if (paid < estimate && !cust) { await notify("Trả thiếu thì phải chọn khách (phần còn lại ghi nợ)."); return; }
     if (!guardShift(() => checkoutSplit())) return;
     const rest = estimate - paid;
     const msg = rest > 0 ? `Còn lại ${money(rest)} ghi nợ cho ${cust?.customer_name}.` : rest < 0 ? `Thối lại ${money(-rest)}.` : "";
-    if (!confirm(`Thu Tiền mặt ${money(cashAmt)} + Chuyển khoản ${money(bankAmt)}. ${msg} Xác nhận?`)) return;
+    if (!(await ask(`Thu Tiền mặt ${money(cashAmt)} + Chuyển khoản ${money(bankAmt)}. ${msg} Xác nhận?`))) return;
     setBusy(true);
     try {
       const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", {
@@ -477,7 +487,7 @@ export function Checkout() {
       setPayOpen(false);
       if (autoPrint) void printReceipt(r.invoice, paper);
     } catch (e) {
-      alert(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
+      await notify(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`, { danger: true });
     } finally {
       setBusy(false);
     }
@@ -549,6 +559,27 @@ export function Checkout() {
           </button>
         )}
       </div>
+
+      {dialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-5" onClick={() => closeDialog(false)}>
+          <div className="w-full max-w-[400px] rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="whitespace-pre-line text-lg font-bold text-slate-800">{dialog.message}</div>
+            <div className="mt-4 flex gap-2">
+              {!dialog.alert && (
+                <button onClick={() => closeDialog(false)} className="min-h-touch flex-1 rounded-xl bg-slate-200 py-3 text-lg font-bold text-slate-700">
+                  Huỷ
+                </button>
+              )}
+              <button
+                onClick={() => closeDialog(true)}
+                className={`min-h-touch py-3 text-lg font-extrabold text-white ${dialog.alert ? "w-full rounded-xl" : "flex-[2] rounded-xl"} ${dialog.danger ? "bg-red-600" : "bg-brand"}`}
+              >
+                {dialog.confirmLabel || (dialog.alert ? "OK" : "Đồng ý")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ShiftBar refreshKey={shiftRefresh} onState={setShiftState} />
 

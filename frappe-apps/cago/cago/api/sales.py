@@ -335,7 +335,8 @@ def get_receipt(invoice):
 
 	return {
 		"invoice": si.name,
-		"store": frappe.db.get_value("Company", company, "company_name") or company,
+		# Receipt header = the customer-facing brand (Minh Tuyết), not the ERPNext Company entity.
+		"store": frappe.db.get_single_value("Website Settings", "app_name") or frappe.db.get_value("Company", company, "company_name") or company,
 		"when": format_datetime(si.creation, "dd/MM/yyyy HH:mm"),
 		"customer_name": si.customer_name,
 		"lines": lines,
