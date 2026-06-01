@@ -71,6 +71,10 @@ POS_VI = {
 	"Loading...": "Đang tải...", "Loading items...": "Đang tải sản phẩm...",
 	"Loading customers...": "Đang tải khách hàng...",
 	"Profile": "Quầy", "Profiles": "Quầy",
+	# Long-tail strings that had no vi at all (push __() coverage to ~100%)
+	"qty": "sl", "sales": "bán hàng", "gift card": "thẻ quà tặng",
+	"Scan with Camera": "Quét bằng camera", "Return count": "Số lần trả",
+	"Switched to: ": "Đã chuyển sang: ", "Day Δ": "Δ ngày", "Week Δ": "Δ tuần", "Month Δ": "Δ tháng",
 }
 
 
