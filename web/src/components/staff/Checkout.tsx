@@ -765,7 +765,7 @@ export function Checkout() {
             <span className="ml-2 text-sm font-bold text-red-600">(đang nợ {cust.outstanding_text})</span>
           )}
         </span>
-        <span className="text-2xl leading-none text-slate-400">{showCust ? "▲" : "▾"}</span>
+        <span className="text-2xl leading-none text-slate-400">{showCust ? "▲" : "▼"}</span>
       </button>
       {showCust && <CustomerPicker onPick={(c) => { setCust(c); setShowCust(false); }} onWalkIn={() => { setCust(null); setShowCust(false); }} />}
 
@@ -814,17 +814,17 @@ export function Checkout() {
         ) : list.length === 0 ? (
           <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy sản phẩm.</div>
         ) : (
-          <div className={`grid items-start gap-2.5 ${viewMode === "list" ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"}`}>
+          <div className={`grid gap-2.5 ${viewMode === "list" ? "grid-cols-1 items-start" : "grid-cols-2 items-stretch lg:grid-cols-3 2xl:grid-cols-4"}`}>
           {list.map((p) => {
             const line = lines[p.item_code];
             const m = meta[p.item_code];
             const multi = (m?.sale_units?.length || 0) > 1;
             return (
-              <div key={p.item_code} className={`rounded-xl border-2 p-3 shadow-sm ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
+              <div key={p.item_code} className={`flex h-full flex-col rounded-xl border-2 p-3 shadow-sm ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
                 {viewMode === "card" ? (
-                  // Card = vertical: thumb + info on top, a full-width Add button below (no cramped
-                  // horizontal squeeze on a 2-column grid).
-                  <div className="flex flex-col">
+                  // Card = vertical: thumb + info on top, a full-width Add button pinned to the
+                  // bottom (mt-auto) so cards with 1- and 2-line names line their buttons up.
+                  <div className="flex flex-1 flex-col">
                     <div className="flex items-start gap-3">
                       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg">
                         <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
@@ -840,7 +840,7 @@ export function Checkout() {
                     {!line && (
                       <button
                         onClick={() => add(p.item_code, p)}
-                        className={`mt-3 min-h-touch w-full rounded-lg text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
+                        className={`mt-auto min-h-touch w-full rounded-lg text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
                       >
                         {cardOOS(p) ? "Vẫn bán" : "＋ Thêm"}
                       </button>
@@ -968,16 +968,19 @@ export function Checkout() {
                         <span className="ml-2 text-sm font-bold text-red-600">(đang nợ {cust.outstanding_text})</span>
                       )}
                     </span>
-                    <span className="text-2xl leading-none text-slate-400">{custInPanel ? "▲" : "▾"}</span>
+                    <span className="text-2xl leading-none text-slate-400">{custInPanel ? "▲" : "▼"}</span>
                   </button>
-                  {custInPanel && (
-                    <div className="mb-2">
-                      <CustomerPicker
-                        onPick={(c) => { setCust(c); setCustInPanel(false); }}
-                        onWalkIn={() => { setCust(null); setCustInPanel(false); }}
-                      />
+                  {/* Smooth expand/collapse (grid-rows 0fr↔1fr animates height both ways). */}
+                  <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${custInPanel ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                    <div className="overflow-hidden">
+                      <div className="pb-2">
+                        <CustomerPicker
+                          onPick={(c) => { setCust(c); setCustInPanel(false); }}
+                          onWalkIn={() => { setCust(null); setCustInPanel(false); }}
+                        />
+                      </div>
                     </div>
-                  )}
+                  </div>
                   {/* Count + a single collapsible Giảm giá/Mã (most sales have no discount, so it
                       stays out of the way; auto-opens when a discount/coupon is already applied). */}
                   <div className="flex items-center justify-between gap-2">
@@ -986,10 +989,11 @@ export function Checkout() {
                       onClick={() => setDiscOpen((v) => !v)}
                       className={`rounded-lg border-2 px-3 py-1.5 text-sm font-bold ${disc + couponDisc > 0 ? "border-amber-400 bg-amber-50 text-amber-800" : "border-slate-300 text-slate-600"}`}
                     >
-                      🏷️ Giảm giá / Mã{disc + couponDisc > 0 ? ` · −${money(disc + couponDisc)}` : discOpen || disc + couponDisc > 0 ? " ▲" : " ▾"}
+                      🏷️ Giảm giá / Mã{disc + couponDisc > 0 ? ` · −${money(disc + couponDisc)}` : discOpen || disc + couponDisc > 0 ? " ▲" : " ▼"}
                     </button>
                   </div>
-                  {(discOpen || disc + couponDisc > 0 || !!coupon) && (
+                  <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${discOpen || disc + couponDisc > 0 || !!coupon ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                    <div className="overflow-hidden">
                     <div className="mt-2 space-y-2 rounded-xl border border-amber-200 bg-amber-50/50 p-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm text-slate-600">Giảm trực tiếp</span>
@@ -1025,7 +1029,8 @@ export function Checkout() {
                       </div>
                       {couponMsg && <div className="text-right text-xs">{couponMsg}</div>}
                     </div>
-                  )}
+                    </div>
+                  </div>
                   {/* Total — the number to confirm: prominent, boxed, right above the pay buttons. */}
                   <div className="mt-3 flex items-center justify-between rounded-xl bg-brand-light/60 px-3.5 py-3">
                     <div>
@@ -1051,7 +1056,7 @@ export function Checkout() {
               </button>
             </div>
             <button onClick={() => setShowSplit((v) => !v)} className="mt-2 w-full rounded-xl border-2 border-slate-300 bg-white py-2.5 font-bold text-slate-700">
-              ➗ Tách / trả một phần {showSplit ? "▲" : "▾"}
+              ➗ Tách / trả một phần {showSplit ? "▲" : "▼"}
             </button>
             {showSplit && (
               <div className="mt-2 rounded-xl border-2 border-slate-200 p-2.5">
