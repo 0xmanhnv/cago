@@ -63,8 +63,12 @@ def apply_minimal_pos(profile=None):
 
 
 def enroll_users(profile=None, users=None):
-	"""Add users to POS Profile → Applicable for Users (required for POS Awesome's opening
-	dialog to list the profile). Default: the Cago owner + staff seed users if present."""
+	"""Enroll COUNTER users for POS Awesome: add them to POS Profile → Applicable for Users
+	(required for the opening dialog to list the profile) AND grant the ERPNext "Sales User"
+	role (the posapp desk Page requires Sales User/Sales Manager/...; Cago's own roles are
+	deskless). Only enroll people who actually man the counter — mobile staff use /staff/sell.
+
+	Default seed users: owner + staff if present. Pass `users` to target specific counter users."""
 	if not profile:
 		company = frappe.defaults.get_global_default("company") or (frappe.get_all("Company", pluck="name") or [None])[0]
 		profile = frappe.db.get_value("POS Profile", {"company": company}, "name")
@@ -78,8 +82,11 @@ def enroll_users(profile=None, users=None):
 		if u not in have:
 			p.append("applicable_for_users", {"user": u})
 			added += 1
+		# Grant the role the posapp desk page requires (idempotent).
+		if u != "Administrator" and "Sales User" not in frappe.get_roles(u):
+			frappe.get_doc("User", u).add_roles("Sales User")
 	if added:
 		p.flags.ignore_permissions = True
 		p.save(ignore_permissions=True)
-		frappe.db.commit()
-	print(f"Enrolled {added} user(s) in {profile}: {users}")
+	frappe.db.commit()
+	print(f"Enrolled {added} user(s) in {profile} (+ Sales User role): {users}")

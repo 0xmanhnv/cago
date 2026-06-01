@@ -16,7 +16,7 @@ interface Digest {
 export function OwnerHome() {
   const router = useRouter();
   const { boot } = useSession();
-  const hasPos = !!boot?.has_posawesome;
+  const posUrl = boot?.pos_url; // single source of truth from bootstrap
   const [digest, setDigest] = useState<Digest | null>(null);
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
@@ -73,9 +73,9 @@ export function OwnerHome() {
         {item("📊 Báo cáo", "bg-blue-600", "/owner/reports")}
         {item("💳 QR thu tiền", "bg-violet-600", "/owner/settings")}
         {item("🛒 Bán hàng", "bg-brand", "/staff/sell")}
-        {hasPos && (
+        {posUrl && (
           <a
-            href="/desk/posapp"
+            href={posUrl}
             target="_blank"
             rel="noopener"
             className="flex min-h-[84px] items-center justify-center rounded-2xl bg-slate-600 p-2.5 text-center text-[19px] font-bold text-white"

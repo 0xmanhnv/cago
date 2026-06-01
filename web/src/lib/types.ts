@@ -91,6 +91,7 @@ export interface Bootstrap {
   kiosk_chips: KioskChips;
   kiosk_debt_visible: boolean;
   has_posawesome: boolean;
+  pos_url?: string | null;
 }
 
 export interface Batch {

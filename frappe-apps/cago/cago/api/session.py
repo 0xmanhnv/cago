@@ -18,6 +18,14 @@ from cago.chatbot import config as chatbot_config
 @frappe.whitelist(allow_guest=True)
 def bootstrap():
 	"""Everything the frontend needs once per load. Safe for guests (kiosk)."""
+	has_posawesome = "posawesome" in frappe.get_installed_apps()
+	# Only surface the POS Awesome URL to users who can actually open its desk page (Sales User
+	# etc.) — so mobile staff don't see a button that 404s with "Not permitted".
+	pos_url = None
+	if has_posawesome and frappe.db.exists("Page", "posapp"):
+		page_roles = {r.role for r in frappe.get_doc("Page", "posapp").roles}
+		if page_roles & set(frappe.get_roles()):
+			pos_url = "/app/posapp"  # version-stable entry; Frappe redirects /app->/desk; Next proxies both
 	return {
 		"user": frappe.session.user,
 		"is_guest": frappe.session.user == "Guest",
@@ -27,7 +35,10 @@ def bootstrap():
 		"persona": chatbot_config.persona(),
 		"kiosk_chips": chatbot_config.kiosk_chips(),
 		"kiosk_debt_visible": _kiosk_debt_visible(),
-		"has_posawesome": "posawesome" in frappe.get_installed_apps(),
+		"has_posawesome": has_posawesome,
+		# Single source of truth for the POS Awesome desk URL (frontend never hardcodes the
+		# desk path), gated to users who can open it. None = hide the button.
+		"pos_url": pos_url,
 	}
 
 

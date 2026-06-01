@@ -7,7 +7,7 @@ import { useSession } from "@/lib/session";
 export function StaffHome() {
   const router = useRouter();
   const { boot } = useSession();
-  const hasPos = !!boot?.has_posawesome;
+  const posUrl = boot?.pos_url; // single source of truth from bootstrap (no hardcoded desk path)
   const doLogout = async () => {
     await logout();
     window.location.href = "/login"; // full reload → fresh guest session + CSRF
@@ -43,9 +43,9 @@ export function StaffHome() {
         <Btn onClick={() => router.push("/staff/returns")} color="bg-rose-600">
           ↩ Trả hàng
         </Btn>
-        {hasPos && (
+        {posUrl && (
           <a
-            href="/desk/posapp"
+            href={posUrl}
             target="_blank"
             rel="noopener"
             className="flex min-h-[84px] items-center justify-center rounded-2xl bg-slate-500 p-2.5 text-center text-[19px] font-bold text-white"
