@@ -86,6 +86,13 @@ POS_VI = {
 	"Standard Selling": "Bảng giá bán", "Products": "Hàng hoá", "Raw Material": "Nguyên liệu",
 	"Raw Materials": "Nguyên liệu", "Services": "Dịch vụ", "Sub Assemblies": "Bán thành phẩm",
 	"Consumable": "Vật tư tiêu hao", "All Warehouses": "Tất cả kho", "List": "Danh sách", "Card": "Thẻ",
+	# Toasts from newer POS Awesome (15.30.x). The message may be emitted as one sentence or as
+	# two concatenated keys, so seed every form — extra Translation rows that never match are harmless.
+	"Payment methods refreshed. Please review before proceeding.": "Đã làm mới các hình thức thanh toán. Vui lòng kiểm tra lại trước khi tiếp tục.",
+	"Payment methods refreshed.": "Đã làm mới các hình thức thanh toán.",
+	"Payment methods refreshed": "Đã làm mới các hình thức thanh toán",
+	"Please review before proceeding.": "Vui lòng kiểm tra lại trước khi tiếp tục.",
+	"Please review before proceeding": "Vui lòng kiểm tra lại trước khi tiếp tục",
 }
 
 
