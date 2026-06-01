@@ -31,7 +31,9 @@ export function ProductList() {
   const [loading, setLoading] = useState(true);
   const [qInput, setQInput] = useState(q);
   const [viewMode, setViewMode] = useState<"card" | "list">("card"); // default card; remembered per device
+  const [shown, setShown] = useState(30); // incremental render for long catalogs (load-more on scroll)
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const v = window.localStorage?.getItem("cago_kiosk_view");
@@ -86,6 +88,24 @@ export function ProductList() {
     return arr;
   }, [products, sort, stockOnly]);
 
+  // Reset the visible window whenever the result set changes (new category/search/filter/sort).
+  useEffect(() => setShown(30), [category, q, sort, stockOnly]);
+
+  // Auto load-more: when the bottom sentinel scrolls into view and there's more, reveal the next page.
+  const visible = view.slice(0, shown);
+  const hasMore = view.length > shown;
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => entries[0]?.isIntersecting && setShown((n) => n + 30),
+      { rootMargin: "400px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, shown, view.length]);
+
   const title = category || (q.trim() ? `Tìm: ${q.trim()}` : "Tất cả");
   const chip = (active: boolean) =>
     `flex-none whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ${
@@ -94,20 +114,23 @@ export function ProductList() {
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2.5">
-        <button onClick={nav.goHome} className="rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark">
-          ← Trang chủ
-        </button>
-        <div className="flex-1 text-[22px] font-bold text-brand-dark">{title}</div>
-      </div>
+      {/* Sticky controls: search + filters + view toggle stay reachable while the list scrolls,
+          so a customer never has to scroll back to the top to search or filter. */}
+      <div className="sticky top-0 z-20 -mx-4 mb-3 border-b border-emerald-100/60 bg-[#eef9f0]/95 px-4 pb-2 pt-3 backdrop-blur-sm">
+        <div className="mb-2.5 flex items-center gap-2.5">
+          <button onClick={nav.goHome} className="rounded-xl bg-brand-light px-4 py-2.5 text-lg font-extrabold text-brand-dark">
+            ← Trang chủ
+          </button>
+          <div className="flex-1 truncate text-[22px] font-bold text-brand-dark">{title}</div>
+        </div>
 
-      <input
-        value={qInput}
-        onChange={(e) => onSearch(e.target.value)}
-        placeholder={category ? `Tìm trong ${category}...` : "Tìm sản phẩm..."}
-        className="mb-2.5 w-full rounded-2xl border-2 border-emerald-200 bg-white p-3.5 text-lg shadow-soft outline-none transition focus:border-brand"
-      />
-      <div className="mb-3.5 flex items-center gap-2">
+        <input
+          value={qInput}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder={category ? `Tìm trong ${category}...` : "Tìm sản phẩm..."}
+          className="mb-2.5 w-full rounded-2xl border-2 border-emerald-200 bg-white p-3 text-lg shadow-soft outline-none transition focus:border-brand"
+        />
+        <div className="flex items-center gap-2">
         <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
           <button onClick={() => setParams({ stock: stockOnly ? undefined : "1" })} className={chip(stockOnly)}>
             ✅ Còn hàng
@@ -141,6 +164,7 @@ export function ProductList() {
           >
             ☰
           </button>
+          </div>
         </div>
       </div>
 
@@ -152,7 +176,7 @@ export function ProductList() {
         </div>
       ) : viewMode === "list" ? (
         <div className="flex flex-col gap-2.5">
-          {view.map((p, i) => {
+          {visible.map((p, i) => {
             const out = !inStock(p);
             return (
               <button
@@ -181,7 +205,7 @@ export function ProductList() {
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
-          {view.map((p, i) => {
+          {visible.map((p, i) => {
             const out = !inStock(p);
             return (
               <button
@@ -211,6 +235,18 @@ export function ProductList() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Load-more: auto-loads when the sentinel scrolls near, with an explicit button as fallback. */}
+      {!loading && hasMore && (
+        <div ref={sentinelRef} className="mt-4">
+          <button
+            onClick={() => setShown((n) => n + 30)}
+            className="w-full rounded-2xl border-2 border-emerald-200 bg-white py-3.5 text-lg font-extrabold text-brand-dark shadow-soft"
+          >
+            Xem thêm ({view.length - shown} sản phẩm)
+          </button>
         </div>
       )}
     </div>
