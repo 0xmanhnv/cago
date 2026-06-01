@@ -122,6 +122,13 @@ Source string → Cago Vietnamese (these become `Translation` records for `vi`; 
   curated Vietnamese; **Cago 76 tests pass**; **English fallback** clean (vi overrides don't
   leak into `en`). Remaining = human browser pass (button overflow / full flow visual) at
   `/app/posapp`, then production install (owner-approved) + run the seeder there.
+- **Final decision (2026-06-01): accept ~99%, NO fork.** Owner chose to keep it simple. The
+  **cashier sell flow is 100% Vietnamese**; ~100% of `__()` strings are covered (1310 strings).
+  The only remaining English is ~9 **hardcoded** (non-`__()`) labels outside the sell flow —
+  customer-create form (`City`, `State`, `Gender`, `Search by Name`, `Search by Mobile`) and
+  report filters (`Filter by Currency`, `Filter Invoices by POS Profile`, `Due Date`,
+  `No limit`). These are intentionally left in English (would require a `cago_posawesome` fork
+  to wrap in `__()`); **not a bug.** Revisit M5 only if the owner later wants them localized.
 - **Implementation milestones:**
   - **M1** — set POS user lang = vi, load `/app/posapp`, baseline how much `vi.csv` already covers.
   - **M2** — audit cashier-critical strings (untranslated / wrong / hardcoded) → gap list.
