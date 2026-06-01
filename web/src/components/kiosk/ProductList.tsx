@@ -6,7 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
 import { CatThumb } from "./CatThumb";
-import type { ProductCard } from "@/lib/types";
+import type { Category, ProductCard } from "@/lib/types";
 
 type Sort = "default" | "price_asc" | "price_desc";
 
@@ -32,8 +32,17 @@ export function ProductList() {
   const [qInput, setQInput] = useState(q);
   const [viewMode, setViewMode] = useState<"card" | "list">("card"); // default card; remembered per device
   const [shown, setShown] = useState(30); // incremental render for long catalogs (load-more on scroll)
+  const [cats, setCats] = useState<Category[]>([]); // for the category quick-switch nav
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Categories for the side nav / chip strip — lets a customer jump between categories without
+  // going back to the home screen.
+  useEffect(() => {
+    frappeCall<Category[]>("cago.api.kiosk.get_categories", {}, { method: "GET" })
+      .then((d) => setCats(d || []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const v = window.localStorage?.getItem("cago_kiosk_view");
@@ -113,7 +122,16 @@ export function ProductList() {
     }`;
 
   return (
-    <div>
+    <div className="lg:flex lg:items-start lg:gap-5">
+      {/* Category quick-switch — sidebar on tablet/desktop so customers jump between categories
+          without returning to the home screen. (On phones it's a chip strip in the sticky bar.) */}
+      <aside className="hidden lg:block lg:w-48 lg:shrink-0">
+        <div className="sticky top-3 max-h-[calc(100vh-1.5rem)] overflow-auto pb-4">
+          <CategoryNav variant="sidebar" cats={cats} active={category} onPick={(c) => nav.openList(c)} />
+        </div>
+      </aside>
+
+      <div className="min-w-0 flex-1">
       {/* Sticky controls: search + filters + view toggle stay reachable while the list scrolls,
           so a customer never has to scroll back to the top to search or filter. */}
       <div className="sticky top-0 z-20 -mx-4 mb-3 border-b border-emerald-100/60 bg-[#eef9f0]/95 px-4 pb-2 pt-3 backdrop-blur-sm">
@@ -165,6 +183,10 @@ export function ProductList() {
             ☰
           </button>
           </div>
+        </div>
+        {/* Phone: category chip strip (sidebar shows on tablet+) */}
+        <div className="mt-2 lg:hidden">
+          <CategoryNav variant="chips" cats={cats} active={category} onPick={(c) => nav.openList(c)} />
         </div>
       </div>
 
@@ -249,6 +271,65 @@ export function ProductList() {
           </button>
         </div>
       )}
+      </div>
+    </div>
+  );
+}
+
+// Category quick-switch. "sidebar" = vertical list (tablet/desktop); "chips" = horizontal strip
+// (phones). Lets the customer jump between categories without going back to the home screen.
+function CategoryNav({
+  variant,
+  cats,
+  active,
+  onPick,
+}: {
+  variant: "sidebar" | "chips";
+  cats: Category[];
+  active: string;
+  onPick: (category: string) => void;
+}) {
+  const all = [{ category: "", icon: "🛒", color: "#e2e8f0", count: 0 } as Category & { _all?: boolean }, ...cats];
+  if (variant === "chips") {
+    return (
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {all.map((c) => {
+          const on = (c.category || "") === active;
+          return (
+            <button
+              key={c.category || "__all"}
+              onClick={() => onPick(c.category)}
+              className={`flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-bold ${
+                on ? "border-brand bg-brand text-white" : "border-emerald-200 bg-white text-brand-dark"
+              }`}
+            >
+              <span>{c.category ? c.icon : "🛒"}</span>
+              {c.category || "Tất cả"}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-2xl border border-emerald-100 bg-white p-2 shadow-soft">
+      <div className="px-2 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-slate-400">Loại hàng</div>
+      {all.map((c) => {
+        const on = (c.category || "") === active;
+        return (
+          <button
+            key={c.category || "__all"}
+            onClick={() => onPick(c.category)}
+            className={`mb-0.5 flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[15px] font-bold transition ${
+              on ? "bg-brand text-white" : "text-brand-dark hover:bg-brand-light"
+            }`}
+          >
+            <span className="text-xl leading-none">{c.category ? c.icon : "🛒"}</span>
+            <span className="min-w-0 flex-1 truncate">{c.category || "Tất cả"}</span>
+            {c.category ? <span className={`text-xs ${on ? "text-emerald-100" : "text-slate-400"}`}>{c.count}</span> : null}
+          </button>
+        );
+      })}
     </div>
   );
 }

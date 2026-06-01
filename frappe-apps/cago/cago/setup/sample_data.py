@@ -105,14 +105,57 @@ def import_sample_products(csv_path=None):
 
 # Initial category presentation (icon + colour). This is editable DATA — owners can
 # change it per Item Group; it is NOT logic. Categories not listed get neutral defaults.
+# Icon/colour presets for the categories a rural farm-supply / general store ("tạp hoá nhà nông")
+# is likely to use. Grouped by family (parent → children) so the owner can build a tree of Item
+# Groups; presets are matched by name and applied to whichever groups actually exist (others wait
+# unused). All editable data — owners can change icon/colour per Item Group.
 CATEGORY_PRESETS = {
+	# Thức ăn chăn nuôi
+	"Thức ăn chăn nuôi": ("🐄", "#fef3c7"),
 	"Cám chăn nuôi": ("🐔", "#fef3c7"),
+	"Cám gà": ("🐔", "#fef3c7"),
+	"Cám vịt / ngan": ("🦆", "#fef3c7"),
+	"Cám lợn": ("🐷", "#fde2e4"),
+	"Cám cá": ("🐟", "#dbeafe"),
+	"Cám bò / trâu": ("🐄", "#fef3c7"),
+	"Thức ăn bổ sung / khoáng": ("🧂", "#fef9c3"),
+	# Phân bón
 	"Phân bón": ("🌱", "#dcfce7"),
-	"Thuốc chuột": ("🐀", "#fee2e2"),
-	"Thuốc bảo vệ thực vật": ("🐛", "#e0e7ff"),
+	"Phân vô cơ (đạm/lân/kali/NPK)": ("🧪", "#dcfce7"),
+	"Phân hữu cơ": ("🍂", "#d9f99d"),
+	"Phân vi sinh": ("🦠", "#d1fae5"),
+	"Phân bón lá": ("💧", "#cffafe"),
+	# Thuốc bảo vệ thực vật
+	"Thuốc bảo vệ thực vật": ("🧴", "#e0e7ff"),
+	"Thuốc trừ sâu bệnh": ("🐛", "#e0e7ff"),
+	"Thuốc trừ sâu": ("🐛", "#e0e7ff"),
+	"Thuốc trừ bệnh": ("🍄", "#ede9fe"),
 	"Thuốc cỏ": ("🌿", "#d1fae5"),
+	"Thuốc trừ ốc": ("🐌", "#e0e7ff"),
+	"Thuốc chuột": ("🐀", "#fee2e2"),
+	"Thuốc kích thích sinh trưởng": ("🌾", "#fef9c3"),
+	# Hạt giống
 	"Hạt giống": ("🌰", "#fef9c3"),
+	"Giống lúa": ("🌾", "#fef9c3"),
+	"Giống ngô": ("🌽", "#fef9c3"),
+	"Giống rau": ("🥬", "#dcfce7"),
+	"Giống cây ăn quả": ("🍎", "#fee2e2"),
+	"Giống hoa": ("🌸", "#fce7f3"),
+	# Thú y
+	"Thú y": ("💉", "#dbeafe"),
+	"Thuốc thú y": ("💊", "#dbeafe"),
+	"Vắc xin": ("💉", "#dbeafe"),
+	"Vitamin / khoáng vật nuôi": ("🧴", "#cffafe"),
+	# Dụng cụ & vật tư
 	"Dụng cụ": ("🧰", "#e6f4ea"),
+	"Dụng cụ & vật tư": ("🧰", "#e6f4ea"),
+	"Bình phun / máy phun": ("🛢️", "#e6f4ea"),
+	"Cuốc / xẻng / liềm": ("🪓", "#e7e5e4"),
+	"Bạt / lưới / dây": ("🕸️", "#e7e5e4"),
+	"Ống / tưới tiêu": ("🚿", "#cffafe"),
+	"Bảo hộ (găng / ủng / khẩu trang)": ("🧤", "#e0f2fe"),
+	# Khác (tạp hoá)
+	"Tạp hoá": ("🛒", "#fce7f3"),
 }
 
 
@@ -244,13 +287,18 @@ def _upsert_item(row):
 def _upsert_selling_price(item_code, rate, uom=None):
 	if not rate:
 		return
-	existing = frappe.db.get_value(
+	# An item may already have several selling prices on this list (e.g. from earlier price edits)
+	# — ERPNext rejects a save if duplicates remain, so keep one and drop the rest, then update it.
+	existing = frappe.get_all(
 		"Item Price",
-		{"item_code": item_code, "price_list": DEFAULT_PRICE_LIST, "selling": 1},
-		"name",
+		filters={"item_code": item_code, "price_list": DEFAULT_PRICE_LIST, "selling": 1},
+		pluck="name",
+		order_by="creation asc",
 	)
+	for extra in existing[1:]:
+		frappe.delete_doc("Item Price", extra, ignore_permissions=True, force=True)
 	if existing:
-		price = frappe.get_doc("Item Price", existing)
+		price = frappe.get_doc("Item Price", existing[0])
 	else:
 		price = frappe.new_doc("Item Price")
 		price.item_code = item_code
