@@ -149,6 +149,8 @@ export function Checkout() {
   const [held, setHeld] = useState<Held[]>([]);
   const [showHeld, setShowHeld] = useState(false);
   const [discount, setDiscount] = useState("");
+  const [discountMode, setDiscountMode] = useState<"amount" | "percent">("amount");
+  const [custInPanel, setCustInPanel] = useState(false); // change-customer picker inside the pay panel
   const [autoPrint, setAutoPrint] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
   const [splitCash, setSplitCash] = useState("");
@@ -275,7 +277,10 @@ export function Checkout() {
   const linePrice = (code: string) => lines[code]?.rate ?? unitPrice(code, lines[code]?.uom ?? "");
   const cartCodes = Object.keys(lines);
   const subtotal = cartCodes.reduce((s, c) => s + linePrice(c) * lines[c].qty, 0);
-  const disc = Math.max(0, Math.min(parseInt((discount || "").replace(/[^\d]/g, ""), 10) || 0, subtotal));
+  const discountNum = parseInt((discount || "").replace(/[^\d]/g, ""), 10) || 0;
+  // Discount can be a fixed đồng amount or a % of the subtotal (rural staff say "bớt 10%").
+  const discRaw = discountMode === "percent" ? Math.round((subtotal * Math.min(discountNum, 100)) / 100) : discountNum;
+  const disc = Math.max(0, Math.min(discRaw, subtotal));
   const estimate = subtotal - disc;
 
   const findBarcode = async (code: string) => {
@@ -744,10 +749,29 @@ export function Checkout() {
                   <button onClick={() => setPayOpen(false)} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500">
                     ▼ Thu gọn — chọn thêm hàng
                   </button>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm text-slate-500">
-                      {cartCodes.length} mặt hàng{cust ? ` · ${cust.customer_name}` : ""}
+                  {/* Customer — changeable right here so staff don't have to scroll up to ghi nợ. */}
+                  <button
+                    onClick={() => setCustInPanel((v) => !v)}
+                    className="mb-2 flex w-full items-center justify-between rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-left"
+                  >
+                    <span className="font-bold">
+                      👤 {cust ? cust.customer_name : "Khách lẻ"}
+                      {cust?.outstanding_text && cust.outstanding_text !== "Không nợ" && (
+                        <span className="ml-2 text-sm font-bold text-red-600">(đang nợ {cust.outstanding_text})</span>
+                      )}
                     </span>
+                    <span className="text-slate-400">{custInPanel ? "▲" : "đổi ▾"}</span>
+                  </button>
+                  {custInPanel && (
+                    <div className="mb-2">
+                      <CustomerPicker
+                        onPick={(c) => { setCust(c); setCustInPanel(false); }}
+                        onWalkIn={() => { setCust(null); setCustInPanel(false); }}
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-slate-500">{cartCodes.length} mặt hàng</span>
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm text-slate-500">Giảm:</span>
                       <input
@@ -755,10 +779,17 @@ export function Checkout() {
                         value={discount}
                         onChange={(e) => setDiscount(e.target.value)}
                         placeholder="0"
-                        className="h-9 w-24 rounded-lg border-2 border-amber-300 px-2 text-right"
+                        className="h-9 w-20 rounded-lg border-2 border-amber-300 px-2 text-right"
                       />
+                      <div className="flex overflow-hidden rounded-lg border-2 border-amber-300 text-sm font-bold">
+                        <button onClick={() => setDiscountMode("amount")} className={discountMode === "amount" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>đ</button>
+                        <button onClick={() => setDiscountMode("percent")} className={discountMode === "percent" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>%</button>
+                      </div>
                     </div>
                   </div>
+                  {discountMode === "percent" && disc > 0 && (
+                    <div className="text-right text-xs text-amber-700">= giảm {money(disc)}</div>
+                  )}
                   <div className="flex items-baseline justify-between">
                     <span className="text-slate-500">{disc > 0 ? `Tổng (đã giảm ${money(disc)})` : "Tổng tiền"}</span>
                     <span className="text-2xl font-extrabold text-brand">{money(estimate)}</span>
