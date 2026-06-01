@@ -42,19 +42,12 @@
 	opacity: 0 !important;
 }
 
-/* --- Edit-line expansion (ItemsTableExpandedRow): fix the cramped/faded/overlapping panel ---
- * POS Awesome animates the panel in with opacity 0 + scale .95 + translateY(-20px); on re-render
- * it can get stuck looking faded and shifted up over the table header. Kill the animation and the
- * hover "lift", force a solid opaque full-width block in normal flow so fields are clearly usable. */
-.posa-expanded-content,
-.posa-expanded-content.responsive-expanded-content {
-	animation: none !important;
-	opacity: 1 !important;
-	transform: none !important;
-}
-/* Scope the rest STRICTLY inside the expanded row so nothing else on the page is affected. */
-.posa-expanded-content .posa-form-section,
-.posa-expanded-content .posa-form-section:hover {
-	transform: none !important;
-	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
+/* --- Edit-line expansion (ItemsTableExpandedRow) ---
+ * POS Awesome's per-line "details" expansion is a heavy ERP-style form (stock info, warehouse,
+ * item group, pricing) that renders cramped/faded and is overkill for this shop — everything
+ * needed to sell (quantity, unit price, discount) is already editable in the cart row itself.
+ * Hide the expansion so a row tap never opens that broken panel. Reversible (remove this block). */
+.posa-expanded-row-cell,
+.posa-expanded-content {
+	display: none !important;
 }
