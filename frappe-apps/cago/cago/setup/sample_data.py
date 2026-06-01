@@ -216,7 +216,12 @@ def seed_sample_batches():
 		if not item.has_batch_no:
 			item.has_batch_no = 1
 			item.create_new_batch = 1
-			item.save(ignore_permissions=True)
+			try:
+				item.save(ignore_permissions=True)
+			except Exception:
+				# ERPNext forbids enabling batch tracking once an item has stock transactions —
+				# skip it so a re-import of an already-selling shop doesn't abort mid-way.
+				continue
 		# one batch near expiry (30 days) + one comfortably in date (400 days)
 		for suffix, days in (("L1", 30), ("L2", 400)):
 			batch_id = f"{item_code}-{suffix}"
@@ -321,18 +326,21 @@ def _upsert_item(row):
 def _upsert_selling_price(item_code, rate, uom=None):
 	if not rate:
 		return
-	# An item may already have several selling prices on this list (e.g. from earlier price edits)
-	# — ERPNext rejects a save if duplicates remain, so keep one and drop the rest, then update it.
+	uom = uom or frappe.db.get_value("Item", item_code, "stock_uom")
+	# Update ONLY the main (stock-unit) price. Dedup just the rows for this unit (or legacy
+	# blank-unit rows) so a save doesn't hit ERPNext's duplicate check — but DON'T touch the
+	# owner's per-unit retail prices (kg/lạng) on the same list, which carry a different uom.
 	existing = frappe.get_all(
 		"Item Price",
 		filters={"item_code": item_code, "price_list": DEFAULT_PRICE_LIST, "selling": 1},
-		pluck="name",
+		fields=["name", "uom"],
 		order_by="creation asc",
 	)
-	for extra in existing[1:]:
+	main = [r.name for r in existing if (r.uom or "") in ("", uom)]
+	for extra in main[1:]:
 		frappe.delete_doc("Item Price", extra, ignore_permissions=True, force=True)
-	if existing:
-		price = frappe.get_doc("Item Price", existing[0])
+	if main:
+		price = frappe.get_doc("Item Price", main[0])
 	else:
 		price = frappe.new_doc("Item Price")
 		price.item_code = item_code

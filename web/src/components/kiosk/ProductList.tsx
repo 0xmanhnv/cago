@@ -49,12 +49,21 @@ export function ProductList() {
   const [hideBar, setHideBar] = useState(false);
   useEffect(() => {
     let last = window.scrollY;
-    const onScroll = () => {
-      const y = window.scrollY;
-      if (y < 80) setHideBar(false);
-      else if (y > last + 6) setHideBar(true);
-      else if (y < last - 6) setHideBar(false);
+    let ticking = false;
+    const apply = () => {
+      ticking = false;
+      const y = Math.max(0, window.scrollY);
+      // Only react to a deliberate move (>=12px) so content growth / momentum jitter near the
+      // load-more boundary doesn't flicker the bar. Always show near the top.
+      if (y < 90) setHideBar(false);
+      else if (y > last + 12) setHideBar(true);
+      else if (y < last - 12) setHideBar(false);
       last = y;
+    };
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(apply);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -326,7 +335,7 @@ function CategoryNav({
       <div className="flex gap-2 overflow-x-auto pb-1">
         {strip.map((c) => (
           <button
-            key={c.category || "__all"}
+            key={`${c.child ? "c" : "p"}:${c.category || "__all"}`}
             onClick={() => onPick(c.category)}
             className={`flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-bold ${
               c.on ? "border-brand bg-brand text-white" : c.child ? "border-emerald-200 bg-emerald-50 text-brand-dark" : "border-emerald-200 bg-white text-brand-dark"

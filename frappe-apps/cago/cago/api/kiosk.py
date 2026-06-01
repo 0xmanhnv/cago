@@ -76,10 +76,15 @@ def get_categories():
 		if leaf != tl:
 			node["children"].append(present(leaf, count))
 
+	# Unset order (cago_sort_order = 0) sorts LAST, not first — so a half-finished reorder or a
+	# brand-new category appears at the end, behind the ones the owner explicitly placed.
+	def order_key(c):
+		return (c["sort"] or 9999, c["category"])
+
 	out = list(tops.values())
 	for node in out:
-		node["children"].sort(key=lambda c: (c["sort"], c["category"]))
-	out.sort(key=lambda c: (c["sort"], c["category"]))
+		node["children"].sort(key=order_key)
+	out.sort(key=order_key)
 	return out
 
 
