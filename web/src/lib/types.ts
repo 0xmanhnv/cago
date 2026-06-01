@@ -88,6 +88,7 @@ export interface Persona {
 
 export interface Bootstrap {
   user: string;
+  full_name?: string;
   is_guest: boolean;
   roles: string[];
   csrf_token: string;

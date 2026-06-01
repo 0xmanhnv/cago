@@ -28,6 +28,7 @@ def bootstrap():
 			pos_url = "/app/posapp"  # version-stable entry; Frappe redirects /app->/desk; Next proxies both
 	return {
 		"user": frappe.session.user,
+		"full_name": (frappe.session.user != "Guest" and frappe.db.get_value("User", frappe.session.user, "full_name")) or "",
 		"is_guest": frappe.session.user == "Guest",
 		"roles": frappe.get_roles(),
 		"csrf_token": frappe.sessions.get_csrf_token(),

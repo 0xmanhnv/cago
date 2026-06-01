@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall, logout } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { BrandHeader } from "@/components/ui/BrandHeader";
+import { confirmDialog } from "@/components/ui/dialog";
 
 interface Digest {
   low_stock: number;
@@ -23,6 +24,7 @@ export function OwnerHome() {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
   }, []);
   const doLogout = async () => {
+    if (!(await confirmDialog("Đăng xuất khỏi máy này?", { danger: true, confirmLabel: "Đăng xuất" }))) return;
     await logout();
     window.location.href = "/login"; // full reload → fresh guest session + CSRF
   };
