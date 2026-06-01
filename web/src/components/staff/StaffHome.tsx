@@ -45,7 +45,7 @@ export function StaffHome() {
         </Btn>
         {hasPos && (
           <a
-            href="/app/posapp"
+            href="/desk/posapp"
             target="_blank"
             rel="noopener"
             className="flex min-h-[84px] items-center justify-center rounded-2xl bg-slate-500 p-2.5 text-center text-[19px] font-bold text-white"
