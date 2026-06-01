@@ -34,7 +34,7 @@ export function CategoryNav({
       }
     }
     return (
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
         {strip.map((c) => (
           <button
             key={`${c.child ? "c" : "p"}:${c.category || "__all"}`}

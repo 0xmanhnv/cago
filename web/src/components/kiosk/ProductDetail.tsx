@@ -81,7 +81,7 @@ export function ProductDetail({ code }: { code: string }) {
           <CatThumb icon={product.category_icon} color={product.category_color} name={product.display_name} variant="big" />
         )}
         {imgs.length > 1 && (
-          <div className="mt-2.5 flex gap-2 overflow-x-auto">
+          <div className="no-scrollbar mt-2.5 flex gap-2 overflow-x-auto">
             {imgs.map((u) => (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -195,7 +195,7 @@ export function ProductDetail({ code }: { code: string }) {
       {related.length > 0 && (
         <div className="mt-5">
           <div className="mb-2 font-extrabold">🛒 Sản phẩm liên quan</div>
-          <div className="flex gap-2.5 overflow-x-auto pb-1.5">
+          <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1.5">
             {related.map((r) => (
               <button
                 key={r.item_code}

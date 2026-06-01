@@ -26,7 +26,7 @@ export interface Tab {
 
 export function FilterTabs({ tabs, active, onChange }: { tabs: Tab[]; active: string; onChange: (k: string) => void }) {
   return (
-    <div className="mb-2.5 flex gap-2 overflow-x-auto pb-1">
+    <div className="no-scrollbar mb-2.5 flex gap-2 overflow-x-auto pb-1">
       {tabs.map((t) => (
         <button
           key={t.key}

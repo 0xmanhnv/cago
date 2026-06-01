@@ -245,7 +245,7 @@ export function Assistant({
       </div>
 
       {/* chips */}
-      <div className="flex gap-2 overflow-x-auto border-t border-brand-light bg-[#f0fdf4] px-3 py-2">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto border-t border-brand-light bg-[#f0fdf4] px-3 py-2">
         {pickChips(boot?.kiosk_chips, focusItem, focusCat).map((c) => (
           <button
             key={c}

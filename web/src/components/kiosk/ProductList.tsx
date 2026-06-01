@@ -184,7 +184,7 @@ export function ProductList() {
           className="mb-2.5 w-full rounded-2xl border-2 border-emerald-200 bg-white p-3 text-lg shadow-soft outline-none transition focus:border-brand"
         />
         <div className="flex items-center gap-2">
-        <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
+        <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto pb-1">
           <button onClick={() => setParams({ stock: stockOnly ? undefined : "1" })} className={chip(stockOnly)}>
             ✅ Còn hàng
           </button>
@@ -340,7 +340,7 @@ function CategoryNav({
       }
     }
     return (
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
         {strip.map((c) => (
           <button
             key={`${c.child ? "c" : "p"}:${c.category || "__all"}`}
