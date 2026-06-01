@@ -31,7 +31,7 @@ export function Cart() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <button onClick={nav.goHome} className="rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark">
+        <button onClick={nav.goHome} className="shrink-0 whitespace-nowrap rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark">
           ← Tiếp tục chọn
         </button>
         <div className="flex-1 text-[22px] font-bold text-brand-dark">Giỏ đã chọn</div>

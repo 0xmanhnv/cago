@@ -67,7 +67,7 @@ export function ProductDetail({ code }: { code: string }) {
       <div className="mb-4 flex items-center gap-2.5">
         <button
           onClick={goBack}
-          className="rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark"
+          className="shrink-0 whitespace-nowrap rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark"
         >
           ← Quay lại
         </button>

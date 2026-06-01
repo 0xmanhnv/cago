@@ -171,7 +171,7 @@ export function ProductList() {
         style={{ transform: hideBar ? "translateY(-115%)" : "translateY(0)" }}
       >
         <div className="mb-2.5 flex items-center gap-2.5">
-          <button onClick={nav.goHome} className="rounded-xl bg-brand-light px-4 py-2.5 text-lg font-extrabold text-brand-dark">
+          <button onClick={nav.goHome} className="shrink-0 whitespace-nowrap rounded-xl bg-brand-light px-4 py-2.5 text-lg font-extrabold text-brand-dark">
             ← Trang chủ
           </button>
           <div className="flex-1 truncate text-[22px] font-bold text-brand-dark">{title}</div>

@@ -161,7 +161,7 @@ export function StaffReturns() {
   return (
     <div className="pb-10">
       <div className="mb-3 flex items-center gap-2.5">
-        <button onClick={() => router.push("/staff")} className="rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
+        <button onClick={() => router.push("/staff")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ← Trang chủ
         </button>
         <div className="flex-1 text-2xl font-bold">TRẢ HÀNG</div>

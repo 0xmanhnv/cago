@@ -37,7 +37,7 @@ export function StaffChat() {
   return (
     <div>
       <div className="mb-3.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/staff")} className="rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
+        <button onClick={() => router.push("/staff")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ← Trang chủ
         </button>
         <div className="flex-1 text-xl font-bold">🤖 Trợ lý</div>

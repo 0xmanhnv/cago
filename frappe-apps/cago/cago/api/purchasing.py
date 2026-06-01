@@ -100,6 +100,11 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 		se.submit()
 		entry = se.name
 
+	# Audit who received the stock — the Stock Entry is posted under Administrator (owner lacks
+	# Stock submit), so its `owner` is Administrator; this log keeps the real actor + qty/cost/lô.
+	qn = int(flt(qty)) if flt(qty) == int(flt(qty)) else round(flt(qty), 2)
+	note = f"Nhập {qn}{(' · giá vốn ' + dto.format_price(flt(cost_rate))) if cost_rate else ''}{(' · lô ' + batch_no) if batch_no else ''}"
+	record_action("Other", ref_doctype="Item", ref_name=item_code, new_value=note)
 	frappe.db.commit()  # commit as the real user, after restoring the session
 	return {"entry": entry, "qty": flt(dto.get_actual_qty(item_code))}
 
