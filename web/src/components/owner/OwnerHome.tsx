@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall, logout } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { BrandHeader } from "@/components/ui/BrandHeader";
 
 interface Digest {
   low_stock: number;
@@ -26,16 +27,13 @@ export function OwnerHome() {
     window.location.href = "/login"; // full reload → fresh guest session + CSRF
   };
   const item = (label: string, color: string, href: string) => (
-    <button
-      onClick={() => router.push(href)}
-      className={`flex min-h-[84px] items-center justify-center rounded-2xl p-2.5 text-center text-[19px] font-bold text-white ${color}`}
-    >
+    <button onClick={() => router.push(href)} className={`mt-tile ${color}`}>
       {label}
     </button>
   );
   return (
     <div>
-      <div className="my-4 text-center text-2xl font-bold text-brand-dark">CHỦ CỬA HÀNG</div>
+      <BrandHeader subtitle="Chủ cửa hàng" />
       {digest?.has_tasks && (
         <div className="mb-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
           <div className="font-extrabold text-amber-800">📌 Việc cần làm hôm nay</div>
@@ -74,21 +72,16 @@ export function OwnerHome() {
         {item("💳 QR thu tiền", "bg-violet-600", "/owner/settings")}
         {item("🛒 Bán hàng", "bg-brand", "/staff/sell")}
         {posUrl && (
-          <a
-            href={posUrl}
-            target="_blank"
-            rel="noopener"
-            className="flex min-h-[84px] items-center justify-center rounded-2xl bg-slate-600 p-2.5 text-center text-[19px] font-bold text-white"
-          >
+          <a href={posUrl} target="_blank" rel="noopener" className="mt-tile bg-slate-600">
             🧾 POS Awesome (quầy)
           </a>
         )}
       </div>
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
-        <a href="/desk" target="_blank" rel="noopener" className="flex min-h-[64px] items-center justify-center rounded-2xl bg-slate-500 p-2.5 text-center text-lg font-bold text-white">
+        <a href="/desk" target="_blank" rel="noopener" className="mt-tile min-h-[64px] bg-slate-500 text-lg">
           ⚙️ Quản lý ERPNext
         </a>
-        <button onClick={doLogout} className="min-h-[64px] rounded-2xl bg-red-600 text-lg font-bold text-white">
+        <button onClick={doLogout} className="mt-tile min-h-[64px] bg-red-600 text-lg">
           🚪 Đăng xuất
         </button>
       </div>

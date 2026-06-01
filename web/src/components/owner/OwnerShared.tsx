@@ -9,10 +9,10 @@ export const money = (n: number) => n.toLocaleString("vi-VN") + "đ";
 export function BackBar({ onBack, title, label = "Trang chủ" }: { onBack: () => void; title?: string; label?: string }) {
   return (
     <div className="mb-3.5 flex items-center gap-2.5">
-      <button onClick={onBack} className="rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark">
+      <button onClick={onBack} className="mt-backbtn">
         ← {label}
       </button>
-      {title && <div className="flex-1 text-xl font-bold text-brand-dark">{title}</div>}
+      {title && <div className="mt-title flex-1">{title}</div>}
     </div>
   );
 }
