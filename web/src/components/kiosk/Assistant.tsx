@@ -100,7 +100,7 @@ export function Assistant({
       {/* header — brand gradient bar */}
       <div className="flex items-center gap-2 bg-gradient-to-r from-brand to-brand-dark px-3 py-3 text-white shadow-card">
         <button onClick={onClose} className="shrink-0 whitespace-nowrap rounded-xl bg-white/20 px-4 py-3 text-lg font-extrabold text-white">
-          ← Trang chủ
+          ‹ Trang chủ
         </button>
         <h2 className="m-0 flex-1 text-xl font-bold">🤖 {persona?.name || "Trợ lý"} — Trợ lý</h2>
         <button

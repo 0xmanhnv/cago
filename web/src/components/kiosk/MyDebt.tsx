@@ -48,7 +48,7 @@ export function MyDebt() {
     <div>
       <div className="mb-4 flex items-center gap-2.5">
         <button onClick={nav.goHome} className="shrink-0 whitespace-nowrap rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark">
-          ← Trang chủ
+          ‹ Trang chủ
         </button>
         <div className="flex-1 text-[22px] font-bold text-brand-dark">Công nợ của tôi</div>
       </div>

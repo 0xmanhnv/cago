@@ -86,6 +86,19 @@ def search_customers(query=None):
 
 
 @frappe.whitelist()
+def _debt_summary(customer):
+	"""Guard-free outstanding summary (safe for staff debt collection — no cost/margin)."""
+	from erpnext.accounts.utils import get_balance_on
+
+	balance = flt(get_balance_on(party_type="Customer", party=customer, date=frappe.utils.nowdate(), company=_company()))
+	return {
+		"customer": customer,
+		"customer_name": frappe.db.get_value("Customer", customer, "customer_name"),
+		"outstanding": balance,
+		"outstanding_text": dto.format_price(balance) if balance else "Không nợ",
+	}
+
+
 def get_customer_debt(customer):
 	ensure_owner()
 	if not frappe.db.exists("Customer", customer):
@@ -162,10 +175,23 @@ def record_debt(customer, amount, note=None):
 	return get_customer_debt(customer)
 
 
+def ensure_can_collect_debt():
+	"""Owner always; staff only when the owner enabled it on the Company. Returns the actor."""
+	from cago.utils.permissions import is_owner, is_staff
+
+	if is_owner():
+		return frappe.session.user
+	if is_staff() and frappe.db.get_value("Company", _company(), "cago_staff_can_collect_debt"):
+		return frappe.session.user
+	frappe.throw(_("Bạn không có quyền thu nợ. Liên hệ chủ cửa hàng để bật chức năng này."), frappe.PermissionError)
+
+
 @frappe.whitelist()
 def record_repayment(customer, amount, note=None):
-	"""Customer pays. Decreases receivable via an on-account Payment Entry (Receive)."""
-	ensure_owner()
+	"""Customer pays. Decreases receivable via an on-account Payment Entry (Receive).
+	Owner always; staff when allowed (cago_staff_can_collect_debt) — the cash then counts in
+	that cashier's till shift and the collector is stamped on the Payment Entry."""
+	cashier = ensure_can_collect_debt()
 	ensure_lang()
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
@@ -195,12 +221,15 @@ def record_repayment(customer, amount, note=None):
 			"received_amount": amount,
 			"reference_no": note or "Khách trả nợ",
 			"reference_date": frappe.utils.nowdate(),
+			"cago_cashier": cashier,  # who collected — for the till shift + audit
 		}
 	)
 	_submit_privileged(pe)
 	record_action("Debt Payment", ref_doctype="Payment Entry", ref_name=pe.name, new_value=amount)
 	frappe.db.commit()
-	return get_customer_debt(customer)
+	# _debt_summary is guard-free so a staff collector can read the new balance back
+	# (get_customer_debt is owner-only and would throw for staff).
+	return _debt_summary(customer)
 
 
 @frappe.whitelist()

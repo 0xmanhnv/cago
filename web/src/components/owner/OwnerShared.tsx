@@ -11,7 +11,7 @@ export function BackBar({ onBack, title, label = "Trang chủ" }: { onBack: () =
   return (
     <div className="mb-3.5 flex items-center gap-2.5">
       <button onClick={onBack} className="mt-backbtn">
-        ← {label}
+        ‹ {label}
       </button>
       {title && <div className="mt-title flex-1">{title}</div>}
     </div>

@@ -97,6 +97,7 @@ export interface Bootstrap {
   kiosk_chips: KioskChips;
   kiosk_debt_visible: boolean;
   allow_price_edit: boolean;
+  staff_can_collect_debt?: boolean;
   has_posawesome: boolean;
   pos_url?: string | null;
 }

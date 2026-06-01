@@ -127,7 +127,7 @@ export function StaffWanted() {
       <div>
         <div className="mb-3.5 flex items-center gap-2.5">
           <button onClick={() => setWl(null)} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-            ← Danh sách đơn
+            ‹ Danh sách đơn
           </button>
         </div>
         <div className="rounded-xl bg-white p-4">
@@ -179,7 +179,7 @@ export function StaffWanted() {
     <div>
       <div className="mb-3.5 flex items-center gap-2.5">
         <button onClick={() => router.push("/staff")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ← Trang chủ
+          ‹ Trang chủ
         </button>
         <div className="flex-1 text-2xl font-bold">KHÁCH ĐÃ CHỌN</div>
       </div>

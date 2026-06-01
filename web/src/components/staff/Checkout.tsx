@@ -663,7 +663,7 @@ export function Checkout() {
           🛒 Bán đơn mới
         </button>
         <button onClick={() => router.push("/staff")} className="mt-2.5 min-h-touch w-full rounded-2xl bg-slate-200 py-3 text-lg font-bold">
-          ← Trang chủ
+          ‹ Trang chủ
         </button>
       </div>
     );
@@ -673,7 +673,7 @@ export function Checkout() {
     <div className="pb-24">
       <div className="mb-2.5 flex items-center gap-2.5">
         <button onClick={() => router.push("/staff")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ← Trang chủ
+          ‹ Trang chủ
         </button>
         <div className="flex-1 text-2xl font-bold">BÁN HÀNG</div>
         <button onClick={openReprint} className="rounded-xl bg-slate-200 px-3 py-3 font-bold text-slate-700">
@@ -862,7 +862,7 @@ export function Checkout() {
                         <div className="line-clamp-2 font-bold leading-tight">{p.display_name}</div>
                         <div className="text-sm font-bold text-brand">{p.price_text}</div>
                         <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                          {cardOOS(p) ? "⚠ Hết hàng" : (m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}
+                          {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${m.stock_uom}` : null) || p.stock_status}
                         </div>
                       </div>
                     </div>
@@ -885,7 +885,7 @@ export function Checkout() {
                       <div className="line-clamp-2 font-bold leading-tight">{p.display_name}</div>
                       <div className="text-sm font-bold text-brand">{p.price_text}</div>
                       <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                        {cardOOS(p) ? "⚠ Hết hàng" : (m && `Còn ${trim(m.stock_qty)} ${m.stock_uom}`) || p.stock_status}
+                        {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${m.stock_uom}` : null) || p.stock_status}
                       </div>
                     </div>
                     {!line && (
@@ -1337,8 +1337,11 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
       ) : (
         <div className="flex items-center justify-between gap-2 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-2.5">
           <div className="min-w-0 text-sm">
-            <div className="font-bold text-emerald-800">🟢 Ca mở {shift.opened_at}</div>
-            <div className="text-emerald-700">Đầu ca {shift.opening_text} · Tiền mặt bán {shift.cash_sales_text}</div>
+            <div className="font-bold text-emerald-800">🟢 Ca mở · {shift.opened_at}</div>
+            {/* Lead with the figure that matters — what SHOULD be in the drawer now (always
+                meaningful), not the net "cash sold" which can go negative after returns. */}
+            <div className="text-emerald-800">💰 Dự kiến trong két: <b>{shift.expected_text}</b></div>
+            <div className="text-xs text-emerald-700/80">Đầu ca {shift.opening_text} · Tiền mặt trong ca {shift.cash_sales_text}</div>
           </div>
           <button onClick={() => setMode("close")} className="shrink-0 rounded-lg bg-red-600 px-3 py-2 font-bold text-white">🔴 Đóng ca</button>
         </div>

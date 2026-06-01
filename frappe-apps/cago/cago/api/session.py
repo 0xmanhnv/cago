@@ -37,6 +37,7 @@ def bootstrap():
 		"kiosk_chips": chatbot_config.kiosk_chips(),
 		"kiosk_debt_visible": _kiosk_debt_visible(),
 		"allow_price_edit": _allow_price_edit(),
+		"staff_can_collect_debt": _staff_can_collect_debt(),
 		"has_posawesome": has_posawesome,
 		# Single source of truth for the POS Awesome desk URL (frontend never hardcodes the
 		# desk path), gated to users who can open it. None = hide the button.
@@ -58,3 +59,10 @@ def _allow_price_edit():
 	UI hint only — the server re-checks this before honouring any rate override in quick_sale."""
 	company = _company()
 	return bool(company and frappe.db.get_value("Company", company, "cago_allow_price_edit"))
+
+
+def _staff_can_collect_debt():
+	"""Owner toggle: may staff record customer debt repayments? UI hint only — debt.record_repayment
+	re-checks via ensure_can_collect_debt."""
+	company = _company()
+	return bool(company and frappe.db.get_value("Company", company, "cago_staff_can_collect_debt"))

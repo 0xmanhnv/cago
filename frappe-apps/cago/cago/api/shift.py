@@ -48,7 +48,22 @@ def _cashier_cash_sales(user, since):
 		""",
 		(user, since),
 	)
-	return (flt(cash_in[0][0]) if cash_in else 0.0) - (flt(change_out[0][0]) if change_out else 0.0)
+	# Cash debt collections (Khách trả nợ) made by this cashier also land in the drawer.
+	repaid = frappe.db.sql(
+		"""
+		select coalesce(sum(pe.paid_amount), 0)
+		from `tabPayment Entry` pe
+		join `tabAccount` acc on acc.name = pe.paid_to
+		where pe.docstatus = 1 and pe.payment_type = 'Receive'
+		  and pe.cago_cashier = %s and pe.creation >= %s and acc.account_type = 'Cash'
+		""",
+		(user, since),
+	)
+	return (
+		(flt(cash_in[0][0]) if cash_in else 0.0)
+		- (flt(change_out[0][0]) if change_out else 0.0)
+		+ (flt(repaid[0][0]) if repaid else 0.0)
+	)
 
 
 def _shift_dto(doc):

@@ -56,7 +56,7 @@ export function StaffProductDetail({ code }: { code: string }) {
     <div>
       <div className="mb-3.5 flex items-center gap-2.5">
         <button onClick={() => router.push("/staff/search")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ← Quay lại
+          ‹ Quay lại
         </button>
       </div>
       <div className="rounded-xl bg-white p-4">

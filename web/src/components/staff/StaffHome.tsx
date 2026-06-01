@@ -64,6 +64,11 @@ export function StaffHome() {
         <Btn onClick={() => router.push("/staff/verify")} color="bg-amber-500">
           🙋 Xem nợ khách
         </Btn>
+        {boot?.staff_can_collect_debt && (
+          <Btn onClick={() => router.push("/staff/record-payment")} color="bg-brand">
+            💵 Khách trả nợ
+          </Btn>
+        )}
         <Btn onClick={() => router.push("/staff/assistant")} color="bg-violet-600">
           🤖 Hỏi trợ lý
         </Btn>

@@ -69,7 +69,7 @@ export function ProductDetail({ code }: { code: string }) {
           onClick={goBack}
           className="shrink-0 whitespace-nowrap rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark"
         >
-          ← Quay lại
+          ‹ Quay lại
         </button>
       </div>
 

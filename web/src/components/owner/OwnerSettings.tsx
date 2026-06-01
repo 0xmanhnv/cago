@@ -10,6 +10,7 @@ export function OwnerSettings() {
   const [b, setB] = useState({ bank_bin: "", account: "", account_name: "" });
   const [debtVisible, setDebtVisible] = useState(false);
   const [priceEdit, setPriceEdit] = useState(false);
+  const [staffCollect, setStaffCollect] = useState(false);
   const [msg, setMsg] = useState<React.ReactNode>(null);
 
   useEffect(() => {
@@ -22,6 +23,9 @@ export function OwnerSettings() {
     frappeCall<{ enabled: boolean }>("cago.api.verify.get_price_edit", {}, { method: "GET" })
       .then((d) => setPriceEdit(!!d.enabled))
       .catch(() => {});
+    frappeCall<{ enabled: boolean }>("cago.api.verify.get_staff_collect_debt", {}, { method: "GET" })
+      .then((d) => setStaffCollect(!!d.enabled))
+      .catch(() => {});
   }, []);
 
   const toggleDebt = async () => {
@@ -33,6 +37,11 @@ export function OwnerSettings() {
     const next = !priceEdit;
     await frappeCall("cago.api.verify.set_price_edit", { on: next ? 1 : 0 });
     setPriceEdit(next);
+  };
+  const toggleStaffCollect = async () => {
+    const next = !staffCollect;
+    await frappeCall("cago.api.verify.set_staff_collect_debt", { on: next ? 1 : 0 });
+    setStaffCollect(next);
   };
 
   const save = async () => {
@@ -77,6 +86,15 @@ export function OwnerSettings() {
         <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
           <input type="checkbox" checked={priceEdit} onChange={togglePriceEdit} className="h-5 w-5" />
           Cho phép sửa giá từng dòng ở màn hình bán
+        </label>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-4">
+        <div className="font-extrabold">Cho phép nhân viên thu nợ khách</div>
+        <p className="text-slate-500">Khi bật: nhân viên được ghi &quot;Khách trả nợ&quot; — tiền vào sổ quỹ ca của nhân viên đó và hệ thống ghi rõ ai thu. Khi tắt: chỉ chủ thu nợ.</p>
+        <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
+          <input type="checkbox" checked={staffCollect} onChange={toggleStaffCollect} className="h-5 w-5" />
+          Cho phép nhân viên thu nợ
         </label>
       </div>
     </div>

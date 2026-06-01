@@ -207,9 +207,28 @@ def ensure_payment_fields():
 					"insert_after": "cago_kiosk_debt_visible",
 					"description": "Bật: người bán được sửa đơn giá từng mặt hàng ngay khi bán (bớt giá). Tắt: luôn bán theo bảng giá.",
 				},
-			]
+				{
+					"fieldname": "cago_staff_can_collect_debt",
+					"label": "Cho phép nhân viên thu nợ khách",
+					"fieldtype": "Check",
+					"insert_after": "cago_allow_price_edit",
+					"description": "Bật: nhân viên được ghi 'Khách trả nợ' (tiền vào sổ quỹ ca, ghi rõ người thu). Tắt: chỉ chủ thu nợ.",
+				},
+			],
+			"Payment Entry": [
+				{
+					"fieldname": "cago_cashier",
+					"label": "Cago Cashier",
+					"fieldtype": "Link",
+					"options": "User",
+					"insert_after": "reference_date",
+					"no_copy": 1,
+					"read_only": 1,
+					"description": "Người thực hiện (thu nợ) — attribution for the till shift.",
+				},
+			],
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Company bank fields ensured: cago_bank_*, cago_kiosk_debt_visible, cago_allow_price_edit")
+	print("Company/Payment Entry fields ensured: cago_staff_can_collect_debt, cago_cashier")

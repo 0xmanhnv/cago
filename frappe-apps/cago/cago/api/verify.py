@@ -83,6 +83,23 @@ def set_price_edit(on):
 	return {"enabled": bool(val)}
 
 
+@frappe.whitelist()
+def get_staff_collect_debt():
+	"""Owner: may staff record customer debt repayments (Khách trả nợ)?"""
+	ensure_owner()
+	return {"enabled": bool(frappe.db.get_value("Company", debt._company(), "cago_staff_can_collect_debt"))}
+
+
+@frappe.whitelist()
+def set_staff_collect_debt(on):
+	"""Owner: enable/disable staff debt collection."""
+	ensure_owner()
+	val = 1 if cint(on) else 0
+	frappe.db.set_value("Company", debt._company(), "cago_staff_can_collect_debt", val)
+	frappe.db.commit()
+	return {"enabled": bool(val)}
+
+
 def _owes(customer):
 	# Company-scoped to match sales._customer_outstanding — a multi-company site must not sum a
 	# customer's receivables across companies in the kiosk debt lookup.
