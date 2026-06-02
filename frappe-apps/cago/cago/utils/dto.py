@@ -18,6 +18,7 @@ from frappe.query_builder.functions import Sum
 from frappe.utils import flt
 
 from cago.utils.safety import safety_warning_for
+from cago.utils.slug import slugify as _slugify
 
 SELLING_PRICE_LIST = "Standard Selling"
 WHOLESALE_PRICE_LIST = "Giá sỉ"  # optional second selling list for wholesale customers
@@ -306,6 +307,11 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 	if public_only:
 		base["cago_is_public_visible"] = 1
 	if category:
+		# The URL carries a slug (e.g. "cam-chan-nuoi"); resolve it back to the group name.
+		# Accepts a real group name too (back-compat). Unknown → keep as-is (yields no match).
+		from cago.utils.slug import group_from_slug
+
+		category = group_from_slug(category) or category
 		# A parent category shows its whole subtree (children's products too); a leaf is just itself.
 		# Query the nested set by lft/rgt with frappe.get_all (NOT get_list) so it works for guests
 		# too — get_descendants_of applies user permissions and returns nothing for the kiosk Guest.
@@ -458,6 +464,7 @@ def public_dto(item):
 		"item_code": item.name,
 		"display_name": item.cago_display_name or item.item_name,
 		"category": item.item_group,
+		"category_slug": _slugify(item.item_group),
 		**{f"category_{k}": v for k, v in category_meta(item.item_group).items()},
 		"image": item.image,
 		"images": image_list(item),

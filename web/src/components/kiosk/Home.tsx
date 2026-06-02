@@ -65,8 +65,8 @@ export function Home() {
       <div className="grid grid-cols-2 gap-4">
         {categories.map((c, i) => (
           <CategoryCard
-            key={c.category}
-            onClick={() => nav.openList(c.category)}
+            key={c.slug}
+            onClick={() => nav.openList(c.slug)}
             color={catColor(c.color)}
             icon={catIcon(c.icon)}
             title={c.category}

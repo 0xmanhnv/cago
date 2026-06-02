@@ -185,6 +185,16 @@ def ensure_shift_fields():
 	print("Sales Invoice shift field ensured: cago_cashier")
 
 
+def ensure_user_fields():
+	"""Per-account UI prefs (owner home '⭐ Hay dùng' layout follows the account, not the device)."""
+	create_custom_fields(
+		{"User": [{"fieldname": "cago_home_favorites", "label": "Cago Home Favorites", "fieldtype": "Small Text", "hidden": 1, "no_copy": 1}]},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("User field ensured: cago_home_favorites")
+
+
 def ensure_stock_entry_fields():
 	"""Mark whether a stock-in had an official invoice. Suppliers (esp. phân/đạm) often put part
 	of a delivery on the invoice and part off-book (their tax dodge) — the goods + cost are real

@@ -13,6 +13,7 @@ from frappe.query_builder.functions import Count
 from frappe.utils import add_to_date, cint, now_datetime
 
 from cago.utils import dto
+from cago.utils.slug import slugify
 
 # Guard rails for the guest-writable wanted list (anti-abuse / DoS).
 MAX_WANTED_ITEMS = 50
@@ -72,6 +73,7 @@ def category_tree(public_only=True):
 		g = groups.get(name)
 		return {
 			"category": name,
+			"slug": slugify(name),  # URL-safe id for ?category= (Vietnamese name stays as the label)
 			"count": count,
 			"icon": (g and g.cago_icon) or dto.DEFAULT_CATEGORY_ICON,
 			"color": (g and g.cago_color) or dto.DEFAULT_CATEGORY_COLOR,

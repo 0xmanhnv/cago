@@ -17,7 +17,7 @@ export function ProductDetail({ code }: { code: string }) {
   // "Quay lại" returns to wherever the customer came FROM (the assistant chat, a category list,
   // the map, or another product). Fall back to this product's category list on a fresh/deep-linked
   // load with no in-app history.
-  const goBack = () => nav.goBack(() => nav.openList(product?.category || ""));
+  const goBack = () => nav.goBack(() => nav.openList(product?.category_slug || product?.category || ""));
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,7 +182,7 @@ export function ProductDetail({ code }: { code: string }) {
         {cartQty > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-3">
             <button
-              onClick={() => nav.openList(product.category || "")}
+              onClick={() => nav.openList(product.category_slug || product.category || "")}
               className="min-h-touch rounded-xl bg-brand-light py-3 text-lg font-extrabold text-brand-dark"
             >
               ➕ Chọn thêm

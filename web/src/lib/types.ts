@@ -22,6 +22,7 @@ export interface Product {
   item_code: string;
   display_name: string;
   category?: string;
+  category_slug?: string;
   category_icon?: string;
   category_color?: string;
   image?: string | null;
@@ -55,7 +56,8 @@ export interface Product {
 }
 
 export interface Category {
-  category: string;
+  category: string; // Vietnamese display name (label)
+  slug: string; // URL-safe id used in ?category=
   count: number;
   icon: string;
   color: string;

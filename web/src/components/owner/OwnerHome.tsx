@@ -43,7 +43,6 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "supplier", "cashbook"] },
   { title: "📊 Báo cáo", keys: ["reports"] },
 ];
-const FAV_KEY = "cago_owner_fav";
 
 export function OwnerHome() {
   const router = useRouter();
@@ -51,27 +50,29 @@ export function OwnerHome() {
   const posUrl = boot?.pos_url;
   const [digest, setDigest] = useState<Digest | null>(null);
   const [fav, setFav] = useState<string[]>([]);
+  const [showAll, setShowAll] = useState(false); // collapse the full menu; expand on demand
   const favRef = useRef<string[]>([]);
   const dragFrom = useRef<number | null>(null);
   favRef.current = fav;
 
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
-    try {
-      const saved = JSON.parse(localStorage.getItem(FAV_KEY) || "[]");
-      if (Array.isArray(saved)) setFav(saved.filter((k: string) => ACTIONS[k]));
-    } catch {
-      /* ignore */
-    }
+    // Favorites are stored per ACCOUNT (follows the owner across devices), not per browser.
+    frappeCall<string[]>("cago.api.prefs.get_home_favorites", {}, { method: "GET" })
+      .then((saved) => {
+        const a = Array.isArray(saved) ? saved.filter((k) => ACTIONS[k]) : [];
+        setFav(a);
+        if (!a.length) setShowAll(true); // nothing pinned yet → show the full menu so they can pin
+      })
+      .catch(() => setShowAll(true));
   }, []);
 
+  const persist = (next: string[]) => {
+    frappeCall("cago.api.prefs.set_home_favorites", { keys: JSON.stringify(next) }).catch(() => {});
+  };
   const saveFav = (next: string[]) => {
     setFav(next);
-    try {
-      localStorage.setItem(FAV_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
+    persist(next);
   };
   const togglePin = (key: string) => saveFav(fav.includes(key) ? fav.filter((k) => k !== key) : [...fav, key]);
 
@@ -93,11 +94,7 @@ export function OwnerHome() {
     const onUp = () => {
       if (dragFrom.current != null) {
         dragFrom.current = null;
-        try {
-          localStorage.setItem(FAV_KEY, JSON.stringify(favRef.current));
-        } catch {
-          /* ignore */
-        }
+        frappeCall("cago.api.prefs.set_home_favorites", { keys: JSON.stringify(favRef.current) }).catch(() => {});
       }
     };
     window.addEventListener("pointermove", onMove);
@@ -188,8 +185,16 @@ export function OwnerHome() {
         </div>
       )}
 
-      {/* Grouped sections (always available, scientific grouping). */}
-      {GROUPS.map((g) => (
+      {/* Toggle: keep the page short — favorites stay, the full menu hides behind this. */}
+      <button
+        onClick={() => setShowAll((v) => !v)}
+        className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-200 bg-white py-3 text-lg font-extrabold text-brand-dark"
+      >
+        {showAll ? "▴ Thu gọn" : "🧰 Tất cả chức năng ▾"}
+      </button>
+
+      {/* Grouped sections (scientific grouping); hidden by default to reduce clutter. */}
+      {showAll && GROUPS.map((g) => (
         <div key={g.title} className="mb-3">
           <div className="mb-1.5 ml-1 text-base font-bold text-slate-500">{g.title}</div>
           <div className="grid grid-cols-2 gap-3.5">

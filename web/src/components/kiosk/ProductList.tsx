@@ -153,7 +153,16 @@ export function ProductList() {
     return () => io.disconnect();
   }, [hasMore, shown, view.length]);
 
-  const title = category || (q.trim() ? `Tìm: ${q.trim()}` : "Tất cả");
+  // `category` is a slug → show the Vietnamese label from the loaded categories.
+  const catLabel = (slug: string): string => {
+    for (const t of cats) {
+      if (t.slug === slug) return t.category;
+      const c = (t.children || []).find((x) => x.slug === slug);
+      if (c) return c.category;
+    }
+    return slug;
+  };
+  const title = category ? catLabel(category) : q.trim() ? `Tìm: ${q.trim()}` : "Tất cả";
   const chip = (active: boolean) =>
     `flex-none whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ${
       active ? "border-brand bg-brand text-white" : "border-emerald-300 bg-brand-light text-brand-dark"
@@ -183,7 +192,7 @@ export function ProductList() {
         <input
           value={qInput}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder={category ? `Tìm trong ${category}...` : "Tìm sản phẩm..."}
+          placeholder={category ? `Tìm trong ${catLabel(category)}...` : "Tìm sản phẩm..."}
           className="mb-2.5 w-full rounded-2xl border-2 border-emerald-200 bg-white p-3 text-lg shadow-soft outline-none transition focus:border-brand"
         />
         <div className="flex items-center gap-2">
@@ -328,26 +337,26 @@ function CategoryNav({
   active: string;
   onPick: (category: string) => void;
 }) {
-  // Which top-level branch is currently active (so we expand its children).
-  const isActiveBranch = (t: Category) => t.category === active || (t.children || []).some((c) => c.category === active);
+  // Which top-level branch is currently active (so we expand its children). `active` is a slug.
+  const isActiveBranch = (t: Category) => t.slug === active || (t.children || []).some((c) => c.slug === active);
 
   if (variant === "chips") {
     // Flat strip: All + top-level; expand the active branch's children right after their parent.
-    const strip: { category: string; icon: string; label: string; child?: boolean; on: boolean }[] = [
-      { category: "", icon: "🛒", label: "Tất cả", on: active === "" },
+    const strip: { slug: string; icon: string; label: string; child?: boolean; on: boolean }[] = [
+      { slug: "", icon: "🛒", label: "Tất cả", on: active === "" },
     ];
     for (const t of cats) {
-      strip.push({ category: t.category, icon: t.icon, label: t.category, on: t.category === active });
+      strip.push({ slug: t.slug, icon: t.icon, label: t.category, on: t.slug === active });
       if ((t.children?.length || 0) > 0 && isActiveBranch(t)) {
-        for (const c of t.children!) strip.push({ category: c.category, icon: c.icon, label: c.category, child: true, on: c.category === active });
+        for (const c of t.children!) strip.push({ slug: c.slug, icon: c.icon, label: c.category, child: true, on: c.slug === active });
       }
     }
     return (
       <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
         {strip.map((c) => (
           <button
-            key={`${c.child ? "c" : "p"}:${c.category || "__all"}`}
-            onClick={() => onPick(c.category)}
+            key={`${c.child ? "c" : "p"}:${c.slug || "__all"}`}
+            onClick={() => onPick(c.slug)}
             className={`flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-bold ${
               c.on ? "border-brand bg-brand text-white" : c.child ? "border-emerald-200 bg-emerald-50 text-brand-dark" : "border-emerald-200 bg-white text-brand-dark"
             }`}
@@ -392,14 +401,14 @@ function CategoryNav({
       <div className="px-2 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-slate-400">Loại hàng</div>
       <Row icon="🛒" label="Tất cả" on={active === ""} onClick={() => onPick("")} />
       {cats.map((t) => (
-        <div key={t.category}>
-          <Row icon={t.icon} label={t.category} count={t.count} on={t.category === active} onClick={() => onPick(t.category)} />
+        <div key={t.slug}>
+          <Row icon={t.icon} label={t.category} count={t.count} on={t.slug === active} onClick={() => onPick(t.slug)} />
           {/* Children expand/collapse smoothly (grid-rows 0fr↔1fr animates height both ways). */}
           {(t.children?.length || 0) > 0 && (
             <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isActiveBranch(t) ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
               <div className="overflow-hidden">
                 {t.children!.map((c) => (
-                  <Row key={c.category} icon={c.icon} label={c.category} count={c.count} on={c.category === active} child onClick={() => onPick(c.category)} />
+                  <Row key={c.slug} icon={c.icon} label={c.category} count={c.count} on={c.slug === active} child onClick={() => onPick(c.slug)} />
                 ))}
               </div>
             </div>
