@@ -33,8 +33,12 @@ def redeem_value():
 
 
 def _add_points(customer, delta):
-	current = flt(frappe.db.get_value("Customer", customer, "cago_points"))
-	frappe.db.set_value("Customer", customer, "cago_points", max(0, int(current + delta)))
+	# Atomic in-place delta (floored at 0) so two concurrent sales for the same customer can't
+	# clobber each other via a read-then-write race. GREATEST keeps the balance non-negative.
+	frappe.db.sql(
+		"UPDATE `tabCustomer` SET cago_points = GREATEST(0, COALESCE(cago_points, 0) + %s) WHERE name = %s",
+		(int(delta), customer),
+	)
 
 
 def accrue(doc, method=None):

@@ -456,6 +456,20 @@ def sale_units(item):
 	return out
 
 
+def sale_units_from_prices(prices, stock_uom):
+	"""Build sale_units from a prefetched per-uom price map {uom: rate} — the BATCH path, with no
+	per-item DB calls (used by catalog_snapshot). Mirrors sale_units(): stock unit first, then any
+	priced retail UOM."""
+	units = [
+		{"uom": stock_uom, "label": uom_label(stock_uom), "price_text": format_price(_rate_for(prices, stock_uom), stock_uom)}
+	]
+	for uom, rate in (prices or {}).items():
+		if not uom or uom == stock_uom or not rate:
+			continue
+		units.append({"uom": uom, "label": uom_label(uom), "price_text": format_price(rate, uom)})
+	return units
+
+
 def public_dto(item):
 	"""Kiosk-safe DTO. No price number, no internal fields — only display text."""
 	rate = get_selling_price(item.name)

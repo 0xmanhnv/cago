@@ -20,6 +20,15 @@ def _open_shift_name(user):
 	return frappe.db.get_value("Cago Till Shift", {"cashier": user, "status": "Open"}, "name")
 
 
+def ensure_open_shift(user=None):
+	"""Block a live counter sale unless the cashier has an open till shift — so every sale's cash is
+	accounted to a shift (drawer reconciliation). NOT called for offline-queued sales (those carry a
+	client_uuid and are attributed by their posted_at window), so syncing after close still works."""
+	user = user or frappe.session.user
+	if not _open_shift_name(user):
+		frappe.throw(_("Bạn chưa mở ca bán hàng. Hãy mở ca trước khi bán."), title=_("Chưa mở ca"))
+
+
 def _cashier_cash_sales(user, since):
 	"""Net cash that should be in THIS cashier's drawer since `since`.
 

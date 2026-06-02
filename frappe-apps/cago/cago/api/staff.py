@@ -106,18 +106,23 @@ def catalog_snapshot():
 	rows = frappe.get_all(
 		"Item",
 		filters={"disabled": 0},
-		fields=[
-			"name", "item_name", "cago_display_name", "image", "item_group", "stock_uom",
-			"cago_stock_auto", "cago_is_chemical", "cago_shelf_location",
-		],
+		fields=dto.LIST_FIELDS,
 		order_by="cago_kiosk_sort_order asc, item_name asc",
 	)
+	codes = [r.name for r in rows]
+	# Batched lookups — one query each — instead of ~6–8 queries per item (the old per-row get_doc).
+	pmap = dto._price_map(codes)
+	qty_map = dto.bin_qty_map([r.name for r in rows if r.cago_stock_auto])
+	cat_map = dto.category_meta_map([r.item_group for r in rows])
+	bc_map = {}
+	for b in frappe.get_all("Item Barcode", filters={"parent": ["in", codes]}, fields=["parent", "barcode"]):
+		bc_map.setdefault(b.parent, []).append(b.barcode)
 	out = []
 	for r in rows:
-		item = frappe.get_doc("Item", r.name)  # needed for sale_units (uoms + per-UOM Item Prices)
-		rate = dto.get_selling_price(r.name)
-		qty = dto.get_actual_qty(r.name) if r.cago_stock_auto else 0
-		cat = dto.category_meta(r.item_group)
+		prices = pmap.get(r.name) or {}
+		rate = dto._rate_for(prices, r.stock_uom)
+		qty = qty_map.get(r.name, 0) if r.cago_stock_auto else None
+		cat = cat_map.get(r.item_group) or {"icon": dto.DEFAULT_CATEGORY_ICON, "color": dto.DEFAULT_CATEGORY_COLOR}
 		out.append(
 			{
 				"item_code": r.name,
@@ -129,14 +134,14 @@ def catalog_snapshot():
 				"price_text": dto.format_price(rate, r.stock_uom),
 				"selling_price": rate,
 				"unit": r.stock_uom,
-				"stock_status": dto.stock_status_for(r, qty),
+				"stock_status": dto.stock_status_for(r, qty or 0),
 				"stock_auto": bool(r.cago_stock_auto),
-				"actual_stock_qty": qty if r.cago_stock_auto else None,
+				"actual_stock_qty": qty,
 				"is_chemical": bool(r.cago_is_chemical),
 				"shelf_location": r.cago_shelf_location,
-				"safety_notes": dto.safety_warning_for(item),
-				"sale_units": dto.sale_units(item),
-				"barcodes": [b.barcode for b in (item.get("barcodes") or [])],
+				"safety_notes": dto.safety_warning_for(r),
+				"sale_units": dto.sale_units_from_prices(prices, r.stock_uom),
+				"barcodes": bc_map.get(r.name, []),
 			}
 		)
 	return out

@@ -17,7 +17,7 @@ from frappe.utils import cint, flt, nowdate
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
-from cago.utils.permissions import ensure_cap, ensure_internal, ensure_lang, selling_limits
+from cago.utils.permissions import ensure_cap, ensure_internal, ensure_lang, is_owner, selling_limits
 from cago.utils.privileged import as_user
 
 SELLING_PRICE_LIST = dto.SELLING_PRICE_LIST
@@ -90,11 +90,17 @@ def _conversion_factor(item_code, uom, stock_uom):
 	return flt(cf) or 1.0
 
 
-def _check_stock(code, qty, uom, stock_uom):
+def _check_stock(code, qty, uom, stock_uom, warehouse=None):
 	"""Friendly Vietnamese stock check (ERPNext's own error is raw HTML in English)."""
 	if frappe.db.get_single_value("Stock Settings", "allow_negative_stock"):
 		return
-	on_hand = flt(dto.get_actual_qty(code))  # in stock units
+	# Check the warehouse the sale actually draws from (a pre-flight; ERPNext re-validates on submit).
+	# Using the all-warehouse total here would pass an item that's only stocked elsewhere, then fail
+	# with the raw English error at submit. Fall back to the total when no warehouse is given.
+	if warehouse:
+		on_hand = flt(frappe.db.get_value("Bin", {"item_code": code, "warehouse": warehouse}, "actual_qty"))
+	else:
+		on_hand = flt(dto.get_actual_qty(code))  # in stock units
 	need = qty * _conversion_factor(code, uom, stock_uom)
 	if need > on_hand + 1e-6:
 		name = frappe.db.get_value("Item", code, "cago_display_name") or frappe.db.get_value("Item", code, "item_name") or code
@@ -226,7 +232,7 @@ def credit_sale(customer, items, note=None):
 			continue
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
-		_check_stock(code, qty, uom, stock_uom)
+		_check_stock(code, qty, uom, stock_uom, wh)
 		rows.append(
 			{
 				"item_code": code,
@@ -288,6 +294,27 @@ def _customer_outstanding(customer):
 		fields=["debit", "credit"],
 	)
 	return flt(sum(flt(r.debit) - flt(r.credit) for r in rows))
+
+
+def _outstanding_map(customers):
+	"""Batch receivable balances for many customers in ONE grouped query (avoids the per-customer
+	GL scan that made customers_snapshot do thousands of full-table scans)."""
+	customers = [c for c in set(customers) if c]
+	if not customers:
+		return {}
+	# Parameterised grouped query (frappe.get_all rejects SQL functions in `fields` on v16).
+	placeholders = ", ".join(["%s"] * len(customers))
+	rows = frappe.db.sql(
+		f"""
+		select party, sum(debit) - sum(credit) as bal
+		from `tabGL Entry`
+		where party_type = 'Customer' and is_cancelled = 0 and company = %s and party in ({placeholders})
+		group by party
+		""",
+		(debt._company(), *customers),
+		as_dict=True,
+	)
+	return {r.party: flt(r.bal) for r in rows}
 
 
 @frappe.whitelist()
@@ -377,11 +404,12 @@ def customers_snapshot(limit=2000):
 		limit=cint(limit),
 		order_by="customer_name asc",
 	)
+	bal_map = _outstanding_map([c.name for c in rows])  # one grouped GL query, not one per customer
 	out = []
 	for c in rows:
 		if c.customer_name == "Khách lẻ":
 			continue
-		bal = _customer_outstanding(c.name)
+		bal = bal_map.get(c.name, 0.0)
 		out.append(
 			{
 				"customer": c.name,
@@ -580,11 +608,22 @@ def return_sale(invoice, lines=None):
 			ret.set("items", kept)
 			# A partial return refunds only the chosen lines. make_sales_return copies the whole
 			# invoice's discount + payment, which no longer match the reduced total — so drop the
-			# discount and set the refund payment to the partial total (negative). Refund = sum of
-			# returned line amounts (discounts aren't pro-rated on partial returns).
-			ret.discount_amount = 0
+			# copied discount and instead PRO-RATE the original whole-bill discount (manual + coupon
+			# + redeemed points, all folded into discount_amount) onto the returned lines. Applied as
+			# a Grand-Total discount on the return (scaling line rates doesn't survive insert —
+			# ERPNext re-applies the price-list rate). Otherwise a partial return of a discounted bill
+			# refunds the gross price and over-pays the customer.
 			ret.additional_discount_percentage = 0
-			partial_total = sum(flt(x.qty) * flt(x.rate) for x in kept)  # negative
+			ret.discount_amount = 0
+			gross = sum(flt(x.qty) * flt(x.rate) for x in kept)  # negative magnitude of returned lines
+			src = frappe.get_doc("Sales Invoice", invoice)
+			orig_gross = flt(src.total) or flt(src.net_total)
+			orig_disc = flt(src.discount_amount)
+			ret_disc = round(orig_disc * abs(gross) / orig_gross) if (orig_disc and orig_gross) else 0
+			if ret_disc:
+				ret.apply_discount_on = "Grand Total"
+				ret.discount_amount = -ret_disc  # negative → reduces the refund magnitude on a return
+			partial_total = gross + ret_disc  # net refund (negative), matches post-discount grand total
 			if ret.is_pos and ret.get("payments"):
 				first = ret.payments[0]
 				first.amount = partial_total
@@ -655,13 +694,25 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	# right till-shift window even when it syncs minutes/hours later. Online sells = now.
 	posting_date, posting_time, set_posting = nowdate(), None, 0
 	if posted_at:
-		from frappe.utils import get_datetime
+		from frappe.utils import add_to_date, get_datetime, now_datetime
 
 		_dt = get_datetime(posted_at)
-		posting_date, posting_time, set_posting = _dt.strftime("%Y-%m-%d"), _dt.strftime("%H:%M:%S"), 1
+		_now = now_datetime()
+		# Guard a forged/wrong client clock: only honour a timestamp within [now−7d, now+5min]
+		# (offline backlog is at most a couple of days). Otherwise fall back to now so a bad
+		# posted_at can't back/forward-date the sale and skew the daily reports.
+		if _dt and add_to_date(_now, days=-7) <= _dt <= add_to_date(_now, minutes=5):
+			posting_date, posting_time, set_posting = _dt.strftime("%Y-%m-%d"), _dt.strftime("%H:%M:%S"), 1
 	# Capture the real cashier BEFORE any Administrator elevation (as_user), so the till-shift
 	# reconciliation can attribute this sale's cash to the person who made it.
 	cashier = frappe.session.user
+	# A live counter sale must be inside an open till shift (cash accountability). Exempt: the owner
+	# (sells without a formal shift) and offline-queued sales (client_uuid — attributed by posted_at;
+	# they may sync after the shift closed). Skipped under the test runner (tests open no shift).
+	if client_uuid is None and not frappe.flags.in_test and not is_owner():
+		from cago.api.shift import ensure_open_shift
+
+		ensure_open_shift(cashier)
 	items = frappe.parse_json(items) if isinstance(items, str) else (items or [])
 	payments = frappe.parse_json(payments) if isinstance(payments, str) else payments
 	if not items:
@@ -693,7 +744,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			continue
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
-		_check_stock(code, qty, uom, stock_uom)
+		_check_stock(code, qty, uom, stock_uom, wh)
 		rate = _rate_for_uom(code, uom, stock_uom, pl)
 		# A 0/empty rate means "no override" (use the catalogue price), not "sell for free".
 		overridden = allow_price_edit and it and (it.get("rate") not in (None, "")) and flt(it.get("rate")) > 0

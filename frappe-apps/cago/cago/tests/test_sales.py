@@ -167,6 +167,38 @@ class TestQuickSale(FrappeTestCase):
 		tt = get_time(str(si.posting_time))
 		self.assertEqual((tt.hour, tt.minute), (8, 15))
 
+	def test_quick_sale_posted_at_out_of_range_falls_back_to_today(self):
+		"""A forged/stale posted_at (here: years ago) is ignored so it can't back-date the GL/reports."""
+		from cago.api import purchasing, sales
+		from frappe.utils import nowdate
+
+		purchasing.receive_stock(ITEM, 10)
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", posted_at="2020-01-01 08:00:00")
+		self.assertEqual(str(frappe.get_doc("Sales Invoice", r["invoice"]).posting_date), nowdate())
+
+	def test_live_sale_requires_open_shift(self):
+		"""A non-owner cashier can't ring a LIVE sale with no open till shift; opening one unblocks it.
+		(The guard is skipped under the test runner, so we exercise it with in_test temporarily off.)"""
+		from cago.api import purchasing, sales, shift
+
+		purchasing.receive_stock(ITEM, 10)
+		seller = _seller_user()
+		frappe.flags.in_test = False
+		try:
+			frappe.set_user(seller)
+			with self.assertRaises(frappe.ValidationError):
+				sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash")
+			shift.open_shift(0)
+			self.assertTrue(sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash")["invoice"])
+			# Offline-queued sales (client_uuid) stay exempt even with the guard active.
+			frappe.db.set_value("Cago Till Shift", {"cashier": seller, "status": "Open"}, "status", "Closed")
+			self.assertTrue(
+				sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", client_uuid=frappe.generate_hash(length=20))["invoice"]
+			)
+		finally:
+			frappe.set_user("Administrator")
+			frappe.flags.in_test = True
+
 	def test_cash_sale_is_paid_and_reduces_stock(self):
 		from cago.api import purchasing, sales
 
@@ -399,6 +431,28 @@ class TestReturnsAndAdjust(FrappeTestCase):
 		r = purchasing.adjust_stock(ITEM, 7)
 		self.assertAlmostEqual(r["qty"], 7, places=2)
 		self.assertAlmostEqual(flt_qty(ITEM), 7, places=2)
+
+	def test_partial_return_prorates_discount(self):
+		"""Returning 1 of 2 units on a 10%-discounted invoice refunds the NET price paid (~half the
+		discounted total), not the gross line price."""
+		from cago.api import purchasing, sales
+		from frappe.utils import flt
+
+		purchasing.receive_stock(ITEM, 10)
+		su = frappe.db.get_value("Item", ITEM, "stock_uom")
+		base = sales._rate_for_uom(ITEM, su, su)
+		old_floor = frappe.db.get_value("Item", ITEM, "cago_min_price")
+		frappe.db.set_value("Item", ITEM, "cago_min_price", 0)  # isolate from the floor check
+		try:
+			disc = round(base * 2 * 0.10)
+			s = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 2}]), "cash", discount_amount=disc)
+			si = frappe.get_doc("Sales Invoice", s["invoice"])
+			rr = sales.return_sale(si.name, json.dumps([{"item_code": ITEM, "qty": 1}]))
+			ret = frappe.get_doc("Sales Invoice", rr["return_invoice"])
+			# Refund of 1 of 2 units = half the discounted grand total (pro-rated), not half the gross.
+			self.assertAlmostEqual(abs(flt(ret.grand_total)), flt(si.grand_total) / 2, delta=2)
+		finally:
+			frappe.db.set_value("Item", ITEM, "cago_min_price", old_floor or 0)
 
 
 class TestPosHandoff(FrappeTestCase):
