@@ -85,13 +85,73 @@ function dedupe(pts: Pt[]): Pt[] {
   return pts.filter((p, i) => i === 0 || !samePt(p, pts[i - 1]));
 }
 
-/** Shortest, intuitive route from `start` to `target`: a right-angle ("arrow") path — go vertically
- * to the target's row, then horizontally into it. Earlier this snaked along a drawn aisle (mall-style),
- * which for a small shop looked long/weird; a rural customer expects the direct way. The aisle is still
- * drawn (grey) for context, but the red route is the shortest path. (aisle param kept for the signature.)
- */
-export function routeOnFloor(_aisle: Pt[], start: Pt, target: Pt): Pt[] {
-  return dedupe([start, { x: start.x, y: target.y }, target]);
+type Rect = { x: number; y: number; w: number; h: number };
+const MARGIN = 1.2; // clearance around zone boxes (0–100 space) so the route skirts, not grazes
+
+const inRect = (p: Pt, r: Rect) => p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h;
+
+function segCrosses(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
+  const o = (p: Pt, q: Pt, r: Pt) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  return (o(a, b, c) > 0) !== (o(a, b, d) > 0) && (o(c, d, a) > 0) !== (o(c, d, b) > 0);
+}
+
+// Does segment a→b pass through rectangle r's interior?
+function segHitsRect(a: Pt, b: Pt, r: Rect): boolean {
+  if (inRect(a, r) || inRect(b, r) || inRect({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, r)) return true;
+  const c = [
+    { x: r.x, y: r.y },
+    { x: r.x + r.w, y: r.y },
+    { x: r.x + r.w, y: r.y + r.h },
+    { x: r.x, y: r.y + r.h },
+  ];
+  for (let i = 0; i < 4; i++) if (segCrosses(a, b, c[i], c[(i + 1) % 4])) return true;
+  return false;
+}
+
+const visible = (a: Pt, b: Pt, obs: Rect[]) => !obs.some((r) => segHitsRect(a, b, r));
+
+/** Shortest walkable route from `start` to `target` that goes AROUND the zone boxes (obstacles)
+ * through the open gaps — a visibility graph over the boxes' (expanded) corners + Dijkstra. The
+ * zone the start/target sits in is NOT an obstacle (you must leave/enter it). Straight line when
+ * the way is already clear; falls back to straight if no path is found. */
+export function routeOnFloor(zones: Rect[], start: Pt, target: Pt): Pt[] {
+  const obs = zones.filter((z) => !inRect(start, z) && !inRect(target, z));
+  if (visible(start, target, obs)) return dedupe([start, target]);
+  const nodes: Pt[] = [start, target];
+  for (const r of obs) {
+    nodes.push(
+      { x: r.x - MARGIN, y: r.y - MARGIN },
+      { x: r.x + r.w + MARGIN, y: r.y - MARGIN },
+      { x: r.x + r.w + MARGIN, y: r.y + r.h + MARGIN },
+      { x: r.x - MARGIN, y: r.y + r.h + MARGIN },
+    );
+  }
+  const pts = nodes.filter((n, i) => i < 2 || !obs.some((r) => inRect(n, r))); // drop corners stuck in another box
+  const N = pts.length;
+  const adj: { to: number; w: number }[][] = pts.map(() => []);
+  for (let i = 0; i < N; i++)
+    for (let j = i + 1; j < N; j++)
+      if (visible(pts[i], pts[j], obs)) {
+        const w = Math.hypot(pts[i].x - pts[j].x, pts[i].y - pts[j].y);
+        adj[i].push({ to: j, w });
+        adj[j].push({ to: i, w });
+      }
+  const D = Array(N).fill(Infinity);
+  const prev = Array(N).fill(-1);
+  const seen = Array(N).fill(false);
+  D[0] = 0;
+  for (;;) {
+    let u = -1;
+    let best = Infinity;
+    for (let k = 0; k < N; k++) if (!seen[k] && D[k] < best) ((best = D[k]), (u = k));
+    if (u === -1 || u === 1) break;
+    seen[u] = true;
+    for (const e of adj[u]) if (D[u] + e.w < D[e.to]) ((D[e.to] = D[u] + e.w), (prev[e.to] = u));
+  }
+  if (D[1] === Infinity) return dedupe([start, target]);
+  const path: Pt[] = [];
+  for (let cur = 1; cur !== -1; cur = prev[cur]) path.unshift(pts[cur]);
+  return dedupe(path);
 }
 
 export interface RouteLeg {
@@ -106,8 +166,9 @@ export interface RoutePlan {
   instruction: string;
 }
 
-const floorAisle = (map: StoreMap, floor: string) =>
-  map.floors.length ? map.aisle.filter((p) => p.floor === floor) : map.aisle;
+// Zone boxes on a floor, as obstacles for the router.
+const zonesOnFloor = (map: StoreMap, floor: string): Rect[] =>
+  (map.floors.length ? map.zones.filter((z) => z.floor === floor) : map.zones).map((z) => ({ x: z.x, y: z.y, w: z.w, h: z.h }));
 
 /**
  * Plan a route to a zone, possibly across floors:
@@ -121,7 +182,7 @@ export function planRoute(map: StoreMap, zone: MapZone, start: Pt, startFloor: s
   const name = `${zone.icon ? zone.icon + " " : ""}${zone.label}`;
 
   if (!map.floors.length || tFloor === startFloor) {
-    const route = routeOnFloor(floorAisle(map, tFloor), start, target);
+    const route = routeOnFloor(zonesOnFloor(map, tFloor), start, target);
     return { legs: [{ floor: tFloor, route, toStairs: false }], targetFloor: tFloor, crossFloor: false, instruction: routeHint(zone, start) };
   }
 
@@ -129,8 +190,8 @@ export function planRoute(map: StoreMap, zone: MapZone, start: Pt, startFloor: s
   const tf = map.floors.find((f) => f.label === tFloor);
   const stairsStart = sf?.stairs || start;
   const stairsTarget = tf?.stairs || target;
-  const leg1 = routeOnFloor(floorAisle(map, startFloor), start, stairsStart);
-  const leg2 = routeOnFloor(floorAisle(map, tFloor), stairsTarget, target);
+  const leg1 = routeOnFloor(zonesOnFloor(map, startFloor), start, stairsStart);
+  const leg2 = routeOnFloor(zonesOnFloor(map, tFloor), stairsTarget, target);
   const tl = tf?.level ?? 0;
   const sl = sf?.level ?? 0;
   const dir = tl < sl ? `xuống ${tFloor}` : tl > sl ? `lên ${tFloor}` : `sang ${tFloor}`;
