@@ -114,6 +114,23 @@ class TestLoyalty(FrappeTestCase):
 			frappe.conf.pop("cago_loyalty_vnd_per_point", None)
 		self.assertEqual(flt(frappe.db.get_value("Customer", cust, "cago_points")), before)
 
+	def test_return_does_not_refund_redeemed_points(self):
+		"""Policy (owner-confirmed): points SPENT on a sale are gone — trả hàng does NOT give them
+		back. Only a full cancel/void of the original sale restores points."""
+		from cago.api import debt, purchasing, sales
+		from cago.setup.company import ensure_payment_modes
+		from frappe.utils import flt
+
+		ensure_payment_modes()
+		purchasing.receive_stock(ITEM, 20)
+		cust = debt.add_customer("KH Diem TraHang")["customer"]
+		frappe.db.set_value("Customer", cust, "cago_points", 5)
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 5}]), "cash", customer=cust, redeem_points=5)
+		after_sale = int(flt(frappe.db.get_value("Customer", cust, "cago_points")))
+		sales.return_sale(r["invoice"])  # full return
+		after_return = int(flt(frappe.db.get_value("Customer", cust, "cago_points")))
+		self.assertLessEqual(after_return, after_sale)  # redeemed points are NOT given back by a return
+
 	def test_points_redeemed_discounts_bill_and_deducts(self):
 		"""Spending points at the till knocks redeem_value đồng off each, capped by the balance, is
 		stamped on the invoice, and is given back on cancel."""
