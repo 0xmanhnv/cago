@@ -34,6 +34,7 @@ interface Cust {
   outstanding_text?: string;
 }
 interface Meta {
+  name: string; // display name — so the in-panel cart can list items not in the current search view
   sale_units: { uom: string; label?: string; price_text: string }[];
   stock_uom: string;
   stock_qty: number;
@@ -81,6 +82,8 @@ const loadHeld = (): Held[] => {
   }
 };
 const saveHeld = (h: Held[]) => window.sessionStorage?.setItem(HELD_KEY, JSON.stringify(h));
+// The ACTIVE (unfinished) cart, auto-saved so an accidental back / refresh doesn't lose it.
+const DRAFT_KEY = "cago_active_cart";
 
 interface Receipt {
   invoice: string;
@@ -315,6 +318,7 @@ export function Checkout() {
     try {
       const p = await frappeCall<Product>("cago.api.staff.get_product", { item_code: code }, { method: "GET" });
       const m: Meta = {
+        name: p.display_name || code,
         sale_units: p.sale_units && p.sale_units.length ? p.sale_units : [{ uom: p.unit || "", price_text: p.price_text }],
         stock_uom: p.unit || "",
         stock_qty: p.actual_stock_qty ?? 0,
@@ -401,10 +405,42 @@ export function Checkout() {
   // Vietnamese label for a stored unit code (kg10 → "Yến"); falls back to the code itself.
   const labelOf = (code: string, uom: string) =>
     meta[code]?.sale_units.find((s) => s.uom === uom)?.label || uom;
+  // Display name for a cart line — works even if the item isn't in the current search view.
+  const nameOf = (code: string) => meta[code]?.name || list.find((p) => p.item_code === code)?.display_name || code;
   // Price actually charged for a line: manual override (if owner allows + set) else price-list rate.
   const linePrice = (code: string) => lines[code]?.rate ?? unitPrice(code, lines[code]?.uom ?? "");
   const cartCodes = Object.keys(lines);
   const subtotal = cartCodes.reduce((s, c) => s + linePrice(c) * lines[c].qty, 0);
+
+  // Auto-save / restore the active cart so an accidental "‹ Trang chủ" or browser-back (then
+  // return) never loses the selection. sessionStorage = lives for the till session, cleared on a
+  // completed/held sale. Restore runs once post-mount (SSR-safe); a ?wanted= deep-link wins.
+  const restored = useRef(false);
+  useEffect(() => {
+    if (wantedParam) { restored.current = true; return; }
+    try {
+      const raw = window.sessionStorage?.getItem(DRAFT_KEY);
+      const d = raw ? JSON.parse(raw) : null;
+      if (d?.lines && Object.keys(d.lines).length) {
+        setLines(d.lines);
+        if (d.cust) setCust(d.cust);
+        if (d.discount) setDiscount(d.discount);
+        if (d.discountMode) setDiscountMode(d.discountMode);
+        if (d.coupon) { setCoupon(d.coupon); setCouponInput(d.coupon); }
+        Object.keys(d.lines).forEach((c) => void ensureMeta(c)); // re-load names/prices for the rows
+      }
+    } catch { /* ignore a corrupt draft */ }
+    restored.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!restored.current) return; // don't clobber the saved draft with the empty initial render
+    try {
+      if (cartCodes.length) window.sessionStorage?.setItem(DRAFT_KEY, JSON.stringify({ lines, cust, discount, discountMode, coupon }));
+      else window.sessionStorage?.removeItem(DRAFT_KEY); // empty cart (incl. after a completed/held sale) → drop it
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, cust, discount, discountMode, coupon]);
   const discountNum = parseInt((discount || "").replace(/[^\d]/g, ""), 10) || 0;
   // Discount can be a fixed đồng amount or a % of the subtotal (rural staff say "bớt 10%").
   const discRaw = discountMode === "percent" ? Math.round((subtotal * Math.min(discountNum, 100)) / 100) : discountNum;
@@ -1015,6 +1051,45 @@ export function Checkout() {
                   <button onClick={closePay} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500">
                     ▼ Thu gọn — chọn thêm hàng
                   </button>
+                  {/* Cart lines — listed + qty-editable right here, so staff never has to close the
+                      panel to fix a quantity. Tap the number for the keypad; ✕ removes the line. */}
+                  <div className="mb-2 max-h-[38vh] divide-y divide-slate-100 overflow-auto rounded-xl border border-slate-200">
+                    {cartCodes.map((c) => {
+                      const ln = lines[c];
+                      const units = meta[c]?.sale_units || [];
+                      return (
+                        <div key={c} className="px-2.5 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-bold leading-tight">{nameOf(c)}</div>
+                              <div className="text-xs text-slate-500">{money(linePrice(c))} / {labelOf(c, ln.uom)}</div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button onClick={() => setQty(c, ln.qty - 1)} className="h-9 w-9 rounded-lg bg-slate-200 text-xl font-bold">−</button>
+                              <button onClick={() => setKeypad(c)} title="Bấm để nhập số lượng" className="h-9 w-12 rounded-lg border-2 border-emerald-300 text-center font-extrabold">{trim(ln.qty)}</button>
+                              <button onClick={() => setQty(c, ln.qty + 1)} className="h-9 w-9 rounded-lg bg-brand text-xl font-bold text-white">＋</button>
+                            </div>
+                            <div className="w-[68px] shrink-0 text-right text-sm font-extrabold text-brand">{money(linePrice(c) * ln.qty)}</div>
+                            <button onClick={() => setQty(c, 0)} aria-label="Bỏ" className="shrink-0 rounded-lg bg-red-50 px-2 py-1 text-sm font-bold text-red-600">✕</button>
+                          </div>
+                          {/* Multi-unit items: switch Kg / Yến / Bao right in the cart (changes the price). */}
+                          {units.length > 1 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {units.map((u) => (
+                                <button
+                                  key={u.uom}
+                                  onClick={() => setUom(c, u.uom)}
+                                  className={`rounded-lg px-2.5 py-1 text-xs font-bold ${ln.uom === u.uom ? "bg-brand text-white" : "bg-slate-200 text-slate-700"}`}
+                                >
+                                  {(u.label || u.uom)} · {u.price_text}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                   {/* Customer — changeable right here so staff don't have to scroll up to ghi nợ. */}
                   <button
                     onClick={() => setCustInPanel((v) => !v)}
