@@ -57,6 +57,7 @@ export function OwnerHome() {
   const dragFrom = useRef<number | null>(null);
   const editRef = useRef(false);
   const lp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const justLong = useRef(false); // a long-press just entered edit mode → swallow the releasing tap
   favRef.current = fav;
   editRef.current = editMode;
 
@@ -65,11 +66,22 @@ export function OwnerHome() {
   const pressStart = () => {
     if (editRef.current) return;
     lp.current = setTimeout(() => {
+      justLong.current = true;
       setEditMode(true);
       try { navigator.vibrate?.(15); } catch { /* ignore */ }
     }, 450);
   };
   const pressCancel = () => clearTimeout(lp.current);
+  // Tap behaviour for any tile: the tap that ENTERED arrange mode is swallowed (so a long-press
+  // doesn't also pin the held tile); in arrange mode a tap pins/unpins; otherwise it navigates.
+  const tapTile = (k: string) => {
+    if (justLong.current) { justLong.current = false; return; }
+    if (editRef.current) { togglePin(k); return; }
+    router.push(ACTIONS[k].href);
+  };
+
+  // Clear the long-press timer if we unmount mid-hold (avoids setState on an unmounted view).
+  useEffect(() => () => clearTimeout(lp.current), []);
 
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
@@ -119,9 +131,11 @@ export function OwnerHome() {
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp); // touch gesture taken over → end the drag too
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
     };
   }, []);
 
@@ -136,13 +150,13 @@ export function OwnerHome() {
 
   // A normal tile. Tap = open. Long-press = enter arrange mode. The ☆ pin only shows in
   // arrange mode, so normal browsing stays clean and a finger-scroll never fights a control.
-  const Tile = ({ k }: { k: string }) => {
+  const Tile = ({ k, wide = false }: { k: string; wide?: boolean }) => {
     const a = ACTIONS[k];
     const pinned = fav.includes(k);
     return (
-      <div className={`relative ${editMode ? "animate-jiggle" : ""}`}>
+      <div className={`relative ${wide ? "col-span-2" : ""} ${editMode ? "animate-jiggle" : ""}`}>
         <button
-          onClick={() => { if (editMode) { togglePin(k); return; } router.push(a.href); }}
+          onClick={() => tapTile(k)}
           onPointerDown={pressStart}
           onPointerUp={pressCancel}
           onPointerMove={pressCancel}
@@ -209,10 +223,11 @@ export function OwnerHome() {
           {fav.map((k, i) => {
             const a = ACTIONS[k];
             if (!a) return null;
+            const wideFav = !editMode && fav.length % 2 === 1 && i === fav.length - 1;
             return (
-              <div key={k} data-fav={i} className={`relative ${editMode ? "animate-jiggle touch-none" : ""}`}>
+              <div key={k} data-fav={i} className={`relative ${wideFav ? "col-span-2" : ""} ${editMode ? "animate-jiggle touch-none" : ""}`}>
                 <button
-                  onClick={() => { if (editMode) { togglePin(k); return; } router.push(a.href); }}
+                  onClick={() => tapTile(k)}
                   onPointerDown={pressStart}
                   onPointerUp={pressCancel}
                   onPointerMove={pressCancel}
@@ -250,19 +265,24 @@ export function OwnerHome() {
       {/* Grouped sections — smooth expand/collapse via grid-rows 0fr↔1fr (no abrupt show/hide). */}
       <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${showAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden" inert={!showAll ? true : undefined}>
-          {GROUPS.map((g) => (
-            <div key={g.title} className="mb-3">
-              <div className="mb-1.5 ml-1 text-base font-bold text-slate-500">{g.title}</div>
-              <div className="grid grid-cols-2 gap-3.5">
-                {g.keys.map((k) => (
-                  <Tile key={k} k={k} />
-                ))}
-                {g.title.startsWith("🛒") && posUrl && (
-                  <a href={posUrl} target="_blank" rel="noopener" className="mt-tile bg-slate-600">🧾 POS Awesome (quầy)</a>
-                )}
+          {GROUPS.map((g) => {
+            const hasPos = g.title.startsWith("🛒") && !!posUrl;
+            const total = g.keys.length + (hasPos ? 1 : 0);
+            const lastOdd = total % 2 === 1; // lone tile on the last row → stretch it full-width
+            return (
+              <div key={g.title} className="mb-3">
+                <div className="mb-1.5 ml-1 text-base font-bold text-slate-500">{g.title}</div>
+                <div className="grid grid-cols-2 gap-3.5">
+                  {g.keys.map((k, idx) => (
+                    <Tile key={k} k={k} wide={lastOdd && !hasPos && idx === g.keys.length - 1} />
+                  ))}
+                  {hasPos && (
+                    <a href={posUrl} target="_blank" rel="noopener" className={`mt-tile bg-slate-600 ${lastOdd ? "col-span-2" : ""}`}>🧾 POS Awesome (quầy)</a>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

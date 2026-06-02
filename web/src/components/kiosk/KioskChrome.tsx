@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
@@ -10,6 +11,13 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
   const kiosk = useKiosk();
   const nav = useKioskNav();
   const cartCount = kiosk.cartCount();
+
+  // Load persisted cart/chat from sessionStorage AFTER mount (client-only) so the first render
+  // matches the server HTML — see the note in store/kiosk.ts.
+  useEffect(() => {
+    kiosk.hydrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isAssistant = pathname.startsWith("/assistant");
   const showFabs = pathname !== "/" && !isAssistant; // home has its own big buttons; chat is full-screen

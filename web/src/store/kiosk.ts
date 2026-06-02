@@ -49,6 +49,8 @@ interface KioskState {
   sessionId: string;
   phone: string;
   history: ChatMsg[];
+  hydrated: boolean; // sessionStorage loaded (client-only, post-mount) — see hydrate()
+  hydrate: () => void;
   setPhone: (p: string) => void;
   pushMsg: (m: ChatMsg) => void;
   ensureFreshSession: () => void;
@@ -96,7 +98,11 @@ const saveCart = (cart: Record<string, CartLine>) => {
 };
 
 export const useKiosk = create<KioskState>((set, get) => {
-  const initial = typeof window !== "undefined" ? loadSession() : { sessionId: "ssr", phone: "", history: [], cart: {} };
+  // Initial state MUST be identical on the server and on the client's first render, or the
+  // hydrated DOM won't match the SSR HTML (React 19 then errors out and the page can render
+  // but stay non-interactive). So we start empty and read sessionStorage in hydrate(), which
+  // runs once from a post-mount effect (see KioskChrome) — client-only, after hydration.
+  const initial = { sessionId: "", phone: "", history: [] as ChatMsg[], cart: {} as Record<string, CartLine> };
   return {
     cart: initial.cart,
     addToCart: (p) =>
@@ -138,6 +144,12 @@ export const useKiosk = create<KioskState>((set, get) => {
     sessionId: initial.sessionId,
     phone: initial.phone,
     history: initial.history,
+    hydrated: false,
+    hydrate: () => {
+      if (typeof window === "undefined" || get().hydrated) return;
+      const s = loadSession();
+      set({ sessionId: s.sessionId, phone: s.phone, history: s.history, cart: s.cart, hydrated: true });
+    },
     setPhone: (p) => {
       SS?.setItem("cago_chat_phone", p);
       touch();

@@ -205,12 +205,14 @@ export function ProductDetail({ code }: { code: string }) {
               <button
                 key={r.item_code}
                 onClick={() => nav.openDetail(r.item_code)}
-                className="w-[140px] flex-none overflow-hidden rounded-2xl border border-emerald-100 bg-white text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-card"
+                className="flex w-[140px] flex-none flex-col overflow-hidden rounded-2xl border border-emerald-100 bg-white text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-card"
               >
                 <CatThumb image={r.image} icon={r.category_icon} color={r.category_color} name={r.display_name} variant="grid" />
                 <div className="p-2">
-                  <div className="text-sm font-bold">{r.display_name}</div>
-                  <div className="text-[13px] font-bold text-brand">{r.price_text}</div>
+                  {/* Reserve 2 lines for the title so 1-line and 2-line cards stay the same height
+                      (else the shorter card's content drifts and the row looks broken). */}
+                  <div className="line-clamp-2 min-h-[2.5em] text-sm font-bold leading-tight">{r.display_name}</div>
+                  <div className="mt-0.5 text-[13px] font-bold text-brand">{r.price_text}</div>
                 </div>
               </button>
             ))}

@@ -80,6 +80,9 @@ export function Home() {
           icon="🛒"
           title="Xem tất cả"
           sub="toàn bộ sản phẩm"
+          // When the category count is even, this view-all tile is the lone item on the last
+          // row → stretch it full-width (a wide CTA) instead of leaving an empty gap beside it.
+          wide={categories.length % 2 === 0}
           delay={120 + categories.length * 50}
         />
       </div>
@@ -114,6 +117,7 @@ function CategoryCard({
   title,
   sub,
   delay,
+  wide = false,
 }: {
   onClick: () => void;
   color: string;
@@ -121,16 +125,32 @@ function CategoryCard({
   title: string;
   sub: string;
   delay: number;
+  wide?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       style={{ background: `linear-gradient(160deg, ${color} 0%, #ffffff 130%)`, animationDelay: `${delay}ms` }}
-      className="animate-rise-in flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-3xl border border-white/60 p-4 text-center shadow-soft transition hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97]"
+      className={`animate-rise-in rounded-3xl border border-white/60 shadow-soft transition hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97] ${
+        wide
+          ? "col-span-2 flex min-h-[96px] flex-row items-center justify-center gap-4 p-4"
+          : "flex min-h-[140px] flex-col items-center justify-center gap-2 p-4 text-center"
+      }`}
     >
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/80 text-4xl shadow-sm">{icon}</span>
-      <span className="text-xl font-extrabold text-brand-dark">{title}</span>
-      <span className="rounded-full bg-white/70 px-3 py-0.5 text-sm font-bold text-brand-dark/70">{sub}</span>
+      <span className={`flex shrink-0 items-center justify-center rounded-full bg-white/80 shadow-sm ${wide ? "h-14 w-14 text-3xl" : "h-16 w-16 text-4xl"}`}>
+        {icon}
+      </span>
+      {wide ? (
+        <span className="flex flex-col items-start leading-tight">
+          <span className="text-xl font-extrabold text-brand-dark">{title}</span>
+          <span className="text-sm font-bold text-brand-dark/70">{sub}</span>
+        </span>
+      ) : (
+        <>
+          <span className="text-xl font-extrabold text-brand-dark">{title}</span>
+          <span className="rounded-full bg-white/70 px-3 py-0.5 text-sm font-bold text-brand-dark/70">{sub}</span>
+        </>
+      )}
     </button>
   );
 }
