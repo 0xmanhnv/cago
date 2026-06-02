@@ -156,15 +156,23 @@ def get_wanted_list(code):
 
 	wl = frappe.get_doc("Cago Wanted List", name)
 	items = []
+	total = 0.0
 	for row in wl.items:
 		item = frappe.get_doc("Item", row.item_code) if frappe.db.exists("Item", row.item_code) else None
+		rate = dto.get_selling_price(row.item_code)
+		stock_uom = item.stock_uom if item else None
+		amount = flt(rate) * flt(row.qty)
+		total += amount
 		items.append(
 			{
 				"item_code": row.item_code,
 				"display_name": (item.cago_display_name or item.item_name) if item else row.item_code,
 				"qty": row.qty,
-				"price_text": dto.format_price(dto.get_selling_price(row.item_code), item.stock_uom if item else None),
+				"uom": dto.uom_label(stock_uom),
+				"price_text": dto.format_price(rate, stock_uom),
+				"amount_text": dto.format_price(amount),
 				"shelf_location": item.cago_shelf_location if item else None,
+				"is_chemical": bool(item.cago_is_chemical) if item else False,
 				"note": row.note,
 			}
 		)
@@ -173,6 +181,9 @@ def get_wanted_list(code):
 		"code": wl.code,
 		"status": wl.status,
 		"note": wl.note,
+		"created": format_datetime(wl.creation, "HH:mm · dd/MM/yyyy"),
+		"item_count": len(items),
+		"total_text": dto.format_price(total),
 		"expires_at": str(wl.expires_at) if wl.expires_at else None,
 		"is_expired": is_expired,
 		"items": items,

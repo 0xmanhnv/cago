@@ -18,14 +18,20 @@ const STATUS_VI: Record<string, string> = {
 interface WantedItem {
   display_name: string;
   qty: number;
+  uom?: string;
   shelf_location?: string;
   price_text: string;
+  amount_text?: string;
+  is_chemical?: boolean;
 }
 interface WantedList {
   code: string;
   status: string;
   is_expired?: boolean;
   note?: string;
+  created?: string;
+  item_count?: number;
+  total_text?: string;
   items: WantedItem[];
 }
 interface WantedSummary {
@@ -132,41 +138,100 @@ export function StaffWanted() {
           </button>
         </div>
         <div className="rounded-xl bg-white p-4">
-          <h3 className="text-lg font-bold">
-            Đơn {wl.code}{" "}
-            <span className="ml-1 inline-block rounded-full bg-slate-200 px-2.5 py-1 text-sm">{STATUS_VI[wl.status] || wl.status}</span>
-          </h3>
+          {/* Header: code + status badge + when it was placed (helps staff judge recency). */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold">Đơn {wl.code}</h3>
+              {wl.created && <div className="mt-0.5 text-sm text-slate-400">🕒 {wl.created}</div>}
+            </div>
+            <span
+              className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${
+                wl.status === "Completed"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : wl.status === "Cancelled"
+                  ? "bg-slate-200 text-slate-500"
+                  : wl.status === "Processing"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-amber-100 text-amber-800"
+              }`}
+            >
+              {STATUS_VI[wl.status] || wl.status}
+            </span>
+          </div>
+
           {wl.is_expired && (
-            <div className="my-2 rounded-lg border border-amber-400 bg-amber-100 p-3 text-amber-900">
+            <div className="mt-2 rounded-lg border border-amber-400 bg-amber-100 p-3 text-amber-900">
               ⏰ Đơn đã quá hạn (&gt;2 ngày), nên xác nhận lại với khách.
             </div>
           )}
-          {wl.note && <div className="text-slate-500">{wl.note}</div>}
-          {wl.items.map((i, idx) => (
-            <div key={idx} className="flex justify-between gap-3 border-b border-slate-100 py-2">
-              <span>
-                <b>{i.display_name}</b>
-                <br />
-                <span className="text-slate-500">
-                  SL: {i.qty} {i.shelf_location ? `· ${i.shelf_location}` : ""}
-                </span>
-              </span>
-              <b>{i.price_text}</b>
-            </div>
-          ))}
-          <div className="mt-3 flex gap-2.5">
-            <button onClick={() => setStatus("Processing")} className="min-h-[48px] flex-1 rounded-xl bg-blue-600 font-bold text-white">
-              ⏳ Đang xử lý
-            </button>
-            <button onClick={() => setStatus("Completed")} className="min-h-[48px] flex-1 rounded-xl bg-brand font-bold text-white">
-              ✅ Hoàn tất
-            </button>
+          {wl.note && <div className="mt-2 rounded-lg bg-slate-50 p-2 text-slate-600">📝 {wl.note}</div>}
+
+          {/* Line items: prominent qty, shelf location for picking, chemical chip, line total. */}
+          <div className="mt-3">
+            {wl.items.map((i, idx) => (
+              <div key={idx} className="flex items-start justify-between gap-3 border-b border-slate-100 py-2.5">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <b className="leading-tight">{i.display_name}</b>
+                    {i.is_chemical && (
+                      <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-xs font-bold text-rose-700">⚠ Hoá chất</span>
+                    )}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                    <span className="rounded-md bg-slate-100 px-2 py-0.5 font-bold text-slate-700">
+                      SL {i.qty} {i.uom || ""}
+                    </span>
+                    {i.shelf_location && <span>📍 {i.shelf_location}</span>}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="font-bold">{i.amount_text || i.price_text}</div>
+                  <div className="whitespace-nowrap text-xs text-slate-400">{i.price_text}</div>
+                </div>
+              </div>
+            ))}
           </div>
-          <button onClick={createInvoice} disabled={busy} className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-bold text-white disabled:opacity-50">
+
+          {/* Total — the figure staff confirms before collecting payment. */}
+          {wl.total_text && (
+            <div className="mt-3 flex items-center justify-between rounded-xl bg-brand-light/60 px-3.5 py-2.5">
+              <span className="font-bold text-slate-600">Tổng{wl.item_count ? ` (${wl.item_count} mặt hàng)` : ""}</span>
+              <span className="text-2xl font-extrabold text-brand">{wl.total_text}</span>
+            </div>
+          )}
+
+          {/* Primary action first: most orders just go straight to payment. */}
+          <button onClick={createInvoice} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-teal-600 py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
             {busy ? "Đang xử lý..." : "🛒 Bán / thu tiền cho đơn này"}
           </button>
+
+          {/* Status as a segmented control — the current state is clearly highlighted, the other is the action. */}
           {wl.status !== "Cancelled" && wl.status !== "Completed" && (
-            <button onClick={cancelOrder} className="mt-2.5 min-h-touch w-full rounded-xl border-2 border-red-300 bg-white font-bold text-red-600">
+            <div className="mt-2.5">
+              <div className="mb-1 text-sm font-bold text-slate-500">Trạng thái soạn hàng</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setStatus("Processing")}
+                  disabled={busy || wl.status === "Processing"}
+                  className={`min-h-[48px] flex-1 rounded-xl font-bold ${
+                    wl.status === "Processing" ? "bg-blue-600 text-white ring-2 ring-blue-300" : "border-2 border-slate-300 bg-white text-slate-700"
+                  }`}
+                >
+                  ⏳ Đang xử lý
+                </button>
+                <button
+                  onClick={() => setStatus("Completed")}
+                  disabled={busy}
+                  className="min-h-[48px] flex-1 rounded-xl border-2 border-emerald-300 bg-white font-bold text-emerald-700"
+                >
+                  ✅ Đánh dấu hoàn tất
+                </button>
+              </div>
+            </div>
+          )}
+
+          {wl.status !== "Cancelled" && wl.status !== "Completed" && (
+            <button onClick={cancelOrder} disabled={busy} className="mt-3 w-full py-2 text-sm font-bold text-red-500 underline disabled:opacity-50">
               🗑 Huỷ đơn (khách không lấy nữa)
             </button>
           )}
