@@ -112,22 +112,38 @@ def save_store_map(data):
 # sides of a central aisle, a staircase joining them, and the door on Tầng 1. Run once via:
 #   bench --site <site> execute cago.api.storemap.seed_sample_map
 _SAMPLE_FLOORS = [
-	# (label, level, stairs_x, stairs_y)
-	("Tầng 1", 1, 50, 12),
-	("Tầng hầm", 0, 50, 58),
+	# (label, level, stairs_x, stairs_y) — stairs at the back-centre of each floor (the shared
+	# staircase joining the two stacked floors).
+	("Tầng 1", 1, 50, 10),
+	("Tầng hầm", 0, 50, 60),
 ]
+# Two shelf columns (left x6 w32, right x62 w32) down each side of a central aisle, four rows each.
 _SAMPLE_ZONES = [
 	# (label, floor, item_group, x, y, w, h, color, icon)
-	("Dãy 1 · Cám gà", "Tầng 1", "Cám gà", 8, 18, 30, 40, "#f59e0b", "🐔"),
-	("Dãy 2 · Cám lợn", "Tầng 1", "Cám lợn", 62, 18, 30, 40, "#ef4444", "🐷"),
-	("Dãy 13 · Thuốc sâu", "Tầng hầm", "Thuốc trừ sâu bệnh", 8, 10, 30, 40, "#dc2626", "🧪"),
-	("Dãy 14 · Phân bón", "Tầng hầm", "Phân vô cơ", 62, 10, 30, 40, "#0ea5e9", "🌾"),
+	# --- Tầng 1: thức ăn chăn nuôi + dụng cụ + giống ---
+	("Cám gà", "Tầng 1", "Cám gà", 6, 6, 32, 11, "#f59e0b", "🐔"),
+	("Cám lợn", "Tầng 1", "Cám lợn", 6, 19, 32, 11, "#ef4444", "🐷"),
+	("Cám vịt / ngan", "Tầng 1", "Cám vịt / ngan", 6, 32, 32, 11, "#0ea5e9", "🦆"),
+	("Cám bò / trâu", "Tầng 1", "Cám bò / trâu", 6, 45, 32, 11, "#84cc16", "🐮"),
+	("Cám cá", "Tầng 1", "Cám cá", 62, 6, 32, 11, "#06b6d4", "🐟"),
+	("Dụng cụ", "Tầng 1", "Dụng cụ", 62, 19, 32, 11, "#64748b", "🔧"),
+	("Giống lúa", "Tầng 1", "Giống lúa", 62, 32, 32, 11, "#22c55e", "🌾"),
+	("Giống rau", "Tầng 1", "Giống rau", 62, 45, 32, 11, "#16a34a", "🥬"),
+	# --- Tầng hầm: phân bón + thuốc + nông sản ---
+	("Phân vô cơ", "Tầng hầm", "Phân vô cơ", 6, 6, 32, 11, "#3b82f6", "🧴"),
+	("Phân hữu cơ", "Tầng hầm", "Phân hữu cơ", 6, 19, 32, 11, "#84cc16", "♻️"),
+	("Phân vi sinh", "Tầng hầm", "Phân vi sinh", 6, 32, 32, 11, "#14b8a6", "🌱"),
+	("Thuốc trừ sâu bệnh", "Tầng hầm", "Thuốc trừ sâu bệnh", 6, 45, 32, 11, "#dc2626", "🧪"),
+	("Thuốc cỏ", "Tầng hầm", "Thuốc cỏ", 62, 6, 32, 11, "#65a30d", "🌿"),
+	("Thuốc chuột", "Tầng hầm", "Thuốc chuột", 62, 19, 32, 11, "#6b7280", "🐀"),
+	("Thóc / gạo", "Tầng hầm", "Thóc / gạo", 62, 32, 32, 11, "#eab308", "🍚"),
+	("Nông sản", "Tầng hầm", "Nông sản", 62, 45, 32, 11, "#f97316", "🥕"),
 ]
 _SAMPLE_AISLE = [
 	("Tầng 1", 50, 60),
-	("Tầng 1", 50, 14),
-	("Tầng hầm", 50, 58),
-	("Tầng hầm", 50, 8),
+	("Tầng 1", 50, 4),
+	("Tầng hầm", 50, 62),
+	("Tầng hầm", 50, 4),
 ]
 
 
