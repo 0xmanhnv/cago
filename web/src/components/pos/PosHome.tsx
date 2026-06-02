@@ -49,6 +49,9 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   reports: { label: "📊 Báo cáo", color: "bg-blue-600", href: "/pos/reports", cap: "reports" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
 };
+// A pinned home tile: which action + how wide (1 = half, 2 = full row on the 2-col grid).
+type Fav = { k: string; w: 1 | 2 };
+
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "orders", "assistant", "creditsale", "coupons", "qr"] },
   { title: "📦 Hàng hoá & kho", keys: ["price", "new", "edit", "receive", "bulk", "receivehist", "lowstock", "expiry", "categories", "map"] },
@@ -62,10 +65,10 @@ export function PosHome() {
   const posUrl = boot?.pos_url;
   const owner = isOwner(boot);
   const [digest, setDigest] = useState<Digest | null>(null);
-  const [fav, setFav] = useState<string[]>([]);
+  const [fav, setFav] = useState<Fav[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const favRef = useRef<string[]>([]);
+  const favRef = useRef<Fav[]>([]);
   const dragFrom = useRef<number | null>(null);
   const editRef = useRef(false);
   const lp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -100,9 +103,14 @@ export function PosHome() {
 
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
-    frappeCall<string[]>("cago.api.prefs.get_home_favorites", {}, { method: "GET" })
+    // Saved favorites: new format = [{k,w}]; legacy = ["key", ...] (treated as width 1).
+    frappeCall<(string | Fav)[]>("cago.api.prefs.get_home_favorites", {}, { method: "GET" })
       .then((saved) => {
-        const a = Array.isArray(saved) ? saved.filter((k) => ACTIONS[k]) : [];
+        const a: Fav[] = Array.isArray(saved)
+          ? saved
+              .map((it): Fav => (typeof it === "string" ? { k: it, w: 1 } : { k: it.k, w: it.w === 2 ? 2 : 1 }))
+              .filter((f) => ACTIONS[f.k])
+          : [];
         setFav(a);
         if (!a.length) setShowAll(true);
       })
@@ -112,18 +120,20 @@ export function PosHome() {
   // Once caps are known, hide favorites the user can't access (don't persist — they reappear if
   // the capability is granted back). Keeps drag indices aligned with what's rendered.
   useEffect(() => {
-    if (boot) setFav((prev) => prev.filter((k) => ACTIONS[k] && can(k)));
+    if (boot) setFav((prev) => prev.filter((f) => ACTIONS[f.k] && can(f.k)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boot]);
 
-  const persist = (next: string[]) => {
+  const persist = (next: Fav[]) => {
     frappeCall("cago.api.prefs.set_home_favorites", { keys: JSON.stringify(next) }).catch(() => {});
   };
-  const saveFav = (next: string[]) => {
+  const saveFav = (next: Fav[]) => {
     setFav(next);
     persist(next);
   };
-  const togglePin = (key: string) => saveFav(fav.includes(key) ? fav.filter((k) => k !== key) : [...fav, key]);
+  const togglePin = (key: string) => saveFav(fav.some((f) => f.k === key) ? fav.filter((f) => f.k !== key) : [...fav, { k: key, w: 1 }]);
+  const setWidth = (key: string, w: 1 | 2) => saveFav(fav.map((f) => (f.k === key ? { ...f, w } : f)));
+  const favKeys = new Set(fav.map((f) => f.k)); // to hide pinned tiles from the lists below
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -169,7 +179,7 @@ export function PosHome() {
 
   const Tile = ({ k, wide = false }: { k: string; wide?: boolean }) => {
     const a = ACTIONS[k];
-    const pinned = fav.includes(k);
+    const pinned = fav.some((f) => f.k === k);
     return (
       <div className={`relative ${wide ? "col-span-2" : ""} ${editMode ? "animate-jiggle" : ""}`}>
         <button
@@ -227,7 +237,7 @@ export function PosHome() {
       </div>
       {editMode && (
         <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-800">
-          Kéo <b>⠿</b> để đổi chỗ · chạm <b>☆</b> để ghim/bỏ ghim · xong thì bấm <b>Xong</b>.
+          Kéo <b>⠿</b> đổi chỗ · <b>↔</b> đổi cỡ (rộng/hẹp) · <b>☆</b> bỏ ghim · xong bấm <b>Xong</b>.
         </div>
       )}
       {fav.length === 0 ? (
@@ -236,19 +246,18 @@ export function PosHome() {
         </div>
       ) : (
         <div className="mb-4 grid grid-cols-2 gap-3.5">
-          {fav.map((k, i) => {
-            const a = ACTIONS[k];
+          {fav.map((f, i) => {
+            const a = ACTIONS[f.k];
             if (!a) return null;
-            const wideFav = !editMode && fav.length % 2 === 1 && i === fav.length - 1;
             return (
-              <div key={k} data-fav={i} className={`relative ${wideFav ? "col-span-2" : ""} ${editMode ? "animate-jiggle touch-none" : ""}`}>
+              <div key={f.k} data-fav={i} className={`relative ${f.w === 2 ? "col-span-2" : ""} ${editMode ? "animate-jiggle touch-none" : ""}`}>
                 <button
-                  onClick={() => tapTile(k)}
+                  onClick={() => tapTile(f.k)}
                   onPointerDown={pressStart}
                   onPointerUp={pressCancel}
                   onPointerMove={pressCancel}
                   onPointerLeave={pressCancel}
-                  className={`mt-tile w-full ${editMode ? "pl-9 ring-2 ring-white/70" : ""} ${a.color}`}
+                  className={`mt-tile w-full ${editMode ? "pl-9 pr-[4.5rem] ring-2 ring-white/70" : ""} ${a.color}`}
                 >
                   {a.label}
                 </button>
@@ -261,7 +270,14 @@ export function PosHome() {
                     >
                       ⠿
                     </span>
-                    <span onClick={(e) => { e.stopPropagation(); togglePin(k); }} aria-label="Bỏ ghim" className="absolute right-1.5 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/30 text-sm text-white shadow">★</span>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); setWidth(f.k, f.w === 2 ? 1 : 2); }}
+                      aria-label={f.w === 2 ? "Thu hẹp" : "Mở rộng"}
+                      className="absolute right-9 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/30 text-sm font-bold text-white shadow"
+                    >
+                      ↔
+                    </span>
+                    <span onClick={(e) => { e.stopPropagation(); togglePin(f.k); }} aria-label="Bỏ ghim" className="absolute right-1.5 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/30 text-sm text-white shadow">★</span>
                   </>
                 )}
               </div>
@@ -280,7 +296,9 @@ export function PosHome() {
       <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${showAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden" inert={!showAll ? true : undefined}>
           {GROUPS.map((g) => {
-            const keys = g.keys.filter(can); // only the actions this user may use
+            // Only the actions this user may use AND that aren't already pinned to ⭐ Hay dùng
+            // (no duplication: pinned above ⇒ hidden here, and vice-versa).
+            const keys = g.keys.filter((k) => can(k) && !favKeys.has(k));
             const hasPos = g.title.startsWith("🛒") && !!posUrl && hasCap(boot, "sell");
             if (!keys.length && !hasPos) return null; // hide an empty group entirely
             const total = keys.length + (hasPos ? 1 : 0);

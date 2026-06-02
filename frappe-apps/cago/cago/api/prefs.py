@@ -27,10 +27,16 @@ def get_home_favorites():
 
 @frappe.whitelist()
 def set_home_favorites(keys):
-	"""Save the pinned/ordered tile keys for this user."""
+	"""Save the pinned/ordered home tiles for this user. Each item is {k: tile-key, w: 1|2}
+	(w = column span on the 2-col grid). Legacy plain strings are accepted = width 1."""
 	user = _ensure_user()
 	keys = frappe.parse_json(keys) if isinstance(keys, str) else (keys or [])
-	keys = [str(k) for k in keys if k][:40]
-	frappe.db.set_value("User", user, "cago_home_favorites", frappe.as_json(keys))
+	out = []
+	for it in keys[:40]:
+		if isinstance(it, dict) and it.get("k"):
+			out.append({"k": str(it["k"]), "w": 2 if int(it.get("w") or 1) == 2 else 1})
+		elif isinstance(it, str) and it:
+			out.append({"k": it, "w": 1})
+	frappe.db.set_value("User", user, "cago_home_favorites", frappe.as_json(out))
 	frappe.db.commit()
 	return {"ok": True}

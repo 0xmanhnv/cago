@@ -75,9 +75,9 @@ body {
   @media (prefers-reduced-motion: reduce) {
     .animate-jiggle { animation: none; }
   }
-  /* Toast: slide down from the top + fade in. */
+  /* Toast: slide up from the bottom edge + fade in. */
   @keyframes toast-in {
-    from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+    from { opacity: 0; transform: translateY(14px) scale(0.97); }
     to { opacity: 1; transform: none; }
   }
   .animate-toast-in {
