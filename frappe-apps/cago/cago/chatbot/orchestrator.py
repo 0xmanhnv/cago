@@ -9,6 +9,7 @@ kiosk never breaks.
 
 from __future__ import annotations
 
+import re
 import time
 
 from cago.utils.safety import STANDARD_SAFETY_WARNING
@@ -33,6 +34,41 @@ def _refusal_answer():
 		f"cách pha/trộn hay thời gian cách ly. Bác vui lòng đọc kỹ hướng dẫn trên nhãn sản "
 		f"phẩm, hoặc hỏi trực tiếp người bán/{p['owner']} (chủ cửa hàng) hay người có chuyên "
 		f"môn để được tư vấn đúng.\n" + STANDARD_SAFETY_WARNING
+	)
+
+
+# "What does the store sell?" — a discovery question with no specific product. Answered with the
+# real category list, not a product lookup (which finds nothing and dead-ends at "call the seller").
+_OVERVIEW_TERMS = (
+	"bán những gì", "bán gì", "bán cái gì", "có những gì", "có bán gì", "có gì bán",
+	"những loại gì", "có những loại", "mặt hàng gì", "danh mục", "kinh doanh gì",
+)
+
+
+def _is_store_overview(message):
+	m = (message or "").lower()
+	if any(t in m for t in _OVERVIEW_TERMS):
+		return True
+	return bool(re.search(r"(bán|kinh doanh|bày bán)\b.*\bgì\b", m))
+
+
+def _store_overview_answer(role):
+	"""Deterministic 'we sell X, Y, Z' from the real category tree, or None if no categories."""
+	from cago.api.kiosk import category_tree
+
+	public_only = role not in ("staff", "owner")
+	try:
+		cats = category_tree(public_only=public_only) or []
+	except Exception:
+		cats = []
+	names = [f"{c.get('icon') or '📦'} {c.get('category')}" for c in cats if c.get("count")]
+	if not names:
+		return None
+	p = config.persona()
+	return (
+		f"Dạ {p['pronoun']} là {p['name']} đây ạ. Cửa hàng mình có: "
+		+ "; ".join(names)
+		+ f". Bác bấm vào loại muốn xem, hoặc gõ tên sản phẩm để {p['pronoun']} tra giá giúp ạ."
 	)
 
 
@@ -104,11 +140,17 @@ def ask(role, message, history=None, session_id=None, customer_phone=None, focus
 			needs_staff_help=True, sources=sources, confidence="low",
 		)
 		provider_used = "refused"
-	# 2) No matching data -> say so (never invent existence).
+	# 2) No matching product. If it's a "what do you sell?" question, answer with the category list
+	# (a useful discovery reply); otherwise say we couldn't find it and offer the seller.
 	elif not products:
-		resp = ChatResponse(
-			answer_text=_no_data_answer(), needs_staff_help=True, confidence="low",
-		)
+		overview = _store_overview_answer(role) if _is_store_overview(message) else None
+		if overview:
+			resp = ChatResponse(answer_text=overview, needs_staff_help=False, confidence="high")
+			provider_used = "overview"
+		else:
+			resp = ChatResponse(
+				answer_text=_no_data_answer(), needs_staff_help=True, confidence="low",
+			)
 	# 3) Normal: LLM if configured, else deterministic. Both grounded in retrieved data.
 	else:
 		text, prov, model = _llm_answer(role, products, message, history)

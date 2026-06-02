@@ -162,6 +162,13 @@ class TestChatbotOrchestrator(FrappeTestCase):
 		self.assertTrue(r["needs_staff_help"])
 		self.assertIn("tìm thấy", r["answer_text"].lower())
 
+	def test_store_overview_lists_categories_not_dead_end(self):
+		"""'Cửa hàng bán những gì?' must answer with the category list, not the no-data fallback."""
+		r = orchestrator.ask("customer", "Cửa hàng bán những gì?")
+		self.assertFalse(r["needs_staff_help"])  # NOT a dead-end "ask the seller"
+		self.assertIn("cửa hàng mình có", r["answer_text"].lower())
+		self.assertNotIn("chưa tìm thấy", r["answer_text"].lower())
+
 	def test_chemical_question_is_refused_with_warning(self):
 		r = orchestrator.ask("customer", "thuốc chuột pha bao nhiêu nước")
 		self.assertTrue(r["needs_staff_help"])
