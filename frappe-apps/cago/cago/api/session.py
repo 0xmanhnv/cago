@@ -45,6 +45,8 @@ def bootstrap():
 		# box + per-line edit on these; quick_sale re-checks for the cashier.
 		"allow_price_edit": _limits["allow_price_edit"],
 		"max_discount_pct": _limits["max_discount_pct"],
+		# đồng per loyalty point when redeemed at the till (so the sell UI shows "N điểm = Yđ").
+		"loyalty_redeem_vnd": _loyalty_redeem_vnd(),
 		"staff_can_collect_debt": _staff_can_collect_debt(),
 		"has_posawesome": has_posawesome,
 		# Single source of truth for the POS Awesome desk URL (frontend never hardcodes the
@@ -70,6 +72,12 @@ def _company():
 def _kiosk_debt_visible():
 	company = _company()
 	return bool(company and frappe.db.get_value("Company", company, "cago_kiosk_debt_visible"))
+
+
+def _loyalty_redeem_vnd():
+	from cago.loyalty import redeem_value
+
+	return redeem_value()
 
 
 def _staff_can_collect_debt():

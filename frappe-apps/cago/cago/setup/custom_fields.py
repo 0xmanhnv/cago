@@ -163,7 +163,16 @@ def ensure_loyalty_fields():
 					"read_only": 1,
 					"no_copy": 1,
 					"print_hide": 1,
-				}
+				},
+				{
+					"fieldname": "cago_points_redeemed",
+					"label": "Cago Points Redeemed",
+					"fieldtype": "Int",
+					"insert_after": "cago_points_awarded",
+					"read_only": 1,
+					"no_copy": 1,
+					"print_hide": 1,
+				},
 			]
 		},
 		ignore_validate=True,

@@ -99,6 +99,32 @@ class TestLoyalty(FrappeTestCase):
 			frappe.conf.pop("cago_loyalty_vnd_per_point", None)
 		self.assertEqual(flt(frappe.db.get_value("Customer", cust, "cago_points")), before)
 
+	def test_points_redeemed_discounts_bill_and_deducts(self):
+		"""Spending points at the till knocks redeem_value đồng off each, capped by the balance, is
+		stamped on the invoice, and is given back on cancel."""
+		from cago.api import debt, purchasing, sales
+		from cago.loyalty import redeem_value
+		from cago.setup.company import ensure_payment_modes
+		from frappe.utils import flt
+
+		ensure_payment_modes()
+		purchasing.receive_stock(ITEM, 20)
+		cust = debt.add_customer("KH Diem Redeem")["customer"]
+		# Baseline: identical basket, no redemption — gives us the un-discounted grand total.
+		base_si = frappe.get_doc("Sales Invoice", sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 5}]), "cash", customer=cust)["invoice"])
+		# Grant points, then redeem MORE than the balance — must clamp to the balance (5).
+		frappe.db.set_value("Customer", cust, "cago_points", 5)
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 5}]), "cash", customer=cust, redeem_points=99)
+		si = frappe.get_doc("Sales Invoice", r["invoice"])
+		self.assertEqual(int(si.cago_points_redeemed or 0), 5)
+		self.assertAlmostEqual(flt(si.grand_total), flt(base_si.grand_total) - 5 * redeem_value(), places=2)
+		# Balance now = 5 - 5 redeemed + whatever this sale accrued.
+		accrued = int(si.cago_points_awarded or 0)
+		self.assertEqual(int(flt(frappe.db.get_value("Customer", cust, "cago_points"))), accrued)
+		# Cancel restores the 5 redeemed and removes the accrued → back to 5.
+		si.cancel()
+		self.assertEqual(int(flt(frappe.db.get_value("Customer", cust, "cago_points"))), 5)
+
 
 class TestQuickSale(FrappeTestCase):
 	"""Cago-native checkout (sales.quick_sale): a paid POS invoice that reduces stock."""

@@ -32,6 +32,7 @@ interface Cust {
   customer_name: string;
   village?: string;
   mobile?: string;
+  points?: number;
   outstanding_text?: string;
 }
 interface Meta {
@@ -199,6 +200,7 @@ export function Checkout() {
   const [showHeld, setShowHeld] = useState(false);
   const [discount, setDiscount] = useState("");
   const [discountMode, setDiscountMode] = useState<"amount" | "percent">("amount");
+  const [redeemPts, setRedeemPts] = useState(0); // loyalty points the customer spends this sale
   const [custInPanel, setCustInPanel] = useState(false); // change-customer picker inside the pay panel
   const [viewMode, setViewMode] = useState<"list" | "card">("list"); // staff default = dense list (speed)
   const [couponInput, setCouponInput] = useState("");
@@ -445,7 +447,14 @@ export function Checkout() {
   // Discount can be a fixed đồng amount or a % of the subtotal (rural staff say "bớt 10%").
   const discRaw = discountMode === "percent" ? Math.round((subtotal * Math.min(discountNum, 100)) / 100) : discountNum;
   const disc = Math.max(0, Math.min(discRaw, subtotal));
-  const estimate = Math.max(0, subtotal - disc - couponDisc);
+  // Loyalty redemption: customer spends points (đồng each = boot.loyalty_redeem_vnd), capped by
+  // their balance and by what's left of the bill after other discounts.
+  const redeemVnd = boot?.loyalty_redeem_vnd || 1000;
+  const maxRedeem = Math.min(cust?.points || 0, Math.floor(Math.max(0, subtotal - disc - couponDisc) / redeemVnd));
+  const redeemUse = Math.max(0, Math.min(redeemPts, maxRedeem));
+  const redeemDisc = redeemUse * redeemVnd; // đồng knocked off the bill by spent points
+  const estimate = Math.max(0, subtotal - disc - couponDisc - redeemDisc);
+  const totalSaved = disc + couponDisc + redeemDisc; // everything knocked off the subtotal
 
   const applyCoupon = async () => {
     const code = couponInput.trim();
@@ -587,6 +596,7 @@ export function Checkout() {
         customer: cust?.customer || null,
         discount_amount: disc || 0,
         coupon: coupon || undefined,
+        redeem_points: redeemUse || 0,
       });
       setResult(r);
       setShiftRefresh((n) => n + 1);
@@ -594,6 +604,7 @@ export function Checkout() {
       setLines({});
       setMeta({}); // drop cached stock so the next sale re-reads fresh on-hand (no stale OOS banner)
       setDiscount("");
+      setRedeemPts(0);
       clearCoupon();
       setPayOpen(false);
       if (autoPrint) void printReceipt(r.invoice, paper);
@@ -630,6 +641,7 @@ export function Checkout() {
         customer: cust?.customer || null,
         discount_amount: disc || 0,
         coupon: coupon || undefined,
+        redeem_points: redeemUse || 0,
         payments: [
           { mode: "cash", amount: cashAmt },
           { mode: "bank", amount: bankAmt },
@@ -641,6 +653,7 @@ export function Checkout() {
       setLines({});
       setMeta({}); // drop cached stock so the next sale re-reads fresh on-hand (no stale OOS banner)
       setDiscount("");
+      setRedeemPts(0);
       clearCoupon();
       setSplitCash("");
       setSplitBank("");
@@ -1128,12 +1141,12 @@ export function Checkout() {
                     <span className="text-sm text-slate-500">{cartCodes.length} mặt hàng</span>
                     <button
                       onClick={() => setDiscOpen((v) => !v)}
-                      className={`rounded-lg border-2 px-3 py-1.5 text-sm font-bold ${disc + couponDisc > 0 ? "border-amber-400 bg-amber-50 text-amber-800" : "border-slate-300 text-slate-600"}`}
+                      className={`rounded-lg border-2 px-3 py-1.5 text-sm font-bold ${totalSaved > 0 ? "border-amber-400 bg-amber-50 text-amber-800" : "border-slate-300 text-slate-600"}`}
                     >
-                      🏷️ Giảm giá / Mã{disc + couponDisc > 0 ? ` · −${money(disc + couponDisc)}` : discOpen ? " ▲" : " ▼"}
+                      🏷️ Giảm giá / Mã{totalSaved > 0 ? ` · −${money(totalSaved)}` : discOpen ? " ▲" : " ▼"}
                     </button>
                   </div>
-                  <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${discOpen || disc + couponDisc > 0 || !!coupon ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                  <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${discOpen || totalSaved > 0 || !!coupon ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                     <div className="overflow-hidden">
                     <div className="mt-2 space-y-2 rounded-xl border border-amber-200 bg-amber-50/50 p-2.5">
                       {/* Manual "giảm trực tiếp" is bargaining — only when the owner enabled price
@@ -1175,6 +1188,38 @@ export function Checkout() {
                         )}
                       </div>
                       {couponMsg && <div className="text-right text-xs">{couponMsg}</div>}
+                      {/* Loyalty redemption — only when a real (non-walk-in) customer with points is
+                          chosen. The customer spends điểm at redeemVnd đồng each; capped server-side. */}
+                      {cust && (cust.points || 0) > 0 && (
+                        <div className="border-t border-amber-200 pt-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm text-slate-600">
+                              ⭐ Dùng điểm <span className="text-xs text-slate-400">(có {cust.points}đ)</span>
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                inputMode="numeric"
+                                value={redeemPts ? String(redeemPts) : ""}
+                                onChange={(e) => setRedeemPts(parseInt(e.target.value.replace(/[^\d]/g, ""), 10) || 0)}
+                                placeholder="0"
+                                className="h-9 w-20 rounded-lg border-2 border-amber-300 px-2 text-right"
+                              />
+                              <button
+                                onClick={() => setRedeemPts(maxRedeem)}
+                                className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+                                disabled={maxRedeem === 0}
+                              >
+                                Tối đa
+                              </button>
+                            </div>
+                          </div>
+                          {redeemUse > 0 && (
+                            <div className="text-right text-xs text-amber-700">
+                              {redeemUse} điểm = giảm {money(redeemDisc)}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     </div>
                   </div>
@@ -1182,7 +1227,7 @@ export function Checkout() {
                   <div className="mt-3 flex items-center justify-between rounded-xl bg-brand-light/60 px-3.5 py-3">
                     <div>
                       <div className="text-sm font-bold text-slate-500">Tổng tiền</div>
-                      {disc + couponDisc > 0 && <div className="text-xs font-bold text-amber-700">đã giảm {money(disc + couponDisc)}</div>}
+                      {totalSaved > 0 && <div className="text-xs font-bold text-amber-700">đã giảm {money(totalSaved)}</div>}
                     </div>
                     <span className="text-3xl font-extrabold text-brand">{money(estimate)}</span>
                   </div>

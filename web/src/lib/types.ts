@@ -101,6 +101,7 @@ export interface Bootstrap {
   kiosk_debt_visible: boolean;
   allow_price_edit: boolean;
   max_discount_pct?: number; // per-staff max whole-bill discount (owner = 100)
+  loyalty_redeem_vnd?: number; // đồng per loyalty point when redeemed at the till
   staff_can_collect_debt?: boolean;
   has_posawesome: boolean;
   pos_url?: string | null;

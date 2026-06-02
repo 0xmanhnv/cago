@@ -24,30 +24,41 @@ def _per_point():
 	return flt(_get("CAGO_LOYALTY_VND_PER_POINT", "cago_loyalty_vnd_per_point", 10000)) or 10000
 
 
+def redeem_value():
+	"""Đồng per point when a customer SPENDS points at the till (default 1.000đ/điểm) — separate
+	from the accrual rate so redeeming isn't 100% cashback. Configurable via site_config."""
+	from cago.chatbot.config import _get
+
+	return flt(_get("CAGO_LOYALTY_REDEEM_VND_PER_POINT", "cago_loyalty_redeem_vnd_per_point", 1000)) or 1000
+
+
 def _add_points(customer, delta):
 	current = flt(frappe.db.get_value("Customer", customer, "cago_points"))
 	frappe.db.set_value("Customer", customer, "cago_points", max(0, int(current + delta)))
 
 
 def accrue(doc, method=None):
-	"""On submit: award points and RECORD the awarded count on the invoice, so cancel can
-	reverse the exact amount regardless of any later rate change."""
+	"""On submit: award points for the spend AND deduct any points the customer redeemed on this
+	sale (cago_points_redeemed, set by quick_sale before submit). Both are recorded on the invoice
+	so cancel reverses the exact amounts."""
 	customer = getattr(doc, "customer", None)
 	if not customer or _is_walkin(customer):
 		return
 	pts = int(flt(getattr(doc, "grand_total", 0)) / _per_point())
-	if pts <= 0:
-		return
-	_add_points(customer, +pts)
-	# Persist what we actually gave (read back on cancel). Field may be absent on older sites.
-	try:
-		frappe.db.set_value("Sales Invoice", doc.name, "cago_points_awarded", pts, update_modified=False)
-	except Exception:
-		pass
+	if pts > 0:
+		_add_points(customer, +pts)
+		# Persist what we actually gave (read back on cancel). Field may be absent on older sites.
+		try:
+			frappe.db.set_value("Sales Invoice", doc.name, "cago_points_awarded", pts, update_modified=False)
+		except Exception:
+			pass
+	redeemed = int(flt(getattr(doc, "cago_points_redeemed", 0) or 0))
+	if redeemed > 0:
+		_add_points(customer, -redeemed)  # customer spent these points as a discount
 
 
 def reverse(doc, method=None):
-	"""On cancel: subtract exactly the points awarded at submit (not a recomputed value)."""
+	"""On cancel: undo both — subtract the points awarded, give back the points redeemed."""
 	customer = getattr(doc, "customer", None)
 	if not customer or _is_walkin(customer):
 		return
@@ -55,3 +66,6 @@ def reverse(doc, method=None):
 	pts = int(flt(awarded)) if awarded else int(flt(getattr(doc, "grand_total", 0)) / _per_point())
 	if pts > 0:
 		_add_points(customer, -pts)
+	redeemed = int(flt(getattr(doc, "cago_points_redeemed", 0) or 0))
+	if redeemed > 0:
+		_add_points(customer, +redeemed)

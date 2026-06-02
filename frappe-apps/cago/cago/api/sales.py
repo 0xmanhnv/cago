@@ -12,7 +12,7 @@ Privileged submit (owner lacks ERPNext accounting/stock perms; ERPNext still val
 
 import frappe
 from frappe import _
-from frappe.utils import flt, nowdate
+from frappe.utils import cint, flt, nowdate
 
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
@@ -278,7 +278,7 @@ def search_customers_lite(query=None, start=0):
 		"Customer",
 		filters={"disabled": 0},
 		or_filters=or_filters,
-		fields=["name", "customer_name", "cago_village", "mobile_no"],
+		fields=["name", "customer_name", "cago_village", "mobile_no", "cago_points"],
 		limit=20,
 		limit_start=cint(start),
 		order_by="customer_name asc",
@@ -294,6 +294,7 @@ def search_customers_lite(query=None, start=0):
 				"customer_name": c.customer_name,
 				"village": c.cago_village,
 				"mobile": c.mobile_no,
+				"points": int(flt(c.cago_points)),
 				"outstanding_text": dto.format_price(bal) if bal > 0 else "Không nợ",
 			}
 		)
@@ -570,7 +571,7 @@ def _mode_of_payment(company, payment_mode):
 
 
 @frappe.whitelist()
-def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None):
+def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None, redeem_points=0):
 	"""Cago-native checkout: a stock-reducing Sales Invoice (cash/bank/credit/split) for staff.
 
 	ERPNext is the engine (submitted Sales Invoice, update_stock → stock + GL + loyalty).
@@ -690,6 +691,20 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				name = frappe.db.get_value("Item", r["item_code"], "cago_display_name") or r["item_code"]
 				frappe.throw(_("Giảm giá làm '{0}' xuống dưới giá sàn {1}/{2}.").format(name, dto.format_price(floor), r["uom"]))
 
+	# Loyalty redemption: the customer SPENDS earned points as an extra discount. Exempt from the
+	# giá-sàn / max-discount checks above (it's their own points, not bargaining). Deducted on the
+	# invoice's on_submit (cago.loyalty), restored on cancel.
+	redeem_pts = cint(redeem_points)
+	if redeem_pts > 0 and cust != walkin_customer():
+		from cago.loyalty import redeem_value
+
+		bal = cint(frappe.db.get_value("Customer", cust, "cago_points"))
+		room_pts = int(max(0.0, subtotal_all - disc) / (redeem_value() or 1))  # don't discount below 0
+		redeem_pts = max(0, min(redeem_pts, bal, room_pts))
+		disc = min(subtotal_all, disc + redeem_pts * redeem_value())
+	else:
+		redeem_pts = 0
+
 	if payments:
 		# Split / partial: one or more cash/bank methods; any shortfall becomes the customer's
 		# debt (requires a real customer). is_pos invoice with the payment rows.
@@ -723,6 +738,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 					"selling_price_list": pl,
 					"remarks": "Bán hàng tại quầy (nhiều hình thức)",
 					"cago_cashier": cashier,
+					"cago_points_redeemed": redeem_pts,
 					"items": rows,
 				}
 			)
@@ -787,6 +803,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				"selling_price_list": pl,
 				"remarks": "Bán chịu tại quầy",
 				"cago_cashier": cashier,
+				"cago_points_redeemed": redeem_pts,
 				"items": rows,
 			}
 		)
@@ -831,6 +848,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				"selling_price_list": pl,
 				"remarks": f"Bán hàng tại quầy ({'chuyển khoản' if payment_mode == 'bank' else 'tiền mặt'})",
 				"cago_cashier": cashier,
+				"cago_points_redeemed": redeem_pts,
 				"items": rows,
 			}
 		)
