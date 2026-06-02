@@ -7,6 +7,7 @@ import { useSession } from "@/lib/session";
 import { OWNER_ROLES } from "@/lib/roles";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { CatThumb } from "@/components/kiosk/CatThumb";
+import { ProductInfo } from "@/components/staff/StaffProductDetail";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import type { ProductCard, Product, Category } from "@/lib/types";
@@ -194,6 +195,7 @@ export function Checkout() {
   const [result, setResult] = useState<SaleResult | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [held, setHeld] = useState<Held[]>([]);
+  const [preview, setPreview] = useState<string | null>(null); // product being previewed (tap image/title)
   const [showHeld, setShowHeld] = useState(false);
   const [discount, setDiscount] = useState("");
   const [discountMode, setDiscountMode] = useState<"amount" | "percent">("amount");
@@ -815,6 +817,20 @@ export function Checkout() {
         />
       )}
 
+      {preview && (
+        <ProductPreview
+          code={preview}
+          line={lines[preview] || null}
+          qtyText={lines[preview] ? String(trim(lines[preview].qty)) : ""}
+          unitLabel={lines[preview] ? labelOf(preview, lines[preview].uom) : ""}
+          onClose={() => setPreview(null)}
+          onAdd={() => add(preview, list.find((x) => x.item_code === preview))}
+          onInc={() => setQty(preview, (lines[preview]?.qty || 0) + 1)}
+          onDec={() => setQty(preview, (lines[preview]?.qty || 0) - 1)}
+          onRemove={() => setQty(preview, 0)}
+        />
+      )}
+
       {showHeld && held.length > 0 && (
         <div className="mb-2.5 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
           <div className="mb-1 font-bold text-amber-800">Đơn đang giữ</div>
@@ -897,11 +913,12 @@ export function Checkout() {
                   // bottom (mt-auto) so cards with 1- and 2-line names line their buttons up.
                   <div className="flex flex-1 flex-col">
                     <div className="flex items-start gap-3">
-                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg">
+                      <button onClick={() => setPreview(p.item_code)} aria-label="Xem chi tiết" className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg">
                         <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
-                      </div>
+                        <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/45 px-1 text-[10px] leading-tight text-white">🔍</span>
+                      </button>
                       <div className="min-w-0 flex-1">
-                        <div className="line-clamp-2 font-bold leading-tight">{p.display_name}</div>
+                        <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.display_name}</button>
                         <div className="text-sm font-bold text-brand">{p.price_text}</div>
                         <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
                           {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${m.stock_uom}` : null) || p.stock_status}
@@ -920,11 +937,12 @@ export function Checkout() {
                 ) : (
                   // List = compact horizontal row.
                   <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                    <button onClick={() => setPreview(p.item_code)} aria-label="Xem chi tiết" className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg">
                       <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
-                    </div>
+                      <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/45 px-1 text-[10px] leading-tight text-white">🔍</span>
+                    </button>
                     <div className="min-w-0 flex-1">
-                      <div className="line-clamp-2 font-bold leading-tight">{p.display_name}</div>
+                      <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.display_name}</button>
                       <div className="text-sm font-bold text-brand">{p.price_text}</div>
                       <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
                         {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${m.stock_uom}` : null) || p.stock_status}
@@ -1238,6 +1256,75 @@ export function Checkout() {
   );
 }
 
+// Tap a product image/title on the sell screen → this preview so staff can verify it's the right
+// product (big image, full name, units, stock, location, advice, safety) before adding to the order.
+function ProductPreview({
+  code,
+  line,
+  qtyText,
+  unitLabel,
+  onClose,
+  onAdd,
+  onInc,
+  onDec,
+  onRemove,
+}: {
+  code: string;
+  line: Line | null;
+  qtyText: string;
+  unitLabel: string;
+  onClose: () => void;
+  onAdd: () => void;
+  onInc: () => void;
+  onDec: () => void;
+  onRemove: () => void;
+}) {
+  const [p, setP] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    setLoading(true);
+    frappeCall<Product>("cago.api.staff.get_product", { item_code: code }, { method: "GET" })
+      .then(setP)
+      .catch(() => setP(null))
+      .finally(() => setLoading(false));
+  }, [code]);
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="no-scrollbar flex max-h-[88vh] w-full max-w-[520px] flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+          <div className="text-lg font-extrabold text-brand-dark">Xem lại sản phẩm</div>
+          <button onClick={onClose} className="rounded-lg bg-slate-200 px-3 py-1.5 font-bold text-slate-700">Đóng</button>
+        </div>
+        <div className="no-scrollbar overflow-auto px-4 py-3">
+          {loading ? (
+            <div className="py-10 text-center text-slate-500">Đang tải...</div>
+          ) : !p ? (
+            <div className="py-10 text-center text-slate-500">Không tải được sản phẩm.</div>
+          ) : (
+            <ProductInfo p={p} />
+          )}
+        </div>
+        {/* Action: confirm it's the right item → add (or adjust qty if already in the order). */}
+        <div className="border-t border-slate-200 px-4 py-3">
+          {line ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <button onClick={onDec} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
+                <span className="w-14 text-center text-xl font-extrabold">{qtyText}{unitLabel ? "" : ""}</span>
+                <button onClick={onInc} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
+                {unitLabel && <span className="ml-1 text-slate-500">{unitLabel}</span>}
+              </div>
+              <button onClick={onRemove} className="rounded-lg bg-red-50 px-3 py-2.5 font-bold text-red-600">Bỏ khỏi đơn</button>
+            </div>
+          ) : (
+            <button onClick={onAdd} className="min-h-touch w-full rounded-xl bg-brand text-lg font-extrabold text-white">＋ Thêm vào đơn</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWalkIn: () => void }) {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Cust[]>([]);
@@ -1303,8 +1390,9 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
         </div>
       ) : (
         <div>
+          {/* No autoFocus: this picker is mounted inside the (collapsed) pay panel, so focusing on
+              mount would pop the phone keyboard the moment staff tap "Thanh toán". They tap to type. */}
           <input
-            autoFocus
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
