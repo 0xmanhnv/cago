@@ -197,13 +197,26 @@ def ensure_shift_fields():
 					"read_only": 1,
 					"no_copy": 1,
 					"print_hide": 1,
-				}
+				},
+				# Idempotency key for offline sells: the till generates a UUID per sale and sends it
+				# with quick_sale. A unique index lets a re-sent queue entry (flaky network) resolve
+				# to the SAME invoice instead of double-booking. Empty for online sells.
+				{
+					"fieldname": "cago_client_uuid",
+					"label": "Cago Client UUID",
+					"fieldtype": "Data",
+					"insert_after": "cago_cashier",
+					"unique": 1,
+					"read_only": 1,
+					"no_copy": 1,
+					"print_hide": 1,
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Sales Invoice shift field ensured: cago_cashier")
+	print("Sales Invoice shift field ensured: cago_cashier, cago_client_uuid")
 
 
 def ensure_user_fields():

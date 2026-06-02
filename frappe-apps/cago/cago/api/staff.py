@@ -11,7 +11,7 @@ from frappe import _
 from frappe.utils import cint, flt, format_datetime, get_datetime, now_datetime
 
 from cago.utils import dto
-from cago.utils.permissions import ensure_internal
+from cago.utils.permissions import ensure_cap, ensure_internal
 
 WANTED_STATUSES = ("New", "Processing", "Completed", "Expired", "Cancelled")
 
@@ -94,6 +94,52 @@ def get_product(item_code):
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	return dto.staff_dto(frappe.get_doc("Item", item_code))
+
+
+@frappe.whitelist()
+def catalog_snapshot():
+	"""Whole sellable catalog (lean) in ONE call, for OFFLINE caching of the sell screen. Each row
+	carries enough to both render the search/list card AND add the item to the cart (sale_units +
+	stock + barcodes). Staff-safe: selling price only, never buying price/margin (same as staff_dto).
+	Skips the per-item `alternatives` N+1 — related-products stays an online-only nicety."""
+	ensure_cap("sell")
+	rows = frappe.get_all(
+		"Item",
+		filters={"disabled": 0},
+		fields=[
+			"name", "item_name", "cago_display_name", "image", "item_group", "stock_uom",
+			"cago_stock_auto", "cago_is_chemical", "cago_shelf_location",
+		],
+		order_by="cago_kiosk_sort_order asc, item_name asc",
+	)
+	out = []
+	for r in rows:
+		item = frappe.get_doc("Item", r.name)  # needed for sale_units (uoms + per-UOM Item Prices)
+		rate = dto.get_selling_price(r.name)
+		qty = dto.get_actual_qty(r.name) if r.cago_stock_auto else 0
+		cat = dto.category_meta(r.item_group)
+		out.append(
+			{
+				"item_code": r.name,
+				"display_name": r.cago_display_name or r.item_name,
+				"image": r.image,
+				"category": r.item_group,
+				"category_icon": cat["icon"],
+				"category_color": cat["color"],
+				"price_text": dto.format_price(rate, r.stock_uom),
+				"selling_price": rate,
+				"unit": r.stock_uom,
+				"stock_status": dto.stock_status_for(r, qty),
+				"stock_auto": bool(r.cago_stock_auto),
+				"actual_stock_qty": qty if r.cago_stock_auto else None,
+				"is_chemical": bool(r.cago_is_chemical),
+				"shelf_location": r.cago_shelf_location,
+				"safety_notes": dto.safety_warning_for(item),
+				"sale_units": dto.sale_units(item),
+				"barcodes": [b.barcode for b in (item.get("barcodes") or [])],
+			}
+		)
+	return out
 
 
 @frappe.whitelist()

@@ -141,6 +141,32 @@ class TestQuickSale(FrappeTestCase):
 	def tearDown(self):
 		frappe.db.commit = self._commit
 
+	def test_quick_sale_idempotent_by_client_uuid(self):
+		"""Offline dedup: re-sending a queued sale with the same client_uuid must resolve to the
+		SAME invoice (stock reduced once), not book a second one."""
+		from cago.api import purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		before = flt_qty(ITEM)
+		uuid = frappe.generate_hash(length=20)  # fresh per run → never collides with a prior sale
+		r1 = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 2}]), "cash", client_uuid=uuid)
+		r2 = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 2}]), "cash", client_uuid=uuid)
+		self.assertEqual(r1["invoice"], r2["invoice"])  # same invoice
+		self.assertTrue(r2.get("duplicate"))  # second call was a replay, not a new booking
+		self.assertAlmostEqual(flt_qty(ITEM), before - 2, places=2)  # stock down ONCE
+
+	def test_quick_sale_posted_at_sets_posting_datetime(self):
+		"""An offline sale carries its real ring-up time so it lands in the right till-shift window."""
+		from cago.api import purchasing, sales
+		from frappe.utils.data import get_time
+
+		purchasing.receive_stock(ITEM, 10)
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", posted_at="2026-05-30 08:15:00")
+		si = frappe.get_doc("Sales Invoice", r["invoice"])
+		self.assertEqual(str(si.posting_date), "2026-05-30")
+		tt = get_time(str(si.posting_time))
+		self.assertEqual((tt.hour, tt.minute), (8, 15))
+
 	def test_cash_sale_is_paid_and_reduces_stock(self):
 		from cago.api import purchasing, sales
 

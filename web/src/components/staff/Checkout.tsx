@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { frappeCall } from "@/lib/api";
+import { FrappeError, frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { CatThumb } from "@/components/kiosk/CatThumb";
@@ -11,6 +11,11 @@ import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import type { ProductCard, Product, Category } from "@/lib/types";
+import { useOnline } from "@/lib/offline/useOnline";
+import { type SaleArgs, type SaleDisplay } from "@/lib/offline/db";
+import { findByBarcodeLocal, getProductLocal, refreshCatalog, searchCatalogLocal, searchCustomersLocal } from "@/lib/offline/catalog";
+import { enqueueSale } from "@/lib/offline/queue";
+import { flushQueue } from "@/lib/offline/sync";
 
 type PayMode = "cash" | "bank" | "credit" | "split";
 interface SaleResult {
@@ -26,6 +31,7 @@ interface SaleResult {
   cash_text?: string | null;
   bank_text?: string | null;
   change_text?: string | null;
+  offline?: boolean; // queued offline — `invoice` holds the provisional local code, not a server no.
 }
 interface Cust {
   customer: string;
@@ -147,12 +153,48 @@ async function printReceipt(invoice: string, size: PaperSize = loadPaper()) {
   }
 }
 
+// Provisional receipt for an OFFLINE sale — printed straight from the queued cart (no server call,
+// which would fail with no network). Clearly marked "CHƯA ĐỒNG BỘ"; the real invoice prints later.
+function printProvisional(
+  store: string,
+  localCode: string,
+  lines: { name: string; qty: number; uom: string; rate_text: string; amount_text: string }[],
+  totalText: string,
+  outstandingText: string | null,
+  size: PaperSize = loadPaper(),
+) {
+  const w = window.open("", "_blank", "width=380,height=640");
+  const p = PAPER[size];
+  const rows = lines
+    .map((l) => `<div class="it"><div>${esc(l.name)}</div><div class="r">${trim(l.qty)} ${esc(l.uom)} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`)
+    .join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(localCode)}</title>
+  <style>@page{size:${p.page};margin:${size === "a5" ? "8mm" : "2mm"}}body{width:${p.width};font-family:monospace;font-size:${p.base};color:#000}
+  h3{text-align:center;margin:2px 0}.c{text-align:center}.it{border-bottom:1px dashed #999;padding:2px 0}.r{font-size:${p.line}}
+  .tot{font-weight:bold;font-size:${p.tot};text-align:right;margin-top:4px}.tmp{text-align:center;border:1px dashed #000;margin:3px 0;padding:2px;font-weight:bold}</style>
+  </head><body>
+  <h3>${esc(store)}</h3>
+  <div class="c">PHIẾU BÁN HÀNG (TẠM)</div>
+  <div class="tmp">⚠ CHƯA ĐỒNG BỘ — ${esc(localCode)}</div>
+  <hr>${rows}
+  <div class="tot">TỔNG: ${esc(totalText)}</div>
+  ${outstandingText ? `<div class="r">Còn nợ: ${esc(outstandingText)}</div>` : ""}
+  <div class="c" style="margin-top:6px">Cảm ơn quý khách!</div>
+  <script>window.onload=function(){window.print()}</script>
+  </body></html>`;
+  if (w) {
+    w.document.write(html);
+    w.document.close();
+  }
+}
+
 export function Checkout() {
   const router = useRouter();
   const sp = useSearchParams();
   const wantedParam = sp.get("wanted"); // pre-load a kiosk wanted-list into the cart for payment
   const [wantedCode, setWantedCode] = useState<string | null>(null);
   const { boot } = useSession();
+  const online = useOnline(); // false → search/cart read the IndexedDB cache; sales are queued
   // /staff/sell is shared by staff AND the owner ("🛒 Bán hàng" tile) — send "back/home" to the
   // caller's real home so an owner doesn't get dumped on the staff home.
   const home = "/pos"; // unified back-office home
@@ -194,6 +236,9 @@ export function Checkout() {
   const [cust, setCust] = useState<Cust | null>(null); // null = Khách lẻ
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<SaleResult | null>(null);
+  // When the current result is an offline (queued) sale, keep its display so the result screen can
+  // reprint the provisional receipt without a server round-trip.
+  const [offlineSale, setOfflineSale] = useState<{ code: string; lines: SaleDisplay["lines"]; total_text: string; outstanding: string | null } | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [held, setHeld] = useState<Held[]>([]);
   const [preview, setPreview] = useState<string | null>(null); // product being previewed (tap image/title)
@@ -264,7 +309,9 @@ export function Checkout() {
     const seq = ++searchSeq.current; // newest wins; a slow earlier response won't clobber this one
     setLoading(true);
     try {
-      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, category: cat || null, start: 0 }, { method: "GET" })) || [];
+      const r = (online
+        ? await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, category: cat || null, start: 0 }, { method: "GET" })
+        : ((await searchCatalogLocal(query, cat || null, 0, STAFF_PAGE)) as ProductCard[])) || [];
       if (seq !== searchSeq.current) return; // a newer search started — drop this stale result
       setList(r);
       setHasMore(r.length >= STAFF_PAGE);
@@ -283,7 +330,9 @@ export function Checkout() {
     const start = list.length;
     setLoadingMore(true);
     try {
-      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q, category: category || null, start }, { method: "GET" })) || [];
+      const r = (online
+        ? await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q, category: category || null, start }, { method: "GET" })
+        : ((await searchCatalogLocal(q, category || null, start, STAFF_PAGE)) as ProductCard[])) || [];
       if (seq !== searchSeq.current) return; // search changed mid-flight — don't append to a new list
       setList((prev) => [...prev, ...r]);
       setHasMore(r.length >= STAFF_PAGE);
@@ -296,6 +345,11 @@ export function Checkout() {
   useEffect(() => {
     void run("");
     frappeCall<Category[]>("cago.api.staff.list_categories", {}, { method: "GET" }).then((d) => setCats(d || [])).catch(() => {});
+    // Warm the offline cache + drain any backlog whenever the sell screen opens online.
+    if (online) {
+      void refreshCatalog().catch(() => {});
+      void flushQueue().catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Switching category clears the text search and lists that category (browse mode).
@@ -318,7 +372,10 @@ export function Checkout() {
   const ensureMeta = async (code: string): Promise<Meta | null> => {
     if (meta[code]) return meta[code];
     try {
-      const p = await frappeCall<Product>("cago.api.staff.get_product", { item_code: code }, { method: "GET" });
+      const p = online
+        ? await frappeCall<Product>("cago.api.staff.get_product", { item_code: code }, { method: "GET" })
+        : ((await getProductLocal(code)) as Product | undefined);
+      if (!p) return null;
       const m: Meta = {
         name: p.display_name || code,
         sale_units: p.sale_units && p.sale_units.length ? p.sale_units : [{ uom: p.unit || "", price_text: p.price_text }],
@@ -517,8 +574,10 @@ export function Checkout() {
   const findBarcode = async (code: string) => {
     if (!code.trim()) return;
     try {
-      const r = await frappeCall<{ item_code: string | null }>("cago.api.catalog.find_by_barcode", { barcode: code.trim() }, { method: "GET" });
-      if (r.item_code) await add(r.item_code);
+      const itemCode = online
+        ? (await frappeCall<{ item_code: string | null }>("cago.api.catalog.find_by_barcode", { barcode: code.trim() }, { method: "GET" })).item_code
+        : await findByBarcodeLocal(code.trim());
+      if (itemCode) await add(itemCode);
       else toast.info("Không tìm thấy sản phẩm với mã vạch này.");
     } catch {
       toast.error("Không tra được mã vạch.");
@@ -579,34 +638,89 @@ export function Checkout() {
     }
   };
 
+  // Build the quick_sale payload + a display snapshot (for the receipt / pending list) from the cart.
+  const buildSale = (payment_mode: PayMode, payments?: { mode: "cash" | "bank"; amount: number }[]): { args: SaleArgs; display: SaleDisplay } => {
+    const items = cartCodes.map((c) => ({ item_code: c, qty: lines[c].qty, uom: lines[c].uom, rate: allowPriceEdit ? lines[c].rate : undefined }));
+    const dispLines = cartCodes.map((c) => {
+      const price = linePrice(c);
+      return { name: nameOf(c), qty: lines[c].qty, uom: labelOf(c, lines[c].uom), rate_text: money(price), amount_text: money(price * lines[c].qty) };
+    });
+    const args: SaleArgs = {
+      items,
+      payment_mode,
+      customer: cust?.customer || null,
+      discount_amount: disc || 0,
+      coupon: online ? coupon || undefined : undefined, // coupons need server validation → online only
+      redeem_points: redeemUse || 0,
+      ...(payments ? { payments } : {}),
+    };
+    const display: SaleDisplay = { customer_name: cust?.customer_name, total_text: money(estimate), item_count: cartCodes.length, payment_mode, lines: dispLines };
+    return { args, display };
+  };
+
+  // Reset the cart + pay panel after a sale (online or queued).
+  const clearCart = () => {
+    setLines({});
+    setMeta({}); // drop cached stock so the next sale re-reads fresh on-hand (no stale OOS banner)
+    setDiscount("");
+    setRedeemPts(0);
+    clearCoupon();
+    setSplitCash("");
+    setSplitBank("");
+    setShowSplit(false);
+    setPayOpen(false);
+  };
+
+  // Ring up a sale with no network: store it in the queue and show a provisional receipt. The
+  // server books it (deduping on client_uuid) once the connection returns.
+  const queueOffline = async (payment_mode: PayMode, args: SaleArgs, display: SaleDisplay, outstanding: string | null) => {
+    const sale = await enqueueSale(args, display);
+    setOfflineSale({ code: sale.local_code, lines: display.lines, total_text: display.total_text, outstanding });
+    setResult({
+      invoice: sale.local_code,
+      total: 0,
+      total_text: display.total_text,
+      payment_mode,
+      item_count: display.item_count,
+      customer_name: display.customer_name,
+      lines: display.lines.map((l) => ({ name: l.name, qty: l.qty, uom: l.uom, amount_text: l.amount_text })),
+      outstanding_text: outstanding,
+      offline: true,
+    });
+    setShiftRefresh((n) => n + 1);
+    markWantedDone();
+    clearCart();
+    if (autoPrint) printProvisional(boot?.brand || "Cửa hàng", sale.local_code, display.lines, display.total_text, outstanding, paper);
+    toast.success(`Đã lưu phiếu tạm ${sale.local_code} — sẽ tự đồng bộ khi có mạng.`);
+  };
+
   const checkout = async (payment_mode: PayMode) => {
     if (cartCodes.length === 0 || busy) return;
     if (payment_mode === "credit" && !cust) {
       toast.error("Chọn khách hàng để ghi nợ (bấm vào ô khách ở trên).");
       return;
     }
+    if (!online && payment_mode === "bank") {
+      toast.error("Chuyển khoản cần mạng. Hãy chọn Tiền mặt hoặc Ghi nợ.");
+      return;
+    }
     if (!guardShift(() => checkout(payment_mode))) return;
     const who = cust ? ` cho ${cust.customer_name}` : "";
     if (!(await ask(`${MODE_VI[payment_mode]} ${cartCodes.length} mặt hàng${who}?`, { confirmLabel: MODE_VI[payment_mode] }))) return;
     setBusy(true);
+    const { args, display } = buildSale(payment_mode);
+    const outstanding = payment_mode === "credit" ? display.total_text : null;
     try {
-      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", {
-        items: cartCodes.map((c) => ({ item_code: c, qty: lines[c].qty, uom: lines[c].uom, rate: allowPriceEdit ? lines[c].rate : undefined })),
-        payment_mode,
-        customer: cust?.customer || null,
-        discount_amount: disc || 0,
-        coupon: coupon || undefined,
-        redeem_points: redeemUse || 0,
-      });
+      if (!online) {
+        await queueOffline(payment_mode, args, display, outstanding);
+        return;
+      }
+      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args });
       setResult(r);
+      setOfflineSale(null);
       setShiftRefresh((n) => n + 1);
       markWantedDone();
-      setLines({});
-      setMeta({}); // drop cached stock so the next sale re-reads fresh on-hand (no stale OOS banner)
-      setDiscount("");
-      setRedeemPts(0);
-      clearCoupon();
-      setPayOpen(false);
+      clearCart();
       if (autoPrint) void printReceipt(r.invoice, paper);
       if (payment_mode === "bank") {
         const v = await frappeCall<{ configured: boolean; url: string | null }>(
@@ -617,6 +731,12 @@ export function Checkout() {
         setQr(v.url);
       }
     } catch (e) {
+      // A transport failure (not a server rejection) mid-checkout = the network just dropped. Queue
+      // the cash/credit sale rather than lose it; bank can't be queued (needs the gateway).
+      if (!(e instanceof FrappeError) && payment_mode !== "bank") {
+        await queueOffline(payment_mode, args, display, outstanding);
+        return;
+      }
       toast.error(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
     } finally {
       setBusy(false);
@@ -625,6 +745,11 @@ export function Checkout() {
 
   const checkoutSplit = async () => {
     if (cartCodes.length === 0 || busy) return;
+    // Split payment uses chuyển khoản → needs the gateway. Not available offline.
+    if (!online) {
+      toast.error("Trả nhiều hình thức cần mạng. Khi mất mạng hãy bán Tiền mặt hoặc Ghi nợ.");
+      return;
+    }
     const cashAmt = parseInt((splitCash || "").replace(/[^\d]/g, ""), 10) || 0;
     const bankAmt = parseInt((splitBank || "").replace(/[^\d]/g, ""), 10) || 0;
     const paid = cashAmt + bankAmt;
@@ -635,30 +760,18 @@ export function Checkout() {
     const msg = rest > 0 ? `Còn lại ${money(rest)} ghi nợ cho ${cust?.customer_name}.` : rest < 0 ? `Thối lại ${money(-rest)}.` : "";
     if (!(await ask(`Thu Tiền mặt ${money(cashAmt)} + Chuyển khoản ${money(bankAmt)}. ${msg} Xác nhận?`))) return;
     setBusy(true);
+    const splitPayments = [
+      { mode: "cash" as const, amount: cashAmt },
+      { mode: "bank" as const, amount: bankAmt },
+    ].filter((p) => p.amount > 0);
+    const { args } = buildSale("split", splitPayments);
     try {
-      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", {
-        items: cartCodes.map((c) => ({ item_code: c, qty: lines[c].qty, uom: lines[c].uom, rate: allowPriceEdit ? lines[c].rate : undefined })),
-        customer: cust?.customer || null,
-        discount_amount: disc || 0,
-        coupon: coupon || undefined,
-        redeem_points: redeemUse || 0,
-        payments: [
-          { mode: "cash", amount: cashAmt },
-          { mode: "bank", amount: bankAmt },
-        ].filter((p) => p.amount > 0),
-      });
+      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args });
       setResult(r);
+      setOfflineSale(null);
       setShiftRefresh((n) => n + 1);
       markWantedDone();
-      setLines({});
-      setMeta({}); // drop cached stock so the next sale re-reads fresh on-hand (no stale OOS banner)
-      setDiscount("");
-      setRedeemPts(0);
-      clearCoupon();
-      setSplitCash("");
-      setSplitBank("");
-      setShowSplit(false);
-      setPayOpen(false);
+      clearCart();
       if (autoPrint) void printReceipt(r.invoice, paper);
     } catch (e) {
       toast.error(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
@@ -672,8 +785,13 @@ export function Checkout() {
     return (
       <div className="text-center">
         <div className="rounded-2xl bg-white p-6 shadow">
-          <div className="text-6xl">✅</div>
-          <div className="mt-2 text-lg font-bold">Đã bán xong</div>
+          <div className="text-6xl">{result.offline ? "📴" : "✅"}</div>
+          <div className="mt-2 text-lg font-bold">{result.offline ? "Đã lưu phiếu tạm" : "Đã bán xong"}</div>
+          {result.offline && (
+            <div className="mx-auto mt-2 max-w-sm rounded-lg border border-dashed border-amber-400 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
+              ⚠ Chưa đồng bộ — sẽ tự lên hệ thống khi có mạng
+            </div>
+          )}
           <div className="mt-2 text-4xl font-extrabold text-brand">{result.total_text}</div>
           <div className="mt-1 text-slate-500">
             {MODE_VI[result.payment_mode]}
@@ -704,7 +822,7 @@ export function Checkout() {
           {result.change_text && (
             <div className="mt-1 text-lg font-bold text-brand">Thối lại: {result.change_text}</div>
           )}
-          <div className="mt-2 text-xs text-slate-400">Hoá đơn {result.invoice}</div>
+          <div className="mt-2 text-xs text-slate-400">{result.offline ? "Phiếu tạm" : "Hoá đơn"} {result.invoice}</div>
           {qr && (
             <div className="mt-4">
               <div className="text-slate-600">Khách quét mã để chuyển khoản:</div>
@@ -716,12 +834,20 @@ export function Checkout() {
         <div className="mt-4">
           <PaperPicker paper={paper} onChange={setPaper} />
         </div>
-        <button onClick={() => printReceipt(result.invoice, paper)} className="min-h-touch w-full rounded-2xl bg-slate-700 py-3.5 text-lg font-extrabold text-white">
-          🖨 In hoá đơn
+        <button
+          onClick={() =>
+            result.offline && offlineSale
+              ? printProvisional(boot?.brand || "Cửa hàng", offlineSale.code, offlineSale.lines, offlineSale.total_text, offlineSale.outstanding, paper)
+              : printReceipt(result.invoice, paper)
+          }
+          className="min-h-touch w-full rounded-2xl bg-slate-700 py-3.5 text-lg font-extrabold text-white"
+        >
+          🖨 {result.offline ? "In phiếu tạm" : "In hoá đơn"}
         </button>
         <button
           onClick={() => {
             setResult(null);
+            setOfflineSale(null);
             setQr(null);
             setCust(null);
             void run(q.trim());
@@ -1129,6 +1255,7 @@ export function Checkout() {
                     <div className="overflow-hidden">
                       <div className="pb-2">
                         <CustomerPicker
+                          online={online}
                           onPick={(c) => { setCust(c); setCustInPanel(false); }}
                           onWalkIn={() => { setCust(null); setCustInPanel(false); }}
                         />
@@ -1172,21 +1299,25 @@ export function Checkout() {
                           {discountMode === "percent" && disc > 0 && <div className="text-right text-xs text-amber-700">= giảm {money(disc)}</div>}
                         </>
                       )}
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-slate-600">🎟 Mã</span>
-                        <input
-                          value={couponInput}
-                          onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                          onKeyDown={(e) => e.key === "Enter" && applyCoupon()}
-                          placeholder="Nhập mã giảm giá"
-                          className="h-9 min-w-0 flex-1 rounded-lg border-2 border-violet-300 px-2 uppercase"
-                        />
-                        {coupon ? (
-                          <button onClick={clearCoupon} className="shrink-0 rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-bold">Bỏ</button>
-                        ) : (
-                          <button onClick={applyCoupon} className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-bold text-white">Áp dụng</button>
-                        )}
-                      </div>
+                      {online ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-slate-600">🎟 Mã</span>
+                          <input
+                            value={couponInput}
+                            onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                            onKeyDown={(e) => e.key === "Enter" && applyCoupon()}
+                            placeholder="Nhập mã giảm giá"
+                            className="h-9 min-w-0 flex-1 rounded-lg border-2 border-violet-300 px-2 uppercase"
+                          />
+                          {coupon ? (
+                            <button onClick={clearCoupon} className="shrink-0 rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-bold">Bỏ</button>
+                          ) : (
+                            <button onClick={applyCoupon} className="shrink-0 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-bold text-white">Áp dụng</button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-slate-400">🎟 Mã giảm giá cần mạng</div>
+                      )}
                       {couponMsg && <div className="text-right text-xs">{couponMsg}</div>}
                       {/* Loyalty redemption — only when a real (non-walk-in) customer with points is
                           chosen. The customer spends điểm at redeemVnd đồng each; capped server-side. */}
@@ -1235,8 +1366,13 @@ export function Checkout() {
               <button onClick={() => checkout("cash")} disabled={busy} className="min-h-touch rounded-xl bg-brand py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
                 💵 Tiền mặt
               </button>
-              <button onClick={() => checkout("bank")} disabled={busy} className="min-h-touch rounded-xl bg-violet-600 py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
-                💳 C.khoản
+              <button
+                onClick={() => checkout("bank")}
+                disabled={busy || !online}
+                title={!online ? "Chuyển khoản cần mạng" : ""}
+                className="min-h-touch rounded-xl bg-violet-600 py-3.5 text-lg font-extrabold text-white disabled:opacity-40"
+              >
+                💳 C.khoản{!online && " ⛔"}
               </button>
               <button
                 onClick={() => checkout("credit")}
@@ -1247,9 +1383,11 @@ export function Checkout() {
                 📝 Ghi nợ
               </button>
             </div>
-            <button onClick={() => setShowSplit((v) => !v)} className="mt-2 w-full rounded-xl border-2 border-slate-300 bg-white py-2.5 font-bold text-slate-700">
-              ➗ Tách / trả một phần {showSplit ? "▲" : "▼"}
-            </button>
+            {online && (
+              <button onClick={() => setShowSplit((v) => !v)} className="mt-2 w-full rounded-xl border-2 border-slate-300 bg-white py-2.5 font-bold text-slate-700">
+                ➗ Tách / trả một phần {showSplit ? "▲" : "▼"}
+              </button>
+            )}
             {showSplit && (
               <div className="mt-2 rounded-xl border-2 border-slate-200 p-2.5">
                 <div className="grid grid-cols-2 gap-2">
@@ -1373,7 +1511,7 @@ function ProductPreview({
   );
 }
 
-function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWalkIn: () => void }) {
+function CustomerPicker({ onPick, onWalkIn, online }: { onPick: (c: Cust) => void; onWalkIn: () => void; online: boolean }) {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Cust[]>([]);
   const [adding, setAdding] = useState(false);
@@ -1385,7 +1523,9 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
 
   const run = async (query: string) => {
     try {
-      const r = (await frappeCall<Cust[]>("cago.api.sales.search_customers_lite", { query, start: 0 }, { method: "GET" })) || [];
+      const r = (online
+        ? await frappeCall<Cust[]>("cago.api.sales.search_customers_lite", { query, start: 0 }, { method: "GET" })
+        : ((await searchCustomersLocal(query, 0, PAGE)) as Cust[])) || [];
       setRows(r);
       setHasMore(r.length >= PAGE);
     } catch {
@@ -1395,7 +1535,9 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
   };
   const more = async () => {
     try {
-      const r = (await frappeCall<Cust[]>("cago.api.sales.search_customers_lite", { query: q.trim(), start: rows.length }, { method: "GET" })) || [];
+      const r = (online
+        ? await frappeCall<Cust[]>("cago.api.sales.search_customers_lite", { query: q.trim(), start: rows.length }, { method: "GET" })
+        : ((await searchCustomersLocal(q.trim(), rows.length, PAGE)) as Cust[])) || [];
       setRows((prev) => [...prev, ...r]);
       setHasMore(r.length >= PAGE);
     } catch {
@@ -1465,7 +1607,11 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
               <button onClick={more} className="mt-1 w-full rounded-lg bg-slate-100 py-2 text-sm font-bold text-slate-600">⌄ Xem thêm khách</button>
             )}
           </div>
-          <button onClick={() => setAdding(true)} className="mt-2 w-full rounded-lg bg-teal-600 py-2.5 font-bold text-white">➕ Thêm khách mới</button>
+          {online ? (
+            <button onClick={() => setAdding(true)} className="mt-2 w-full rounded-lg bg-teal-600 py-2.5 font-bold text-white">➕ Thêm khách mới</button>
+          ) : (
+            <div className="mt-2 rounded-lg bg-slate-100 py-2 text-center text-sm font-bold text-slate-400">➕ Thêm khách mới (cần mạng)</div>
+          )}
         </div>
       )}
     </div>

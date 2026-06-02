@@ -47,6 +47,16 @@ def run_audit():
 			leaked = [k for k in builder(item) if any(t in k.lower() for t in SENSITIVE_TOKENS)]
 			checks.append((f"{label} DTO has no sensitive keys", not leaked, ", ".join(leaked)))
 
+	# 2b) Offline catalog snapshot (cached on staff devices) must not leak sensitive keys either.
+	try:
+		from cago.api.staff import catalog_snapshot
+
+		snap = catalog_snapshot()
+		leaked = sorted({k for row in snap for k in row if any(t in k.lower() for t in SENSITIVE_TOKENS)})
+		checks.append(("Offline catalog snapshot has no sensitive keys", not leaked, ", ".join(leaked)))
+	except Exception as exc:
+		checks.append(("Offline catalog snapshot has no sensitive keys", False, str(exc)))
+
 	# 3) Every chemical item must produce a non-empty safety warning.
 	missing = []
 	for code in frappe.get_all("Item", filters={"cago_is_chemical": 1}, pluck="name"):

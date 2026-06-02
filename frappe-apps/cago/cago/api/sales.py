@@ -131,6 +131,35 @@ def _customer_label(customer):
 	return (customer and frappe.db.get_value("Customer", customer, "customer_name")) or "Khách lẻ"
 
 
+def _existing_sale_result(si_name):
+	"""Rebuild a quick_sale result from an already-booked invoice — used when an offline sale is
+	re-sent with the same client_uuid (dedup). `duplicate` lets the caller know it wasn't re-booked."""
+	si = frappe.get_doc("Sales Invoice", si_name)
+	total = flt(si.grand_total)
+	out = flt(si.outstanding_amount)
+	mode = "credit" if not si.is_pos else "cash"
+	lines = [
+		{
+			"name": frappe.db.get_value("Item", it.item_code, "cago_display_name") or it.item_name or it.item_code,
+			"qty": _trim(it.qty),
+			"uom": dto.uom_label(it.uom),
+			"amount_text": dto.format_price(flt(it.amount)),
+		}
+		for it in si.items
+	]
+	return {
+		"invoice": si.name,
+		"total": total,
+		"total_text": dto.format_price(total),
+		"payment_mode": mode,
+		"item_count": len(si.items),
+		"customer_name": _customer_label(si.customer),
+		"lines": lines,
+		"outstanding_text": (dto.format_price(out) if out > 0 else ("Không nợ" if mode == "credit" else None)),
+		"duplicate": True,
+	}
+
+
 def _auto_batch(code, wh):
 	"""Pick a batch for a batch-tracked item so staff never sees ERPNext's raw
 	'Batch No are mandatory' at checkout. FEFO: sell the nearest-expiry lot first (correct for
@@ -332,6 +361,38 @@ def add_customer_lite(customer_name, phone=None, village=None):
 		doc.insert(ignore_permissions=True)
 	frappe.db.commit()
 	return {"customer": doc.name, "customer_name": name}
+
+
+@frappe.whitelist()
+def customers_snapshot(limit=2000):
+	"""Whole customer list (lite) for OFFLINE caching, so staff can still pick a debtor for ghi nợ
+	when the network drops. Same shape as search_customers_lite — no buying price/margin."""
+	ensure_internal()
+	from frappe.utils import cint
+
+	rows = frappe.get_all(
+		"Customer",
+		filters={"disabled": 0},
+		fields=["name", "customer_name", "cago_village", "mobile_no", "cago_points"],
+		limit=cint(limit),
+		order_by="customer_name asc",
+	)
+	out = []
+	for c in rows:
+		if c.customer_name == "Khách lẻ":
+			continue
+		bal = _customer_outstanding(c.name)
+		out.append(
+			{
+				"customer": c.name,
+				"customer_name": c.customer_name,
+				"village": c.cago_village,
+				"mobile": c.mobile_no,
+				"points": int(flt(c.cago_points)),
+				"outstanding_text": dto.format_price(bal) if bal > 0 else "Không nợ",
+			}
+		)
+	return out
 
 
 @frappe.whitelist()
@@ -571,7 +632,7 @@ def _mode_of_payment(company, payment_mode):
 
 
 @frappe.whitelist()
-def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None, redeem_points=0):
+def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None, redeem_points=0, client_uuid=None, posted_at=None):
 	"""Cago-native checkout: a stock-reducing Sales Invoice (cash/bank/credit/split) for staff.
 
 	ERPNext is the engine (submitted Sales Invoice, update_stock → stock + GL + loyalty).
@@ -582,6 +643,22 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	"""
 	ensure_cap("sell")
 	ensure_lang()
+	# Offline idempotency: the till tags each sale with a client_uuid. If a queued sale is re-sent
+	# (flaky network → the first request's response was lost), resolve to the SAME invoice instead
+	# of booking a second one. Must run before any doc creation.
+	client_uuid = (client_uuid or "").strip() or None
+	if client_uuid:
+		existing = frappe.db.get_value("Sales Invoice", {"cago_client_uuid": client_uuid, "docstatus": ["<", 2]}, "name")
+		if existing:
+			return _existing_sale_result(existing)
+	# Offline sells carry the moment they were rung up (posted_at) so the invoice lands in the
+	# right till-shift window even when it syncs minutes/hours later. Online sells = now.
+	posting_date, posting_time, set_posting = nowdate(), None, 0
+	if posted_at:
+		from frappe.utils import get_datetime
+
+		_dt = get_datetime(posted_at)
+		posting_date, posting_time, set_posting = _dt.strftime("%Y-%m-%d"), _dt.strftime("%H:%M:%S"), 1
 	# Capture the real cashier BEFORE any Administrator elevation (as_user), so the till-shift
 	# reconciliation can attribute this sale's cash to the person who made it.
 	cashier = frappe.session.user
@@ -729,8 +806,10 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 					"doctype": "Sales Invoice",
 					"customer": cust,
 					"company": company,
-					"posting_date": nowdate(),
-					"due_date": nowdate(),
+					"posting_date": posting_date,
+					"due_date": posting_date,
+					"posting_time": posting_time,
+					"set_posting_time": set_posting,
 					"is_pos": 1,
 					"pos_profile": profile,
 					"update_stock": 1,
@@ -739,6 +818,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 					"remarks": "Bán hàng tại quầy (nhiều hình thức)",
 					"cago_cashier": cashier,
 					"cago_points_redeemed": redeem_pts,
+					"cago_client_uuid": client_uuid,
 					"items": rows,
 				}
 			)
@@ -796,14 +876,17 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				"doctype": "Sales Invoice",
 				"customer": cust,
 				"company": company,
-				"posting_date": nowdate(),
-				"due_date": nowdate(),
+				"posting_date": posting_date,
+				"due_date": posting_date,
+				"posting_time": posting_time,
+				"set_posting_time": set_posting,
 				"update_stock": 1,
 				"set_warehouse": wh,
 				"selling_price_list": pl,
 				"remarks": "Bán chịu tại quầy",
 				"cago_cashier": cashier,
 				"cago_points_redeemed": redeem_pts,
+				"cago_client_uuid": client_uuid,
 				"items": rows,
 			}
 		)
@@ -839,8 +922,10 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				"doctype": "Sales Invoice",
 				"customer": cust,
 				"company": company,
-				"posting_date": nowdate(),
-				"due_date": nowdate(),
+				"posting_date": posting_date,
+				"due_date": posting_date,
+				"posting_time": posting_time,
+				"set_posting_time": set_posting,
 				"is_pos": 1,
 				"pos_profile": profile,
 				"update_stock": 1,
@@ -849,6 +934,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				"remarks": f"Bán hàng tại quầy ({'chuyển khoản' if payment_mode == 'bank' else 'tiền mặt'})",
 				"cago_cashier": cashier,
 				"cago_points_redeemed": redeem_pts,
+				"cago_client_uuid": client_uuid,
 				"items": rows,
 			}
 		)
