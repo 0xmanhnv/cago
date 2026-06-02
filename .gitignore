@@ -32,3 +32,4 @@ Thumbs.db
 
 # Local site backups (DB dumps + site_config secrets — never commit)
 backups/
+infra/docker/backups/

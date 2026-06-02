@@ -25,6 +25,13 @@ x-bench-volumes: &bench_volumes
   - sites:/home/frappe/frappe-bench/sites
   - logs:/home/frappe/frappe-bench/logs
 
+# Same as bench volumes + a host folder the daily backup mirrors to (cago.setup.backup). Repoint
+# the left side to a real offsite mount (USB/NAS/Drive-synced dir) for true off-machine backups.
+x-bench-volumes-offsite: &bench_volumes_offsite
+  - sites:/home/frappe/frappe-bench/sites
+  - logs:/home/frappe/frappe-bench/logs
+  - ./backups/offsite:/offsite
+
 services:
   # --- one-shot: write common_site_config (db + redis) -----------------------
   configurator:
@@ -104,7 +111,9 @@ services:
       - --timeout=120
       - --preload
       - frappe.app:application
-    volumes: *bench_volumes
+    environment:
+      CAGO_BACKUP_OFFSITE_DIR: /offsite
+    volumes: *bench_volumes_offsite
     depends_on:
       create-site:
         condition: service_completed_successfully
@@ -122,7 +131,9 @@ services:
     <<: *app_image
     restart: unless-stopped
     command: ["bench", "schedule"]
-    volumes: *bench_volumes
+    environment:
+      CAGO_BACKUP_OFFSITE_DIR: /offsite
+    volumes: *bench_volumes_offsite
     depends_on:
       create-site:
         condition: service_completed_successfully
