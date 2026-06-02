@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
+import { useSession } from "@/lib/session";
 import { CatThumb } from "./CatThumb";
+import { StoreMapView } from "./StoreMapView";
 import { EXPIRY_LABEL, speak } from "@/lib/kioskUi";
 import type { Product, ProductCard } from "@/lib/types";
 
@@ -26,6 +28,8 @@ export function ProductDetail({ code }: { code: string }) {
   const [error, setError] = useState(false);
   const [qty, setQty] = useState(1);
   const [mainImg, setMainImg] = useState("");
+  const [showMap, setShowMap] = useState(false);
+  const { boot } = useSession();
 
   useEffect(() => {
     let active = true; // tapping related products fast: ignore responses for a product we left
@@ -117,12 +121,19 @@ export function ProductDetail({ code }: { code: string }) {
         {product.safety_notes && (
           <div className="mt-3.5 rounded-xl border border-amber-400 bg-amber-100 p-3.5 text-amber-900">⚠️ {product.safety_notes}</div>
         )}
-        <button
-          onClick={() => speak(`${product.display_name}. Giá ${product.price_text}. Dùng cho ${product.use_cases || ""}.`)}
-          className="mt-2.5 rounded-full bg-harvest px-4 py-2.5 font-extrabold text-white shadow-soft"
-        >
-          🔊 Đọc to
-        </button>
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          <button
+            onClick={() => speak(`${product.display_name}. Giá ${product.price_text}. Dùng cho ${product.use_cases || ""}.`)}
+            className="rounded-full bg-harvest px-4 py-2.5 font-extrabold text-white shadow-soft"
+          >
+            🔊 Đọc to
+          </button>
+          {boot?.store_map && (
+            <button onClick={() => setShowMap(true)} className="rounded-full bg-teal-600 px-4 py-2.5 font-extrabold text-white shadow-soft">
+              📍 Xem vị trí
+            </button>
+          )}
+        </div>
 
         {/* quantity picker — choose how many, no need to tap once per unit */}
         <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
@@ -212,6 +223,21 @@ export function ProductDetail({ code }: { code: string }) {
                 </div>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showMap && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-3 sm:items-center" onClick={() => setShowMap(false)}>
+          <div className="max-h-[90vh] w-full max-w-[520px] overflow-auto rounded-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-lg font-extrabold text-brand-dark">📍 Vị trí: {product.display_name}</div>
+              <button onClick={() => setShowMap(false)} className="rounded-lg bg-slate-200 px-3 py-1.5 font-bold text-slate-700">Đóng</button>
+            </div>
+            <StoreMapView focusCategory={product.category} />
+            <p className="mt-2 text-center text-sm text-slate-500">
+              {product.shelf_location ? `Vị trí ghi chú: ${product.shelf_location}` : "Sơ đồ tham khảo"}
+            </p>
           </div>
         </div>
       )}

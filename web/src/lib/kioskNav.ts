@@ -36,5 +36,7 @@ export function useKioskNav() {
 
   const openMyDebt = useCallback(() => router.push("/my-debt"), [router]);
 
-  return { goHome, openList, openDetail, openCart, openChat, openMyDebt };
+  const openMap = useCallback(() => router.push("/map"), [router]);
+
+  return { goHome, openList, openDetail, openCart, openChat, openMyDebt, openMap };
 }

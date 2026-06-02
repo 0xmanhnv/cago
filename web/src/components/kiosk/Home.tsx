@@ -87,6 +87,9 @@ export function Home() {
       <div className="grid grid-cols-2 gap-4">
         <HelpCard onClick={nav.openChat} icon="🤖" title="Hỏi trợ lý" from="from-violet-500" to="to-violet-700" />
         <HelpCard onClick={kiosk.openCallStaff} icon="🔔" title="Gọi người bán" from="from-rose-500" to="to-red-600" />
+        {boot?.store_map && (
+          <HelpCard onClick={nav.openMap} icon="🗺" title="Sơ đồ cửa hàng" from="from-teal-500" to="to-emerald-700" />
+        )}
         {boot?.kiosk_debt_visible && (
           <HelpCard onClick={nav.openMyDebt} icon="📒" title="Công nợ của tôi" from="from-amber-400" to="to-harvest-dark" />
         )}

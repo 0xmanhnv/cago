@@ -100,6 +100,7 @@ export interface Bootstrap {
   staff_can_collect_debt?: boolean;
   has_posawesome: boolean;
   pos_url?: string | null;
+  store_map?: boolean;
 }
 
 export interface Batch {

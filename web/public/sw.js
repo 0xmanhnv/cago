@@ -35,6 +35,7 @@ self.addEventListener("fetch", (e) => {
     url.pathname === "/" ||
     url.pathname.startsWith("/products") ||
     url.pathname === "/cart" ||
+    url.pathname === "/map" ||
     url.pathname === "/assistant";
   if (req.mode === "navigate" && !isKioskNav) return; // owner/staff/login → always network
 

@@ -42,7 +42,17 @@ def bootstrap():
 		# Single source of truth for the POS Awesome desk URL (frontend never hardcodes the
 		# desk path), gated to users who can open it. None = hide the button.
 		"pos_url": pos_url,
+		# Is a store map published? Gate the kiosk "Sơ đồ cửa hàng" tile + product "Xem vị trí".
+		"store_map": _store_map_published(),
 	}
+
+
+def _store_map_published():
+	# Guarded: bootstrap runs on every page; tolerate the doctype not existing yet (pre-migrate).
+	try:
+		return bool(frappe.db.get_single_value("Cago Store Map", "is_published"))
+	except Exception:
+		return False
 
 
 def _company():
