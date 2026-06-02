@@ -34,6 +34,14 @@ after_migrate = ["cago.setup.custom_fields.setup_all_fields"]
 after_install = ["cago.setup.custom_fields.setup_all_fields"]
 
 # ---------------------------------------------------------------------------
+# Scheduled jobs — the Docker scheduler has no OS backup cron, so take a daily
+# site backup (DB + files) and keep the last 7 days. Offsite copy is manual.
+# ---------------------------------------------------------------------------
+scheduler_events = {
+	"daily": ["cago.setup.backup.daily"],
+}
+
+# ---------------------------------------------------------------------------
 # Document events
 # ---------------------------------------------------------------------------
 # Loyalty points accrue on every submitted Sales Invoice (POS + credit sale),
