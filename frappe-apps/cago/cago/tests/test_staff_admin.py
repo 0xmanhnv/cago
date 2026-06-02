@@ -47,7 +47,7 @@ class TestJobRoles(FrappeTestCase):
 		staff_admin.save_job_role(title="_Test A", caps=json.dumps(["sell"]))
 		staff_admin.save_job_role(title="_Test B", caps=json.dumps(["debt"]))
 		staff_admin.save_staff(USER, json.dumps(["_Test A", "_Test B"]))
-		self.assertEqual(self._caps(), {"sell", "debt"})
+		self.assertEqual(self._caps(), {"sell", "debt", "debt_view"})  # debt implies debt_view
 
 	def test_edit_role_propagates_to_member(self):
 		from cago.api import staff_admin
@@ -65,3 +65,26 @@ class TestJobRoles(FrappeTestCase):
 		staff_admin.save_staff(USER, json.dumps(["_Test C"]))
 		with self.assertRaises(frappe.ValidationError):
 			staff_admin.delete_job_role("_Test C")
+
+	def test_debt_view_is_read_only(self):
+		"""debt_view can read the debt list but not collect; debt (write) implies debt_view."""
+		from cago.api import debt as debt_api
+		from cago.api import staff_admin
+
+		staff_admin.save_job_role(title="_Test Xem nợ", caps=json.dumps(["debt_view"]))
+		staff_admin.save_staff(USER, json.dumps(["_Test Xem nợ"]))
+		self.assertEqual(self._caps(), {"debt_view"})
+		frappe.set_user(USER)
+		try:
+			debt_api.search_customers()  # read → allowed, no raise
+			with self.assertRaises(frappe.PermissionError):
+				debt_api.record_repayment("whoever", 1000)  # write → blocked
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_debt_write_implies_view(self):
+		from cago.api import staff_admin
+
+		staff_admin.save_job_role(title="_Test Thu nợ", caps=json.dumps(["debt"]))
+		staff_admin.save_staff(USER, json.dumps(["_Test Thu nợ"]))
+		self.assertEqual(self._caps(), {"debt", "debt_view"})  # write implies read

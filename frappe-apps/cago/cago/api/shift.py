@@ -67,29 +67,46 @@ def _cashier_cash_sales(user, since):
 
 
 def _shift_dto(doc):
+	from cago.utils.permissions import is_owner
+
 	cash_sales = flt(doc.cash_sales)
 	# For an open shift, compute the live running figure; for a closed shift, use what was stored.
 	if doc.status == "Open":
 		cash_sales = _cashier_cash_sales(doc.cashier, doc.opened_at)
 	expected = flt(doc.opening_cash) + cash_sales - flt(doc.payouts)
-	return {
+	# Blind close: this cashier must count the drawer without seeing what it SHOULD be (anti-fraud).
+	# The variance is still computed + stored on the doc; only the owner sees it (Sổ quỹ).
+	blind = (
+		frappe.session.user == doc.cashier
+		and not is_owner()
+		and frappe.db.get_value("User", doc.cashier, "cago_blind_shift_close")
+	)
+	out = {
 		"name": doc.name,
 		"status": doc.status,
+		"blind": bool(blind),
 		"opened_at": format_datetime(doc.opened_at, "dd/MM HH:mm") if doc.opened_at else None,
 		"closed_at": format_datetime(doc.closed_at, "dd/MM HH:mm") if doc.closed_at else None,
 		"opening_cash": flt(doc.opening_cash),
 		"opening_text": dto.format_price(doc.opening_cash),
-		"cash_sales": cash_sales,
-		"cash_sales_text": dto.format_price(cash_sales),
 		"payouts_text": dto.format_price(doc.payouts),
-		"expected": expected,
-		"expected_text": dto.format_price(expected),
 		"counted_text": dto.format_price(doc.counted_cash) if doc.status == "Closed" else None,
-		"diff": flt(doc.difference),
-		"diff_text": dto.format_price(abs(flt(doc.difference))),
-		"match": abs(flt(doc.difference)) < 1 if doc.status == "Closed" else None,
-		"over": flt(doc.difference) > 0,
 	}
+	if blind:
+		return out  # hide cash_sales / expected / variance entirely
+	out.update(
+		{
+			"cash_sales": cash_sales,
+			"cash_sales_text": dto.format_price(cash_sales),
+			"expected": expected,
+			"expected_text": dto.format_price(expected),
+			"diff": flt(doc.difference),
+			"diff_text": dto.format_price(abs(flt(doc.difference))),
+			"match": abs(flt(doc.difference)) < 1 if doc.status == "Closed" else None,
+			"over": flt(doc.difference) > 0,
+		}
+	)
+	return out
 
 
 @frappe.whitelist()

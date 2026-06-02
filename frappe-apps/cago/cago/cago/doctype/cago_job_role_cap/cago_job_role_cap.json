@@ -12,7 +12,7 @@
    "fieldname": "capability",
    "fieldtype": "Select",
    "label": "Quyền",
-   "options": "sell\nreturns\ndebt\nstock\nproducts\nreports\ncash\nsupplier\nsettings",
+   "options": "sell\nreturns\ndebt_view\ndebt\nstock\nproducts\nreports\ncash\nsupplier\nsettings",
    "in_list_view": 1,
    "columns": 6,
    "reqd": 1

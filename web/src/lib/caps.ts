@@ -3,12 +3,13 @@
 // only the tiles a user may use; every API still re-checks server-side (see utils/permissions.py).
 import type { Bootstrap } from "./types";
 
-export type Cap = "sell" | "returns" | "debt" | "stock" | "products" | "reports" | "cash" | "supplier" | "settings";
+export type Cap = "sell" | "returns" | "debt_view" | "debt" | "stock" | "products" | "reports" | "cash" | "supplier" | "settings";
 
 export const CAP_LABELS: Record<Cap, string> = {
   sell: "Bán hàng",
   returns: "Trả hàng",
-  debt: "Công nợ khách",
+  debt_view: "Xem công nợ",
+  debt: "Thu / Ghi nợ",
   stock: "Nhập hàng & kho",
   products: "Sản phẩm & giá",
   reports: "Báo cáo",

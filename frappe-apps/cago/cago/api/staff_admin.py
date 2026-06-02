@@ -26,7 +26,7 @@ def _job_roles_of(user):
 
 def _row(user):
 	info = frappe.db.get_value(
-		"User", user, ["full_name", "enabled", "cago_allow_price_edit", "cago_max_discount_pct"], as_dict=True
+		"User", user, ["full_name", "enabled", "cago_allow_price_edit", "cago_max_discount_pct", "cago_blind_shift_close"], as_dict=True
 	)
 	roles = set(frappe.get_roles(user))
 	owner = is_owner_roles(roles)
@@ -39,6 +39,7 @@ def _row(user):
 		"caps": list(CAP_ROLES.keys()) if owner else sorted(caps_for_user_roles(roles)),
 		"allow_price_edit": bool(info.cago_allow_price_edit),
 		"max_discount_pct": flt(info.cago_max_discount_pct),
+		"blind_shift_close": bool(info.cago_blind_shift_close),
 	}
 
 
@@ -62,7 +63,7 @@ def get_staff(user):
 
 
 @frappe.whitelist()
-def save_staff(user, job_roles, allow_price_edit=0, max_discount_pct=0):
+def save_staff(user, job_roles, allow_price_edit=0, max_discount_pct=0, blind_shift_close=0):
 	"""Assign chức danh (job roles) + per-staff limits to an employee, then compile cap-roles."""
 	ensure_owner()
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
@@ -76,6 +77,7 @@ def save_staff(user, job_roles, allow_price_edit=0, max_discount_pct=0):
 	doc.set("cago_job_roles", [{"job_role": n} for n in valid])
 	doc.cago_allow_price_edit = 1 if cint(allow_price_edit) else 0
 	doc.cago_max_discount_pct = max(0.0, min(100.0, flt(max_discount_pct)))
+	doc.cago_blind_shift_close = 1 if cint(blind_shift_close) else 0
 	doc.save(ignore_permissions=True)
 	sync_user_caps(user)  # union of the assigned chức danh → Frappe cap-roles
 	frappe.db.commit()

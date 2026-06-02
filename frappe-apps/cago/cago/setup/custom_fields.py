@@ -207,6 +207,9 @@ def ensure_user_fields():
 				{"fieldname": "cago_allow_price_edit", "label": "Cago Allow Price Edit", "fieldtype": "Check", "hidden": 1, "no_copy": 1},
 				# Max whole-bill discount this staff may give (0 = none). Owner = unlimited.
 				{"fieldname": "cago_max_discount_pct", "label": "Cago Max Discount %", "fieldtype": "Float", "hidden": 1, "no_copy": 1},
+				# Hide the expected-cash figure at shift close so the cashier counts the drawer blind
+				# (anti-fraud); only the owner sees the variance afterwards.
+				{"fieldname": "cago_blind_shift_close", "label": "Cago Blind Shift Close", "fieldtype": "Check", "hidden": 1, "no_copy": 1},
 				# Chức danh (job roles) assigned to this user — M2M. Effective caps = union of these
 				# roles' capabilities, compiled into the Frappe cap-roles by cago.utils.permissions.
 				{"fieldname": "cago_job_roles", "label": "Cago Job Roles", "fieldtype": "Table", "options": "Cago User Job Role", "hidden": 1, "no_copy": 1},

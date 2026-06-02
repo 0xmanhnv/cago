@@ -16,6 +16,7 @@ interface Staff {
   caps: Cap[];
   allow_price_edit: boolean;
   max_discount_pct: number;
+  blind_shift_close: boolean;
 }
 interface JobRole {
   name: string;
@@ -68,6 +69,7 @@ export function StaffAdmin() {
           job_roles: JSON.stringify(editStaff.job_roles.map((j) => j.name)),
           allow_price_edit: editStaff.allow_price_edit ? 1 : 0,
           max_discount_pct: editStaff.max_discount_pct || 0,
+          blind_shift_close: editStaff.blind_shift_close ? 1 : 0,
         });
         await reload();
         setEditStaff(null);
@@ -128,6 +130,14 @@ export function StaffAdmin() {
               </div>
             )}
           </div>
+
+          <label className="mt-3 flex items-start gap-2.5 rounded-xl bg-slate-50 p-3">
+            <input type="checkbox" checked={editStaff.blind_shift_close} onChange={(e) => setEditStaff({ ...editStaff, blind_shift_close: e.target.checked })} className="mt-0.5 h-5 w-5" />
+            <span>
+              <span className="font-bold">Đóng ca không cho xem tiền dự kiến</span>
+              <span className="block text-xs text-slate-500">Nhân viên đếm két rồi nhập, không thấy số máy tính ra — chống gian lận. Chủ vẫn thấy chênh lệch ở Sổ quỹ.</span>
+            </span>
+          </label>
 
           <button onClick={save} disabled={busy} className="mt-4 min-h-touch w-full rounded-xl bg-brand text-lg font-extrabold text-white disabled:opacity-50">
             {busy ? "Đang lưu..." : "Lưu"}

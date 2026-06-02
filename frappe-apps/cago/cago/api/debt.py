@@ -57,7 +57,7 @@ def _submit_privileged(doc):
 
 @frappe.whitelist()
 def search_customers(query=None):
-	ensure_cap("debt")
+	ensure_cap("debt_view")
 	query = (query or "").strip()
 	filters = {}
 	or_filters = None
@@ -102,7 +102,7 @@ def _debt_summary(customer):
 
 
 def get_customer_debt(customer):
-	ensure_cap("debt")
+	ensure_cap("debt_view")
 	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
@@ -282,7 +282,7 @@ def set_wholesale(customer, on):
 @frappe.whitelist()
 def get_customer_ledger(customer):
 	"""Debt history for one customer: each ghi nợ / trả nợ with a running balance."""
-	ensure_cap("debt")
+	ensure_cap("debt_view")
 	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))

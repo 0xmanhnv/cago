@@ -25,7 +25,9 @@ def _members(job_role):
 
 # Default chức danh seeded on install/migrate so the owner has ready bundles to assign.
 DEFAULT_JOB_ROLES = {
+	"Nhân viên bán hàng": ["sell"],
 	"Thu ngân": ["sell", "returns"],
+	"Giám sát ca": ["sell", "returns", "debt_view"],
 	"Quản lý kho": ["stock", "products"],
 	"Kế toán": ["debt", "reports", "cash", "supplier"],
 	"Quản lý cửa hàng": ["sell", "returns", "debt", "stock", "products", "reports", "cash", "supplier", "settings"],

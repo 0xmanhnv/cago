@@ -19,18 +19,12 @@ required_apps = ["frappe", "erpnext"]
 app_include_css = ["/assets/cago/css/posawesome.css?v=2"]
 
 # ---------------------------------------------------------------------------
-# Home page redirect after login
+# Home page
 # ---------------------------------------------------------------------------
-# The website root "/" serves the public customer kiosk.
-home_page = "kiosk"
-
-# Owner/staff must land on the simplified Cago screens, not the ERPNext Desk
-# (they lack module permissions, so the Desk would show "Not permitted").
-# These take precedence over `home_page` for the post-login redirect.
-role_home_page = {
-	"Cago Owner": "owner",
-	"Cago Staff": "staff",
-}
+# The decoupled Next.js app (web/) is the public entry and owns "/", "/login", "/pos/*".
+# The old Frappe-native www/ pages (owner/staff/kiosk/login) have been removed — everything
+# is served by Next now — so we no longer redirect Frappe logins to those routes.
+home_page = "login"
 
 # ---------------------------------------------------------------------------
 # Schema setup — keep custom fields in sync on every install / migrate so a fresh

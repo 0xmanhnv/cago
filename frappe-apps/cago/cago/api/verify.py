@@ -144,7 +144,7 @@ def request(phone):
 @frappe.whitelist()
 def pending():
 	"""Staff: list pending verification requests to confirm in person."""
-	ensure_cap("debt")
+	ensure_cap("debt_view")
 	d = _store()
 	out = []
 	for k, v in d.items():

@@ -273,7 +273,7 @@ def best_sellers(limit=10):
 
 @frappe.whitelist()
 def debt_list():
-	ensure_cap("debt")
+	ensure_cap("debt_view")
 	customers = frappe.get_all("Customer", fields=["name", "customer_name", "cago_village", "cago_slug"])
 	out = []
 	for c in customers:

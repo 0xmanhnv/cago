@@ -730,7 +730,11 @@ export function Checkout() {
         <button onClick={() => router.push(home)} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Trang chủ
         </button>
-        <div className="flex-1 text-2xl font-bold">BÁN HÀNG</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-2xl font-bold leading-tight">BÁN HÀNG</div>
+          {/* Who's at the till — so the cashier (and shift attribution) is always clear. */}
+          {boot?.full_name && <div className="truncate text-xs font-semibold text-slate-500">👤 {boot.full_name}</div>}
+        </div>
         <button onClick={openReprint} className="rounded-xl bg-slate-200 px-3 py-3 font-bold text-slate-700">
           🖨 In lại
         </button>
@@ -1427,6 +1431,7 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
 // starting float, sell, then count the drawer at close and see expected vs counted.
 interface ShiftState {
   open: boolean;
+  blind?: boolean; // blind close: cashier counts the drawer without seeing the expected figure
   opened_at?: string;
   opening_text?: string;
   cash_sales_text?: string;
@@ -1434,12 +1439,13 @@ interface ShiftState {
   expected_text?: string;
 }
 interface CloseResult {
-  expected_text: string;
+  blind?: boolean;
+  expected_text?: string;
   counted_text: string | null;
-  diff_text: string;
-  match: boolean | null;
-  over: boolean;
-  cash_sales_text: string;
+  diff_text?: string;
+  match?: boolean | null;
+  over?: boolean;
+  cash_sales_text?: string;
   opening_text: string;
   payouts_text: string;
 }
@@ -1512,10 +1518,15 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
         <div className="flex items-center justify-between gap-2 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-2.5">
           <div className="min-w-0 text-sm">
             <div className="font-bold text-emerald-800">🟢 Ca mở · {shift.opened_at}</div>
-            {/* Lead with the figure that matters — what SHOULD be in the drawer now (always
-                meaningful), not the net "cash sold" which can go negative after returns. */}
-            <div className="text-emerald-800">💰 Dự kiến trong két: <b>{shift.expected_text}</b></div>
-            <div className="text-xs text-emerald-700/80">Đầu ca {shift.opening_text} · Tiền mặt trong ca {shift.cash_sales_text}</div>
+            {/* Blind close hides the expected figure (anti-fraud); the cashier just sees the shift is open. */}
+            {shift.blind ? (
+              <div className="text-xs text-emerald-700/80">Đầu ca {shift.opening_text} · đếm két khi đóng ca</div>
+            ) : (
+              <>
+                <div className="text-emerald-800">💰 Dự kiến trong két: <b>{shift.expected_text}</b></div>
+                <div className="text-xs text-emerald-700/80">Đầu ca {shift.opening_text} · Tiền mặt trong ca {shift.cash_sales_text}</div>
+              </>
+            )}
           </div>
           <button onClick={() => setMode("close")} className="shrink-0 rounded-lg bg-red-600 px-3 py-2 font-bold text-white">🔴 Đóng ca</button>
         </div>
@@ -1539,9 +1550,11 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
           <div className="w-full max-w-[380px] rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-1 text-xl font-bold">🔴 Đóng ca · đếm két</div>
-            <div className="mb-2 rounded-lg bg-slate-50 p-2 text-sm text-slate-600">
-              Đầu ca {shift.opening_text} + Tiền mặt bán {shift.cash_sales_text} = <b>dự kiến {shift.expected_text}</b>
-            </div>
+            {!shift.blind && (
+              <div className="mb-2 rounded-lg bg-slate-50 p-2 text-sm text-slate-600">
+                Đầu ca {shift.opening_text} + Tiền mặt bán {shift.cash_sales_text} = <b>dự kiến {shift.expected_text}</b>
+              </div>
+            )}
             <label className="block font-bold text-slate-600">Chi ra trong ca (nếu có)</label>
             <input inputMode="numeric" value={payouts} onChange={(e) => setPayouts(fmtAmt(e.target.value))} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-amber-300 p-2.5 text-right font-bold" />
             <label className="mt-2 block font-bold text-slate-600">Đếm tiền mặt thực tế trong két</label>
@@ -1557,16 +1570,31 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
       {closed && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={() => setClosed(null)}>
           <div className="w-full max-w-[380px] rounded-2xl bg-white p-5 text-center" onClick={(e) => e.stopPropagation()}>
-            <div className="text-5xl">{closed.match ? "✅" : closed.over ? "📈" : "📉"}</div>
-            <div className="mt-1 text-xl font-bold">{closed.match ? "Khớp két!" : closed.over ? "Thừa tiền" : "Thiếu tiền"}</div>
-            {!closed.match && <div className={`text-2xl font-extrabold ${closed.over ? "text-emerald-600" : "text-red-600"}`}>{closed.over ? "+" : "−"}{closed.diff_text}</div>}
-            <div className="mt-3 space-y-1 text-left text-sm text-slate-600">
-              <div className="flex justify-between"><span>Tiền đầu ca</span><b>{closed.opening_text}</b></div>
-              <div className="flex justify-between"><span>Tiền mặt bán được</span><b>{closed.cash_sales_text}</b></div>
-              <div className="flex justify-between"><span>Chi ra trong ca</span><b>{closed.payouts_text}</b></div>
-              <div className="flex justify-between border-t pt-1"><span>Dự kiến trong két</span><b>{closed.expected_text}</b></div>
-              <div className="flex justify-between"><span>Đếm thực tế</span><b>{closed.counted_text}</b></div>
-            </div>
+            {closed.blind ? (
+              // Blind close: cashier only sees that the shift closed + their counted amount.
+              <>
+                <div className="text-5xl">✅</div>
+                <div className="mt-1 text-xl font-bold">Đã đóng ca</div>
+                <div className="mt-3 space-y-1 text-left text-sm text-slate-600">
+                  <div className="flex justify-between"><span>Tiền đầu ca</span><b>{closed.opening_text}</b></div>
+                  <div className="flex justify-between"><span>Chi ra trong ca</span><b>{closed.payouts_text}</b></div>
+                  <div className="flex justify-between border-t pt-1"><span>Đếm thực tế</span><b>{closed.counted_text}</b></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-5xl">{closed.match ? "✅" : closed.over ? "📈" : "📉"}</div>
+                <div className="mt-1 text-xl font-bold">{closed.match ? "Khớp két!" : closed.over ? "Thừa tiền" : "Thiếu tiền"}</div>
+                {!closed.match && <div className={`text-2xl font-extrabold ${closed.over ? "text-emerald-600" : "text-red-600"}`}>{closed.over ? "+" : "−"}{closed.diff_text}</div>}
+                <div className="mt-3 space-y-1 text-left text-sm text-slate-600">
+                  <div className="flex justify-between"><span>Tiền đầu ca</span><b>{closed.opening_text}</b></div>
+                  <div className="flex justify-between"><span>Tiền mặt bán được</span><b>{closed.cash_sales_text}</b></div>
+                  <div className="flex justify-between"><span>Chi ra trong ca</span><b>{closed.payouts_text}</b></div>
+                  <div className="flex justify-between border-t pt-1"><span>Dự kiến trong két</span><b>{closed.expected_text}</b></div>
+                  <div className="flex justify-between"><span>Đếm thực tế</span><b>{closed.counted_text}</b></div>
+                </div>
+              </>
+            )}
             <button onClick={() => setClosed(null)} className="mt-4 w-full rounded-xl bg-brand py-3 text-lg font-extrabold text-white">Xong</button>
           </div>
         </div>

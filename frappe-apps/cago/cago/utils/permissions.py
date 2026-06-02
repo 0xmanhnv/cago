@@ -21,7 +21,8 @@ OWNER_ROLES = {"Cago Owner", "System Manager"}
 CAP_ROLES = {
 	"sell": "Cago Sell",
 	"returns": "Cago Returns",
-	"debt": "Cago Debt",
+	"debt_view": "Cago Debt View",  # read-only: see who owes
+	"debt": "Cago Debt",  # write: ghi nợ / thu nợ (implies debt_view)
 	"stock": "Cago Stock",
 	"products": "Cago Products",
 	"reports": "Cago Reports",
@@ -30,6 +31,18 @@ CAP_ROLES = {
 	"settings": "Cago Settings",
 }
 ALL_CAP_ROLES = set(CAP_ROLES.values())
+
+# A capability that automatically grants others (write implies read).
+IMPLIES = {"debt": {"debt_view"}}
+
+
+def _expand(caps):
+	"""Add implied capabilities (e.g. debt → debt_view)."""
+	out = set(caps)
+	for base, implied in IMPLIES.items():
+		if base in out:
+			out |= implied
+	return out
 
 
 def _roles():
@@ -47,8 +60,9 @@ def is_internal():
 
 
 def has_cap(cap):
-	"""True if the session user can use capability `cap` (owner has every capability)."""
-	return is_owner() or (CAP_ROLES.get(cap) in _roles())
+	"""True if the session user can use capability `cap` (owner has every capability; write caps
+	imply their read cap, e.g. debt → debt_view)."""
+	return is_owner() or cap in caps_for_user_roles(_roles())
 
 
 def is_owner_roles(roles):
@@ -57,10 +71,12 @@ def is_owner_roles(roles):
 
 
 def caps_for_user_roles(roles):
-	"""Capability keys implied by an explicit role set — owner gets all."""
+	"""Capability keys implied by an explicit role set — owner gets all; write caps add their
+	implied read caps (debt → debt_view)."""
 	if is_owner_roles(roles):
 		return set(CAP_ROLES.keys())
-	return {cap for cap, role in CAP_ROLES.items() if role in set(roles)}
+	roles = set(roles)
+	return _expand({cap for cap, role in CAP_ROLES.items() if role in roles})
 
 
 def caps_for_user():
