@@ -8,6 +8,7 @@ export interface Pt {
 }
 export interface AislePt extends Pt {
   floor: string;
+  b?: number; // 1 = this point starts a NEW stroke (owner drew a separate corridor here)
 }
 export interface Floor {
   label: string;
@@ -131,65 +132,111 @@ function dijkstra(nodes: Pt[], adj: { to: number; w: number }[][], s: number, t:
   return path;
 }
 
-// Centres of the GAPS between occupied 1-D intervals (+ outer margins) within [lo,hi] — i.e. the
-// aisle lines that run between rows/columns of shelves.
-function gapCenters(intervals: [number, number][], lo: number, hi: number): number[] {
-  const merged: [number, number][] = [];
-  for (const iv of intervals.slice().sort((a, b) => a[0] - b[0])) {
-    const last = merged[merged.length - 1];
-    if (last && iv[0] <= last[1] + 0.5) last[1] = Math.max(last[1], iv[1]);
-    else merged.push([iv[0], iv[1]]);
+const distPt = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
+const near = (a: Pt, b: Pt, e = 0.3) => Math.abs(a.x - b.x) < e && Math.abs(a.y - b.y) < e;
+
+function projectOnSeg(p: Pt, a: Pt, b: Pt): Pt {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
+
+function segIntersect(a: Pt, b: Pt, c: Pt, d: Pt): Pt | null {
+  const rx = b.x - a.x;
+  const ry = b.y - a.y;
+  const sx = d.x - c.x;
+  const sy = d.y - c.y;
+  const den = rx * sy - ry * sx;
+  if (Math.abs(den) < 1e-9) return null; // parallel
+  const t = ((c.x - a.x) * sy - (c.y - a.y) * sx) / den;
+  const u = ((c.x - a.x) * ry - (c.y - a.y) * rx) / den;
+  if (t < -1e-9 || t > 1 + 1e-9 || u < -1e-9 || u > 1 + 1e-9) return null;
+  return { x: a.x + t * rx, y: a.y + t * ry };
+}
+
+/** Split aisle points into separate strokes (corridors) — a point with b=1 starts a new one. */
+export function splitStrokes(pts: AislePt[]): AislePt[][] {
+  const out: AislePt[][] = [];
+  for (const p of pts) {
+    if (p.b || out.length === 0) out.push([p]);
+    else out[out.length - 1].push(p);
   }
-  const out: number[] = [];
-  let cursor = lo;
-  for (const [a, b] of merged) {
-    if (a - cursor > 2) out.push((cursor + a) / 2); // corridor before this block of shelves
-    cursor = Math.max(cursor, b);
-  }
-  if (hi - cursor > 2) out.push((cursor + hi) / 2); // corridor after the last block
   return out;
 }
 
-const uniqSorted = (xs: number[]) => [...new Set(xs.map((v) => Math.round(v * 100) / 100))].sort((a, b) => a - b);
+// Owner-drawn aisle network → segments (consecutive points; a point with b=1 starts a new stroke).
+function aisleSegments(aisle: AislePt[]): [Pt, Pt][] {
+  const segs: [Pt, Pt][] = [];
+  for (let i = 1; i < aisle.length; i++) if (!aisle[i].b) segs.push([aisle[i - 1], aisle[i]]);
+  return segs;
+}
 
-/** Route from `start` to a zone along the CORRIDORS between the shelves. The corridors are derived
- * automatically from the gaps between zone boxes (no need to draw an aisle): a Manhattan lattice is
- * built on the gap-centre lanes (plus the start's & target's own row/column), then Dijkstra finds a
- * clean right-angle path that runs in the gaps — like real store aisles. Falls back to routing around
- * the box corners if the lattice can't connect them. */
-export function routeOnFloor(zones: Rect[], start: Pt, target: Pt): Pt[] {
-  const obs = zones.filter((z) => !inRect(start, z) && !inRect(target, z));
-  if (!obs.length) return dedupe([start, target]);
-  const laneX = uniqSorted([...gapCenters(zones.map((z) => [z.x, z.x + z.w]), 0, 100), start.x, target.x]);
-  const laneY = uniqSorted([...gapCenters(zones.map((z) => [z.y, z.y + z.h]), 0, 100), start.y, target.y]);
-  const nodes: Pt[] = [];
-  for (const x of laneX) for (const y of laneY) if (!obs.some((r) => inRect({ x, y }, r))) nodes.push({ x, y });
-  const idx = (p: Pt) => nodes.findIndex((n) => Math.abs(n.x - p.x) < 0.01 && Math.abs(n.y - p.y) < 0.01);
-  const s = idx(start);
-  const t = idx(target);
-  if (s >= 0 && t >= 0) {
-    const adj: { to: number; w: number }[][] = nodes.map(() => []);
-    // Manhattan edges: connect each node to its nearest visible neighbour straight up/down/left/right.
-    for (let i = 0; i < nodes.length; i++) {
-      for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-        let bj = -1;
-        let bd = Infinity;
-        for (let j = 0; j < nodes.length; j++) {
-          if (j === i) continue;
-          const dx = nodes[j].x - nodes[i].x;
-          const dy = nodes[j].y - nodes[i].y;
-          const aligned = ax ? Math.abs(dy) < 0.01 && Math.sign(dx) === ax : Math.abs(dx) < 0.01 && Math.sign(dy) === ay;
-          if (!aligned) continue;
-          const d = Math.abs(dx) + Math.abs(dy);
-          if (d < bd) ((bd = d), (bj = j));
-        }
-        if (bj >= 0 && visible(nodes[i], nodes[bj], obs)) adj[i].push({ to: bj, w: bd });
-      }
-    }
-    const path = dijkstra(nodes, adj, s, t);
-    if (path.length) return dedupe(path.map((k) => nodes[k]));
+/** Route along the OWNER-DRAWN aisle network ONLY — gaps with no lối đi are walls. Snap the start and
+ * target onto the nearest point of the network, then shortest path through the network's vertices +
+ * crossings (strokes that touch/cross become junctions). No aisle drawn → fall back to routing around
+ * the shelf boxes so the map still works before the owner draws. */
+export function routeOnFloor(zones: Rect[], aisle: AislePt[], start: Pt, target: Pt): Pt[] {
+  const segs = aisleSegments(aisle);
+  if (!segs.length) {
+    const obs = zones.filter((z) => !inRect(start, z) && !inRect(target, z));
+    return routeAroundCorners(obs, start, target);
   }
-  return routeAroundCorners(obs, start, target);
+  const snap = (p: Pt): Pt => {
+    let bp = p;
+    let bd = Infinity;
+    for (const [a, b] of segs) {
+      const q = projectOnSeg(p, a, b);
+      const d = distPt(p, q);
+      if (d < bd) ((bd = d), (bp = q));
+    }
+    return bp;
+  };
+  const sSnap = snap(start);
+  const tSnap = snap(target);
+  // Planar graph: per segment, gather its endpoints + crossings with other segments + the snaps that
+  // land on it, sort them along the segment, and connect consecutively. Coincident points merge.
+  const nodeList: Pt[] = [];
+  const adj: { to: number; w: number }[][] = [];
+  const nodeId = (p: Pt) => {
+    for (let i = 0; i < nodeList.length; i++) if (near(nodeList[i], p)) return i;
+    nodeList.push(p);
+    adj.push([]);
+    return nodeList.length - 1;
+  };
+  const addEdge = (i: number, j: number) => {
+    if (i === j) return;
+    const w = distPt(nodeList[i], nodeList[j]);
+    adj[i].push({ to: j, w });
+    adj[j].push({ to: i, w });
+  };
+  for (let si = 0; si < segs.length; si++) {
+    const [a, b] = segs[si];
+    const pts: Pt[] = [a, b];
+    for (let sj = 0; sj < segs.length; sj++)
+      if (sj !== si) {
+        const x = segIntersect(a, b, segs[sj][0], segs[sj][1]);
+        if (x) pts.push(x);
+      }
+    for (const sp of [sSnap, tSnap]) if (near(projectOnSeg(sp, a, b), sp, 0.5)) pts.push(sp);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy || 1;
+    pts.sort((p, q) => ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2 - (((q.x - a.x) * dx + (q.y - a.y) * dy) / len2));
+    let prev = nodeId(pts[0]);
+    for (let k = 1; k < pts.length; k++) {
+      const id = nodeId(pts[k]);
+      addEdge(prev, id);
+      prev = id;
+    }
+  }
+  const path = dijkstra(nodeList, adj, nodeId(sSnap), nodeId(tSnap));
+  if (!path.length) {
+    const obs = zones.filter((z) => !inRect(start, z) && !inRect(target, z));
+    return routeAroundCorners(obs, start, target);
+  }
+  return dedupe([start, ...path.map((k) => nodeList[k]), target]);
 }
 
 /** Fallback: shortest path AROUND the shelf boxes (visibility graph over the boxes' expanded corners). */
@@ -233,6 +280,10 @@ export interface RoutePlan {
 const zonesOnFloor = (map: StoreMap, floor: string): Rect[] =>
   (map.floors.length ? map.zones.filter((z) => z.floor === floor) : map.zones).map((z) => ({ x: z.x, y: z.y, w: z.w, h: z.h }));
 
+// Owner-drawn aisle (lối đi) points on a floor.
+const floorAisle = (map: StoreMap, floor: string): AislePt[] =>
+  map.floors.length ? map.aisle.filter((p) => p.floor === floor) : map.aisle;
+
 
 
 /**
@@ -247,7 +298,7 @@ export function planRoute(map: StoreMap, zone: MapZone, start: Pt, startFloor: s
   const name = `${zone.icon ? zone.icon + " " : ""}${zone.label}`;
 
   if (!map.floors.length || tFloor === startFloor) {
-    const route = routeOnFloor(zonesOnFloor(map, tFloor), start, target);
+    const route = routeOnFloor(zonesOnFloor(map, tFloor), floorAisle(map, tFloor), start, target);
     return { legs: [{ floor: tFloor, route, toStairs: false }], targetFloor: tFloor, crossFloor: false, instruction: routeHint(zone, start) };
   }
 
@@ -255,8 +306,8 @@ export function planRoute(map: StoreMap, zone: MapZone, start: Pt, startFloor: s
   const tf = map.floors.find((f) => f.label === tFloor);
   const stairsStart = sf?.stairs || start;
   const stairsTarget = tf?.stairs || target;
-  const leg1 = routeOnFloor(zonesOnFloor(map, startFloor), start, stairsStart);
-  const leg2 = routeOnFloor(zonesOnFloor(map, tFloor), stairsTarget, target);
+  const leg1 = routeOnFloor(zonesOnFloor(map, startFloor), floorAisle(map, startFloor), start, stairsStart);
+  const leg2 = routeOnFloor(zonesOnFloor(map, tFloor), floorAisle(map, tFloor), stairsTarget, target);
   const tl = tf?.level ?? 0;
   const sl = sf?.level ?? 0;
   const dir = tl < sl ? `xuống ${tFloor}` : tl > sl ? `lên ${tFloor}` : `sang ${tFloor}`;

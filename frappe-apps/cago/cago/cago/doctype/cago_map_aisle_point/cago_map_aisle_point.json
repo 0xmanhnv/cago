@@ -7,7 +7,8 @@
  "field_order": [
   "floor",
   "x",
-  "y"
+  "y",
+  "b"
  ],
  "fields": [
   {
@@ -16,6 +17,12 @@
    "label": "Tầng",
    "in_list_view": 1,
    "columns": 4
+  },
+  {
+   "fieldname": "b",
+   "fieldtype": "Int",
+   "label": "Bắt đầu đoạn mới",
+   "description": "1 = điểm này mở một đoạn lối đi mới (không nối từ điểm trước)."
   },
   {
    "fieldname": "x",

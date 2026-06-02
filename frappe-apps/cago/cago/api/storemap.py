@@ -48,7 +48,7 @@ def get_store_map():
 			}
 			for z in doc.zones
 		],
-		"aisle": [{"floor": p.floor or "", "x": flt(p.x), "y": flt(p.y)} for p in doc.aisle],
+		"aisle": [{"floor": p.floor or "", "x": flt(p.x), "y": flt(p.y), "b": int(p.b or 0)} for p in doc.aisle],
 	}
 
 
@@ -101,7 +101,10 @@ def save_store_map(data):
 
 	doc.set("aisle", [])
 	for p in data.get("aisle") or []:
-		doc.append("aisle", {"floor": (p or {}).get("floor") or "", "x": flt((p or {}).get("x")), "y": flt((p or {}).get("y"))})
+		doc.append(
+			"aisle",
+			{"floor": (p or {}).get("floor") or "", "x": flt((p or {}).get("x")), "y": flt((p or {}).get("y")), "b": 1 if (p or {}).get("b") else 0},
+		)
 
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()

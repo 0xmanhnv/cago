@@ -6,7 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
 import { BackBar } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
-import { COLORS, ICONS, toPoints, type MapZone, type Pt, type StoreMap } from "@/lib/storemap";
+import { COLORS, ICONS, splitStrokes, toPoints, type MapZone, type Pt, type StoreMap } from "@/lib/storemap";
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
@@ -23,6 +23,7 @@ export function StoreMap() {
   const [sel, setSel] = useState<number | null>(null);
   const [floor, setFloor] = useState("");
   const [aisleMode, setAisleMode] = useState(false);
+  const [newStroke, setNewStroke] = useState(false); // next aisle tap starts a separate corridor
   const [snap, setSnap] = useState(true); // snap-to-grid (like draw.io) → straight lines are easy
   const [busy, setBusy] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -213,7 +214,10 @@ export function StoreMap() {
     const p = toSvg(e);
     if (!p) return;
     pushHistory();
-    upd({ aisle: [...map.aisle, { x: sv(p.x), y: sv(p.y), floor, _k: nk() }] });
+    // b=1 starts a new corridor: explicitly via "Đoạn mới", or implicitly the first point on a floor.
+    const first = newStroke || map.aisle.filter((q) => q.floor === floor).length === 0;
+    upd({ aisle: [...map.aisle, { x: sv(p.x), y: sv(p.y), floor, _k: nk(), b: first ? 1 : 0 }] });
+    setNewStroke(false);
   };
 
   const save = async () => {
@@ -256,11 +260,20 @@ export function StoreMap() {
           ↶ Hoàn tác{histLen ? ` (${histLen})` : ""}
         </button>
         <button
-          onClick={() => setAisleMode((v) => !v)}
+          onClick={() => { setAisleMode((v) => !v); setNewStroke(false); }}
           className={`rounded-lg px-3 py-2 font-bold ${aisleMode ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-700"}`}
         >
           🛤 {aisleMode ? "Đang vẽ lối đi (chạm để thêm điểm)" : "Vẽ lối đi"}
         </button>
+        {aisleMode && (
+          <button
+            onClick={() => setNewStroke(true)}
+            className={`rounded-lg px-3 py-2 font-bold ${newStroke ? "bg-amber-600 text-white" : "bg-amber-100 text-amber-800"}`}
+            title="Điểm chạm tiếp theo bắt đầu một lối đi riêng (không nối với đoạn đang vẽ)"
+          >
+            ↳ Đoạn mới
+          </button>
+        )}
         <button
           onClick={() => setSnap((v) => !v)}
           className={`rounded-lg px-3 py-2 font-bold ${snap ? "bg-violet-600 text-white" : "bg-slate-200 text-slate-700"}`}
@@ -312,7 +325,11 @@ export function StoreMap() {
             ))}
           </g>
         )}
-        {aislePts.length >= 2 && <polyline points={toPoints(aislePts)} fill="none" stroke="#cbd5e1" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />}
+        {splitStrokes(aislePts).map((stroke, si) =>
+          stroke.length >= 2 ? (
+            <polyline key={`aisle${si}`} points={toPoints(stroke)} fill="none" stroke="#cbd5e1" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />
+          ) : null,
+        )}
         {map.aisle.map((p, i) =>
           p.floor !== floor ? null : (
             <circle key={p._k ?? i} cx={p.x} cy={p.y} r={1.6} fill="#f59e0b" className="cursor-move" onPointerDown={(e) => { e.stopPropagation(); startDrag({ kind: "aisle", i }); }} />

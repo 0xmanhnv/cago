@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { frappeCall } from "@/lib/api";
-import { findZone, planRoute, toPath, toPoints, zoneCenter, type Pt, type StoreMap } from "@/lib/storemap";
+import { findZone, planRoute, splitStrokes, toPath, toPoints, zoneCenter, type Pt, type StoreMap } from "@/lib/storemap";
 
 // The fixed kiosk tablet sets this once (toggle on the /map page); customer phones don't
 // have it. With the flag → route starts at the kiosk; without → at the entrance ("từ cửa vào").
@@ -87,7 +87,11 @@ export function StoreMapView({
       )}
 
       <svg viewBox={`0 0 ${map.width} ${map.height}`} className="w-full rounded-2xl border border-emerald-100 bg-slate-50 shadow-sm" style={{ aspectRatio: `${map.width} / ${map.height}` }}>
-        {aisleOnFloor.length >= 2 && <polyline points={toPoints(aisleOnFloor)} fill="none" stroke="#e2e8f0" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />}
+        {splitStrokes(aisleOnFloor).map((stroke, si) =>
+          stroke.length >= 2 ? (
+            <polyline key={`aisle${si}`} points={toPoints(stroke)} fill="none" stroke="#e2e8f0" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
+          ) : null,
+        )}
 
         {zonesOnFloor.map((z, i) => {
           const isFocus = focusOnView && z === focus;
