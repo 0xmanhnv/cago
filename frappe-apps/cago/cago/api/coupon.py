@@ -12,7 +12,7 @@ from frappe import _
 from frappe.utils import cint, flt, getdate, nowdate
 
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap
 
 
 def _validate(code, subtotal):
@@ -50,7 +50,7 @@ def _validate(code, subtotal):
 @frappe.whitelist()
 def apply_coupon(code, subtotal):
 	"""Staff: validate a code against the current subtotal; returns the discount to preview."""
-	ensure_staff()
+	ensure_cap("sell")
 	c, disc = _validate(code, flt(subtotal))
 	return {
 		"code": c.coupon_code,
@@ -84,7 +84,7 @@ def redeem(code, subtotal):
 # --------------------------------------------------------------------------- #
 @frappe.whitelist()
 def list_coupons():
-	ensure_owner()
+	ensure_cap("settings")
 	return frappe.get_all(
 		"Cago Coupon",
 		fields=["coupon_code", "is_active", "discount_type", "discount_value", "min_order_amount", "max_uses", "used_count", "valid_from", "valid_to", "description"],
@@ -94,7 +94,7 @@ def list_coupons():
 
 @frappe.whitelist()
 def save_coupon(coupon_code, discount_type, discount_value, min_order_amount=0, max_uses=0, valid_from=None, valid_to=None, is_active=1, description=None):
-	ensure_owner()
+	ensure_cap("settings")
 	code = (coupon_code or "").strip().upper()
 	if not code:
 		frappe.throw(_("Nhập mã giảm giá."))
@@ -121,7 +121,7 @@ def save_coupon(coupon_code, discount_type, discount_value, min_order_amount=0, 
 
 @frappe.whitelist()
 def toggle_coupon(coupon_code):
-	ensure_owner()
+	ensure_cap("settings")
 	cur = frappe.db.get_value("Cago Coupon", coupon_code, "is_active")
 	frappe.db.set_value("Cago Coupon", coupon_code, "is_active", 0 if cur else 1)
 	frappe.db.commit()
@@ -130,7 +130,7 @@ def toggle_coupon(coupon_code):
 
 @frappe.whitelist()
 def delete_coupon(coupon_code):
-	ensure_owner()
+	ensure_cap("settings")
 	if frappe.db.exists("Cago Coupon", coupon_code):
 		frappe.delete_doc("Cago Coupon", coupon_code, ignore_permissions=True)
 		frappe.db.commit()

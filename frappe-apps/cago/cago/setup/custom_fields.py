@@ -198,13 +198,21 @@ def ensure_shift_fields():
 
 
 def ensure_user_fields():
-	"""Per-account UI prefs (owner home '⭐ Hay dùng' layout follows the account, not the device)."""
+	"""Per-account UI prefs + per-staff selling limits (set by the owner per employee)."""
 	create_custom_fields(
-		{"User": [{"fieldname": "cago_home_favorites", "label": "Cago Home Favorites", "fieldtype": "Small Text", "hidden": 1, "no_copy": 1}]},
+		{
+			"User": [
+				{"fieldname": "cago_home_favorites", "label": "Cago Home Favorites", "fieldtype": "Small Text", "hidden": 1, "no_copy": 1},
+				# Per-staff "mặc cả" allowance — replaces the old store-wide Company.cago_allow_price_edit.
+				{"fieldname": "cago_allow_price_edit", "label": "Cago Allow Price Edit", "fieldtype": "Check", "hidden": 1, "no_copy": 1},
+				# Max whole-bill discount this staff may give (0 = none). Owner = unlimited.
+				{"fieldname": "cago_max_discount_pct", "label": "Cago Max Discount %", "fieldtype": "Float", "hidden": 1, "no_copy": 1},
+			]
+		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("User field ensured: cago_home_favorites")
+	print("User fields ensured: cago_home_favorites, cago_allow_price_edit, cago_max_discount_pct")
 
 
 def ensure_stock_entry_fields():

@@ -18,7 +18,7 @@ from frappe.utils import cint, flt
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap, ensure_internal, ensure_lang
 from cago.utils.privileged import as_user
 
 
@@ -37,7 +37,7 @@ def get_stock(item_code):
 
 	For batch-tracked items also returns the batches, so stock-in can be assigned to a lô.
 	"""
-	ensure_staff()
+	ensure_internal()
 	has_batch = bool(frappe.db.get_value("Item", item_code, "has_batch_no"))
 	batches = []
 	if has_batch:
@@ -61,7 +61,7 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None, invoiced=1, inv
 	(optional; sets valuation). Batch-tracked items require `batch_no`. `invoiced` flags whether
 	this receipt had an official invoice (off-book portions still count as real stock+cost).
 	Returns new on-hand."""
-	ensure_owner()
+	ensure_cap("stock")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	qty = flt(qty)
@@ -117,7 +117,7 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None, invoiced=1, inv
 def receive_history(start=0, limit=30):
 	"""Owner: recent stock-ins (Material Receipts) with their saved invoice photo + có/không HĐ flag.
 	Lets the owner review chứng từ later. Owner-only (shows giá vốn)."""
-	ensure_owner()
+	ensure_cap("stock")
 	rows = frappe.get_all(
 		"Stock Entry",
 		filters={"stock_entry_type": "Material Receipt", "docstatus": 1},
@@ -162,7 +162,7 @@ def adjust_stock(item_code, counted_qty, reason=None):
 
 	Uses ERPNext's Stock Reconciliation (the correct primitive — it books the delta against
 	stock adjustment). Owner-only; privileged submit (owner lacks Stock perms)."""
-	ensure_owner()
+	ensure_cap("stock")
 	ensure_lang()
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))

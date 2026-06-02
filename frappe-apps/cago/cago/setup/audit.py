@@ -12,9 +12,12 @@ Exits non-zero (raises) if any check fails, so it can gate a deploy.
 import frappe
 
 from cago.utils import dto
+from cago.utils.permissions import ALL_CAP_ROLES
 
 SENSITIVE_TOKENS = ("valuation", "buying", "last_purchase", "margin", "profit", "cost", "standard_rate")
-SENSITIVE_ROLES = ("Cago Staff", "Cago Kiosk")
+# No capability role (nor the deprecated Cago Staff / Kiosk) may read raw Item — staff must never
+# reach buying price / valuation via the Desk; everything goes through curated DTOs.
+SENSITIVE_ROLES = tuple(sorted(ALL_CAP_ROLES)) + ("Cago Staff", "Cago Kiosk")
 
 
 def _roles_with_item_read():

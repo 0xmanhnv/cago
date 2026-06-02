@@ -11,7 +11,7 @@ from frappe import _
 from frappe.utils import cint, flt, format_datetime, get_datetime, now_datetime
 
 from cago.utils import dto
-from cago.utils.permissions import ensure_staff
+from cago.utils.permissions import ensure_internal
 
 WANTED_STATUSES = ("New", "Processing", "Completed", "Expired", "Cancelled")
 
@@ -21,7 +21,7 @@ def list_wanted_lists(include_done=0):
 	"""List recent customer wanted lists so staff can SEE what was selected on the kiosk
 	without having to type a code. Open ones (New/Processing) first; newest first. Set
 	include_done=1 to also show Completed/Expired."""
-	ensure_staff()
+	ensure_internal()
 	filters = {}
 	if not cint(include_done):
 		filters["status"] = ["in", ["New", "Processing"]]
@@ -72,7 +72,7 @@ STAFF_PAGE = 30
 
 @frappe.whitelist()
 def search_products(query=None, category=None, start=0):
-	ensure_staff()
+	ensure_internal()
 	from frappe.utils import cint
 
 	return dto.list_dtos(query, audience="staff", public_only=False, category=category, limit=STAFF_PAGE, start=cint(start))
@@ -82,7 +82,7 @@ def search_products(query=None, category=None, start=0):
 def list_categories():
 	"""Category tree for the staff sell screen — counts every non-disabled item (incl. internal),
 	not just kiosk-visible ones, so staff can browse any category."""
-	ensure_staff()
+	ensure_internal()
 	from cago.api.kiosk import category_tree
 
 	return category_tree(public_only=False)
@@ -90,7 +90,7 @@ def list_categories():
 
 @frappe.whitelist()
 def get_product(item_code):
-	ensure_staff()
+	ensure_internal()
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	return dto.staff_dto(frappe.get_doc("Item", item_code))
@@ -99,7 +99,7 @@ def get_product(item_code):
 @frappe.whitelist()
 def get_wanted_list(code):
 	"""Retrieve a customer's wanted list (created on the kiosk) for fulfilment."""
-	ensure_staff()
+	ensure_internal()
 	# Look up by the business `code` field (e.g. WL-2026-00001), not the docname, so it
 	# stays consistent with pos.create_invoice_from_wanted and the list view.
 	name = frappe.db.get_value("Cago Wanted List", {"code": code}, "name") or (
@@ -136,7 +136,7 @@ def get_wanted_list(code):
 @frappe.whitelist()
 def set_wanted_list_status(code, status):
 	"""Staff marks a wanted list as Đang xử lý / Hoàn tất (or back to Mới)."""
-	ensure_staff()
+	ensure_internal()
 	if status not in WANTED_STATUSES:
 		frappe.throw(_("Trạng thái không hợp lệ."))
 	name = _wanted_name(code)
@@ -151,7 +151,7 @@ def cancel_wanted_list(code):
 
 	Marked Cancelled (kept for the record, hidden from the open list) rather than hard
 	deleted, so it can still be reviewed under 'Xem cả đơn xong'."""
-	ensure_staff()
+	ensure_internal()
 	name = _wanted_name(code)
 	frappe.db.set_value("Cago Wanted List", name, "status", "Cancelled")
 	frappe.db.commit()

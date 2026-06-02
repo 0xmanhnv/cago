@@ -21,7 +21,7 @@ from frappe.utils import flt
 from cago.api.owner import create_product
 from cago.api.purchasing import receive_stock
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
-from cago.utils.permissions import ensure_owner
+from cago.utils.permissions import ensure_cap, ensure_owner
 
 UNIT_WORDS = {
 	"bao": "Bao", "gói": "Gói", "goi": "Gói", "chai": "Chai", "kg": "Kg", "cái": "Cái",
@@ -149,7 +149,7 @@ def _row(parsed: dict) -> dict:
 @frappe.whitelist()
 def parse_text(text):
 	"""Typed/pasted lines → review rows (with match suggestions)."""
-	ensure_owner()
+	ensure_cap("stock")
 	rows = [_row(p) for line in (text or "").splitlines() if (p := parse_line(line))]
 	return rows
 
@@ -157,7 +157,7 @@ def parse_text(text):
 @frappe.whitelist()
 def parse_image(file_url):
 	"""Photo of a paper list / supplier invoice → review rows, via the configured vision LLM."""
-	ensure_owner()
+	ensure_cap("stock")
 	content = _read_file(file_url)
 	mime = _sniff_mime(content)
 	if mime == "image/heic":
@@ -295,7 +295,7 @@ def bulk_receive(items, invoice_image=None):
 
 	items: [{name, qty, unit, cost, sell, item_code?, item_group?}]. Returns a per-row summary.
 	"""
-	ensure_owner()
+	ensure_cap("stock")
 	items = frappe.parse_json(items) if isinstance(items, str) else (items or [])
 	results = []
 	new_by_name: dict[str, str] = {}  # normalized new-product name → item_code created THIS batch (dedup)

@@ -8,12 +8,12 @@ the code + Enter) and native POS scanning both work without extra hardware glue.
 
 import frappe
 
-from cago.utils.permissions import ensure_staff
+from cago.utils.permissions import ensure_internal
 
 
 @frappe.whitelist()
 def find_by_barcode(barcode):
 	"""Resolve a scanned/typed barcode to its item_code (exact match). Staff may use."""
-	ensure_staff()
+	ensure_internal()
 	code = frappe.db.get_value("Item Barcode", {"barcode": (barcode or "").strip()}, "parent")
 	return {"item_code": code}

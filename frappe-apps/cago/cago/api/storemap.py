@@ -17,7 +17,7 @@ import json
 import frappe
 from frappe.utils import cint, flt
 
-from cago.utils.permissions import ensure_owner
+from cago.utils.permissions import ensure_cap, ensure_owner
 
 
 @frappe.whitelist(allow_guest=True)
@@ -55,7 +55,7 @@ def get_store_map():
 @frappe.whitelist()
 def save_store_map(data):
 	"""Owner upserts the whole map in one call (the editor sends the full layout)."""
-	ensure_owner()
+	ensure_cap("settings")
 	if isinstance(data, str):
 		data = json.loads(data)
 

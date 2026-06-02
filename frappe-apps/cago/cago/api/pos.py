@@ -15,14 +15,14 @@ from frappe.utils import nowdate
 from cago.api import debt
 from cago.api.sales import _warehouse, walkin_customer
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_staff
+from cago.utils.permissions import ensure_internal, ensure_lang
 from cago.utils.privileged import as_user
 
 
 @frappe.whitelist()
 def create_invoice_from_wanted(code):
 	"""From a wanted-list code, create a DRAFT Sales Invoice with its items. Staff only."""
-	ensure_staff()
+	ensure_internal()
 	ensure_lang()
 	wl = frappe.db.get_value("Cago Wanted List", {"code": code}, "name")
 	if not wl:

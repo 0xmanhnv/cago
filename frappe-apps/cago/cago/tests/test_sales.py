@@ -15,6 +15,15 @@ from cago.utils import dto
 ITEM = "CAM-GA-CON-25KG"
 
 
+def _seller_user():
+	"""A non-owner cashier with the 'sell' capability, for per-staff bargaining tests."""
+	email = "_test_cago_seller@example.com"
+	if not frappe.db.exists("User", email):
+		frappe.get_doc({"doctype": "User", "email": email, "first_name": "Seller", "send_welcome_email": 0}).insert(ignore_permissions=True)
+	frappe.get_doc("User", email).add_roles("Cago Sell")
+	return email
+
+
 class TestCreditSale(FrappeTestCase):
 	def setUp(self):
 		if not frappe.db.exists("Item", ITEM):
@@ -136,26 +145,28 @@ class TestQuickSale(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "bitcoin")
 
-	def test_price_override_only_when_owner_enables_it(self):
-		"""Mặc cả: a per-line rate is honoured ONLY when cago_allow_price_edit is on; otherwise
-		the price-list rate stands (client cannot bargain a price the owner hasn't allowed)."""
-		from cago.api import debt, purchasing, sales
+	def test_price_override_per_staff_allowance(self):
+		"""Mặc cả: a per-line rate is honoured ONLY when THIS cashier's cago_allow_price_edit is on;
+		otherwise the price-list rate stands (per-staff, not store-wide)."""
+		from cago.api import purchasing, sales
 
-		purchasing.receive_stock(ITEM, 10)
-		company = debt._company()
+		seller = _seller_user()
+		purchasing.receive_stock(ITEM, 10)  # as owner (Administrator)
 		base = sales._rate_for_uom(ITEM, frappe.db.get_value("Item", ITEM, "stock_uom"), frappe.db.get_value("Item", ITEM, "stock_uom"))
-
-		# OFF: override ignored
-		frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
-		r_off = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1, "rate": 1}]), "cash")
-		self.assertAlmostEqual(frappe.get_doc("Sales Invoice", r_off["invoice"]).items[0].rate, base, places=2)
-
-		# ON: override honoured
-		frappe.db.set_value("Company", company, "cago_allow_price_edit", 1)
-		r_on = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1, "rate": 1234}]), "cash")
-		self.assertAlmostEqual(frappe.get_doc("Sales Invoice", r_on["invoice"]).items[0].rate, 1234, places=2)
-
-		frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
+		try:
+			# OFF for this staff → override ignored
+			frappe.db.set_value("User", seller, "cago_allow_price_edit", 0)
+			frappe.set_user(seller)
+			r_off = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1, "rate": 1}]), "cash")
+			self.assertAlmostEqual(frappe.get_doc("Sales Invoice", r_off["invoice"]).items[0].rate, base, places=2)
+			frappe.set_user("Administrator")
+			# ON for this staff → override honoured
+			frappe.db.set_value("User", seller, "cago_allow_price_edit", 1)
+			frappe.set_user(seller)
+			r_on = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1, "rate": 1234}]), "cash")
+			self.assertAlmostEqual(frappe.get_doc("Sales Invoice", r_on["invoice"]).items[0].rate, 1234, places=2)
+		finally:
+			frappe.set_user("Administrator")
 
 	def test_price_override_cannot_go_below_floor(self):
 		"""Even with price edit on, an override below the item's giá sàn (cago_min_price) is rejected
@@ -178,15 +189,39 @@ class TestQuickSale(FrappeTestCase):
 			frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
 
 	def test_manual_discount_requires_price_edit(self):
-		"""A whole-bill discount is bargaining too: rejected unless the owner enabled price edit
-		(else staff could zero the total via the discount box, dodging the giá sàn)."""
-		from cago.api import debt, purchasing, sales
+		"""A whole-bill discount is bargaining too: rejected unless THIS cashier may edit price."""
+		from cago.api import purchasing, sales
 
+		seller = _seller_user()
 		purchasing.receive_stock(ITEM, 10)
-		company = debt._company()
-		frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
-		with self.assertRaises(frappe.ValidationError):
-			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", discount_amount=5000)
+		try:
+			frappe.db.set_value("User", seller, "cago_allow_price_edit", 0)
+			frappe.set_user(seller)
+			with self.assertRaises(frappe.ValidationError):
+				sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", discount_amount=5000)
+		finally:
+			frappe.set_user("Administrator")
+
+	def test_discount_respects_per_staff_max_pct(self):
+		"""A staff allowed to discount still cannot exceed their per-staff max %."""
+		from cago.api import purchasing, sales
+
+		seller = _seller_user()
+		purchasing.receive_stock(ITEM, 10)
+		base = sales._rate_for_uom(ITEM, frappe.db.get_value("Item", ITEM, "stock_uom"), frappe.db.get_value("Item", ITEM, "stock_uom"))
+		old_floor = frappe.db.get_value("Item", ITEM, "cago_min_price")
+		frappe.db.set_value("Item", ITEM, "cago_min_price", 0)  # isolate the % cap from the floor check
+		try:
+			frappe.db.set_value("User", seller, "cago_allow_price_edit", 1)
+			frappe.db.set_value("User", seller, "cago_max_discount_pct", 10)
+			frappe.set_user(seller)
+			with self.assertRaises(frappe.ValidationError):  # 30% > 10% cap
+				sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", discount_amount=round(base * 0.3))
+			r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", discount_amount=round(base * 0.08))
+			self.assertTrue(r["invoice"])  # 8% within cap
+		finally:
+			frappe.set_user("Administrator")
+			frappe.db.set_value("Item", ITEM, "cago_min_price", old_floor or 0)
 
 	def test_whole_bill_discount_cannot_breach_floor(self):
 		"""A Grand-Total discount that drives a line under its giá sàn is rejected (the discount is

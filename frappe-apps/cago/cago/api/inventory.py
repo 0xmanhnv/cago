@@ -16,7 +16,7 @@ from frappe import _
 from frappe.utils import add_days, cint, date_diff, flt, getdate, nowdate
 
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap, ensure_internal
 
 DEFAULT_WARN_DAYS = 60
 
@@ -68,7 +68,7 @@ def _batch_row(b):
 def list_batches(item_code):
 	"""All batches for a product (staff may view; owner manages). The earliest non-expired
 	batch is flagged `sell_first` (FEFO — bán lô gần hết hạn trước)."""
-	ensure_staff()
+	ensure_internal()
 	rows = frappe.get_all(
 		"Batch",
 		filters={"item": item_code},
@@ -86,7 +86,7 @@ def list_batches(item_code):
 @frappe.whitelist()
 def add_batch(item_code, batch_id, expiry_date=None, manufacturing_date=None):
 	"""Record a new batch (and enable batch tracking on the item if needed)."""
-	ensure_owner()
+	ensure_cap("stock")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	batch_id = (batch_id or "").strip()
@@ -122,7 +122,7 @@ def add_batch(item_code, batch_id, expiry_date=None, manufacturing_date=None):
 @frappe.whitelist()
 def expiring_soon(days=DEFAULT_WARN_DAYS):
 	"""Owner report: batches expiring within `days` (or already expired)."""
-	ensure_owner()
+	ensure_cap("stock")
 	days = cint(days) or DEFAULT_WARN_DAYS
 	horizon = add_days(nowdate(), days)
 	# NULL expiry_date is excluded by the `<=` comparison, so only dated batches show.

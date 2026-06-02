@@ -20,7 +20,7 @@ from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import (
 )
 from cago.customer import resolve_customer
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_owner
+from cago.utils.permissions import ensure_cap, ensure_lang
 from cago.utils.privileged import as_user
 
 
@@ -41,7 +41,7 @@ def _receivable_account(company):
 def _submit_privileged(doc):
 	"""Insert + submit a trusted accounting document.
 
-	The API is already authorized via ensure_owner(), but ERPNext helpers like
+	The API is already authorized via ensure_cap("debt"), but ERPNext helpers like
 	PaymentEntry.get_account_details call frappe.has_permission("Account") directly,
 	which a Cago Owner (no ERPNext accounting role) fails. So we run the write as
 	Administrator and restore the real user immediately after, keeping least-privilege
@@ -57,7 +57,7 @@ def _submit_privileged(doc):
 
 @frappe.whitelist()
 def search_customers(query=None):
-	ensure_owner()
+	ensure_cap("debt")
 	query = (query or "").strip()
 	filters = {}
 	or_filters = None
@@ -102,7 +102,7 @@ def _debt_summary(customer):
 
 
 def get_customer_debt(customer):
-	ensure_owner()
+	ensure_cap("debt")
 	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
@@ -132,7 +132,7 @@ def get_customer_debt(customer):
 @frappe.whitelist()
 def record_debt(customer, amount, note=None):
 	"""Customer takes goods on credit. Increases receivable via a Journal Entry."""
-	ensure_owner()
+	ensure_cap("debt")
 	ensure_lang()
 	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
@@ -179,23 +179,13 @@ def record_debt(customer, amount, note=None):
 	return get_customer_debt(customer)
 
 
-def ensure_can_collect_debt():
-	"""Owner always; staff only when the owner enabled it on the Company. Returns the actor."""
-	from cago.utils.permissions import is_owner, is_staff
-
-	if is_owner():
-		return frappe.session.user
-	if is_staff() and frappe.db.get_value("Company", _company(), "cago_staff_can_collect_debt"):
-		return frappe.session.user
-	frappe.throw(_("Bạn không có quyền thu nợ. Liên hệ chủ cửa hàng để bật chức năng này."), frappe.PermissionError)
-
-
 @frappe.whitelist()
 def record_repayment(customer, amount, note=None):
 	"""Customer pays. Decreases receivable via an on-account Payment Entry (Receive).
-	Owner always; staff when allowed (cago_staff_can_collect_debt) — the cash then counts in
-	that cashier's till shift and the collector is stamped on the Payment Entry."""
-	cashier = ensure_can_collect_debt()
+	Requires the `debt` capability — the cash then counts in that cashier's till shift and the
+	collector is stamped on the Payment Entry."""
+	ensure_cap("debt")
+	cashier = frappe.session.user
 	ensure_lang()
 	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
@@ -240,7 +230,7 @@ def record_repayment(customer, amount, note=None):
 @frappe.whitelist()
 def add_customer(customer_name, phone=None, village=None, debt_limit=None, wholesale=0):
 	"""Create a new customer from the simplified owner UI (e.g. during Ghi nợ)."""
-	ensure_owner()
+	ensure_cap("debt")
 	from frappe.utils import cint
 
 	name = (customer_name or "").strip()
@@ -277,7 +267,7 @@ def add_customer(customer_name, phone=None, village=None, debt_limit=None, whole
 @frappe.whitelist()
 def set_wholesale(customer, on):
 	"""Owner: mark a customer as wholesale (mua theo giá sỉ) or not."""
-	ensure_owner()
+	ensure_cap("debt")
 	from frappe.utils import cint
 
 	customer = resolve_customer(customer)
@@ -292,7 +282,7 @@ def set_wholesale(customer, on):
 @frappe.whitelist()
 def get_customer_ledger(customer):
 	"""Debt history for one customer: each ghi nợ / trả nợ with a running balance."""
-	ensure_owner()
+	ensure_cap("debt")
 	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
@@ -338,7 +328,7 @@ def get_customer_ledger(customer):
 @frappe.whitelist()
 def cancel_entry(voucher_type, voucher_no, customer=None):
 	"""Cancel a mistaken debt/payment voucher (Journal Entry / Payment Entry)."""
-	ensure_owner()
+	ensure_cap("debt")
 	ensure_lang()
 	customer = resolve_customer(customer) if customer else customer
 	if voucher_type not in ("Journal Entry", "Payment Entry"):

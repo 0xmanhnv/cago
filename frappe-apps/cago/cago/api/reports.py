@@ -13,7 +13,7 @@ from frappe.utils import add_days, cint, flt, format_date, get_first_day, getdat
 
 from cago.api.debt import get_customer_debt
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner
+from cago.utils.permissions import ensure_cap, ensure_internal
 
 LOW_STOCK_STATUSES = ["Còn ít", "Hết hàng", "Sắp nhập"]
 PERIOD_LABEL = {"today": "Hôm nay", "week": "7 ngày qua", "month": "Tháng này", "year": "Năm nay", "custom": "Khoảng ngày"}
@@ -50,7 +50,7 @@ def _resolve(period, from_date=None, to_date=None):
 @frappe.whitelist()
 def period_summary(period="today", from_date=None, to_date=None):
 	"""Sales summary for today / week / month / year / custom range."""
-	ensure_owner()
+	ensure_cap("reports")
 	start, end, label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
@@ -83,7 +83,7 @@ def today_summary():
 @frappe.whitelist()
 def payment_split(period="today", from_date=None, to_date=None):
 	"""Tiền mặt / chuyển khoản / khác (từ thanh toán POS) + ghi nợ (outstanding)."""
-	ensure_owner()
+	ensure_cap("reports")
 	start, end, label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
@@ -146,7 +146,7 @@ def payment_split(period="today", from_date=None, to_date=None):
 @frappe.whitelist()
 def sales_by_customer(period="month", limit=10, from_date=None, to_date=None):
 	"""Owner-only: top customers by sales total in the period."""
-	ensure_owner()
+	ensure_cap("reports")
 	start, end, _label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
@@ -174,7 +174,7 @@ def sales_by_customer(period="month", limit=10, from_date=None, to_date=None):
 def gross_profit(period="today", from_date=None, to_date=None):
 	"""Owner-only gross profit = doanh thu (net) − giá vốn (COGS). COGS uses the Sales
 	Invoice Item incoming_rate (set when stock is maintained). Never exposed to staff/kiosk."""
-	ensure_owner()
+	ensure_cap("reports")
 	start, end, label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
@@ -207,7 +207,7 @@ def gross_profit(period="today", from_date=None, to_date=None):
 def low_stock():
 	"""Items that need attention: manual low-stock statuses + auto items whose REAL
 	on-hand is at/under the reorder level (→ gợi ý nhập hàng)."""
-	ensure_owner()
+	ensure_cap("stock")
 	out = {}
 	# 1) manual statuses
 	for r in frappe.get_all(
@@ -246,7 +246,7 @@ def low_stock():
 
 @frappe.whitelist()
 def best_sellers(limit=10):
-	ensure_owner()
+	ensure_cap("reports")
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	sii = frappe.qb.DocType("Sales Invoice Item")
@@ -273,7 +273,7 @@ def best_sellers(limit=10):
 
 @frappe.whitelist()
 def debt_list():
-	ensure_owner()
+	ensure_cap("debt")
 	customers = frappe.get_all("Customer", fields=["name", "customer_name", "cago_village", "cago_slug"])
 	out = []
 	for c in customers:
@@ -297,15 +297,20 @@ def debt_list():
 def daily_digest():
 	"""Owner 'việc cần làm hôm nay': counts of low-stock items, soon-expiring batches, and
 	customers owing. Computed live from the existing reports (always fresh)."""
-	ensure_owner()
+	ensure_internal()
 	from cago.api import inventory
 
-	low = low_stock()
-	debts = debt_list()
-	try:
-		expiring = inventory.expiring_soon()
-	except Exception:
-		expiring = []
+	# Each section degrades to empty if the user lacks that capability — a debt-only staff sees
+	# only debtors, a stock-only staff only low-stock/expiring. (PermissionError per inner guard.)
+	def _safe(fn):
+		try:
+			return fn()
+		except frappe.PermissionError:
+			return []
+
+	low = _safe(low_stock)
+	debts = _safe(debt_list)
+	expiring = _safe(inventory.expiring_soon)
 	total_debt = sum(flt(d["outstanding"]) for d in debts)
 	return {
 		"low_stock": len(low),

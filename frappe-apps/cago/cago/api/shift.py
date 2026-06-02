@@ -13,7 +13,7 @@ from frappe import _
 from frappe.utils import flt, format_datetime, now_datetime
 
 from cago.utils import dto
-from cago.utils.permissions import ensure_staff
+from cago.utils.permissions import ensure_cap
 
 
 def _open_shift_name(user):
@@ -95,7 +95,7 @@ def _shift_dto(doc):
 @frappe.whitelist()
 def current_shift():
 	"""The current cashier's open shift with live running totals, or {open: False}."""
-	ensure_staff()
+	ensure_cap("sell")
 	name = _open_shift_name(frappe.session.user)
 	if not name:
 		return {"open": False}
@@ -105,7 +105,7 @@ def current_shift():
 @frappe.whitelist()
 def open_shift(opening_cash=0):
 	"""Open a till shift for the current cashier (only one open at a time)."""
-	ensure_staff()
+	ensure_cap("sell")
 	user = frappe.session.user
 	if _open_shift_name(user):
 		frappe.throw(_("Bạn đang có một ca mở. Hãy đóng ca cũ trước."))
@@ -126,7 +126,7 @@ def open_shift(opening_cash=0):
 @frappe.whitelist()
 def close_shift(counted_cash, payouts=0, note=None):
 	"""Close the current cashier's shift: store cash sales + reconciliation (expected vs counted)."""
-	ensure_staff()
+	ensure_cap("sell")
 	name = _open_shift_name(frappe.session.user)
 	if not name:
 		frappe.throw(_("Không có ca nào đang mở."))

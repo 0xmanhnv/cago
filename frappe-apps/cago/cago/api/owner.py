@@ -16,7 +16,7 @@ from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import (
 	record_action,
 )
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner
+from cago.utils.permissions import ensure_cap, ensure_internal
 
 
 @frappe.whitelist()
@@ -25,7 +25,7 @@ def price_history(item_code, limit=20):
 
 	Reads the existing Cago Owner Action Log (action_type='Price Update') — no new data.
 	"""
-	ensure_owner()
+	ensure_cap("products")
 	from frappe.utils import cint
 
 	rows = frappe.get_all(
@@ -50,14 +50,14 @@ def price_history(item_code, limit=20):
 @frappe.whitelist()
 def search_products(query=None):
 	"""Owner product search -> list of owner DTOs."""
-	ensure_owner()
+	ensure_cap("products")
 	return dto.list_dtos(query, audience="owner", public_only=False)
 
 
 @frappe.whitelist()
 def get_product(item_code):
 	"""Single owner DTO."""
-	ensure_owner()
+	ensure_cap("products")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	return dto.owner_dto(frappe.get_doc("Item", item_code))
@@ -69,7 +69,7 @@ def update_price(item_code, new_price):
 
 	Returns the new formatted price text for confirmation in the UI.
 	"""
-	ensure_owner()
+	ensure_cap("products")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 
@@ -164,7 +164,7 @@ def _images(item_code):
 
 
 def _check_item(item_code):
-	ensure_owner()
+	ensure_cap("products")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 
@@ -323,7 +323,7 @@ ERPNEXT_DEFAULT_GROUPS = ["Products", "Raw Material", "Services", "Sub Assemblie
 @frappe.whitelist()
 def get_product_meta():
 	"""Options for the create/edit forms: item groups, units, selects."""
-	ensure_owner()
+	ensure_cap("products")
 	groups = frappe.get_all(
 		"Item Group",
 		filters={"is_group": 0, "name": ["not in", ERPNEXT_DEFAULT_GROUPS]},
@@ -346,7 +346,7 @@ def create_product(data):
 	A machine item_code is auto-generated (owner only cares about the display name).
 	Returns the editable view so the UI can continue (add images, advice, ...).
 	"""
-	ensure_owner()
+	ensure_cap("products")
 	data = frappe.parse_json(data) if isinstance(data, str) else (data or {})
 
 	name = (data.get("cago_display_name") or data.get("item_name") or "").strip()
@@ -395,7 +395,7 @@ def create_product(data):
 @frappe.whitelist()
 def zalo_draft(kind, customer=None, item_code=None):
 	"""Generate a ready-to-copy Zalo/SMS message (debt reminder or restock alert)."""
-	ensure_owner()
+	ensure_internal()
 	if kind == "debt_reminder":
 		from cago.customer import resolve_customer
 
@@ -433,7 +433,7 @@ def zalo_draft(kind, customer=None, item_code=None):
 @frappe.whitelist()
 def list_categories():
 	"""Owner: the kiosk-visible categories in their current display order, for the reorder screen."""
-	ensure_owner()
+	ensure_cap("products")
 	from cago.api import kiosk
 
 	return kiosk.get_categories()
@@ -443,7 +443,7 @@ def list_categories():
 def set_category_order(categories):
 	"""Owner: persist the display order. `categories` is a JSON list of Item Group names in the
 	desired order; we write cago_sort_order = 1..N so the kiosk lists them that way."""
-	ensure_owner()
+	ensure_cap("products")
 	names = frappe.parse_json(categories) if isinstance(categories, str) else (categories or [])
 	for i, name in enumerate(names, start=1):
 		if frappe.db.exists("Item Group", name):

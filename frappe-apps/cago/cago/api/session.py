@@ -13,11 +13,13 @@ server-side guard (see utils/permissions.py), so a forged client role grants not
 import frappe
 
 from cago.chatbot import config as chatbot_config
+from cago.utils.permissions import caps_for_user, has_cap, selling_limits
 
 
 @frappe.whitelist(allow_guest=True)
 def bootstrap():
 	"""Everything the frontend needs once per load. Safe for guests (kiosk)."""
+	_limits = selling_limits()
 	has_posawesome = "posawesome" in frappe.get_installed_apps()
 	# Only surface the POS Awesome URL to users who can actually open its desk page (Sales User
 	# etc.) — so mobile staff don't see a button that 404s with "Not permitted".
@@ -31,12 +33,18 @@ def bootstrap():
 		"full_name": (frappe.session.user != "Guest" and frappe.db.get_value("User", frappe.session.user, "full_name")) or "",
 		"is_guest": frappe.session.user == "Guest",
 		"roles": frappe.get_roles(),
+		# Capability keys this user holds (owner = all). The /pos UI renders only the tiles a
+		# user may use; every API still re-checks server-side (ensure_cap).
+		"caps": caps_for_user(),
 		"csrf_token": frappe.sessions.get_csrf_token(),
 		"brand": frappe.db.get_single_value("Website Settings", "app_name") or "Minh Tuyết",
 		"persona": chatbot_config.persona(),
 		"kiosk_chips": chatbot_config.kiosk_chips(),
 		"kiosk_debt_visible": _kiosk_debt_visible(),
-		"allow_price_edit": _allow_price_edit(),
+		# Per-staff bargaining allowance (owner = unlimited). The sell screen gates the discount
+		# box + per-line edit on these; quick_sale re-checks for the cashier.
+		"allow_price_edit": _limits["allow_price_edit"],
+		"max_discount_pct": _limits["max_discount_pct"],
 		"staff_can_collect_debt": _staff_can_collect_debt(),
 		"has_posawesome": has_posawesome,
 		# Single source of truth for the POS Awesome desk URL (frontend never hardcodes the
@@ -64,15 +72,7 @@ def _kiosk_debt_visible():
 	return bool(company and frappe.db.get_value("Company", company, "cago_kiosk_debt_visible"))
 
 
-def _allow_price_edit():
-	"""Owner toggle: may staff edit the per-line price at the till (mặc cả / bớt giá)?
-	UI hint only — the server re-checks this before honouring any rate override in quick_sale."""
-	company = _company()
-	return bool(company and frappe.db.get_value("Company", company, "cago_allow_price_edit"))
-
-
 def _staff_can_collect_debt():
-	"""Owner toggle: may staff record customer debt repayments? UI hint only — debt.record_repayment
-	re-checks via ensure_can_collect_debt."""
-	company = _company()
-	return bool(company and frappe.db.get_value("Company", company, "cago_staff_can_collect_debt"))
+	"""Whether THIS user may record customer debt repayments — now the `debt` capability.
+	UI hint only; debt.record_repayment re-checks via ensure_cap('debt')."""
+	return has_cap("debt")

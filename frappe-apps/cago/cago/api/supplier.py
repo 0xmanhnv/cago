@@ -18,7 +18,7 @@ from frappe.utils import flt, nowdate
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_owner
+from cago.utils.permissions import ensure_cap, ensure_lang
 
 
 def _warehouse():
@@ -51,7 +51,7 @@ def _supplier_outstanding(supplier):
 
 @frappe.whitelist()
 def search_suppliers(query=None):
-	ensure_owner()
+	ensure_cap("supplier")
 	query = (query or "").strip()
 	or_filters = [["supplier_name", "like", f"%{query}%"], ["name", "like", f"%{query}%"]] if query else None
 	rows = frappe.get_all(
@@ -68,7 +68,7 @@ def search_suppliers(query=None):
 
 @frappe.whitelist()
 def add_supplier(supplier_name, phone=None):
-	ensure_owner()
+	ensure_cap("supplier")
 	name = (supplier_name or "").strip()
 	if not name:
 		frappe.throw(_("Nhập tên nhà cung cấp."))
@@ -85,7 +85,7 @@ def add_supplier(supplier_name, phone=None):
 
 @frappe.whitelist()
 def get_supplier_debt(supplier):
-	ensure_owner()
+	ensure_cap("supplier")
 	bal = _supplier_outstanding(supplier)
 	return {
 		"supplier": supplier,
@@ -99,7 +99,7 @@ def get_supplier_debt(supplier):
 def credit_purchase(supplier, items, note=None):
 	"""Nhập hàng trả sau: submitted UNPAID Purchase Invoice (update_stock). items = list of
 	{item_code, qty, rate (giá nhập), uom?}. Increases stock + supplier payable."""
-	ensure_owner()
+	ensure_cap("supplier")
 	ensure_lang()
 	if not frappe.db.exists("Supplier", supplier):
 		frappe.throw(_("Không tìm thấy nhà cung cấp."))
@@ -142,7 +142,7 @@ def credit_purchase(supplier, items, note=None):
 @frappe.whitelist()
 def pay_supplier(supplier, amount, note=None):
 	"""Trả tiền nhà cung cấp — Payment Entry (Pay), reduces payable."""
-	ensure_owner()
+	ensure_cap("supplier")
 	ensure_lang()
 	if not frappe.db.exists("Supplier", supplier):
 		frappe.throw(_("Không tìm thấy nhà cung cấp."))
@@ -177,7 +177,7 @@ def pay_supplier(supplier, amount, note=None):
 
 @frappe.whitelist()
 def supplier_debt_list():
-	ensure_owner()
+	ensure_cap("supplier")
 	out = []
 	for s in frappe.get_all("Supplier", fields=["name", "supplier_name"]):
 		bal = _supplier_outstanding(s.name)
@@ -189,7 +189,7 @@ def supplier_debt_list():
 
 @frappe.whitelist()
 def get_supplier_ledger(supplier):
-	ensure_owner()
+	ensure_cap("supplier")
 	rows = frappe.get_all(
 		"GL Entry",
 		filters={"party_type": "Supplier", "party": supplier, "is_cancelled": 0, "company": debt._company()},

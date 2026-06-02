@@ -17,7 +17,7 @@ from frappe.utils import flt, nowdate
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap, ensure_internal, ensure_lang, selling_limits
 from cago.utils.privileged import as_user
 
 SELLING_PRICE_LIST = dto.SELLING_PRICE_LIST
@@ -175,7 +175,7 @@ def _assign_batch(row, code, wh):
 @frappe.whitelist()
 def credit_sale(customer, items, note=None):
 	"""Create + submit an unpaid Sales Invoice (stock-reducing credit sale)."""
-	ensure_owner()
+	ensure_cap("sell")
 	ensure_lang()
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
@@ -265,7 +265,7 @@ def _customer_outstanding(customer):
 def search_customers_lite(query=None, start=0):
 	"""Staff: pick a customer at the till (for ghi nợ). Returns name/village/phone + current
 	debt text only — no buying price/margin (that stays owner-only). Paginated (20/page)."""
-	ensure_staff()
+	ensure_internal()
 	from frappe.utils import cint
 
 	query = (query or "").strip()
@@ -303,7 +303,7 @@ def search_customers_lite(query=None, start=0):
 @frappe.whitelist()
 def add_customer_lite(customer_name, phone=None, village=None):
 	"""Staff: quickly add a new customer at the till (e.g. a new debtor). Owner sets limits later."""
-	ensure_staff()
+	ensure_internal()
 	name = (customer_name or "").strip()
 	if not name:
 		frappe.throw(_("Nhập tên khách hàng."))
@@ -336,7 +336,7 @@ def add_customer_lite(customer_name, phone=None, village=None):
 @frappe.whitelist()
 def get_receipt(invoice):
 	"""Staff: data for a printable 58mm bill (store header + lines + total + safety note)."""
-	ensure_staff()
+	ensure_internal()
 	if not frappe.db.exists("Sales Invoice", invoice):
 		frappe.throw(_("Không tìm thấy hoá đơn."))
 	from frappe.utils import format_datetime
@@ -376,7 +376,7 @@ def get_receipt(invoice):
 def list_recent_sales(limit=60, start=0, status="all", query=None):
 	"""Staff: recent submitted sales (for returns / lookup), paginated + filterable SERVER-side.
 	`status` = returnable | returned | all. Newest first, with a date-group label + time."""
-	ensure_staff()
+	ensure_cap("returns")
 	from frappe.utils import cint, format_datetime, getdate, nowdate
 
 	company = debt._company()
@@ -426,7 +426,7 @@ def list_recent_sales(limit=60, start=0, status="all", query=None):
 @frappe.whitelist()
 def recent_sales_counts():
 	"""True totals for the returns filter tabs (independent of pagination)."""
-	ensure_staff()
+	ensure_cap("returns")
 	company = debt._company()
 	all_n = frappe.db.count("Sales Invoice", {"docstatus": 1, "is_return": 0, "company": company})
 	returned_names = {n for n in frappe.get_all("Sales Invoice", filters={"is_return": 1, "docstatus": 1, "company": company}, pluck="return_against") if n}
@@ -438,7 +438,7 @@ def recent_sales_counts():
 def get_returnable(invoice):
 	"""Per-line remaining returnable qty for an invoice (sold − already returned), so staff can
 	return part of a line (e.g. 25kg of a 50kg bag) and return the same invoice more than once."""
-	ensure_staff()
+	ensure_cap("returns")
 	if not frappe.db.exists("Sales Invoice", invoice):
 		frappe.throw(_("Không tìm thấy hoá đơn."))
 	orig = frappe.db.get_value("Sales Invoice", invoice, ["docstatus", "is_return"], as_dict=True)
@@ -476,7 +476,7 @@ def return_sale(invoice, lines=None):
 	for credit sales). `lines` (JSON [{item_code, qty}]) returns only those quantities (partial,
 	e.g. 25kg of a 50kg bag); omit it to return the whole invoice. Can be called repeatedly until
 	everything is returned. Uses ERPNext make_sales_return; staff-only, privileged submit."""
-	ensure_staff()
+	ensure_cap("returns")
 	ensure_lang()
 	if not frappe.db.exists("Sales Invoice", invoice):
 		frappe.throw(_("Không tìm thấy hoá đơn."))
@@ -579,7 +579,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	- payments=[{mode,amount}] → SPLIT/PARTIAL: multiple methods; any shortfall becomes the
 	  customer's debt (requires a real customer); overpay in cash returns change.
 	"""
-	ensure_staff()
+	ensure_cap("sell")
 	ensure_lang()
 	# Capture the real cashier BEFORE any Administrator elevation (as_user), so the till-shift
 	# reconciliation can attribute this sale's cash to the person who made it.
@@ -600,9 +600,12 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	if payment_mode == "credit" and cust == walkin_customer():
 		frappe.throw(_("Ghi nợ cần chọn đúng khách hàng (không dùng khách lẻ)."))
 	pl = _price_list_for(cust)
-	# Per-line price override (mặc cả) is honoured ONLY when the owner has enabled it on the
-	# Company — never trust the client flag. Off → always sell at the price-list rate.
-	allow_price_edit = bool(frappe.db.get_value("Company", company, "cago_allow_price_edit"))
+	# Bargaining (per-line override + whole-bill discount) is honoured ONLY when THIS cashier is
+	# allowed to, with a per-staff max discount % (owner = unlimited). Set by the owner per
+	# employee; never trust the client — re-checked here server-side.
+	_limits = selling_limits(cashier)
+	allow_price_edit = _limits["allow_price_edit"]
+	max_discount_pct = _limits["max_discount_pct"]
 
 	rows = []
 	for it in items:
@@ -653,10 +656,15 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 	disc = flt(discount_amount)
-	# A manual whole-bill discount is "mặc cả" too — only allowed when the owner enabled price
-	# editing (else staff could zero out the total via the discount box, bypassing the giá sàn).
+	# A manual whole-bill discount is "mặc cả" too — only allowed when this cashier may bargain
+	# (else staff could zero out the total via the discount box, bypassing the giá sàn), and never
+	# beyond their per-staff max discount %.
 	if disc > 0 and not allow_price_edit:
-		frappe.throw(_("Cửa hàng chưa bật cho phép giảm giá khi bán."))
+		frappe.throw(_("Bạn chưa được phép giảm giá khi bán. Nhờ chủ cửa hàng cấp quyền."))
+	if disc > 0 and max_discount_pct < 100:
+		_base = sum(flt(r["qty"]) * flt(r["rate"]) for r in rows)
+		if _base > 0 and disc / _base * 100 > max_discount_pct + 0.01:
+			frappe.throw(_("Vượt mức giảm tối đa {0}% của bạn.").format(_trim(max_discount_pct)))
 	# A coupon's discount is validated + computed SERVER-side (never trust a client amount) and
 	# its usage counted only here, on a completed sale. Stacks on top of any manual discount.
 	coupon_code = None

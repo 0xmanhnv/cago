@@ -27,7 +27,7 @@ from cago.chatbot.observability import clean_phone
 from frappe.utils import cint
 
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap
 from cago.utils.ratelimit import rate_guard
 
 STORE = "cago_verify_store"
@@ -52,14 +52,14 @@ def _enabled():
 @frappe.whitelist()
 def get_visible():
 	"""Owner: is kiosk debt self-service enabled?"""
-	ensure_owner()
+	ensure_cap("settings")
 	return {"enabled": _enabled()}
 
 
 @frappe.whitelist()
 def set_visible(on):
 	"""Owner: enable/disable kiosk debt self-service."""
-	ensure_owner()
+	ensure_cap("settings")
 	val = 1 if cint(on) else 0
 	frappe.db.set_value("Company", debt._company(), "cago_kiosk_debt_visible", val)
 	frappe.db.commit()
@@ -69,14 +69,14 @@ def set_visible(on):
 @frappe.whitelist()
 def get_price_edit():
 	"""Owner: may staff edit the per-line price at the till (mặc cả / bớt giá)?"""
-	ensure_owner()
+	ensure_cap("settings")
 	return {"enabled": bool(frappe.db.get_value("Company", debt._company(), "cago_allow_price_edit"))}
 
 
 @frappe.whitelist()
 def set_price_edit(on):
 	"""Owner: enable/disable per-line price override in the sell screen."""
-	ensure_owner()
+	ensure_cap("settings")
 	val = 1 if cint(on) else 0
 	frappe.db.set_value("Company", debt._company(), "cago_allow_price_edit", val)
 	frappe.db.commit()
@@ -86,14 +86,14 @@ def set_price_edit(on):
 @frappe.whitelist()
 def get_staff_collect_debt():
 	"""Owner: may staff record customer debt repayments (Khách trả nợ)?"""
-	ensure_owner()
+	ensure_cap("settings")
 	return {"enabled": bool(frappe.db.get_value("Company", debt._company(), "cago_staff_can_collect_debt"))}
 
 
 @frappe.whitelist()
 def set_staff_collect_debt(on):
 	"""Owner: enable/disable staff debt collection."""
-	ensure_owner()
+	ensure_cap("settings")
 	val = 1 if cint(on) else 0
 	frappe.db.set_value("Company", debt._company(), "cago_staff_can_collect_debt", val)
 	frappe.db.commit()
@@ -144,7 +144,7 @@ def request(phone):
 @frappe.whitelist()
 def pending():
 	"""Staff: list pending verification requests to confirm in person."""
-	ensure_staff()
+	ensure_cap("debt")
 	d = _store()
 	out = []
 	for k, v in d.items():
@@ -163,7 +163,7 @@ def pending():
 @frappe.whitelist()
 def approve(request_id):
 	"""Staff: confirm the person → issue a short-lived view token."""
-	ensure_staff()
+	ensure_cap("debt")
 	d = _store()
 	v = d.get(request_id)
 	if not v:
