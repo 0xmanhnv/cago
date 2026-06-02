@@ -62,9 +62,20 @@ def apply_coupon(code, subtotal):
 
 
 def redeem(code, subtotal):
-	"""Validate + increment usage; returns (code, discount). Called inside a completed sale."""
+	"""Validate + increment usage; returns (code, discount). Called inside a completed sale.
+
+	The increment is an ATOMIC guarded UPDATE (not read-then-write): under InnoDB it locks the
+	row and re-reads used_count, so two concurrent sales can't both consume the last use of a
+	limited code. Runs inside the sale's transaction → rolls back if the sale fails."""
 	c, disc = _validate(code, subtotal)
-	frappe.db.set_value("Cago Coupon", c.coupon_code, "used_count", cint(c.used_count) + 1)
+	frappe.db.sql(
+		"""UPDATE `tabCago Coupon`
+		   SET used_count = used_count + 1
+		   WHERE name = %s AND (max_uses = 0 OR used_count < max_uses)""",
+		c.coupon_code,
+	)
+	if not frappe.db.sql("SELECT ROW_COUNT()")[0][0]:  # guard didn't match → cap already reached
+		frappe.throw(_("Mã giảm giá đã hết lượt dùng."))
 	return c.coupon_code, disc
 
 

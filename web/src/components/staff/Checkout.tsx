@@ -1053,23 +1053,29 @@ export function Checkout() {
                   <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${discOpen || disc + couponDisc > 0 || !!coupon ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                     <div className="overflow-hidden">
                     <div className="mt-2 space-y-2 rounded-xl border border-amber-200 bg-amber-50/50 p-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm text-slate-600">Giảm trực tiếp</span>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            inputMode="numeric"
-                            value={discount}
-                            onChange={(e) => setDiscount(fmtAmt(e.target.value))}
-                            placeholder="0"
-                            className="h-9 w-20 rounded-lg border-2 border-amber-300 px-2 text-right"
-                          />
-                          <div className="flex overflow-hidden rounded-lg border-2 border-amber-300 text-sm font-bold">
-                            <button onClick={() => setDiscountMode("amount")} className={discountMode === "amount" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>đ</button>
-                            <button onClick={() => setDiscountMode("percent")} className={discountMode === "percent" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>%</button>
+                      {/* Manual "giảm trực tiếp" is bargaining — only when the owner enabled price
+                          editing (the server enforces this too). Coupons below stay available. */}
+                      {allowPriceEdit && (
+                        <>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm text-slate-600">Giảm trực tiếp</span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                inputMode="numeric"
+                                value={discount}
+                                onChange={(e) => setDiscount(fmtAmt(e.target.value))}
+                                placeholder="0"
+                                className="h-9 w-20 rounded-lg border-2 border-amber-300 px-2 text-right"
+                              />
+                              <div className="flex overflow-hidden rounded-lg border-2 border-amber-300 text-sm font-bold">
+                                <button onClick={() => setDiscountMode("amount")} className={discountMode === "amount" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>đ</button>
+                                <button onClick={() => setDiscountMode("percent")} className={discountMode === "percent" ? "bg-amber-500 px-2.5 py-1.5 text-white" : "bg-white px-2.5 py-1.5 text-amber-700"}>%</button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      {discountMode === "percent" && disc > 0 && <div className="text-right text-xs text-amber-700">= giảm {money(disc)}</div>}
+                          {discountMode === "percent" && disc > 0 && <div className="text-right text-xs text-amber-700">= giảm {money(disc)}</div>}
+                        </>
+                      )}
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-slate-600">🎟 Mã</span>
                         <input

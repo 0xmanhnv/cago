@@ -177,6 +177,37 @@ class TestQuickSale(FrappeTestCase):
 			frappe.db.set_value("Item", ITEM, "cago_min_price", old_floor or 0)
 			frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
 
+	def test_manual_discount_requires_price_edit(self):
+		"""A whole-bill discount is bargaining too: rejected unless the owner enabled price edit
+		(else staff could zero the total via the discount box, dodging the giá sàn)."""
+		from cago.api import debt, purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		company = debt._company()
+		frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
+		with self.assertRaises(frappe.ValidationError):
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", discount_amount=5000)
+
+	def test_whole_bill_discount_cannot_breach_floor(self):
+		"""A Grand-Total discount that drives a line under its giá sàn is rejected (the discount is
+		spread proportionally, so the per-line floor still binds)."""
+		from cago.api import debt, purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		company = debt._company()
+		base = sales._rate_for_uom(ITEM, frappe.db.get_value("Item", ITEM, "stock_uom"), frappe.db.get_value("Item", ITEM, "stock_uom"))
+		old_floor = frappe.db.get_value("Item", ITEM, "cago_min_price")
+		frappe.db.set_value("Company", company, "cago_allow_price_edit", 1)
+		frappe.db.set_value("Item", ITEM, "cago_min_price", round(base * 0.9))  # floor at 90% of base
+		try:
+			with self.assertRaises(frappe.ValidationError):
+				sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", discount_amount=round(base * 0.3))
+			r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", discount_amount=round(base * 0.05))
+			self.assertTrue(r["invoice"])
+		finally:
+			frappe.db.set_value("Item", ITEM, "cago_min_price", old_floor or 0)
+			frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
+
 	def test_oversell_is_allowed_with_negative_stock(self):
 		"""Rural shops' system stock lags reality, so selling past on-hand is permitted
 		(allow_negative_stock; the POS warns the staff up-front). The sale must go through

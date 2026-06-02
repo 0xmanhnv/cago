@@ -116,6 +116,16 @@ def payment_split(period="today", from_date=None, to_date=None):
 	).run()
 	credit = flt(res[0][0]) if res and res[0] else 0
 
+	# A cash payment row records what the customer HANDED OVER; on an overpaid cash sale that
+	# includes the change given back. The drawer only keeps tendered − change, so net it out of
+	# the cash bucket (mirrors the per-cashier shift close, which already subtracts change_amount).
+	chg = (
+		frappe.qb.from_(si)
+		.select(Sum(si.change_amount))
+		.where((si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end))
+	).run()
+	cash = max(0.0, cash - (flt(chg[0][0]) if chg and chg[0] else 0))
+
 	def _t(v):
 		return dto.format_price(v) if v else "0đ"
 

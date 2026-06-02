@@ -653,6 +653,10 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 	disc = flt(discount_amount)
+	# A manual whole-bill discount is "mặc cả" too — only allowed when the owner enabled price
+	# editing (else staff could zero out the total via the discount box, bypassing the giá sàn).
+	if disc > 0 and not allow_price_edit:
+		frappe.throw(_("Cửa hàng chưa bật cho phép giảm giá khi bán."))
 	# A coupon's discount is validated + computed SERVER-side (never trust a client amount) and
 	# its usage counted only here, on a completed sale. Stacks on top of any manual discount.
 	coupon_code = None
@@ -662,6 +666,21 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		subtotal = sum(flt(r["qty"]) * flt(r["rate"]) for r in rows)
 		coupon_code, cdisc = coupon_mod.redeem(coupon, subtotal)
 		disc = min(flt(subtotal), disc + flt(cdisc))
+
+	# Giá sàn also binds a whole-bill discount: ERPNext spreads a Grand-Total discount across
+	# lines proportionally, so check each line's post-discount rate up-front (covers all payment
+	# paths the same way, no need to read ERPNext internals after insert).
+	subtotal_all = sum(flt(r["qty"]) * flt(r["rate"]) for r in rows)
+	if disc > 0 and subtotal_all > 0:
+		factor = (subtotal_all - disc) / subtotal_all
+		for r in rows:
+			min_price = flt(frappe.db.get_value("Item", r["item_code"], "cago_min_price"))
+			if not min_price:
+				continue
+			floor = min_price * _conversion_factor(r["item_code"], r["uom"], frappe.db.get_value("Item", r["item_code"], "stock_uom"))
+			if flt(r["rate"]) * factor < floor - 0.5:
+				name = frappe.db.get_value("Item", r["item_code"], "cago_display_name") or r["item_code"]
+				frappe.throw(_("Giảm giá làm '{0}' xuống dưới giá sàn {1}/{2}.").format(name, dto.format_price(floor), r["uom"]))
 
 	if payments:
 		# Split / partial: one or more cash/bank methods; any shortfall becomes the customer's
