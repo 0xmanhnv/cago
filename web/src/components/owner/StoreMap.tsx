@@ -216,7 +216,14 @@ export function StoreMap() {
           🛤 {aisleMode ? "Đang vẽ lối đi (chạm để thêm điểm)" : "Vẽ lối đi"}
         </button>
         {aislePts.length > 0 && (
-          <button onClick={() => upd({ aisle: map.aisle.filter((p) => p.floor !== floor) })} className="rounded-lg bg-slate-200 px-3 py-2 font-bold text-slate-700">Xoá lối đi tầng này</button>
+          <button
+            onClick={async () => {
+              if (await confirmDialog(`Xoá toàn bộ lối đi trên ${floor}?`, { danger: true, confirmLabel: "Xoá" })) upd({ aisle: map.aisle.filter((p) => p.floor !== floor) });
+            }}
+            className="rounded-lg bg-slate-200 px-3 py-2 font-bold text-slate-700"
+          >
+            Xoá lối đi tầng này
+          </button>
         )}
         <label className="ml-auto flex items-center gap-2 font-bold text-slate-700">
           <input type="checkbox" checked={map.published} onChange={(e) => upd({ published: e.target.checked })} className="h-5 w-5" />

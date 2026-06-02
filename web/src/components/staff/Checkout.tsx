@@ -496,7 +496,8 @@ export function Checkout() {
     saveHeld(next);
     setShowHeld(false);
   };
-  const dropHeld = (id: string) => {
+  const dropHeld = async (id: string) => {
+    if (!(await ask("Xoá đơn đang giữ này? (không khôi phục được)", { danger: true, confirmLabel: "Xoá" }))) return;
     const next = held.filter((x) => x.id !== id);
     setHeld(next);
     saveHeld(next);
