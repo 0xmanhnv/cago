@@ -207,6 +207,9 @@ def ensure_user_fields():
 				{"fieldname": "cago_allow_price_edit", "label": "Cago Allow Price Edit", "fieldtype": "Check", "hidden": 1, "no_copy": 1},
 				# Max whole-bill discount this staff may give (0 = none). Owner = unlimited.
 				{"fieldname": "cago_max_discount_pct", "label": "Cago Max Discount %", "fieldtype": "Float", "hidden": 1, "no_copy": 1},
+				# Chức danh (job roles) assigned to this user — M2M. Effective caps = union of these
+				# roles' capabilities, compiled into the Frappe cap-roles by cago.utils.permissions.
+				{"fieldname": "cago_job_roles", "label": "Cago Job Roles", "fieldtype": "Table", "options": "Cago User Job Role", "hidden": 1, "no_copy": 1},
 			]
 		},
 		ignore_validate=True,
@@ -308,3 +311,7 @@ def setup_all_fields():
 	from cago.customer import backfill_slugs
 
 	backfill_slugs()
+	# Default chức danh (job roles) so the owner has ready permission bundles to assign.
+	from cago.job_role import seed_defaults
+
+	seed_defaults()

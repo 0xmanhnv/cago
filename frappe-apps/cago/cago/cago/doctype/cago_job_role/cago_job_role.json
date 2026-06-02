@@ -1,0 +1,45 @@
+{
+ "actions": [],
+ "autoname": "field:title",
+ "creation": "2026-06-02 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "description",
+  "capabilities"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Tên chức danh",
+   "in_list_view": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "label": "Mô tả"
+  },
+  {
+   "fieldname": "capabilities",
+   "fieldtype": "Table",
+   "label": "Quyền",
+   "options": "Cago Job Role Cap"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-06-02 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cago",
+ "name": "Cago Job Role",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

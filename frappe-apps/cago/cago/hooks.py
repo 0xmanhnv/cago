@@ -54,6 +54,11 @@ doc_events = {
 		"before_insert": "cago.customer.set_slug",
 		"validate": "cago.customer.set_slug",
 	},
+	# Editing a chức danh re-compiles cap-roles for everyone holding it; can't delete one in use.
+	"Cago Job Role": {
+		"on_update": "cago.job_role.on_update",
+		"on_trash": "cago.job_role.on_trash",
+	},
 }
 
 # ---------------------------------------------------------------------------

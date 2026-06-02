@@ -2,23 +2,26 @@
 # For license information, please see license.txt
 """Staff & permissions admin (owner-only).
 
-The owner manages each employee in one place: tick the capability roles they may use (Cago Sell /
-Returns / Debt / ...) and set per-staff selling limits (allow price edit, max discount %). Writes
-assign/remove the Frappe roles + set the User limit fields. Owner-only so no one can self-elevate.
+Permissions are organised as reusable **chức danh** (Cago Job Role) — named bundles of
+capabilities. The owner assigns one or more chức danh to each employee (many-to-many); the union
+is compiled into the Frappe capability roles by cago.utils.permissions.sync_user_caps. Per-staff
+selling limits (allow price edit, max discount %) stay on the User. Owner-only so no self-elevation.
 See docs/27 and the /pos plan.
 """
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
-from cago.utils.permissions import ALL_CAP_ROLES, CAP_ROLES, ensure_owner
+from cago.utils.permissions import CAP_ROLES, caps_for_user_roles, ensure_owner, is_owner_roles, sync_user_caps
 
-_INTERNAL_ROLES = list(ALL_CAP_ROLES | {"Cago Owner"})
+_INTERNAL_ROLES = list(set(CAP_ROLES.values()) | {"Cago Owner"})
 
 
-def _is_owner_user(roles):
-	return bool(set(roles) & {"Cago Owner", "System Manager"})
+def _job_roles_of(user):
+	names = frappe.get_all("Cago User Job Role", filters={"parent": user, "parenttype": "User"}, pluck="job_role")
+	titles = {r.name: r.title for r in frappe.get_all("Cago Job Role", filters={"name": ["in", names or [""]]}, fields=["name", "title"])}
+	return [{"name": n, "title": titles.get(n, n)} for n in names]
 
 
 def _row(user):
@@ -26,22 +29,24 @@ def _row(user):
 		"User", user, ["full_name", "enabled", "cago_allow_price_edit", "cago_max_discount_pct"], as_dict=True
 	)
 	roles = set(frappe.get_roles(user))
-	owner = _is_owner_user(roles)
-	caps = list(CAP_ROLES.keys()) if owner else [c for c, r in CAP_ROLES.items() if r in roles]
+	owner = is_owner_roles(roles)
 	return {
 		"user": user,
 		"full_name": info.full_name or user,
 		"enabled": bool(info.enabled),
 		"is_owner": owner,
-		"caps": caps,
+		"job_roles": [] if owner else _job_roles_of(user),
+		"caps": list(CAP_ROLES.keys()) if owner else sorted(caps_for_user_roles(roles)),
 		"allow_price_edit": bool(info.cago_allow_price_edit),
 		"max_discount_pct": flt(info.cago_max_discount_pct),
 	}
 
 
+# --------------------------------------------------------------------------- #
+# Employees
+# --------------------------------------------------------------------------- #
 @frappe.whitelist()
 def list_staff():
-	"""All back-of-house accounts (anyone holding a Cago role) with their caps + limits."""
 	ensure_owner()
 	rows = frappe.get_all("Has Role", filters={"role": ["in", _INTERNAL_ROLES]}, fields=["parent"], distinct=True)
 	users = sorted({r.parent for r in rows} - {"Administrator", "Guest"})
@@ -57,29 +62,79 @@ def get_staff(user):
 
 
 @frappe.whitelist()
-def save_staff(user, caps, allow_price_edit=0, max_discount_pct=0):
-	"""Set a staff's capability roles + per-staff selling limits. Owner-only; owners are not
-	editable here (they already have everything)."""
+def save_staff(user, job_roles, allow_price_edit=0, max_discount_pct=0):
+	"""Assign chức danh (job roles) + per-staff limits to an employee, then compile cap-roles."""
 	ensure_owner()
-	from frappe.utils import cint
-
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
 		frappe.throw(_("Tài khoản không hợp lệ."))
 	doc = frappe.get_doc("User", user)
-	if _is_owner_user({r.role for r in doc.roles}):
+	if is_owner_roles({r.role for r in doc.roles}):
 		frappe.throw(_("Không chỉnh quyền của chủ cửa hàng ở đây."))
 
-	caps = frappe.parse_json(caps) if isinstance(caps, str) else (caps or [])
-	want = {CAP_ROLES[c] for c in caps if c in CAP_ROLES}
-	# Rebuild only the capability roles, leaving any other roles (e.g. System Manager) untouched.
-	kept = [r for r in doc.get("roles") if r.role not in ALL_CAP_ROLES]
-	doc.set("roles", kept)
-	for role in sorted(want):
-		doc.append("roles", {"role": role})
-
+	names = frappe.parse_json(job_roles) if isinstance(job_roles, str) else (job_roles or [])
+	valid = [n for n in names if frappe.db.exists("Cago Job Role", n)]
+	doc.set("cago_job_roles", [{"job_role": n} for n in valid])
 	doc.cago_allow_price_edit = 1 if cint(allow_price_edit) else 0
-	pct = flt(max_discount_pct)
-	doc.cago_max_discount_pct = max(0.0, min(100.0, pct))
+	doc.cago_max_discount_pct = max(0.0, min(100.0, flt(max_discount_pct)))
 	doc.save(ignore_permissions=True)
+	sync_user_caps(user)  # union of the assigned chức danh → Frappe cap-roles
 	frappe.db.commit()
 	return _row(user)
+
+
+# --------------------------------------------------------------------------- #
+# Chức danh (Cago Job Role)
+# --------------------------------------------------------------------------- #
+def _caps_of(name):
+	return frappe.get_all("Cago Job Role Cap", filters={"parent": name, "parenttype": "Cago Job Role"}, pluck="capability")
+
+
+def _member_count(name):
+	return len(frappe.get_all("Cago User Job Role", filters={"job_role": name, "parenttype": "User"}, pluck="parent", distinct=True))
+
+
+@frappe.whitelist()
+def list_job_roles():
+	ensure_owner()
+	out = []
+	for r in frappe.get_all("Cago Job Role", fields=["name", "title", "description"], order_by="title asc"):
+		out.append({"name": r.name, "title": r.title, "description": r.description, "caps": _caps_of(r.name), "members": _member_count(r.name)})
+	return out
+
+
+@frappe.whitelist()
+def save_job_role(title, caps, name=None, description=None):
+	"""Create or update a chức danh. On update the on_update hook re-compiles members' cap-roles."""
+	ensure_owner()
+	title = (title or "").strip()
+	if not title:
+		frappe.throw(_("Nhập tên chức danh."))
+	keys = frappe.parse_json(caps) if isinstance(caps, str) else (caps or [])
+	rows = [{"capability": c} for c in keys if c in CAP_ROLES]
+	if name and frappe.db.exists("Cago Job Role", name):
+		if title != name:  # title is the docname → rename (cascades to assignments)
+			frappe.rename_doc("Cago Job Role", name, title, ignore_permissions=True)
+			name = title
+		doc = frappe.get_doc("Cago Job Role", name)
+		doc.description = description
+		doc.set("capabilities", rows)
+		doc.save(ignore_permissions=True)
+	else:
+		if frappe.db.exists("Cago Job Role", title):
+			frappe.throw(_("Đã có chức danh tên này."))
+		doc = frappe.new_doc("Cago Job Role")
+		doc.title = title
+		doc.description = description
+		doc.set("capabilities", rows)
+		doc.insert(ignore_permissions=True)
+	frappe.db.commit()
+	return list_job_roles()
+
+
+@frappe.whitelist()
+def delete_job_role(name):
+	ensure_owner()
+	if frappe.db.exists("Cago Job Role", name):
+		frappe.delete_doc("Cago Job Role", name, ignore_permissions=True)  # on_trash blocks if in use
+		frappe.db.commit()
+	return list_job_roles()

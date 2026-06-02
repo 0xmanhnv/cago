@@ -2,3 +2,4 @@
 
 [post_model_sync]
 cago.patches.grant_capability_roles
+cago.patches.assign_default_job_roles

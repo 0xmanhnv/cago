@@ -51,13 +51,22 @@ def has_cap(cap):
 	return is_owner() or (CAP_ROLES.get(cap) in _roles())
 
 
+def is_owner_roles(roles):
+	"""Owner check for an explicit role set (e.g. another user's roles)."""
+	return bool(set(roles) & OWNER_ROLES)
+
+
+def caps_for_user_roles(roles):
+	"""Capability keys implied by an explicit role set — owner gets all."""
+	if is_owner_roles(roles):
+		return set(CAP_ROLES.keys())
+	return {cap for cap, role in CAP_ROLES.items() if role in set(roles)}
+
+
 def caps_for_user():
 	"""The capability keys the session user holds — owner gets all. For session.bootstrap
 	so the UI can render only the tiles a user may use."""
-	if is_owner():
-		return list(CAP_ROLES.keys())
-	roles = _roles()
-	return [cap for cap, role in CAP_ROLES.items() if role in roles]
+	return sorted(caps_for_user_roles(frappe.get_roles()))
 
 
 def ensure_owner():
@@ -93,6 +102,36 @@ def selling_limits(user=None):
 		"allow_price_edit": bool(frappe.db.get_value("User", user, "cago_allow_price_edit")),
 		"max_discount_pct": frappe.utils.flt(frappe.db.get_value("User", user, "cago_max_discount_pct")),
 	}
+
+
+def effective_caps_for(user):
+	"""The capability KEYS a user gets from the union of their assigned chức danh (Cago Job Role).
+	This is the management layer; it is compiled down to the Frappe cap-roles by sync_user_caps."""
+	caps = set()
+	for r in frappe.get_all("Cago User Job Role", filters={"parent": user, "parenttype": "User"}, pluck="job_role"):
+		for c in frappe.get_all("Cago Job Role Cap", filters={"parent": r, "parenttype": "Cago Job Role"}, pluck="capability"):
+			if c in CAP_ROLES:
+				caps.add(c)
+	return caps
+
+
+def sync_user_caps(user):
+	"""Compile a user's job-role assignments into their Frappe capability roles (the enforcement
+	source). Adds the cap-roles their chức danh grant and removes cap-roles no longer granted —
+	leaving any non-capability roles (System Manager, etc.) untouched. Owners are never touched."""
+	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
+		return
+	doc = frappe.get_doc("User", user)
+	if set(r.role for r in doc.roles) & OWNER_ROLES:
+		return
+	want = {CAP_ROLES[c] for c in effective_caps_for(user)}
+	have = {r.role for r in doc.roles if r.role in ALL_CAP_ROLES}
+	if want == have:
+		return
+	doc.set("roles", [r for r in doc.get("roles") if r.role not in ALL_CAP_ROLES])
+	for role in sorted(want):
+		doc.append("roles", {"role": role})
+	doc.save(ignore_permissions=True)
 
 
 def ensure_lang():
