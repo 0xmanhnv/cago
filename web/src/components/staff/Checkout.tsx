@@ -1471,7 +1471,8 @@ function ProductPreview({
     setLoading(true);
     frappeCall<Product>("cago.api.staff.get_product", { item_code: code }, { method: "GET" })
       .then(setP)
-      .catch(() => setP(null))
+      // Offline / network drop: fall back to the cached catalog row so the preview still works.
+      .catch(async () => setP(((await getProductLocal(code)) as Product) ?? null))
       .finally(() => setLoading(false));
   }, [code]);
   return (

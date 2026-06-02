@@ -56,13 +56,17 @@ export async function searchCatalogLocal(
   start = 0,
   pageSize = 30,
 ): Promise<CatalogRow[]> {
-  const all = await (await db()).getAll("catalog");
-  const q = (query || "").trim();
-  const filtered = all
-    .filter((r) => (category ? r.category === category : true))
-    .filter((r) => matches(r, q))
-    .sort((a, b) => a.display_name.localeCompare(b.display_name, "vi"));
-  return filtered.slice(start, start + pageSize);
+  try {
+    const all = await (await db()).getAll("catalog");
+    const q = (query || "").trim();
+    const filtered = all
+      .filter((r) => (category ? r.category === category : true))
+      .filter((r) => matches(r, q))
+      .sort((a, b) => a.display_name.localeCompare(b.display_name, "vi"));
+    return filtered.slice(start, start + pageSize);
+  } catch {
+    return []; // IndexedDB unavailable (e.g. private mode) → degrade to empty, never crash
+  }
 }
 
 /** Offline equivalent of cago.api.staff.get_product — the cached row IS the meta the cart needs. */
@@ -78,17 +82,25 @@ export async function getProductLocal(itemCode: string): Promise<CatalogRow | un
 export async function findByBarcodeLocal(barcode: string): Promise<string | null> {
   const code = (barcode || "").trim();
   if (!code) return null;
-  const all = await (await db()).getAll("catalog");
-  const hit = all.find((r) => (r.barcodes || []).includes(code));
-  return hit ? hit.item_code : null;
+  try {
+    const all = await (await db()).getAll("catalog");
+    const hit = all.find((r) => (r.barcodes || []).includes(code));
+    return hit ? hit.item_code : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Offline equivalent of cago.api.sales.search_customers_lite. */
 export async function searchCustomersLocal(query: string, start = 0, pageSize = 20): Promise<CustomerRow[]> {
-  const all = await (await db()).getAll("customers");
-  const q = (query || "").trim().toLowerCase();
-  const filtered = q
-    ? all.filter((c) => `${c.customer_name} ${c.mobile || ""}`.toLowerCase().includes(q))
-    : all;
-  return filtered.slice(start, start + pageSize);
+  try {
+    const all = await (await db()).getAll("customers");
+    const q = (query || "").trim().toLowerCase();
+    const filtered = q
+      ? all.filter((c) => `${c.customer_name} ${c.mobile || ""}`.toLowerCase().includes(q))
+      : all;
+    return filtered.slice(start, start + pageSize);
+  } catch {
+    return [];
+  }
 }

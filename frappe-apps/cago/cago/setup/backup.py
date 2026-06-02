@@ -10,6 +10,7 @@ docs/14_OPERATIONS_AND_TRAINING.md and docs/33.
 """
 
 import os
+import shutil
 
 import frappe
 from frappe.utils import get_site_path
@@ -19,10 +20,39 @@ KEEP = 7  # daily backup sets to retain locally
 
 
 def daily():
-	"""Scheduler entry: take a DB+files backup, then prune older sets."""
+	"""Scheduler entry: take a DB+files backup, prune old sets, optionally copy offsite."""
 	new_backup(ignore_files=False, force=True)
 	prune(KEEP)
+	_copy_offsite()
 	frappe.logger().info("cago: daily backup taken")
+
+
+def _offsite_dir():
+	"""Where to mirror backups (a mounted volume / NAS path), or None. Owner-configured via
+	env CAGO_BACKUP_OFFSITE_DIR or site_config cago_backup_offsite_dir — unset = local only."""
+	return (os.environ.get("CAGO_BACKUP_OFFSITE_DIR") or frappe.conf.get("cago_backup_offsite_dir") or "").strip() or None
+
+
+def _copy_offsite():
+	"""Mirror the NEWEST backup set to the configured offsite dir, if any (best-effort, never fatal)."""
+	dest = _offsite_dir()
+	if not dest:
+		return
+	bdir = get_site_path("private", "backups")
+	if not os.path.isdir(bdir) or not os.path.isdir(dest):
+		frappe.logger().warning(f"cago: offsite backup dir missing ({dest}); skipped")
+		return
+	files = [f for f in os.listdir(bdir) if "-" in f]
+	stamps = sorted({f.split("-", 1)[0] for f in files}, reverse=True)
+	if not stamps:
+		return
+	newest = stamps[0]
+	for f in files:
+		if f.split("-", 1)[0] == newest:
+			try:
+				shutil.copy2(os.path.join(bdir, f), os.path.join(dest, f))
+			except OSError as e:
+				frappe.logger().warning(f"cago: offsite copy failed for {f}: {e}")
 
 
 def prune(keep=KEEP):
