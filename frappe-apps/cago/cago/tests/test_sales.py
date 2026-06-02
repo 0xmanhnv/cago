@@ -374,6 +374,28 @@ class TestQuickSale(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "credit", None)
 
+	def test_sell_in_retail_uom_uses_per_uom_price_and_scales_stock(self):
+		"""Selling 10 Kg of a 25-Kg/bao item charges the per-Kg price and draws 0.4 stock units."""
+		from cago.api import purchasing, sales, units
+		from frappe.utils import flt
+
+		purchasing.receive_stock(ITEM, 2)
+		before = flt_qty(ITEM)
+		units.save_unit(ITEM, "Kg", 25, 12000)  # 1 stock unit = 25 Kg, 12.000đ/Kg
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 10, "uom": "Kg"}]), "cash")
+		line = frappe.get_doc("Sales Invoice", r["invoice"]).items[0]
+		self.assertEqual(line.uom, "Kg")
+		self.assertAlmostEqual(flt(line.rate), 12000, places=2)  # per-UOM price, not the bulk rate
+		self.assertAlmostEqual(flt_qty(ITEM), before - 0.4, places=2)  # 10 Kg = 0.4 of a 25-Kg unit
+
+	def test_sell_in_unpriced_uom_is_refused(self):
+		"""A retail UOM with no Item Price is refused — never charged the bulk price per unit."""
+		from cago.api import purchasing, sales
+
+		purchasing.receive_stock(ITEM, 2)
+		with self.assertRaises(frappe.ValidationError):
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1, "uom": "_AuditNoPriceUom_"}]), "cash")
+
 	def test_sell_zero_valuation_item(self):
 		"""An item received with no cost (zero valuation) must still be sellable
 		(COGS=0), not blocked by 'Allow Zero Valuation Rate not enabled'."""
@@ -410,6 +432,87 @@ class TestQuickSale(FrappeTestCase):
 		purchasing.receive_stock(code, 5)  # no cost_rate -> zero valuation
 		r = sales.quick_sale(json.dumps([{"item_code": code, "qty": 1}]), "cash")
 		self.assertEqual(frappe.get_doc("Sales Invoice", r["invoice"]).docstatus, 1)
+
+
+class TestSplitPayment(FrappeTestCase):
+	"""Split / partial tender (the most complex money path): cash+bank, shortfall→debt, overpay→change."""
+
+	def setUp(self):
+		if not frappe.db.exists("Item", ITEM):
+			self.skipTest("sample item missing")
+		from cago.setup.company import ensure_payment_modes
+
+		ensure_payment_modes()
+		self._commit = frappe.db.commit
+		frappe.db.commit = lambda *a, **k: None
+
+	def tearDown(self):
+		frappe.db.commit = self._commit
+
+	def _base(self):
+		from cago.api import sales
+
+		su = frappe.db.get_value("Item", ITEM, "stock_uom")
+		return sales._rate_for_uom(ITEM, su, su)
+
+	def test_split_cash_plus_bank_exact_is_fully_paid(self):
+		from cago.api import purchasing, sales
+		from frappe.utils import flt
+
+		purchasing.receive_stock(ITEM, 10)
+		base = self._base()
+		c = int(base // 2)
+		pays = json.dumps([{"mode": "cash", "amount": c}, {"mode": "bank", "amount": base - c}])
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), payments=pays)
+		si = frappe.get_doc("Sales Invoice", r["invoice"])
+		self.assertEqual(si.docstatus, 1)
+		self.assertAlmostEqual(flt(si.outstanding_amount), 0, places=2)
+		self.assertEqual(len(si.payments), 2)
+
+	def test_split_shortfall_becomes_customer_debt(self):
+		from cago.api import debt, purchasing, sales
+		from frappe.utils import flt
+
+		purchasing.receive_stock(ITEM, 10)
+		base = self._base()
+		shortfall = round(base * 0.25)
+		cust = debt.add_customer("KH Split Debt")["customer"]
+		before = flt(debt.get_customer_debt(cust)["outstanding"])
+		pays = json.dumps([{"mode": "cash", "amount": base - shortfall}])
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), customer=cust, payments=pays)
+		si = frappe.get_doc("Sales Invoice", r["invoice"])
+		self.assertAlmostEqual(flt(si.outstanding_amount), shortfall, delta=2)  # the rest is owed
+		self.assertAlmostEqual(flt(debt.get_customer_debt(cust)["outstanding"]) - before, shortfall, delta=2)
+
+	def test_split_shortfall_requires_real_customer(self):
+		from cago.api import purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		base = self._base()
+		pays = json.dumps([{"mode": "cash", "amount": base - round(base * 0.25)}])
+		with self.assertRaises(frappe.ValidationError):  # underpay + walk-in → rejected
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), payments=pays)
+
+	def test_split_overpay_cash_returns_change(self):
+		from cago.api import purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		base = self._base()
+		pays = json.dumps([{"mode": "cash", "amount": base + 30000}])
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), payments=pays)
+		self.assertTrue(r.get("change_text"))  # change handed back is surfaced to the cashier
+
+	def test_split_shortfall_over_credit_limit_blocked(self):
+		from cago.api import debt, purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		base = self._base()
+		shortfall = round(base * 0.5)
+		cust = debt.add_customer("KH Split Limit")["customer"]
+		frappe.db.set_value("Customer", cust, "cago_debt_limit", round(shortfall / 2))  # below the shortfall
+		pays = json.dumps([{"mode": "cash", "amount": base - shortfall}])
+		with self.assertRaises(frappe.ValidationError):
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), customer=cust, payments=pays)
 
 
 class TestReturnsAndAdjust(FrappeTestCase):

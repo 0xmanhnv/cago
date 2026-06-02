@@ -74,6 +74,28 @@ def run_audit():
 		ok = getattr(fn, "__name__", None) is not None
 		checks.append((f"Whitelisted method exists: {method}", ok, ""))
 
+	# 4b) …and those guards must actually FIRE: a no-capability caller (Guest) must be rejected with
+	# PermissionError. This makes a dropped ensure_cap/ensure_owner fail the deploy gate, not just a
+	# unit test. Args are minimal — the guard runs before any of them is used.
+	from cago.utils.privileged import as_user
+
+	guarded = [
+		("cago.api.owner.update_price", ("_audit_no_item_", 1)),
+		("cago.api.debt.record_repayment", ("_audit_no_cust_", 1)),
+		("cago.api.purchasing.receive_stock", ("_audit_no_item_", 1)),
+		("cago.api.sales.quick_sale", ("[]",)),
+	]
+	for method, fargs in guarded:
+		enforced = False
+		try:
+			with as_user("Guest"):
+				frappe.get_attr(method)(*fargs)
+		except frappe.PermissionError:
+			enforced = True
+		except Exception:
+			enforced = False  # threw, but NOT the permission guard → the capability check didn't run first
+		checks.append((f"Capability guard rejects no-cap caller: {method}", enforced, "guard missing or runs too late"))
+
 	# 5) Hardening config sanity (go-live).
 	signup_off = bool(frappe.db.get_single_value("Website Settings", "disable_signup"))
 	checks.append(("Public signup is disabled", signup_off, "enable disable_signup"))
