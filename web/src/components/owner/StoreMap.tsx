@@ -22,14 +22,19 @@ export function StoreMap() {
   const [sel, setSel] = useState<number | null>(null);
   const [floor, setFloor] = useState("");
   const [aisleMode, setAisleMode] = useState(false);
+  const [snap, setSnap] = useState(true); // snap-to-grid (like draw.io) → straight lines are easy
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<React.ReactNode>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<Drag>(null);
   const floorRef = useRef("");
+  const snapRef = useRef(true);
   const keyRef = useRef(0);
   const nk = () => ++keyRef.current;
   floorRef.current = floor;
+  snapRef.current = snap;
+  const STEP = 5; // grid step on the 0–100 canvas (20 cols × 14 rows)
+  const sv = (v: number) => (snapRef.current ? Math.round(v / STEP) * STEP : v);
 
   useEffect(() => {
     frappeCall<StoreMap>("cago.api.storemap.get_store_map", {}, { method: "GET" })
@@ -76,20 +81,20 @@ export function StoreMap() {
         if (!m) return m;
         const next: StoreMap = { ...m, zones: m.zones.map((z) => ({ ...z })), aisle: m.aisle.map((a) => ({ ...a })), floors: m.floors.map((f) => ({ ...f, stairs: { ...f.stairs } })) };
         if (d.kind === "zone") {
-          next.zones[d.i].x = clamp(p.x - d.ox, 0, m.width - next.zones[d.i].w);
-          next.zones[d.i].y = clamp(p.y - d.oy, 0, m.height - next.zones[d.i].h);
+          next.zones[d.i].x = clamp(sv(p.x - d.ox), 0, m.width - next.zones[d.i].w);
+          next.zones[d.i].y = clamp(sv(p.y - d.oy), 0, m.height - next.zones[d.i].h);
         } else if (d.kind === "zoneResize") {
-          next.zones[d.i].w = clamp(p.x - next.zones[d.i].x, 6, m.width - next.zones[d.i].x);
-          next.zones[d.i].h = clamp(p.y - next.zones[d.i].y, 5, m.height - next.zones[d.i].y);
+          next.zones[d.i].w = clamp(sv(p.x - next.zones[d.i].x), 6, m.width - next.zones[d.i].x);
+          next.zones[d.i].h = clamp(sv(p.y - next.zones[d.i].y), 5, m.height - next.zones[d.i].y);
         } else if (d.kind === "kiosk") {
-          next.kiosk = { ...next.kiosk, x: p.x, y: p.y };
+          next.kiosk = { ...next.kiosk, x: sv(p.x), y: sv(p.y) };
         } else if (d.kind === "entrance") {
-          next.entrance = { ...next.entrance, x: p.x, y: p.y };
+          next.entrance = { ...next.entrance, x: sv(p.x), y: sv(p.y) };
         } else if (d.kind === "stairs") {
           const fi = next.floors.findIndex((f) => f.label === floorRef.current);
-          if (fi >= 0) next.floors[fi].stairs = { x: p.x, y: p.y };
+          if (fi >= 0) next.floors[fi].stairs = { x: sv(p.x), y: sv(p.y) };
         } else if (d.kind === "aisle") {
-          next.aisle[d.i] = { ...next.aisle[d.i], x: p.x, y: p.y };
+          next.aisle[d.i] = { ...next.aisle[d.i], x: sv(p.x), y: sv(p.y) };
         }
         return next;
       });
@@ -169,7 +174,7 @@ export function StoreMap() {
     if (!aisleMode) return;
     const p = toSvg(e);
     if (!p) return;
-    upd({ aisle: [...map.aisle, { ...p, floor, _k: nk() }] });
+    upd({ aisle: [...map.aisle, { x: sv(p.x), y: sv(p.y), floor, _k: nk() }] });
   };
 
   const save = async () => {
@@ -215,6 +220,13 @@ export function StoreMap() {
         >
           🛤 {aisleMode ? "Đang vẽ lối đi (chạm để thêm điểm)" : "Vẽ lối đi"}
         </button>
+        <button
+          onClick={() => setSnap((v) => !v)}
+          className={`rounded-lg px-3 py-2 font-bold ${snap ? "bg-violet-600 text-white" : "bg-slate-200 text-slate-700"}`}
+          title="Bắt dính vào lưới để căn thẳng hàng dễ"
+        >
+          🧲 Bắt lưới
+        </button>
         {aislePts.length > 0 && (
           <button
             onClick={async () => {
@@ -248,6 +260,17 @@ export function StoreMap() {
         className="w-full touch-none rounded-xl border-2 border-slate-300 bg-slate-50"
         style={{ aspectRatio: `${map.width} / ${map.height}` }}
       >
+        {/* faint alignment grid (draw.io style) — only while snapping, so points line up cleanly */}
+        {snap && (
+          <g pointerEvents="none">
+            {Array.from({ length: Math.floor(map.width / STEP) + 1 }, (_, i) => (
+              <line key={`v${i}`} x1={i * STEP} y1={0} x2={i * STEP} y2={map.height} stroke="#0f172a" strokeOpacity={i % 2 === 0 ? 0.08 : 0.04} strokeWidth={0.2} />
+            ))}
+            {Array.from({ length: Math.floor(map.height / STEP) + 1 }, (_, i) => (
+              <line key={`h${i}`} x1={0} y1={i * STEP} x2={map.width} y2={i * STEP} stroke="#0f172a" strokeOpacity={i % 2 === 0 ? 0.08 : 0.04} strokeWidth={0.2} />
+            ))}
+          </g>
+        )}
         {aislePts.length >= 2 && <polyline points={toPoints(aislePts)} fill="none" stroke="#cbd5e1" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />}
         {map.aisle.map((p, i) =>
           p.floor !== floor ? null : (
