@@ -14,6 +14,7 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from cago.utils.permissions import CAP_ROLES, caps_for_user_roles, ensure_owner, is_owner_roles, sync_user_caps
+from cago.utils.privileged import as_user
 
 _INTERNAL_ROLES = list(set(CAP_ROLES.values()) | {"Cago Owner"})
 
@@ -80,6 +81,53 @@ def save_staff(user, job_roles, allow_price_edit=0, max_discount_pct=0, blind_sh
 	doc.cago_blind_shift_close = 1 if cint(blind_shift_close) else 0
 	doc.save(ignore_permissions=True)
 	sync_user_caps(user)  # union of the assigned chức danh → Frappe cap-roles
+	frappe.db.commit()
+	return _row(user)
+
+
+@frappe.whitelist()
+def create_staff(email, full_name, password=None, job_roles=None, allow_price_edit=0, max_discount_pct=0, blind_shift_close=0):
+	"""Owner: create a new staff login (email + tên + mật khẩu) and assign chức danh + limits."""
+	ensure_owner()
+	email = (email or "").strip().lower()
+	if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
+		frappe.throw(_("Email không hợp lệ (vd: nhanvien@cuahang.com)."))
+	if frappe.db.exists("User", email):
+		frappe.throw(_("Đã có tài khoản với email này."))
+	name = (full_name or "").strip() or email.split("@")[0]
+	with as_user("Administrator"):
+		doc = frappe.get_doc(
+			{"doctype": "User", "email": email, "first_name": name, "user_type": "System User", "enabled": 1, "send_welcome_email": 0}
+		)
+		doc.insert(ignore_permissions=True)
+	save_staff(email, job_roles or [], allow_price_edit, max_discount_pct, blind_shift_close)  # caps + limits + commit
+	if password:
+		from frappe.utils.password import update_password
+
+		update_password(email, password)
+		frappe.db.commit()
+	return _row(email)
+
+
+@frappe.whitelist()
+def set_staff_account(user, full_name=None, enabled=None, new_password=None):
+	"""Owner: edit a staff account — đổi tên, bật/tắt, đặt lại mật khẩu. Owner's own account is off-limits."""
+	ensure_owner()
+	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
+		frappe.throw(_("Tài khoản không hợp lệ."))
+	doc = frappe.get_doc("User", user)
+	if is_owner_roles({r.role for r in doc.roles}):
+		frappe.throw(_("Không chỉnh tài khoản của chủ cửa hàng ở đây."))
+	if full_name is not None and full_name.strip():
+		doc.first_name = full_name.strip()
+		doc.last_name = ""
+	if enabled is not None:
+		doc.enabled = 1 if cint(enabled) else 0
+	doc.save(ignore_permissions=True)
+	if new_password:
+		from frappe.utils.password import update_password
+
+		update_password(user, new_password)
 	frappe.db.commit()
 	return _row(user)
 

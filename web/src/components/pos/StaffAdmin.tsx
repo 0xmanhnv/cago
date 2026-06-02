@@ -36,6 +36,8 @@ export function StaffAdmin() {
   const [editStaff, setEditStaff] = useState<Staff | null>(null);
   const [editRole, setEditRole] = useState<(JobRole & { isNew?: boolean }) | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pwNew, setPwNew] = useState(""); // reset-password field in the edit panel
+  const [creating, setCreating] = useState<{ email: string; full_name: string; password: string; roles: string[] } | null>(null);
 
   const reload = async () => {
     const [s, r] = await Promise.all([
@@ -63,6 +65,13 @@ export function StaffAdmin() {
       if (busy) return;
       setBusy(true);
       try {
+        // account (tên / bật-tắt / mật khẩu) + then caps & limits
+        await frappeCall("cago.api.staff_admin.set_staff_account", {
+          user: editStaff.user,
+          full_name: editStaff.full_name,
+          enabled: editStaff.enabled ? 1 : 0,
+          new_password: pwNew.trim() || undefined,
+        });
         await frappeCall("cago.api.staff_admin.save_staff", {
           user: editStaff.user,
           job_roles: JSON.stringify(editStaff.job_roles.map((j) => j.name)),
@@ -73,6 +82,7 @@ export function StaffAdmin() {
         await reload();
         const name = editStaff.full_name;
         setEditStaff(null);
+        setPwNew("");
         toast.success(`Đã lưu cho ${name}.`);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
@@ -82,10 +92,28 @@ export function StaffAdmin() {
     };
     return (
       <div>
-        <BackBar onBack={() => setEditStaff(null)} label="Quay lại" />
+        <BackBar onBack={() => { setEditStaff(null); setPwNew(""); }} label="Quay lại" />
         <div className="rounded-xl bg-white p-4">
-          <h2 className="text-xl font-bold">{editStaff.full_name}</h2>
           <div className="text-sm text-slate-500">{editStaff.user}</div>
+
+          {/* Account: tên / bật-tắt / đổi mật khẩu */}
+          <label className="mt-2 block text-sm font-bold text-slate-600">Tên nhân viên</label>
+          <input
+            value={editStaff.full_name}
+            onChange={(e) => setEditStaff({ ...editStaff, full_name: e.target.value })}
+            className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+          />
+          <label className="mt-2 flex items-center gap-2.5 rounded-xl bg-slate-50 p-3">
+            <input type="checkbox" checked={editStaff.enabled} onChange={(e) => setEditStaff({ ...editStaff, enabled: e.target.checked })} className="h-5 w-5" />
+            <span className="font-bold text-slate-700">Đang làm việc (tắt = nghỉ việc, không đăng nhập được)</span>
+          </label>
+          <label className="mt-2 block text-sm font-bold text-slate-600">Đặt lại mật khẩu (để trống = giữ nguyên)</label>
+          <input
+            value={pwNew}
+            onChange={(e) => setPwNew(e.target.value)}
+            placeholder="Mật khẩu mới"
+            className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+          />
 
           <div className="mt-3 font-bold text-brand-dark">Chức danh (chọn nhiều)</div>
           {roles.length === 0 ? (
@@ -141,6 +169,84 @@ export function StaffAdmin() {
 
           <button onClick={save} disabled={busy} className="mt-4 min-h-touch w-full rounded-xl bg-brand text-lg font-extrabold text-white disabled:opacity-50">
             {busy ? "Đang lưu..." : "Lưu"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- Create a new employee account ----------
+  if (creating) {
+    const sel = new Set(creating.roles);
+    const create = async () => {
+      if (busy) return;
+      if (!creating.email.trim() || !creating.full_name.trim()) {
+        toast.error("Nhập email và tên nhân viên.");
+        return;
+      }
+      setBusy(true);
+      try {
+        await frappeCall("cago.api.staff_admin.create_staff", {
+          email: creating.email.trim(),
+          full_name: creating.full_name.trim(),
+          password: creating.password.trim() || undefined,
+          job_roles: JSON.stringify(creating.roles),
+        });
+        await reload();
+        setCreating(null);
+        toast.success("Đã tạo nhân viên.");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Lỗi: không tạo được.");
+      } finally {
+        setBusy(false);
+      }
+    };
+    return (
+      <div>
+        <BackBar onBack={() => setCreating(null)} label="Quay lại" />
+        <div className="rounded-xl bg-white p-4">
+          <h2 className="text-xl font-bold">Thêm nhân viên</h2>
+          <label className="mt-2 block text-sm font-bold text-slate-600">Email (dùng để đăng nhập)</label>
+          <input
+            value={creating.email}
+            onChange={(e) => setCreating({ ...creating, email: e.target.value })}
+            placeholder="nhanvien@cuahang.com"
+            className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+          />
+          <label className="mt-2 block text-sm font-bold text-slate-600">Tên nhân viên</label>
+          <input
+            value={creating.full_name}
+            onChange={(e) => setCreating({ ...creating, full_name: e.target.value })}
+            placeholder="VD: Chị Hoa"
+            className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+          />
+          <label className="mt-2 block text-sm font-bold text-slate-600">Mật khẩu</label>
+          <input
+            value={creating.password}
+            onChange={(e) => setCreating({ ...creating, password: e.target.value })}
+            placeholder="Mật khẩu đăng nhập"
+            className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+          />
+          <div className="mt-3 font-bold text-brand-dark">Chức danh (chọn nhiều)</div>
+          {roles.length === 0 ? (
+            <div className="mt-1 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Chưa có chức danh nào. Sang tab “Chức danh” để tạo trước.</div>
+          ) : (
+            <div className="mt-1 flex flex-wrap gap-2">
+              {roles.map((r) => (
+                <button
+                  key={r.name}
+                  onClick={() =>
+                    setCreating({ ...creating, roles: sel.has(r.name) ? creating.roles.filter((n) => n !== r.name) : [...creating.roles, r.name] })
+                  }
+                  className={`rounded-full border-2 px-3.5 py-2 text-sm font-bold ${sel.has(r.name) ? "border-brand bg-brand text-white" : "border-slate-300 bg-white text-slate-600"}`}
+                >
+                  {r.title}
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={create} disabled={busy} className="mt-4 min-h-touch w-full rounded-xl bg-brand text-lg font-extrabold text-white disabled:opacity-50">
+            {busy ? "Đang tạo..." : "Tạo nhân viên"}
           </button>
         </div>
       </div>
@@ -240,15 +346,22 @@ export function StaffAdmin() {
       {loading ? (
         <div className="py-6 text-center text-slate-500">Đang tải...</div>
       ) : tab === "staff" ? (
-        staff.length === 0 ? (
-          <div className="rounded-xl bg-white p-6 text-center text-slate-400">Chưa có nhân viên nào.</div>
-        ) : (
+        <>
+          <button
+            onClick={() => setCreating({ email: "", full_name: "", password: "", roles: [] })}
+            className="mb-3 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white"
+          >
+            ➕ Thêm nhân viên
+          </button>
+          {staff.length === 0 ? (
+            <div className="rounded-xl bg-white p-6 text-center text-slate-400">Chưa có nhân viên nào.</div>
+          ) : (
           <>
-            <p className="mb-2 ml-1 text-sm text-slate-500">Bấm một người để gán chức danh + giới hạn.</p>
+            <p className="mb-2 ml-1 text-sm text-slate-500">Bấm một người để sửa thông tin, chức danh + giới hạn.</p>
             {staff.map((s) => (
               <button
                 key={s.user}
-                onClick={() => !s.is_owner && setEditStaff({ ...s })}
+                onClick={() => { if (!s.is_owner) { setPwNew(""); setEditStaff({ ...s }); } }}
                 disabled={s.is_owner}
                 className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow disabled:opacity-70"
               >
@@ -262,7 +375,8 @@ export function StaffAdmin() {
               </button>
             ))}
           </>
-        )
+          )}
+        </>
       ) : (
         <>
           <button onClick={() => setEditRole({ name: "", title: "", caps: [], members: 0, isNew: true })} className="mb-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
