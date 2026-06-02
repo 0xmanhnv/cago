@@ -141,7 +141,9 @@ export function planRoute(map: StoreMap, zone: MapZone, start: Pt, startFloor: s
   const stairsTarget = tf?.stairs || target;
   const leg1 = routeOnFloor(floorAisle(map, startFloor), start, stairsStart);
   const leg2 = routeOnFloor(floorAisle(map, tFloor), stairsTarget, target);
-  const dir = (tf?.level ?? 0) < (sf?.level ?? 0) ? "xuống" : "lên";
+  const tl = tf?.level ?? 0;
+  const sl = sf?.level ?? 0;
+  const dir = tl < sl ? `xuống ${tFloor}` : tl > sl ? `lên ${tFloor}` : `sang ${tFloor}`;
   return {
     legs: [
       { floor: startFloor, route: leg1, toStairs: true },
@@ -149,7 +151,7 @@ export function planRoute(map: StoreMap, zone: MapZone, start: Pt, startFloor: s
     ],
     targetFloor: tFloor,
     crossFloor: true,
-    instruction: `Đi tới 🪜 cầu thang, ${dir} ${tFloor}, rồi tới khu ${name}.`,
+    instruction: `Đi tới 🪜 cầu thang, ${dir}, rồi tới khu ${name}.`,
   };
 }
 

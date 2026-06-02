@@ -92,12 +92,14 @@ export function useKioskNav() {
   // Pop one screen; fall back to `fallback` (default home) on a fresh entry with no in-app history.
   const goBack = useCallback(
     (fallback?: () => void) => {
-      set(DEPTH, String(Math.max(0, get(DEPTH) - 1)));
-      if (canPop()) router.back();
-      else if (fallback) fallback();
-      else {
+      if (canPop()) {
+        set(DEPTH, String(Math.max(0, get(DEPTH) - 1))); // only when we truly pop one screen
+        router.back();
+      } else {
+        // No in-app history to pop → leaving the stack; reset depth (the fallback may re-bump it).
         resetKioskDepth();
-        router.push("/");
+        if (fallback) fallback();
+        else router.push("/");
       }
     },
     [router],

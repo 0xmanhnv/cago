@@ -36,6 +36,36 @@ export function StoreMap() {
   const STEP = 5; // grid step on the 0–100 canvas (20 cols × 14 rows)
   const sv = (v: number) => (snapRef.current ? Math.round(v / STEP) * STEP : v);
 
+  // Undo: snapshot the map before each edit; a drag records ONE snapshot (on its first move,
+  // so a tap that selects-but-doesn't-move adds nothing). Cap the stack so memory stays bounded.
+  const histRef = useRef<{ map: StoreMap; floor: string }[]>([]);
+  const [histLen, setHistLen] = useState(0);
+  const dragSnap = useRef<{ map: StoreMap; floor: string } | null>(null);
+  const moved = useRef(false);
+  const clone = (m: StoreMap) => JSON.parse(JSON.stringify(m)) as StoreMap;
+  const recordSnapshot = (snapshot: { map: StoreMap; floor: string }) => {
+    histRef.current.push(snapshot);
+    if (histRef.current.length > 40) histRef.current.shift();
+    setHistLen(histRef.current.length);
+  };
+  // Snapshot the map AND the active floor (so undoing add/rename-floor can't strand you on a
+  // floor that no longer exists). For discrete edits (add/delete/place/…).
+  const pushHistory = () => map && recordSnapshot({ map: clone(map), floor });
+  const undo = () => {
+    const prev = histRef.current.pop();
+    if (!prev) return;
+    setMap(prev.map);
+    setFloor(prev.map.floors.some((f) => f.label === prev.floor) ? prev.floor : prev.map.floors[0]?.label ?? "");
+    setHistLen(histRef.current.length);
+    setSel(null);
+  };
+  // Begin a drag: stash a pre-drag snapshot (committed to history only if a move actually happens).
+  const startDrag = (d: Drag) => {
+    if (map) dragSnap.current = { map: clone(map), floor };
+    moved.current = false;
+    drag.current = d;
+  };
+
   useEffect(() => {
     frappeCall<StoreMap>("cago.api.storemap.get_store_map", {}, { method: "GET" })
       .then((m) => {
@@ -77,6 +107,10 @@ export function StoreMap() {
       if (!d || !map) return;
       const p = toSvg(e);
       if (!p) return;
+      if (!moved.current) {
+        moved.current = true;
+        if (dragSnap.current) recordSnapshot(dragSnap.current); // one undo entry per real drag
+      }
       setMap((m) => {
         if (!m) return m;
         const next: StoreMap = { ...m, zones: m.zones.map((z) => ({ ...z })), aisle: m.aisle.map((a) => ({ ...a })), floors: m.floors.map((f) => ({ ...f, stairs: { ...f.stairs } })) };
@@ -117,6 +151,7 @@ export function StoreMap() {
   const floorObj = map.floors.find((f) => f.label === floor);
 
   const addFloor = () => {
+    pushHistory();
     const label = `Tầng ${map.floors.length + 1}`;
     upd({ floors: [...map.floors, { label, level: map.floors.length + 1, stairs: { x: 50, y: 35 } }] });
     setFloor(label);
@@ -139,6 +174,7 @@ export function StoreMap() {
   const delFloor = async (label: string) => {
     if (map.floors.length <= 1) return;
     if (!(await confirmDialog(`Xoá ${label} và mọi khu/lối đi trên tầng đó?`, { danger: true, confirmLabel: "Xoá" }))) return;
+    pushHistory();
     const floors = map.floors.filter((f) => f.label !== label);
     upd({
       floors,
@@ -150,6 +186,7 @@ export function StoreMap() {
   };
 
   const addZone = () => {
+    pushHistory();
     const z: MapZone = {
       label: groups[0] || "Khu mới",
       floor,
@@ -166,6 +203,7 @@ export function StoreMap() {
     setSel(map.zones.length);
   };
   const delZone = (i: number) => {
+    pushHistory();
     upd({ zones: map.zones.filter((_, j) => j !== i) });
     setSel(null);
   };
@@ -174,6 +212,7 @@ export function StoreMap() {
     if (!aisleMode) return;
     const p = toSvg(e);
     if (!p) return;
+    pushHistory();
     upd({ aisle: [...map.aisle, { x: sv(p.x), y: sv(p.y), floor, _k: nk() }] });
   };
 
@@ -214,6 +253,9 @@ export function StoreMap() {
 
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <button onClick={addZone} className="rounded-lg bg-brand px-3 py-2 font-bold text-white">➕ Thêm khu</button>
+        <button onClick={undo} disabled={histLen === 0} className="rounded-lg bg-slate-200 px-3 py-2 font-bold text-slate-700 disabled:opacity-40" title="Hoàn tác thay đổi gần nhất">
+          ↶ Hoàn tác{histLen ? ` (${histLen})` : ""}
+        </button>
         <button
           onClick={() => setAisleMode((v) => !v)}
           className={`rounded-lg px-3 py-2 font-bold ${aisleMode ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-700"}`}
@@ -230,7 +272,7 @@ export function StoreMap() {
         {aislePts.length > 0 && (
           <button
             onClick={async () => {
-              if (await confirmDialog(`Xoá toàn bộ lối đi trên ${floor}?`, { danger: true, confirmLabel: "Xoá" })) upd({ aisle: map.aisle.filter((p) => p.floor !== floor) });
+              if (await confirmDialog(`Xoá toàn bộ lối đi trên ${floor}?`, { danger: true, confirmLabel: "Xoá" })) { pushHistory(); upd({ aisle: map.aisle.filter((p) => p.floor !== floor) }); }
             }}
             className="rounded-lg bg-slate-200 px-3 py-2 font-bold text-slate-700"
           >
@@ -244,8 +286,8 @@ export function StoreMap() {
       </div>
 
       <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
-        <button onClick={() => upd({ kiosk: { floor, x: 50, y: map.height - 8 } })} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">📍 Đặt kiosk ở {floor}</button>
-        <button onClick={() => upd({ entrance: { floor, x: 50, y: map.height - 4 } })} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">🚪 Đặt cửa ở {floor}</button>
+        <button onClick={() => { pushHistory(); upd({ kiosk: { floor, x: 50, y: map.height - 8 } }); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">📍 Đặt kiosk ở {floor}</button>
+        <button onClick={() => { pushHistory(); upd({ entrance: { floor, x: 50, y: map.height - 4 } }); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">🚪 Đặt cửa ở {floor}</button>
         <span className="text-slate-400">📍 kiosk: {map.kiosk.floor || "—"} · 🚪 cửa: {map.entrance.floor || "—"}</span>
       </div>
 
@@ -274,7 +316,7 @@ export function StoreMap() {
         {aislePts.length >= 2 && <polyline points={toPoints(aislePts)} fill="none" stroke="#cbd5e1" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />}
         {map.aisle.map((p, i) =>
           p.floor !== floor ? null : (
-            <circle key={p._k ?? i} cx={p.x} cy={p.y} r={1.6} fill="#f59e0b" className="cursor-move" onPointerDown={(e) => { e.stopPropagation(); drag.current = { kind: "aisle", i }; }} />
+            <circle key={p._k ?? i} cx={p.x} cy={p.y} r={1.6} fill="#f59e0b" className="cursor-move" onPointerDown={(e) => { e.stopPropagation(); startDrag({ kind: "aisle", i }); }} />
           ),
         )}
 
@@ -301,7 +343,7 @@ export function StoreMap() {
                   setSel(i);
                   const p = toSvg(e);
                   if (!p) return;
-                  drag.current = { kind: "zone", i, ox: p.x - z.x, oy: p.y - z.y };
+                  startDrag({ kind: "zone", i, ox: p.x - z.x, oy: p.y - z.y });
                 }}
               />
               <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} fill="white" fontWeight="700" pointerEvents="none">
@@ -315,7 +357,7 @@ export function StoreMap() {
                 height={2.4}
                 fill="#0f172a"
                 className="cursor-nwse-resize"
-                onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); setSel(i); drag.current = { kind: "zoneResize", i, ox: 0, oy: 0 }; }}
+                onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); setSel(i); startDrag({ kind: "zoneResize", i, ox: 0, oy: 0 }); }}
               />
             </g>
           );
@@ -323,20 +365,20 @@ export function StoreMap() {
 
         {/* stairs (per floor) */}
         {floorObj && (
-          <g className="cursor-move" onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); drag.current = { kind: "stairs" }; }}>
+          <g className="cursor-move" onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); startDrag({ kind: "stairs" }); }}>
             <circle cx={floorObj.stairs.x} cy={floorObj.stairs.y} r={3} fill="#7c3aed" stroke="white" strokeWidth={0.6} />
             <text x={floorObj.stairs.x} y={floorObj.stairs.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} pointerEvents="none">🪜</text>
           </g>
         )}
         {/* entrance + kiosk pins (only on their floor) */}
         {map.entrance.floor === floor && (
-          <g className="cursor-move" onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); drag.current = { kind: "entrance" }; }}>
+          <g className="cursor-move" onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); startDrag({ kind: "entrance" }); }}>
             <circle cx={map.entrance.x} cy={map.entrance.y} r={3} fill="#0ea5e9" stroke="white" strokeWidth={0.6} />
             <text x={map.entrance.x} y={map.entrance.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} pointerEvents="none">🚪</text>
           </g>
         )}
         {map.kiosk.floor === floor && (
-          <g className="cursor-move" onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); drag.current = { kind: "kiosk" }; }}>
+          <g className="cursor-move" onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); startDrag({ kind: "kiosk" }); }}>
             <circle cx={map.kiosk.x} cy={map.kiosk.y} r={3} fill="#16a34a" stroke="white" strokeWidth={0.6} />
             <text x={map.kiosk.x} y={map.kiosk.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} pointerEvents="none">📍</text>
           </g>
@@ -376,9 +418,9 @@ export function StoreMap() {
 
           <label className="block text-sm font-bold text-slate-600">Biểu tượng</label>
           <div className="mb-2 mt-1 flex flex-wrap gap-1.5">
-            <button onClick={() => updZone(sel!, { icon: "" })} className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 text-sm ${!selZone.icon ? "border-slate-800 bg-slate-100" : "border-slate-200"}`}>✕</button>
+            <button onClick={() => { pushHistory(); updZone(sel!, { icon: "" }); }} className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 text-sm ${!selZone.icon ? "border-slate-800 bg-slate-100" : "border-slate-200"}`}>✕</button>
             {ICONS.map((ic) => (
-              <button key={ic} onClick={() => updZone(sel!, { icon: ic })} className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 text-lg ${selZone.icon === ic ? "border-slate-800 bg-slate-100" : "border-slate-200"}`}>
+              <button key={ic} onClick={() => { pushHistory(); updZone(sel!, { icon: ic }); }} className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 text-lg ${selZone.icon === ic ? "border-slate-800 bg-slate-100" : "border-slate-200"}`}>
                 {ic}
               </button>
             ))}
@@ -387,7 +429,7 @@ export function StoreMap() {
           <label className="block text-sm font-bold text-slate-600">Màu</label>
           <div className="mb-2 mt-1 flex flex-wrap gap-1.5">
             {COLORS.map((c) => (
-              <button key={c} onClick={() => updZone(sel!, { color: c })} style={{ background: c }} className={`h-7 w-7 rounded-full ${selZone.color === c ? "ring-2 ring-slate-800 ring-offset-2" : ""}`} />
+              <button key={c} onClick={() => { pushHistory(); updZone(sel!, { color: c }); }} style={{ background: c }} className={`h-7 w-7 rounded-full ${selZone.color === c ? "ring-2 ring-slate-800 ring-offset-2" : ""}`} />
             ))}
           </div>
 

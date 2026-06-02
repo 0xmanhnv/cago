@@ -16,23 +16,32 @@ export const isFixedKiosk = () => typeof window !== "undefined" && window.localS
 export function StoreMapView({
   focusCategory,
   onPickZone,
+  mapData,
+  fixedKiosk,
 }: {
   focusCategory?: string | null;
   onPickZone?: (itemGroup: string) => void;
+  mapData?: StoreMap | null; // when the parent already fetched (controlled) — avoids a 2nd fetch
+  fixedKiosk?: boolean;
 }) {
-  const [map, setMap] = useState<StoreMap | null>(null);
-  const [fixed, setFixed] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const controlled = mapData !== undefined;
+  const [selfMap, setSelfMap] = useState<StoreMap | null>(null);
+  const [selfFixed, setSelfFixed] = useState(false);
+  const [selfLoaded, setSelfLoaded] = useState(false);
   const [viewFloor, setViewFloor] = useState<string>("");
 
   useEffect(() => {
-    setFixed(isFixedKiosk());
+    setSelfFixed(isFixedKiosk());
+    if (controlled) return; // parent supplies the map + fixed flag
     frappeCall<StoreMap>("cago.api.storemap.get_store_map", {}, { method: "GET" })
-      .then(setMap)
-      .catch(() => setMap(null))
-      .finally(() => setLoaded(true));
-  }, []);
+      .then(setSelfMap)
+      .catch(() => setSelfMap(null))
+      .finally(() => setSelfLoaded(true));
+  }, [controlled]);
 
+  const map = controlled ? mapData ?? null : selfMap;
+  const loaded = controlled ? true : selfLoaded;
+  const fixed = fixedKiosk !== undefined ? fixedKiosk : selfFixed;
   const start: (Pt & { floor: string }) | null = map ? (fixed ? map.kiosk : map.entrance) : null;
   const startFloor = start?.floor || (map?.floors[0]?.label ?? "");
   const focus = findZone(map, focusCategory);
@@ -123,8 +132,10 @@ export function StoreMapView({
           <g
             className="cursor-pointer"
             onClick={() => {
-              const idx = map.floors.findIndex((f) => f.label === vf);
-              setViewFloor(map.floors[(idx + 1) % map.floors.length].label);
+              // Cycle floors in physical (level) order so "tap stairs" goes up/down sensibly.
+              const ordered = [...map.floors].sort((a, b) => a.level - b.level);
+              const idx = ordered.findIndex((f) => f.label === vf);
+              setViewFloor(ordered[(idx + 1) % ordered.length].label);
             }}
           >
             {/* pulsing ring hints it's interactive */}

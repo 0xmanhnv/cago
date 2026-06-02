@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { navDepth, useKioskNav } from "@/lib/kioskNav";
 
 /**
@@ -11,8 +11,10 @@ import { navDepth, useKioskNav } from "@/lib/kioskNav";
  */
 export function KioskNavButtons({ onBack }: { onBack?: () => void }) {
   const nav = useKioskNav();
-  // Lazy init reads depth on first client render → correct immediately, no shallow→deep flash.
-  const [deep] = useState(() => (typeof window === "undefined" ? false : navDepth() >= 2));
+  // Start shallow (matches server render → no hydration mismatch), then reflect real depth after
+  // mount. One harmless frame as single-button before showing both on a deep screen.
+  const [deep, setDeep] = useState(false);
+  useEffect(() => setDeep(navDepth() >= 2), []);
   const btn = "whitespace-nowrap rounded-xl bg-brand-light px-4 py-2.5 text-lg font-extrabold text-brand-dark";
 
   if (!deep) {
