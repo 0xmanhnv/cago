@@ -139,18 +139,31 @@ function nearestOnPolyline(poly: Pt[], p: Pt): { pt: Pt; s: number } {
   return { pt: best.pt, s: best.s };
 }
 
-/** Route to a zone. If the owner drew a lối đi (aisle), HUG it: start → nearest point on the aisle →
- * along the aisle to the point nearest the target → target — a customer expects to walk the walkway.
- * With no aisle, fall back to the shortest path that goes AROUND the zone boxes. */
+/** Route to a zone. If the owner drew a lối đi (aisle), HUG it but LEAVE it as soon as the zone can
+ * be reached in a straight hop — walk the aisle from the start's projection, then exit at the point
+ * that minimises (distance walked along the aisle + straight hop into the zone), so the route never
+ * overshoots past the zone and doubles back. With no aisle, take the shortest path AROUND the boxes. */
 export function routeOnFloor(zones: Rect[], aisle: Pt[], start: Pt, target: Pt): Pt[] {
   if (aisle && aisle.length >= 2) {
+    const obs = zones.filter((z) => !inRect(start, z) && !inRect(target, z));
     const arc = arcLengths(aisle);
     const a = nearestOnPolyline(aisle, start);
+    // Candidate exit points: every aisle vertex + the target's own projection.
     const b = nearestOnPolyline(aisle, target);
+    const cands = aisle.map((pt, i) => ({ pt, s: arc[i] })).concat([{ pt: b.pt, s: b.s }]);
+    // Best exit = clear straight hop to the zone, minimising aisle-walk + hop.
+    let best: { pt: Pt; s: number } | null = null;
+    let bestCost = Infinity;
+    for (const c of cands) {
+      if (!visible(c.pt, target, obs)) continue;
+      const cost = Math.abs(c.s - a.s) + dist(c.pt, target);
+      if (cost < bestCost) ((bestCost = cost), (best = c));
+    }
+    const exit = best || b; // fall back to nearest projection if nothing has a clear hop
     const mids: Pt[] = [];
-    for (let i = 0; i < aisle.length; i++) if (arc[i] > Math.min(a.s, b.s) && arc[i] < Math.max(a.s, b.s)) mids.push(aisle[i]);
-    if (a.s > b.s) mids.reverse();
-    return dedupe([start, a.pt, ...mids, b.pt, target]);
+    for (let i = 0; i < aisle.length; i++) if (arc[i] > Math.min(a.s, exit.s) && arc[i] < Math.max(a.s, exit.s)) mids.push(aisle[i]);
+    if (a.s > exit.s) mids.reverse();
+    return dedupe([start, a.pt, ...mids, exit.pt, target]);
   }
   return routeAround(zones, start, target);
 }
