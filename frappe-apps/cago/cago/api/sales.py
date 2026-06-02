@@ -208,10 +208,17 @@ def _assign_batch(row, code, wh):
 
 
 @frappe.whitelist()
-def credit_sale(customer, items, note=None):
+def credit_sale(customer, items, note=None, client_uuid=None):
 	"""Create + submit an unpaid Sales Invoice (stock-reducing credit sale)."""
 	ensure_cap("sell")
 	ensure_lang()
+	# Idempotency (same as quick_sale): a re-sent credit sale resolves to the existing invoice
+	# instead of booking the customer's debt twice on a network retry.
+	client_uuid = (client_uuid or "").strip() or None
+	if client_uuid:
+		existing = frappe.db.get_value("Sales Invoice", {"cago_client_uuid": client_uuid, "docstatus": ["<", 2]}, "name")
+		if existing:
+			return _existing_sale_result(existing)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	items = frappe.parse_json(items) if isinstance(items, str) else (items or [])
@@ -271,6 +278,7 @@ def credit_sale(customer, items, note=None):
 			"set_warehouse": wh,
 			"selling_price_list": pl,
 			"remarks": note or f"Bán chịu {customer}",
+			"cago_client_uuid": client_uuid,
 			"items": rows,
 		}
 	)

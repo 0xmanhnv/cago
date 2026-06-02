@@ -55,6 +55,21 @@ class TestCreditSale(FrappeTestCase):
 			frappe.db.exists("Stock Ledger Entry", {"voucher_type": "Sales Invoice", "voucher_no": r["invoice"]})
 		)
 
+	def test_credit_sale_idempotent_by_client_uuid(self):
+		"""A re-sent credit sale (same client_uuid) resolves to the same invoice — debt not doubled."""
+		from cago.api import debt, purchasing, sales
+		from frappe.utils import flt
+
+		purchasing.receive_stock(ITEM, 10)
+		cust = debt.add_customer("KH Credit Idem")["customer"]
+		uuid = frappe.generate_hash(length=20)
+		r1 = sales.credit_sale(cust, json.dumps([{"item_code": ITEM, "qty": 2}]), client_uuid=uuid)
+		bal1 = flt(debt.get_customer_debt(cust)["outstanding"])
+		r2 = sales.credit_sale(cust, json.dumps([{"item_code": ITEM, "qty": 2}]), client_uuid=uuid)
+		bal2 = flt(debt.get_customer_debt(cust)["outstanding"])
+		self.assertEqual(r1["invoice"], r2["invoice"])
+		self.assertAlmostEqual(bal1, bal2, places=2)  # debt not doubled
+
 
 def flt_qty(item_code):
 	from frappe.utils import flt
