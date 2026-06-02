@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { frappeCall, logout } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { hasCap, isInternal, isOwner, type Cap } from "@/lib/caps";
@@ -68,12 +71,9 @@ export function PosHome() {
   const [fav, setFav] = useState<Fav[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const favRef = useRef<Fav[]>([]);
-  const dragFrom = useRef<number | null>(null);
   const editRef = useRef(false);
   const lp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const justLong = useRef(false);
-  favRef.current = fav;
   editRef.current = editMode;
 
   // Whether THIS user may use an action (owner sees all; null = any internal).
@@ -134,39 +134,20 @@ export function PosHome() {
   const togglePin = (key: string) => saveFav(fav.some((f) => f.k === key) ? fav.filter((f) => f.k !== key) : [...fav, { k: key, w: 1 }]);
   const setWidth = (key: string, w: 1 | 2) => saveFav(fav.map((f) => (f.k === key ? { ...f, w } : f)));
   const favKeys = new Set(fav.map((f) => f.k)); // to hide pinned tiles from the lists below
+  const hasFav = fav.length > 0;
+  // No favorites (and not arranging) → the full menu IS the page, shown expanded with no toggle.
+  const groupsOpen = !hasFav || editMode || showAll;
 
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      if (dragFrom.current == null) return;
-      const el = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest("[data-fav]");
-      if (!el) return;
-      const to = Number(el.getAttribute("data-fav"));
-      if (Number.isInteger(to) && to !== dragFrom.current) {
-        const from = dragFrom.current;
-        dragFrom.current = to;
-        setFav((prev) => {
-          const a = [...prev];
-          const [m] = a.splice(from, 1);
-          a.splice(to, 0, m);
-          return a;
-        });
-      }
-    };
-    const onUp = () => {
-      if (dragFrom.current != null) {
-        dragFrom.current = null;
-        frappeCall("cago.api.prefs.set_home_favorites", { keys: JSON.stringify(favRef.current) }).catch(() => {});
-      }
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-  }, []);
+  // Smooth drag-to-reorder via dnd-kit (lift + neighbours slide + snap on drop, like iOS).
+  // Small distance constraint so tapping the ↔/★ buttons doesn't start a drag.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldI = fav.findIndex((f) => f.k === active.id);
+    const newI = fav.findIndex((f) => f.k === over.id);
+    if (oldI >= 0 && newI >= 0) saveFav(arrayMove(fav, oldI, newI));
+  };
 
   const doLogout = async () => {
     if (!(await confirmDialog("Đăng xuất khỏi máy này?", { danger: true, confirmLabel: "Đăng xuất" }))) return;
@@ -226,8 +207,11 @@ export function PosHome() {
         </div>
       )}
 
+      {/* One header row always offers "Sắp xếp" (so the owner can pin even with nothing pinned yet).
+          When nothing is pinned, the ⭐ section + its empty box are hidden and the full menu shows
+          directly below (no toggle) — no awkward empty gap. */}
       <div className="mb-1 ml-1 mt-1 flex items-center justify-between">
-        <div className="text-lg font-extrabold text-brand-dark">⭐ Hay dùng</div>
+        <div className="text-lg font-extrabold text-brand-dark">{hasFav || editMode ? "⭐ Hay dùng" : "🧰 Chức năng"}</div>
         <button
           onClick={() => setEditMode((v) => !v)}
           className={`rounded-full px-3 py-1 text-sm font-bold ${editMode ? "bg-brand text-white" : "bg-white text-brand-dark shadow-sm"}`}
@@ -237,64 +221,60 @@ export function PosHome() {
       </div>
       {editMode && (
         <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-800">
-          Kéo <b>⠿</b> đổi chỗ · <b>↔</b> đổi cỡ (rộng/hẹp) · <b>☆</b> bỏ ghim · xong bấm <b>Xong</b>.
+          Kéo <b>⠿</b> đổi chỗ · <b>↔</b> đổi cỡ (rộng/hẹp) · <b>★</b> bỏ ghim · ☆ bên dưới để ghim · xong bấm <b>Xong</b>.
         </div>
       )}
-      {fav.length === 0 ? (
-        <div className="mb-4 rounded-2xl border-2 border-dashed border-emerald-200 bg-white/60 p-4 text-center text-slate-500">
-          {editMode ? "Chạm ☆ trên một mục bên dưới để ghim lên đây." : "Nhấn giữ một mục để sắp xếp, hoặc bấm ☆ sau khi vào “Sắp xếp”."}
-        </div>
-      ) : (
+      {editMode ? (
+        fav.length === 0 ? (
+          <div className="mb-4 rounded-2xl border-2 border-dashed border-emerald-200 bg-white/60 p-4 text-center text-slate-500">
+            Chạm ☆ trên một mục bên dưới để ghim lên đây.
+          </div>
+        ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={fav.map((f) => f.k)} strategy={rectSortingStrategy}>
+              <div className="mb-4 grid grid-cols-2 gap-3.5">
+                {fav.map((f) => (
+                  <SortableFav key={f.k} f={f} onWidth={setWidth} onUnpin={togglePin} />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )
+      ) : hasFav ? (
         <div className="mb-4 grid grid-cols-2 gap-3.5">
-          {fav.map((f, i) => {
+          {fav.map((f) => {
             const a = ACTIONS[f.k];
             if (!a) return null;
             return (
-              <div key={f.k} data-fav={i} className={`relative ${f.w === 2 ? "col-span-2" : ""} ${editMode ? "animate-jiggle touch-none" : ""}`}>
-                <button
-                  onClick={() => tapTile(f.k)}
-                  onPointerDown={pressStart}
-                  onPointerUp={pressCancel}
-                  onPointerMove={pressCancel}
-                  onPointerLeave={pressCancel}
-                  className={`mt-tile w-full ${editMode ? "pl-9 pr-[4.5rem] ring-2 ring-white/70" : ""} ${a.color}`}
-                >
-                  {a.label}
-                </button>
-                {editMode && (
-                  <>
-                    <span
-                      onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); dragFrom.current = i; }}
-                      className="absolute left-1.5 top-1/2 -translate-y-1/2 cursor-grab select-none px-1 text-xl text-white/90"
-                      aria-label="Kéo để sắp xếp"
-                    >
-                      ⠿
-                    </span>
-                    <span
-                      onClick={(e) => { e.stopPropagation(); setWidth(f.k, f.w === 2 ? 1 : 2); }}
-                      aria-label={f.w === 2 ? "Thu hẹp" : "Mở rộng"}
-                      className="absolute right-9 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/30 text-sm font-bold text-white shadow"
-                    >
-                      ↔
-                    </span>
-                    <span onClick={(e) => { e.stopPropagation(); togglePin(f.k); }} aria-label="Bỏ ghim" className="absolute right-1.5 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/30 text-sm text-white shadow">★</span>
-                  </>
-                )}
-              </div>
+              <button
+                key={f.k}
+                onClick={() => router.push(a.href)}
+                onPointerDown={pressStart}
+                onPointerUp={pressCancel}
+                onPointerMove={pressCancel}
+                onPointerLeave={pressCancel}
+                className={`mt-tile w-full ${f.w === 2 ? "col-span-2" : ""} ${a.color}`}
+              >
+                {a.label}
+              </button>
             );
           })}
         </div>
+      ) : null}
+
+      {/* The "Tất cả chức năng" collapse only makes sense when there ARE favorites; otherwise the
+          full menu is the page, shown directly. */}
+      {hasFav && !editMode && (
+        <button
+          onClick={() => setShowAll((v) => !v)}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-200 bg-white py-3 text-lg font-extrabold text-brand-dark"
+        >
+          🧰 Tất cả chức năng <span className={`inline-block transition-transform duration-300 ${showAll ? "rotate-180" : ""}`}>▾</span>
+        </button>
       )}
 
-      <button
-        onClick={() => setShowAll((v) => !v)}
-        className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-200 bg-white py-3 text-lg font-extrabold text-brand-dark"
-      >
-        🧰 Tất cả chức năng <span className={`inline-block transition-transform duration-300 ${showAll ? "rotate-180" : ""}`}>▾</span>
-      </button>
-
-      <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${showAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-        <div className="overflow-hidden" inert={!showAll ? true : undefined}>
+      <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${groupsOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden" inert={!groupsOpen ? true : undefined}>
           {GROUPS.map((g) => {
             // Only the actions this user may use AND that aren't already pinned to ⭐ Hay dùng
             // (no duplication: pinned above ⇒ hidden here, and vice-versa).
@@ -326,6 +306,45 @@ export function PosHome() {
         )}
         <button onClick={doLogout} className={`mt-tile min-h-[64px] bg-red-600 text-lg ${owner ? "" : "col-span-2"}`}>🚪 Đăng xuất</button>
       </div>
+    </div>
+  );
+}
+
+// A pinned favorite in arrange mode — dnd-kit sortable (smooth lift + slide). The ⠿ handle is the
+// only drag initiator, so the ↔ (width) and ★ (unpin) buttons stay tappable.
+function SortableFav({ f, onWidth, onUnpin }: { f: Fav; onWidth: (k: string, w: 1 | 2) => void; onUnpin: (k: string) => void }) {
+  const a = ACTIONS[f.k];
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: f.k });
+  if (!a) return null;
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`relative ${f.w === 2 ? "col-span-2" : ""} ${isDragging ? "z-30 opacity-90 shadow-2xl" : ""}`}
+    >
+      <div className={`mt-tile w-full select-none pl-9 pr-[4.5rem] ring-2 ring-white/70 ${a.color}`}>{a.label}</div>
+      <span
+        {...attributes}
+        {...listeners}
+        className="absolute left-1.5 top-1/2 -translate-y-1/2 cursor-grab touch-none select-none px-1 text-xl text-white/90"
+        aria-label="Kéo để sắp xếp"
+      >
+        ⠿
+      </span>
+      <span
+        onClick={() => onWidth(f.k, f.w === 2 ? 1 : 2)}
+        aria-label={f.w === 2 ? "Thu hẹp" : "Mở rộng"}
+        className="absolute right-9 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/30 text-sm font-bold text-white shadow"
+      >
+        ↔
+      </span>
+      <span
+        onClick={() => onUnpin(f.k)}
+        aria-label="Bỏ ghim"
+        className="absolute right-1.5 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/30 text-sm text-white shadow"
+      >
+        ★
+      </span>
     </div>
   );
 }
