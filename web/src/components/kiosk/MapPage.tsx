@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { useKioskNav } from "@/lib/kioskNav";
-import { findZone, planRoute, type StoreMap } from "@/lib/storemap";
+import { findZone, planRoute, slugify, type StoreMap } from "@/lib/storemap";
 import { speak } from "@/lib/kioskUi";
 import { StoreMapView, isFixedKiosk } from "./StoreMapView";
 import { KioskNavButtons } from "./KioskNavButtons";
 
 export function MapPage() {
   const nav = useKioskNav();
+  const router = useRouter();
+  const sp = useSearchParams();
+  const toSlug = sp.get("to") || ""; // selected destination, kept in the URL so "Quay lại" restores it
   const [map, setMap] = useState<StoreMap | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [fixed, setFixed] = useState(false);
@@ -18,10 +22,25 @@ export function MapPage() {
   useEffect(() => {
     setFixed(isFixedKiosk());
     frappeCall<StoreMap>("cago.api.storemap.get_store_map", {}, { method: "GET" })
-      .then(setMap)
+      .then((m) => {
+        setMap(m);
+        // Restore the selection from ?to= (slug) once the zones are known.
+        if (toSlug) {
+          const z = m.zones.find((zz) => slugify(zz.item_group) === toSlug);
+          if (z) setTarget(z.item_group);
+        }
+      })
       .catch(() => setMap(null))
       .finally(() => setLoaded(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Pick (or clear) a destination AND mirror it into the URL so going to the product list and
+  // pressing "Quay lại" comes back with the same zone still selected/routed.
+  const pick = (group: string | null) => {
+    setTarget(group);
+    router.replace(group ? `/map?to=${encodeURIComponent(slugify(group))}` : "/map");
+  };
 
   const toggleFixed = () => {
     const v = !fixed;
@@ -55,13 +74,13 @@ export function MapPage() {
           {/* The map IS the picker — tap a zone to route. (No separate button list: redundant + cluttered.) */}
           {!targetZone && <p className="mb-2 text-center font-bold text-brand-dark">🧭 Chạm vào khu cần đến trên sơ đồ để xem đường đi</p>}
 
-          <StoreMapView focusCategory={target} onPickZone={setTarget} mapData={map} fixedKiosk={fixed} />
+          <StoreMapView focusCategory={target} onPickZone={pick} mapData={map} fixedKiosk={fixed} />
 
           {targetZone ? (
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <button onClick={readRoute} className="min-h-touch rounded-xl bg-harvest font-extrabold text-white">🔊 Đọc đường đi</button>
               <button onClick={() => nav.openList(targetZone.item_group)} className="min-h-touch rounded-xl bg-brand font-extrabold text-white">🛒 Xem hàng ở đây</button>
-              <button onClick={() => setTarget(null)} className="min-h-touch rounded-xl bg-slate-200 font-extrabold text-slate-700">✖ Chọn nơi khác</button>
+              <button onClick={() => pick(null)} className="min-h-touch rounded-xl bg-slate-200 font-extrabold text-slate-700">✖ Chọn nơi khác</button>
             </div>
           ) : (
             <p className="mt-2 text-center text-sm text-slate-400">(Sơ đồ tham khảo)</p>

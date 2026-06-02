@@ -51,6 +51,17 @@ export const ICONS = [
 
 export const zoneCenter = (z: MapZone): Pt => ({ x: z.x + z.w / 2, y: z.y + z.h / 2 });
 
+// Client-side slug for a zone's category, so the map's selected destination can live in the URL
+// (?to=) — clean (no Vietnamese) and self-consistent (we both make and resolve it here).
+export const slugify = (s: string): string =>
+  (s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
 /** First zone whose category matches the product's item group (DTO `category`). */
 export function findZone(map: StoreMap | null, category?: string | null): MapZone | null {
   if (!map || !category) return null;

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { OWNER_ROLES } from "@/lib/roles";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
@@ -147,6 +148,9 @@ export function Checkout() {
   const wantedParam = sp.get("wanted"); // pre-load a kiosk wanted-list into the cart for payment
   const [wantedCode, setWantedCode] = useState<string | null>(null);
   const { boot } = useSession();
+  // /staff/sell is shared by staff AND the owner ("🛒 Bán hàng" tile) — send "back/home" to the
+  // caller's real home so an owner doesn't get dumped on the staff home.
+  const home = (boot?.roles || []).some((r) => OWNER_ROLES.includes(r)) ? "/owner" : "/staff";
   const allowPriceEdit = !!boot?.allow_price_edit; // server re-checks; this only shows the field
   const [list, setList] = useState<ProductCard[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -677,7 +681,7 @@ export function Checkout() {
         >
           🛒 Bán đơn mới
         </button>
-        <button onClick={() => router.push("/staff")} className="mt-2.5 min-h-touch w-full rounded-2xl bg-slate-200 py-3 text-lg font-bold">
+        <button onClick={() => router.push(home)} className="mt-2.5 min-h-touch w-full rounded-2xl bg-slate-200 py-3 text-lg font-bold">
           ‹ Trang chủ
         </button>
       </div>
@@ -687,7 +691,7 @@ export function Checkout() {
   return (
     <div className="pb-24">
       <div className="mb-2.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/staff")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
+        <button onClick={() => router.push(home)} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Trang chủ
         </button>
         <div className="flex-1 text-2xl font-bold">BÁN HÀNG</div>
