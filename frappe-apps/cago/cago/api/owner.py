@@ -315,11 +315,21 @@ def update_product(item_code, data):
 # --------------------------------------------------------------------------- #
 # Create new product (owner adds an item without ERPNext Desk)
 # --------------------------------------------------------------------------- #
+# ERPNext seeds these default Item Groups on every new site — they are not our categories and
+# must be hidden from the owner's product forms.
+ERPNEXT_DEFAULT_GROUPS = ["Products", "Raw Material", "Services", "Sub Assemblies", "Consumable", "All Item Groups"]
+
+
 @frappe.whitelist()
 def get_product_meta():
 	"""Options for the create/edit forms: item groups, units, selects."""
 	ensure_owner()
-	groups = frappe.get_all("Item Group", filters={"is_group": 0}, pluck="name", order_by="name asc")
+	groups = frappe.get_all(
+		"Item Group",
+		filters={"is_group": 0, "name": ["not in", ERPNEXT_DEFAULT_GROUPS]},
+		pluck="name",
+		order_by="name asc",
+	)
 	uoms = frappe.get_all("UOM", filters={"enabled": 1}, pluck="name", order_by="name asc")
 	return {
 		"item_groups": groups,

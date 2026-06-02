@@ -185,6 +185,34 @@ def ensure_shift_fields():
 	print("Sales Invoice shift field ensured: cago_cashier")
 
 
+def ensure_stock_entry_fields():
+	"""Mark whether a stock-in had an official invoice. Suppliers (esp. phân/đạm) often put part
+	of a delivery on the invoice and part off-book (their tax dodge) — the goods + cost are real
+	so both go into stock/valuation; this flag lets the owner separate the official portion later."""
+	create_custom_fields(
+		{
+			"Stock Entry": [
+				{
+					"fieldname": "cago_invoiced",
+					"label": "Có hoá đơn",
+					"fieldtype": "Check",
+					"default": "1",
+					"insert_after": "stock_entry_type",
+				},
+				{
+					"fieldname": "cago_invoice_image",
+					"label": "Ảnh hoá đơn (chứng từ)",
+					"fieldtype": "Attach Image",
+					"insert_after": "cago_invoiced",
+				},
+			]
+		},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("Stock Entry field ensured: cago_invoiced")
+
+
 def ensure_payment_fields():
 	"""Store bank account for VietQR (hiện QR để khách chuyển khoản)."""
 	create_custom_fields(

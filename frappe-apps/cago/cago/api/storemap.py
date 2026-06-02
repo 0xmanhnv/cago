@@ -117,27 +117,21 @@ _SAMPLE_FLOORS = [
 	("Tầng 1", 1, 50, 10),
 	("Tầng hầm", 0, 50, 60),
 ]
-# Two shelf columns (left x6 w32, right x62 w32) down each side of a central aisle, four rows each.
+# Two shelf columns (left x6 w32, right x62 w32) down each side of a central aisle.
+# Tầng 1 = chăn nuôi (chỉ cám gà + cám lợn) + thú y + dụng cụ; Tầng hầm = trồng trọt (phân, BVTV, giống).
 _SAMPLE_ZONES = [
 	# (label, floor, item_group, x, y, w, h, color, icon)
-	# --- Tầng 1: thức ăn chăn nuôi + dụng cụ + giống ---
-	("Cám gà", "Tầng 1", "Cám gà", 6, 6, 32, 11, "#f59e0b", "🐔"),
-	("Cám lợn", "Tầng 1", "Cám lợn", 6, 19, 32, 11, "#ef4444", "🐷"),
-	("Cám vịt / ngan", "Tầng 1", "Cám vịt / ngan", 6, 32, 32, 11, "#0ea5e9", "🦆"),
-	("Cám bò / trâu", "Tầng 1", "Cám bò / trâu", 6, 45, 32, 11, "#84cc16", "🐮"),
-	("Cám cá", "Tầng 1", "Cám cá", 62, 6, 32, 11, "#06b6d4", "🐟"),
-	("Thuốc thú y", "Tầng 1", "Thuốc thú y", 62, 19, 32, 11, "#e11d48", "💉"),
-	("Dụng cụ", "Tầng 1", "Dụng cụ", 62, 32, 32, 11, "#64748b", "🔧"),
-	("Giống lúa", "Tầng 1", "Giống lúa", 62, 45, 32, 11, "#22c55e", "🌾"),
-	# --- Tầng hầm: phân bón + thuốc + nông sản ---
-	("Phân vô cơ", "Tầng hầm", "Phân vô cơ", 6, 6, 32, 11, "#3b82f6", "🧴"),
-	("Phân hữu cơ", "Tầng hầm", "Phân hữu cơ", 6, 19, 32, 11, "#84cc16", "♻️"),
-	("Phân vi sinh", "Tầng hầm", "Phân vi sinh", 6, 32, 32, 11, "#14b8a6", "🌱"),
-	("Thuốc trừ sâu bệnh", "Tầng hầm", "Thuốc trừ sâu bệnh", 6, 45, 32, 11, "#dc2626", "🧪"),
-	("Thuốc cỏ", "Tầng hầm", "Thuốc cỏ", 62, 6, 32, 11, "#65a30d", "🌿"),
-	("Thuốc chuột", "Tầng hầm", "Thuốc chuột", 62, 19, 32, 11, "#6b7280", "🐀"),
-	("Thóc / gạo", "Tầng hầm", "Thóc / gạo", 62, 32, 32, 11, "#eab308", "🍚"),
-	("Nông sản", "Tầng hầm", "Nông sản", 62, 45, 32, 11, "#f97316", "🥕"),
+	("Cám gà", "Tầng 1", "Cám gà", 6, 8, 32, 18, "#f59e0b", "🐔"),
+	("Cám lợn", "Tầng 1", "Cám lợn", 6, 30, 32, 18, "#ef4444", "🐷"),
+	("Thuốc thú y", "Tầng 1", "Thuốc thú y", 62, 8, 32, 18, "#e11d48", "💉"),
+	("Dụng cụ", "Tầng 1", "Dụng cụ", 62, 30, 32, 18, "#64748b", "🔧"),
+	("Phân vô cơ", "Tầng hầm", "Phân vô cơ", 6, 6, 32, 13, "#3b82f6", "🧴"),
+	("Phân hữu cơ", "Tầng hầm", "Phân hữu cơ", 6, 21, 32, 13, "#84cc16", "♻️"),
+	("Thuốc trừ sâu bệnh", "Tầng hầm", "Thuốc trừ sâu bệnh", 6, 36, 32, 13, "#dc2626", "🧪"),
+	("Thuốc cỏ", "Tầng hầm", "Thuốc cỏ", 6, 51, 32, 13, "#65a30d", "🌿"),
+	("Thuốc chuột", "Tầng hầm", "Thuốc chuột", 62, 6, 32, 13, "#6b7280", "🐀"),
+	("Giống lúa", "Tầng hầm", "Giống lúa", 62, 21, 32, 13, "#22c55e", "🌾"),
+	("Giống rau", "Tầng hầm", "Giống rau", 62, 36, 32, 13, "#16a34a", "🥬"),
 ]
 _SAMPLE_AISLE = [
 	("Tầng 1", 50, 60),

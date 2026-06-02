@@ -13,7 +13,7 @@ flow does) AFTER the owner guard passes — ERPNext stays the source of truth.
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
@@ -56,9 +56,11 @@ def get_stock(item_code):
 
 
 @frappe.whitelist()
-def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
+def receive_stock(item_code, qty, cost_rate=None, batch_no=None, invoiced=1, invoice_image=None):
 	"""Record incoming stock (Material Receipt). `cost_rate` = giá nhập per stock unit
-	(optional; sets valuation). Batch-tracked items require `batch_no`. Returns new on-hand."""
+	(optional; sets valuation). Batch-tracked items require `batch_no`. `invoiced` flags whether
+	this receipt had an official invoice (off-book portions still count as real stock+cost).
+	Returns new on-hand."""
 	ensure_owner()
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
@@ -93,6 +95,8 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 				"doctype": "Stock Entry",
 				"stock_entry_type": "Material Receipt",
 				"to_warehouse": warehouse,
+				"cago_invoiced": cint(invoiced),
+				"cago_invoice_image": invoice_image or None,
 				"items": [item],
 			}
 		)
