@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "label",
+  "floor",
   "item_group",
   "color",
   "icon",
@@ -22,6 +23,13 @@
    "in_list_view": 1,
    "columns": 3,
    "reqd": 1
+  },
+  {
+   "fieldname": "floor",
+   "fieldtype": "Data",
+   "label": "Tầng",
+   "in_list_view": 1,
+   "columns": 2
   },
   {
    "fieldname": "item_group",

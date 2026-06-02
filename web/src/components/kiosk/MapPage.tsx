@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useKioskNav } from "@/lib/kioskNav";
 import { StoreMapView, isFixedKiosk } from "./StoreMapView";
+import { KioskNavButtons } from "./KioskNavButtons";
+import { useKioskNav } from "@/lib/kioskNav";
 
 export function MapPage() {
   const nav = useKioskNav();
@@ -20,9 +21,7 @@ export function MapPage() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <button onClick={nav.goHome} className="shrink-0 whitespace-nowrap rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark">
-          ‹ Trang chủ
-        </button>
+        <KioskNavButtons />
         <div className="flex-1 text-[22px] font-bold text-brand-dark">Sơ đồ cửa hàng</div>
       </div>
 

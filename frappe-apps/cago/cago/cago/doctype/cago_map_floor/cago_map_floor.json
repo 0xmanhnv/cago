@@ -5,31 +5,43 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "floor",
-  "x",
-  "y"
+  "label",
+  "level",
+  "stairs_x",
+  "stairs_y"
  ],
  "fields": [
   {
-   "fieldname": "floor",
+   "fieldname": "label",
    "fieldtype": "Data",
-   "label": "Tầng",
+   "label": "Tên tầng",
    "in_list_view": 1,
-   "columns": 4
+   "columns": 4,
+   "reqd": 1
   },
   {
-   "fieldname": "x",
-   "fieldtype": "Float",
-   "label": "X (0-100)",
+   "fieldname": "level",
+   "fieldtype": "Int",
+   "label": "Cao độ (số lớn = tầng trên)",
    "in_list_view": 1,
-   "columns": 3
+   "columns": 2,
+   "default": "1"
   },
   {
-   "fieldname": "y",
+   "fieldname": "stairs_x",
    "fieldtype": "Float",
-   "label": "Y (0-100)",
+   "label": "Cầu thang X",
    "in_list_view": 1,
-   "columns": 3
+   "columns": 2,
+   "default": "50"
+  },
+  {
+   "fieldname": "stairs_y",
+   "fieldtype": "Float",
+   "label": "Cầu thang Y",
+   "in_list_view": 1,
+   "columns": 2,
+   "default": "35"
   }
  ],
  "index_web_pages_for_search": 0,
@@ -38,7 +50,7 @@
  "modified": "2026-06-02 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cago",
- "name": "Cago Map Aisle Point",
+ "name": "Cago Map Floor",
  "owner": "Administrator",
  "permissions": [],
  "sort_field": "modified",

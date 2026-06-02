@@ -6,6 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
 import { CatThumb } from "./CatThumb";
+import { KioskNavButtons } from "./KioskNavButtons";
 import type { Category, ProductCard } from "@/lib/types";
 
 type Sort = "default" | "price_asc" | "price_desc";
@@ -115,12 +116,14 @@ export function ProductList() {
     tRef.current = setTimeout(() => setParams({ q: val.trim() || undefined }), 300);
   };
 
-  // In-page category switch (sidebar + chips). We can't reuse nav.openList("") here: pushing the
-  // bare "/products" while the URL still has ?category=… is a no-op in the App Router (it only
-  // *removes* params on the same path), so clicking "Tất cả" did nothing. Keeping an explicit
-  // (empty) category= guarantees the query string actually changes and the navigation fires.
+  // In-page category switch (sidebar + chips). Use REPLACE, not push: switching the category chip
+  // is filtering the same screen, not a new destination — so it shouldn't pile up history entries
+  // (otherwise "Quay lại" would step through every chip the customer tried instead of returning to
+  // the screen that opened the list). Keep an explicit (empty) category= so the URL actually
+  // changes — pushing/replacing the bare "/products" with a stale ?category= is a no-op in the App
+  // Router, which is why "Tất cả" previously did nothing.
   const switchCategory = (c: string) => {
-    router.push(c ? `/products?category=${encodeURIComponent(c)}` : "/products?category=");
+    router.replace(c ? `/products?category=${encodeURIComponent(c)}` : "/products?category=");
   };
 
   const view = useMemo(() => {
@@ -173,9 +176,7 @@ export function ProductList() {
         style={{ transform: hideBar ? "translateY(-115%)" : "translateY(0)" }}
       >
         <div className="mb-2.5 flex items-center gap-2.5">
-          <button onClick={nav.goHome} className="shrink-0 whitespace-nowrap rounded-xl bg-brand-light px-4 py-2.5 text-lg font-extrabold text-brand-dark">
-            ‹ Trang chủ
-          </button>
+          <KioskNavButtons />
           <div className="flex-1 truncate text-[22px] font-bold text-brand-dark">{title}</div>
         </div>
 

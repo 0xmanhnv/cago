@@ -5,14 +5,13 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
 import { BackBar, Ok, Warn } from "./OwnerShared";
-import { toPoints, type MapZone, type Pt, type StoreMap } from "@/lib/storemap";
+import { COLORS, ICONS, toPoints, type MapZone, type Pt, type StoreMap } from "@/lib/storemap";
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
-const PALETTE = ["#16a34a", "#f59e0b", "#ef4444", "#0ea5e9", "#84cc16", "#a855f7", "#dc2626", "#64748b"];
 
 type Drag =
   | { kind: "zone" | "zoneResize"; i: number; ox: number; oy: number }
-  | { kind: "kiosk" | "entrance" }
+  | { kind: "kiosk" | "entrance" | "stairs" }
   | { kind: "aisle"; i: number }
   | null;
 
@@ -21,23 +20,45 @@ export function StoreMap() {
   const [map, setMap] = useState<StoreMap | null>(null);
   const [groups, setGroups] = useState<string[]>([]);
   const [sel, setSel] = useState<number | null>(null);
+  const [floor, setFloor] = useState("");
   const [aisleMode, setAisleMode] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<React.ReactNode>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<Drag>(null);
+  const floorRef = useRef("");
+  const keyRef = useRef(0);
+  const nk = () => ++keyRef.current;
+  floorRef.current = floor;
 
   useEffect(() => {
-    frappeCall<StoreMap>("cago.api.storemap.get_store_map", {}, { method: "GET" }).then(setMap).catch(() => setMap(null));
+    frappeCall<StoreMap>("cago.api.storemap.get_store_map", {}, { method: "GET" })
+      .then((m) => {
+        // Always have at least one floor so the editor has a context (legacy/empty maps).
+        if (!m.floors.length) {
+          m.floors = [{ label: "Tầng 1", level: 1, stairs: { x: 50, y: 35 } }];
+          m.zones.forEach((z) => (z.floor = z.floor || "Tầng 1"));
+          m.aisle.forEach((p) => (p.floor = p.floor || "Tầng 1"));
+          if (!m.kiosk.floor) m.kiosk.floor = "Tầng 1";
+          if (!m.entrance.floor) m.entrance.floor = "Tầng 1";
+        }
+        m.zones.forEach((z) => (z._k = nk()));
+        m.aisle.forEach((p) => (p._k = nk()));
+        setMap(m);
+        setFloor(m.floors[0].label);
+      })
+      .catch(() => setMap(null));
     frappeCall<{ item_groups: string[] }>("cago.api.owner.get_product_meta", {}, { method: "GET" })
       .then((m) => setGroups(m.item_groups || []))
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toSvg = (e: { clientX: number; clientY: number }): Pt => {
+  // SVG coords from a pointer; null if not laid out (getScreenCTM) so we never write a bogus point.
+  const toSvg = (e: { clientX: number; clientY: number }): Pt | null => {
     const svg = svgRef.current;
     const ctm = svg?.getScreenCTM();
-    if (!svg || !ctm) return { x: 0, y: 0 };
+    if (!svg || !ctm) return null;
     const p = svg.createSVGPoint();
     p.x = e.clientX;
     p.y = e.clientY;
@@ -45,15 +66,15 @@ export function StoreMap() {
     return { x: clamp(r.x, 0, map?.width || 100), y: clamp(r.y, 0, map?.height || 70) };
   };
 
-  // Global pointer move/up so a drag keeps tracking outside the element.
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       const d = drag.current;
       if (!d || !map) return;
       const p = toSvg(e);
+      if (!p) return;
       setMap((m) => {
         if (!m) return m;
-        const next = { ...m, zones: m.zones.map((z) => ({ ...z })), aisle: m.aisle.map((a) => ({ ...a })) };
+        const next: StoreMap = { ...m, zones: m.zones.map((z) => ({ ...z })), aisle: m.aisle.map((a) => ({ ...a })), floors: m.floors.map((f) => ({ ...f, stairs: { ...f.stairs } })) };
         if (d.kind === "zone") {
           next.zones[d.i].x = clamp(p.x - d.ox, 0, m.width - next.zones[d.i].w);
           next.zones[d.i].y = clamp(p.y - d.oy, 0, m.height - next.zones[d.i].h);
@@ -61,11 +82,14 @@ export function StoreMap() {
           next.zones[d.i].w = clamp(p.x - next.zones[d.i].x, 6, m.width - next.zones[d.i].x);
           next.zones[d.i].h = clamp(p.y - next.zones[d.i].y, 5, m.height - next.zones[d.i].y);
         } else if (d.kind === "kiosk") {
-          next.kiosk = p;
+          next.kiosk = { ...next.kiosk, x: p.x, y: p.y };
         } else if (d.kind === "entrance") {
-          next.entrance = p;
+          next.entrance = { ...next.entrance, x: p.x, y: p.y };
+        } else if (d.kind === "stairs") {
+          const fi = next.floors.findIndex((f) => f.label === floorRef.current);
+          if (fi >= 0) next.floors[fi].stairs = { x: p.x, y: p.y };
         } else if (d.kind === "aisle") {
-          next.aisle[d.i] = p;
+          next.aisle[d.i] = { ...next.aisle[d.i], x: p.x, y: p.y };
         }
         return next;
       });
@@ -85,17 +109,53 @@ export function StoreMap() {
   const upd = (patch: Partial<StoreMap>) => setMap((m) => (m ? { ...m, ...patch } : m));
   const updZone = (i: number, patch: Partial<MapZone>) =>
     setMap((m) => (m ? { ...m, zones: m.zones.map((z, j) => (j === i ? { ...z, ...patch } : z)) } : m));
+  const floorObj = map.floors.find((f) => f.label === floor);
+
+  const addFloor = () => {
+    const label = `Tầng ${map.floors.length + 1}`;
+    upd({ floors: [...map.floors, { label, level: map.floors.length + 1, stairs: { x: 50, y: 35 } }] });
+    setFloor(label);
+  };
+  const renameFloor = (oldLabel: string, label: string) => {
+    setMap((m) =>
+      m
+        ? {
+            ...m,
+            floors: m.floors.map((f) => (f.label === oldLabel ? { ...f, label } : f)),
+            zones: m.zones.map((z) => (z.floor === oldLabel ? { ...z, floor: label } : z)),
+            aisle: m.aisle.map((p) => (p.floor === oldLabel ? { ...p, floor: label } : p)),
+            kiosk: m.kiosk.floor === oldLabel ? { ...m.kiosk, floor: label } : m.kiosk,
+            entrance: m.entrance.floor === oldLabel ? { ...m.entrance, floor: label } : m.entrance,
+          }
+        : m,
+    );
+    setFloor(label);
+  };
+  const delFloor = async (label: string) => {
+    if (map.floors.length <= 1) return;
+    if (!(await confirmDialog(`Xoá ${label} và mọi khu/lối đi trên tầng đó?`, { danger: true, confirmLabel: "Xoá" }))) return;
+    const floors = map.floors.filter((f) => f.label !== label);
+    upd({
+      floors,
+      zones: map.zones.filter((z) => z.floor !== label),
+      aisle: map.aisle.filter((p) => p.floor !== label),
+    });
+    setFloor(floors[0].label);
+    setSel(null);
+  };
 
   const addZone = () => {
     const z: MapZone = {
       label: groups[0] || "Khu mới",
+      floor,
       item_group: groups[0] || "",
       x: map.width / 2 - 7,
       y: map.height / 2 - 5,
       w: 14,
       h: 10,
-      color: PALETTE[map.zones.length % PALETTE.length],
+      color: COLORS[map.zones.length % COLORS.length],
       icon: "",
+      _k: nk(),
     };
     upd({ zones: [...map.zones, z] });
     setSel(map.zones.length);
@@ -106,8 +166,10 @@ export function StoreMap() {
   };
 
   const onCanvasClick = (e: React.PointerEvent) => {
-    if (!aisleMode) return; // only add aisle points in aisle mode
-    upd({ aisle: [...map.aisle, toSvg(e)] });
+    if (!aisleMode) return;
+    const p = toSvg(e);
+    if (!p) return;
+    upd({ aisle: [...map.aisle, { ...p, floor, _k: nk() }] });
   };
 
   const save = async () => {
@@ -125,10 +187,25 @@ export function StoreMap() {
   };
 
   const selZone = sel != null ? map.zones[sel] : null;
+  const aislePts = map.aisle.filter((p) => p.floor === floor);
 
   return (
     <div>
       <BackBar onBack={() => router.push("/owner")} title="SƠ ĐỒ CỬA HÀNG" />
+
+      {/* floor tabs */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        {map.floors.map((f) => (
+          <button
+            key={f.label}
+            onClick={() => { setFloor(f.label); setSel(null); }}
+            className={`rounded-lg px-3 py-2 font-bold ${f.label === floor ? "bg-brand text-white" : "bg-slate-200 text-slate-700"}`}
+          >
+            {f.label}
+          </button>
+        ))}
+        <button onClick={addFloor} className="rounded-lg border-2 border-dashed border-slate-300 px-3 py-2 font-bold text-slate-500">➕ Tầng</button>
+      </div>
 
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <button onClick={addZone} className="rounded-lg bg-brand px-3 py-2 font-bold text-white">➕ Thêm khu</button>
@@ -138,8 +215,8 @@ export function StoreMap() {
         >
           🛤 {aisleMode ? "Đang vẽ lối đi (chạm để thêm điểm)" : "Vẽ lối đi"}
         </button>
-        {map.aisle.length > 0 && (
-          <button onClick={() => upd({ aisle: [] })} className="rounded-lg bg-slate-200 px-3 py-2 font-bold text-slate-700">Xoá lối đi</button>
+        {aislePts.length > 0 && (
+          <button onClick={() => upd({ aisle: map.aisle.filter((p) => p.floor !== floor) })} className="rounded-lg bg-slate-200 px-3 py-2 font-bold text-slate-700">Xoá lối đi tầng này</button>
         )}
         <label className="ml-auto flex items-center gap-2 font-bold text-slate-700">
           <input type="checkbox" checked={map.published} onChange={(e) => upd({ published: e.target.checked })} className="h-5 w-5" />
@@ -147,8 +224,14 @@ export function StoreMap() {
         </label>
       </div>
 
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+        <button onClick={() => upd({ kiosk: { floor, x: 50, y: map.height - 8 } })} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">📍 Đặt kiosk ở {floor}</button>
+        <button onClick={() => upd({ entrance: { floor, x: 50, y: map.height - 4 } })} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">🚪 Đặt cửa ở {floor}</button>
+        <span className="text-slate-400">📍 kiosk: {map.kiosk.floor || "—"} · 🚪 cửa: {map.entrance.floor || "—"}</span>
+      </div>
+
       <p className="mb-2 text-sm text-slate-500">
-        Kéo các khối để di chuyển, kéo góc ↘ để chỉnh kích thước. Kéo 📍 (chỗ đặt kiosk) và 🚪 (cửa vào) cho đúng vị trí thật.
+        Kéo khối để di chuyển, kéo góc ↘ để chỉnh kích thước. Kéo 🪜 (cầu thang) cho khớp vị trí thật trên mỗi tầng.
       </p>
 
       <svg
@@ -158,29 +241,19 @@ export function StoreMap() {
         className="w-full touch-none rounded-xl border-2 border-slate-300 bg-slate-50"
         style={{ aspectRatio: `${map.width} / ${map.height}` }}
       >
-        {/* aisle */}
-        {map.aisle.length >= 2 && <polyline points={toPoints(map.aisle)} fill="none" stroke="#cbd5e1" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />}
-        {map.aisle.map((p, i) => (
-          <circle
-            key={i}
-            cx={p.x}
-            cy={p.y}
-            r={1.6}
-            fill="#f59e0b"
-            className="cursor-move"
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              drag.current = { kind: "aisle", i };
-            }}
-          />
-        ))}
+        {aislePts.length >= 2 && <polyline points={toPoints(aislePts)} fill="none" stroke="#cbd5e1" strokeWidth={3} strokeLinejoin="round" strokeLinecap="round" />}
+        {map.aisle.map((p, i) =>
+          p.floor !== floor ? null : (
+            <circle key={p._k ?? i} cx={p.x} cy={p.y} r={1.6} fill="#f59e0b" className="cursor-move" onPointerDown={(e) => { e.stopPropagation(); drag.current = { kind: "aisle", i }; }} />
+          ),
+        )}
 
-        {/* zones */}
         {map.zones.map((z, i) => {
+          if (z.floor !== floor) return null;
           const cx = z.x + z.w / 2;
           const cy = z.y + z.h / 2;
           return (
-            <g key={i}>
+            <g key={z._k ?? i}>
               <rect
                 x={z.x}
                 y={z.y}
@@ -193,9 +266,11 @@ export function StoreMap() {
                 strokeWidth={sel === i ? 0.8 : 0.4}
                 className="cursor-move"
                 onPointerDown={(e) => {
+                  if (aisleMode) return;
                   e.stopPropagation();
                   setSel(i);
                   const p = toSvg(e);
+                  if (!p) return;
                   drag.current = { kind: "zone", i, ox: p.x - z.x, oy: p.y - z.y };
                 }}
               />
@@ -203,7 +278,6 @@ export function StoreMap() {
                 {z.icon ? `${z.icon} ` : ""}
                 {z.label}
               </text>
-              {/* resize handle */}
               <rect
                 x={z.x + z.w - 2}
                 y={z.y + z.h - 2}
@@ -211,38 +285,51 @@ export function StoreMap() {
                 height={2.4}
                 fill="#0f172a"
                 className="cursor-nwse-resize"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  setSel(i);
-                  drag.current = { kind: "zoneResize", i, ox: 0, oy: 0 };
-                }}
+                onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); setSel(i); drag.current = { kind: "zoneResize", i, ox: 0, oy: 0 }; }}
               />
             </g>
           );
         })}
 
-        {/* entrance + kiosk pins */}
-        <g
-          className="cursor-move"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            drag.current = { kind: "entrance" };
-          }}
-        >
-          <circle cx={map.entrance.x} cy={map.entrance.y} r={3} fill="#0ea5e9" stroke="white" strokeWidth={0.6} />
-          <text x={map.entrance.x} y={map.entrance.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} pointerEvents="none">🚪</text>
-        </g>
-        <g
-          className="cursor-move"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            drag.current = { kind: "kiosk" };
-          }}
-        >
-          <circle cx={map.kiosk.x} cy={map.kiosk.y} r={3} fill="#16a34a" stroke="white" strokeWidth={0.6} />
-          <text x={map.kiosk.x} y={map.kiosk.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} pointerEvents="none">📍</text>
-        </g>
+        {/* stairs (per floor) */}
+        {floorObj && (
+          <g className="cursor-move" onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); drag.current = { kind: "stairs" }; }}>
+            <circle cx={floorObj.stairs.x} cy={floorObj.stairs.y} r={3} fill="#7c3aed" stroke="white" strokeWidth={0.6} />
+            <text x={floorObj.stairs.x} y={floorObj.stairs.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} pointerEvents="none">🪜</text>
+          </g>
+        )}
+        {/* entrance + kiosk pins (only on their floor) */}
+        {map.entrance.floor === floor && (
+          <g className="cursor-move" onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); drag.current = { kind: "entrance" }; }}>
+            <circle cx={map.entrance.x} cy={map.entrance.y} r={3} fill="#0ea5e9" stroke="white" strokeWidth={0.6} />
+            <text x={map.entrance.x} y={map.entrance.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} pointerEvents="none">🚪</text>
+          </g>
+        )}
+        {map.kiosk.floor === floor && (
+          <g className="cursor-move" onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); drag.current = { kind: "kiosk" }; }}>
+            <circle cx={map.kiosk.x} cy={map.kiosk.y} r={3} fill="#16a34a" stroke="white" strokeWidth={0.6} />
+            <text x={map.kiosk.x} y={map.kiosk.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} pointerEvents="none">📍</text>
+          </g>
+        )}
       </svg>
+
+      {/* floor settings */}
+      {floorObj && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-bold text-slate-600">Tầng:</span>
+          <input value={floorObj.label} onChange={(e) => renameFloor(floorObj.label, e.target.value)} className="w-32 rounded-lg border-2 border-emerald-300 p-1.5" />
+          <span className="font-bold text-slate-600">Cao độ</span>
+          <input
+            type="number"
+            value={floorObj.level}
+            onChange={(e) => upd({ floors: map.floors.map((f) => (f.label === floor ? { ...f, level: parseInt(e.target.value, 10) || 0 } : f)) })}
+            className="w-16 rounded-lg border-2 border-emerald-300 p-1.5 text-center"
+          />
+          {map.floors.length > 1 && (
+            <button onClick={() => delFloor(floorObj.label)} className="rounded-lg border-2 border-red-300 px-2.5 py-1.5 font-bold text-red-600">🗑 Xoá tầng</button>
+          )}
+        </div>
+      )}
 
       {/* selected-zone editor */}
       {selZone && (
@@ -256,18 +343,26 @@ export function StoreMap() {
               <option key={g}>{g}</option>
             ))}
           </select>
-          <div className="mb-2 flex items-center gap-2">
-            <input value={selZone.icon} onChange={(e) => updZone(sel!, { icon: e.target.value })} placeholder="🐔" className="w-16 rounded-lg border-2 border-emerald-300 p-2 text-center" />
-            <div className="flex flex-wrap gap-1.5">
-              {PALETTE.map((c) => (
-                <button key={c} onClick={() => updZone(sel!, { color: c })} style={{ background: c }} className={`h-7 w-7 rounded-full ${selZone.color === c ? "ring-2 ring-slate-800 ring-offset-2" : ""}`} />
-              ))}
-            </div>
+
+          <label className="block text-sm font-bold text-slate-600">Biểu tượng</label>
+          <div className="mb-2 mt-1 flex flex-wrap gap-1.5">
+            <button onClick={() => updZone(sel!, { icon: "" })} className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 text-sm ${!selZone.icon ? "border-slate-800 bg-slate-100" : "border-slate-200"}`}>✕</button>
+            {ICONS.map((ic) => (
+              <button key={ic} onClick={() => updZone(sel!, { icon: ic })} className={`flex h-9 w-9 items-center justify-center rounded-lg border-2 text-lg ${selZone.icon === ic ? "border-slate-800 bg-slate-100" : "border-slate-200"}`}>
+                {ic}
+              </button>
+            ))}
           </div>
+
+          <label className="block text-sm font-bold text-slate-600">Màu</label>
+          <div className="mb-2 mt-1 flex flex-wrap gap-1.5">
+            {COLORS.map((c) => (
+              <button key={c} onClick={() => updZone(sel!, { color: c })} style={{ background: c }} className={`h-7 w-7 rounded-full ${selZone.color === c ? "ring-2 ring-slate-800 ring-offset-2" : ""}`} />
+            ))}
+          </div>
+
           <button
-            onClick={async () => {
-              if (await confirmDialog(`Xoá khu "${selZone.label}"?`, { danger: true, confirmLabel: "Xoá" })) delZone(sel!);
-            }}
+            onClick={async () => { if (await confirmDialog(`Xoá khu "${selZone.label}"?`, { danger: true, confirmLabel: "Xoá" })) delZone(sel!); }}
             className="rounded-lg border-2 border-red-300 px-3 py-2 font-bold text-red-600"
           >
             🗑 Xoá khu

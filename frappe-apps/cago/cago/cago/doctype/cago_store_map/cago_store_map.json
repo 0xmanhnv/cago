@@ -9,10 +9,14 @@
   "section_size",
   "width",
   "height",
+  "section_floors",
+  "floors",
   "section_points",
+  "kiosk_floor",
   "kiosk_x",
   "kiosk_y",
   "column_break_points",
+  "entrance_floor",
   "entrance_x",
   "entrance_y",
   "section_zones",
@@ -45,9 +49,25 @@
    "default": "70"
   },
   {
+   "fieldname": "section_floors",
+   "fieldtype": "Section Break",
+   "label": "Tầng"
+  },
+  {
+   "fieldname": "floors",
+   "fieldtype": "Table",
+   "label": "Các tầng",
+   "options": "Cago Map Floor"
+  },
+  {
    "fieldname": "section_points",
    "fieldtype": "Section Break",
    "label": "Điểm xuất phát"
+  },
+  {
+   "fieldname": "kiosk_floor",
+   "fieldtype": "Data",
+   "label": "Kiosk ở tầng"
   },
   {
    "fieldname": "kiosk_x",
@@ -59,11 +79,16 @@
    "fieldname": "kiosk_y",
    "fieldtype": "Float",
    "label": "Kiosk Y",
-   "default": "90"
+   "default": "60"
   },
   {
    "fieldname": "column_break_points",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "entrance_floor",
+   "fieldtype": "Data",
+   "label": "Cửa vào ở tầng"
   },
   {
    "fieldname": "entrance_x",
@@ -75,7 +100,7 @@
    "fieldname": "entrance_y",
    "fieldtype": "Float",
    "label": "Cửa vào Y",
-   "default": "98"
+   "default": "68"
   },
   {
    "fieldname": "section_zones",

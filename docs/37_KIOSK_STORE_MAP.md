@@ -83,10 +83,32 @@ Vào từ tile mới ở `OwnerHome`.
 Cache `get_store_map` + thêm `/map` vào danh sách cache của service worker.
 
 ## Phân kỳ
-- **Phase 1 (MVP — bản này):** 3 DocType + API get/save + editor kéo–thả + view kiosk
-  (highlight + tuyến theo lối đi + chỉ dẫn chữ) + seed 1 map mẫu cho cửa hàng demo.
-- **Phase 2:** ghi đè vị trí theo từng SP, ảnh nền sơ đồ vẽ tay, đồ thị waypoint (nhiều dãy),
-  chấm "đi bộ" mượt hơn, nhiều khu/1 danh mục.
+- **Phase 1 (MVP):** 3 DocType + API get/save + editor kéo–thả + view kiosk + seed 1 map.
+- **Phase 2 (2026-06-02):** đa tầng + UX editor (16 màu + lưới icon) + điều hướng (bản này).
+- **Sau này:** ghi đè vị trí theo từng SP, ảnh nền sơ đồ vẽ tay, đồ thị waypoint nhiều nhánh.
+
+## Phase 2 — Đa tầng + UX (đã làm)
+Cửa hàng thật **2 tầng** (Tầng 1 + Tầng hầm), mỗi tầng có **dãy** 2 bên một **lối đi giữa**,
+**cầu thang** nối tầng, **cửa** ở Tầng 1.
+- **`Cago Map Floor`** (con): `label`, `level` (số lớn = tầng trên), `stairs_x/_y`. Zone + Aisle
+  thêm field `floor`. Store Map thêm `floors` + `kiosk_floor` + `entrance_floor`. Dùng chung canvas.
+- **`planRoute` xuyên tầng**: cùng tầng → start→lối đi→khu. Khác tầng → start→🪜 (tầng xuất phát),
+  rồi 🪜→khu (tầng đích) + câu "Đi tới cầu thang, **xuống/lên** {tầng}…" (suy từ `level`).
+- **Editor**: tab tầng, thêm/xoá/đổi tên + cao độ, 🪜 kéo được mỗi tầng, nút đặt kiosk/cửa ở tầng;
+  **16 màu** + **lưới chọn icon emoji** (bấm, không gõ); khoá kéo khi vẽ lối đi; key ổn định;
+  chặn ghi điểm (0,0) khi CTM null; giữ khu dù xoá nhãn (placeholder).
+- **Kiosk**: tab tầng (đích gắn 🎯), chỉ vẽ tầng đang xem; báo "khu chưa đánh dấu"; seed demo 2 tầng.
+
+## Điều hướng kiosk — "Back vs Home" (component `KioskNavButtons`)
+Hai ý định tách bạch, **luôn hiện cùng lúc** mọi màn:
+- **‹ Quay lại**: lùi đúng màn trước (history-aware `useKioskNav.goBack`, cờ `cago_nav`; fallback khi
+  vào sâu trực tiếp). Sửa edge-case: map → danh mục → Quay lại → **về map** (trước phải về trang chủ).
+- **🏠 Trang chủ**: về đầu 1 chạm (khách lạc/mới). Chip đổi danh mục dùng `router.replace` (không
+  chất đống history). Áp dụng: ProductList, ProductDetail, Map, Cart, MyDebt.
+
+## Lưới "Cần giúp đỡ?" — chống thẻ lẻ
+Cột theo số thẻ: ≤3 → 1 hàng (cols=count, vd 3→hàng 3); 4 → 2×2; ≥5 → mỗi hàng 3 (5→3+2). Hết cảnh
+3 thẻ rớt 1 cái xuống dưới.
 
 ## Rủi ro & giảm thiểu
 - Chủ không duy trì → mức danh mục (ổn định, ~8 khối) + tùy chọn + sửa nhanh.

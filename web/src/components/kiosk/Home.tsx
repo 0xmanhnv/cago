@@ -84,16 +84,20 @@ export function Home() {
       </div>
 
       <SectionTitle className="mt-7">💬 Cần giúp đỡ?</SectionTitle>
-      <div className="grid grid-cols-2 gap-4">
-        <HelpCard onClick={nav.openChat} icon="🤖" title="Hỏi trợ lý" from="from-violet-500" to="to-violet-700" />
-        <HelpCard onClick={kiosk.openCallStaff} icon="🔔" title="Gọi người bán" from="from-rose-500" to="to-red-600" />
-        {boot?.store_map && (
-          <HelpCard onClick={nav.openMap} icon="🗺" title="Sơ đồ cửa hàng" from="from-teal-500" to="to-emerald-700" />
-        )}
-        {boot?.kiosk_debt_visible && (
-          <HelpCard onClick={nav.openMyDebt} icon="📒" title="Công nợ của tôi" from="from-amber-400" to="to-harvest-dark" />
-        )}
-      </div>
+      {(() => {
+        // Only the cards that actually apply (store map + debt are optional).
+        const cards = [
+          <HelpCard key="chat" onClick={nav.openChat} icon="🤖" title="Hỏi trợ lý" from="from-violet-500" to="to-violet-700" />,
+          <HelpCard key="staff" onClick={kiosk.openCallStaff} icon="🔔" title="Gọi người bán" from="from-rose-500" to="to-red-600" />,
+          boot?.store_map ? <HelpCard key="map" onClick={nav.openMap} icon="🗺" title="Sơ đồ cửa hàng" from="from-teal-500" to="to-emerald-700" /> : null,
+          boot?.kiosk_debt_visible ? <HelpCard key="debt" onClick={nav.openMyDebt} icon="📒" title="Công nợ của tôi" from="from-amber-400" to="to-harvest-dark" /> : null,
+        ].filter(Boolean);
+        // Strategy: fill ONE row when ≤3 (cols = count, so no lonely leftover); 4 → a tidy 2×2;
+        // ≥5 → rows of 3. Keeps cards balanced whatever the optional ones add up to.
+        const n = cards.length;
+        const cols = n <= 1 ? "grid-cols-1" : n === 2 || n === 4 ? "grid-cols-2" : "grid-cols-3";
+        return <div className={`grid ${cols} gap-4`}>{cards}</div>;
+      })()}
     </div>
   );
 }

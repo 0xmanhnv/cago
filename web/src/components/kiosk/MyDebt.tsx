@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { useKioskNav } from "@/lib/kioskNav";
+import { KioskNavButtons } from "./KioskNavButtons";
 import { normalizePhone, validPhone } from "@/lib/kioskUi";
 
 export function MyDebt() {
@@ -89,9 +90,7 @@ export function MyDebt() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <button onClick={nav.goHome} className="shrink-0 whitespace-nowrap rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark">
-          ‹ Trang chủ
-        </button>
+        <KioskNavButtons />
         <div className="flex-1 text-[22px] font-bold text-brand-dark">Công nợ của tôi</div>
       </div>
 
