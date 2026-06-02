@@ -20,11 +20,21 @@ export function BackBar({ onBack, title, label = "Trang chủ" }: { onBack: () =
   );
 }
 
+// Inline alert banners (used app-wide). Soft tinted fill + a thin border with a left accent bar,
+// rounded + a subtle shadow, and a gentle entrance — modern but calm.
 export function Warn({ children }: { children: React.ReactNode }) {
-  return <div className="mt-3 rounded-lg border border-amber-400 bg-amber-100 p-3 text-amber-900">{children}</div>;
+  return (
+    <div className="animate-rise-in mt-3 rounded-2xl border border-amber-200 border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 font-medium text-amber-900 shadow-sm">
+      {children}
+    </div>
+  );
 }
 export function Ok({ children }: { children: React.ReactNode }) {
-  return <div className="mt-3 rounded-lg border border-emerald-400 bg-emerald-100 p-3 text-emerald-900">{children}</div>;
+  return (
+    <div className="animate-rise-in mt-3 rounded-2xl border border-emerald-200 border-l-4 border-l-emerald-500 bg-emerald-50 px-4 py-3 font-medium text-emerald-800 shadow-sm">
+      {children}
+    </div>
+  );
 }
 
 export function DraftModal({ text, onClose }: { text: string; onClose: () => void }) {
