@@ -190,7 +190,6 @@ export function Checkout() {
   const [lines, setLines] = useState<Record<string, Line>>({});
   const [meta, setMeta] = useState<Record<string, Meta>>({});
   const [cust, setCust] = useState<Cust | null>(null); // null = Khách lẻ
-  const [showCust, setShowCust] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<SaleResult | null>(null);
   const [qr, setQr] = useState<string | null>(null);
@@ -833,20 +832,8 @@ export function Checkout() {
         </div>
       )}
 
-      {/* Customer bar */}
-      <button
-        onClick={() => setShowCust((v) => !v)}
-        className="mb-2.5 flex w-full items-center justify-between rounded-xl border-2 border-slate-200 bg-white p-3 text-left"
-      >
-        <span className="font-bold">
-          👤 {cust ? cust.customer_name : "Khách lẻ"}
-          {cust?.outstanding_text && cust.outstanding_text !== "Không nợ" && (
-            <span className="ml-2 text-sm font-bold text-red-600">(đang nợ {cust.outstanding_text})</span>
-          )}
-        </span>
-        <span className="text-2xl leading-none text-slate-400">{showCust ? "▲" : "▼"}</span>
-      </button>
-      {showCust && <CustomerPicker onPick={(c) => { setCust(c); setShowCust(false); }} onWalkIn={() => { setCust(null); setShowCust(false); }} />}
+      {/* Customer is chosen inside the payment panel (with the cart + ghi nợ), so the sell screen
+          stays focused on finding products — no duplicate customer control up here. */}
 
       {/* Sticky headroom bar: search + barcode + category chips stay reachable while scrolling
           (hide on scroll-down, reveal on scroll-up) so staff needn't scroll to the top. */}
