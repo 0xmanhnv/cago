@@ -110,11 +110,54 @@ function segHitsRect(a: Pt, b: Pt, r: Rect): boolean {
 
 const visible = (a: Pt, b: Pt, obs: Rect[]) => !obs.some((r) => segHitsRect(a, b, r));
 
-/** Shortest walkable route from `start` to `target` that goes AROUND the zone boxes (obstacles)
- * through the open gaps — a visibility graph over the boxes' (expanded) corners + Dijkstra. The
- * zone the start/target sits in is NOT an obstacle (you must leave/enter it). Straight line when
- * the way is already clear; falls back to straight if no path is found. */
-export function routeOnFloor(zones: Rect[], start: Pt, target: Pt): Pt[] {
+// --- aisle (lối đi) projection: hug a drawn walkway ---
+const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
+
+function projectOnSeg(p: Pt, a: Pt, b: Pt): { pt: Pt; t: number; d: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 === 0 ? 0 : ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const pt = { x: a.x + t * dx, y: a.y + t * dy };
+  return { pt, t, d: dist(p, pt) };
+}
+
+function arcLengths(poly: Pt[]): number[] {
+  const out = [0];
+  for (let i = 1; i < poly.length; i++) out.push(out[i - 1] + dist(poly[i - 1], poly[i]));
+  return out;
+}
+
+function nearestOnPolyline(poly: Pt[], p: Pt): { pt: Pt; s: number } {
+  const arc = arcLengths(poly);
+  let best = { pt: poly[0], s: 0, d: Infinity };
+  for (let i = 0; i < poly.length - 1; i++) {
+    const pr = projectOnSeg(p, poly[i], poly[i + 1]);
+    if (pr.d < best.d) best = { pt: pr.pt, s: arc[i] + pr.t * (arc[i + 1] - arc[i]), d: pr.d };
+  }
+  return { pt: best.pt, s: best.s };
+}
+
+/** Route to a zone. If the owner drew a lối đi (aisle), HUG it: start → nearest point on the aisle →
+ * along the aisle to the point nearest the target → target — a customer expects to walk the walkway.
+ * With no aisle, fall back to the shortest path that goes AROUND the zone boxes. */
+export function routeOnFloor(zones: Rect[], aisle: Pt[], start: Pt, target: Pt): Pt[] {
+  if (aisle && aisle.length >= 2) {
+    const arc = arcLengths(aisle);
+    const a = nearestOnPolyline(aisle, start);
+    const b = nearestOnPolyline(aisle, target);
+    const mids: Pt[] = [];
+    for (let i = 0; i < aisle.length; i++) if (arc[i] > Math.min(a.s, b.s) && arc[i] < Math.max(a.s, b.s)) mids.push(aisle[i]);
+    if (a.s > b.s) mids.reverse();
+    return dedupe([start, a.pt, ...mids, b.pt, target]);
+  }
+  return routeAround(zones, start, target);
+}
+
+/** Shortest walkable route that goes AROUND the zone boxes (visibility graph + Dijkstra over the
+ * boxes' expanded corners). Used when no aisle is drawn. The start/target's own zone isn't a wall. */
+function routeAround(zones: Rect[], start: Pt, target: Pt): Pt[] {
   const obs = zones.filter((z) => !inRect(start, z) && !inRect(target, z));
   if (visible(start, target, obs)) return dedupe([start, target]);
   const nodes: Pt[] = [start, target];
@@ -166,9 +209,13 @@ export interface RoutePlan {
   instruction: string;
 }
 
-// Zone boxes on a floor, as obstacles for the router.
+// Zone boxes on a floor, as obstacles for the no-aisle fallback router.
 const zonesOnFloor = (map: StoreMap, floor: string): Rect[] =>
   (map.floors.length ? map.zones.filter((z) => z.floor === floor) : map.zones).map((z) => ({ x: z.x, y: z.y, w: z.w, h: z.h }));
+
+// The drawn aisle (lối đi) points on a floor.
+const floorAisle = (map: StoreMap, floor: string): Pt[] =>
+  map.floors.length ? map.aisle.filter((p) => p.floor === floor) : map.aisle;
 
 /**
  * Plan a route to a zone, possibly across floors:
@@ -182,7 +229,7 @@ export function planRoute(map: StoreMap, zone: MapZone, start: Pt, startFloor: s
   const name = `${zone.icon ? zone.icon + " " : ""}${zone.label}`;
 
   if (!map.floors.length || tFloor === startFloor) {
-    const route = routeOnFloor(zonesOnFloor(map, tFloor), start, target);
+    const route = routeOnFloor(zonesOnFloor(map, tFloor), floorAisle(map, tFloor), start, target);
     return { legs: [{ floor: tFloor, route, toStairs: false }], targetFloor: tFloor, crossFloor: false, instruction: routeHint(zone, start) };
   }
 
@@ -190,8 +237,8 @@ export function planRoute(map: StoreMap, zone: MapZone, start: Pt, startFloor: s
   const tf = map.floors.find((f) => f.label === tFloor);
   const stairsStart = sf?.stairs || start;
   const stairsTarget = tf?.stairs || target;
-  const leg1 = routeOnFloor(zonesOnFloor(map, startFloor), start, stairsStart);
-  const leg2 = routeOnFloor(zonesOnFloor(map, tFloor), stairsTarget, target);
+  const leg1 = routeOnFloor(zonesOnFloor(map, startFloor), floorAisle(map, startFloor), start, stairsStart);
+  const leg2 = routeOnFloor(zonesOnFloor(map, tFloor), floorAisle(map, tFloor), stairsTarget, target);
   const tl = tf?.level ?? 0;
   const sl = sf?.level ?? 0;
   const dir = tl < sl ? `xuống ${tFloor}` : tl > sl ? `lên ${tFloor}` : `sang ${tFloor}`;
