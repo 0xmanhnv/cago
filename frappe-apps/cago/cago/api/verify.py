@@ -100,6 +100,28 @@ def set_staff_collect_debt(on):
 	return {"enabled": bool(val)}
 
 
+@frappe.whitelist()
+def get_loyalty():
+	"""Owner: the loyalty rates currently in effect (resolved value, incl. defaults)."""
+	ensure_cap("settings")
+	from cago.loyalty import _per_point, redeem_value
+
+	return {"earn_vnd": int(_per_point()), "redeem_vnd": int(redeem_value())}
+
+
+@frappe.whitelist()
+def set_loyalty(earn_vnd=None, redeem_vnd=None):
+	"""Owner: set loyalty rates (đồng per point earned / per point redeemed). 0/empty = keep default."""
+	ensure_cap("settings")
+	company = debt._company()
+	if earn_vnd is not None:
+		frappe.db.set_value("Company", company, "cago_loyalty_earn_vnd", max(0, cint(earn_vnd)))
+	if redeem_vnd is not None:
+		frappe.db.set_value("Company", company, "cago_loyalty_redeem_vnd", max(0, cint(redeem_vnd)))
+	frappe.db.commit()
+	return get_loyalty()
+
+
 def _owes(customer):
 	# Company-scoped to match sales._customer_outstanding — a multi-company site must not sum a
 	# customer's receivables across companies in the kiosk debt lookup.

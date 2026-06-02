@@ -300,6 +300,20 @@ def ensure_payment_fields():
 					"insert_after": "cago_allow_price_edit",
 					"description": "Bật: nhân viên được ghi 'Khách trả nợ' (tiền vào sổ quỹ ca, ghi rõ người thu). Tắt: chỉ chủ thu nợ.",
 				},
+				{
+					"fieldname": "cago_loyalty_earn_vnd",
+					"label": "Tích điểm: bao nhiêu đồng = 1 điểm",
+					"fieldtype": "Int",
+					"insert_after": "cago_staff_can_collect_debt",
+					"description": "Khách mua bao nhiêu đồng thì được 1 điểm (mặc định 10.000đ = 1 điểm). 0 = dùng mặc định.",
+				},
+				{
+					"fieldname": "cago_loyalty_redeem_vnd",
+					"label": "Đổi điểm: 1 điểm trừ được bao nhiêu đồng",
+					"fieldtype": "Int",
+					"insert_after": "cago_loyalty_earn_vnd",
+					"description": "Khi khách dùng điểm tại quầy, 1 điểm trừ bao nhiêu đồng (mặc định 1.000đ). 0 = dùng mặc định.",
+				},
 			],
 			"Payment Entry": [
 				{

@@ -18,7 +18,21 @@ def _is_walkin(customer):
 	return frappe.db.get_value("Customer", customer, "customer_name") == WALKIN_NAME
 
 
+def _company_rate(field):
+	"""Owner-set loyalty rate from the Company (Settings screen), or 0 if unset."""
+	try:
+		from cago.api import debt
+
+		return flt(frappe.db.get_value("Company", debt._company(), field))
+	except Exception:
+		return 0
+
+
 def _per_point():
+	"""Đồng spent per 1 point EARNED. Owner setting (Company) wins; else env/site_config; else 10.000đ."""
+	owner = _company_rate("cago_loyalty_earn_vnd")
+	if owner > 0:
+		return owner
 	from cago.chatbot.config import _get
 
 	return flt(_get("CAGO_LOYALTY_VND_PER_POINT", "cago_loyalty_vnd_per_point", 10000)) or 10000
@@ -26,7 +40,11 @@ def _per_point():
 
 def redeem_value():
 	"""Đồng per point when a customer SPENDS points at the till (default 1.000đ/điểm) — separate
-	from the accrual rate so redeeming isn't 100% cashback. Configurable via site_config."""
+	from the accrual rate so redeeming isn't 100% cashback. Owner setting (Company) wins, then
+	env/site_config, then the default."""
+	owner = _company_rate("cago_loyalty_redeem_vnd")
+	if owner > 0:
+		return owner
 	from cago.chatbot.config import _get
 
 	return flt(_get("CAGO_LOYALTY_REDEEM_VND_PER_POINT", "cago_loyalty_redeem_vnd_per_point", 1000)) or 1000
