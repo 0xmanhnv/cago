@@ -4,20 +4,35 @@ import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useKiosk } from "@/store/kiosk";
 
-// Marker: did the customer navigate WITHIN the kiosk this session? If so, "Quay lại" can safely
-// pop history (returns to wherever they actually came from — map, a list, the assistant…). On a
-// fresh/deep-linked screen there's no in-app history, so back uses an explicit fallback instead
-// of dropping out of the app.
-const mark = () => {
+// How many in-app steps deep from the home screen the customer currently is. Used to decide
+// whether "Quay lại" is redundant with "Trang chủ" (depth ≤ 1 → back IS home → show one button;
+// depth ≥ 2 → show both). Self-heals to 0 whenever they reach home, so a stray phone gesture-back
+// can't desync it for long.
+const DEPTH = "cago_depth";
+const NAV = "cago_nav";
+const get = (k: string) => {
   try {
-    sessionStorage.setItem("cago_nav", "1");
+    return parseInt(sessionStorage.getItem(k) || "0", 10) || 0;
+  } catch {
+    return 0;
+  }
+};
+const set = (k: string, v: string) => {
+  try {
+    sessionStorage.setItem(k, v);
   } catch {
     /* ignore */
   }
 };
+const bump = () => {
+  set(NAV, "1");
+  set(DEPTH, String(get(DEPTH) + 1));
+};
+export const navDepth = () => get(DEPTH);
+export const resetKioskDepth = () => set(DEPTH, "0");
 const canPop = () => {
   try {
-    return sessionStorage.getItem("cago_nav") === "1" && window.history.length > 1;
+    return sessionStorage.getItem(NAV) === "1" && window.history.length > 1;
   } catch {
     return false;
   }
@@ -28,11 +43,14 @@ export function useKioskNav() {
   const router = useRouter();
   const kiosk = useKiosk();
 
-  const goHome = useCallback(() => router.push("/"), [router]);
+  const goHome = useCallback(() => {
+    resetKioskDepth();
+    router.push("/");
+  }, [router]);
 
   const openList = useCallback(
     (category?: string, query?: string) => {
-      mark();
+      bump();
       const sp = new URLSearchParams();
       if (category) sp.set("category", category);
       if (query) sp.set("q", query);
@@ -44,39 +62,43 @@ export function useKioskNav() {
 
   const openDetail = useCallback(
     (code: string) => {
-      mark();
+      bump();
       router.push(`/products/${encodeURIComponent(code)}`);
     },
     [router],
   );
 
   const openCart = useCallback(() => {
-    mark();
+    bump();
     router.push("/cart");
   }, [router]);
 
   const openChat = useCallback(() => {
-    mark();
+    bump();
     kiosk.ensureFreshSession();
     router.push("/assistant");
   }, [kiosk, router]);
 
   const openMyDebt = useCallback(() => {
-    mark();
+    bump();
     router.push("/my-debt");
   }, [router]);
 
   const openMap = useCallback(() => {
-    mark();
+    bump();
     router.push("/map");
   }, [router]);
 
-  // Return to the previous in-app screen; fall back to `fallback` (default home) on a fresh entry.
+  // Pop one screen; fall back to `fallback` (default home) on a fresh entry with no in-app history.
   const goBack = useCallback(
     (fallback?: () => void) => {
+      set(DEPTH, String(Math.max(0, get(DEPTH) - 1)));
       if (canPop()) router.back();
       else if (fallback) fallback();
-      else router.push("/");
+      else {
+        resetKioskDepth();
+        router.push("/");
+      }
     },
     [router],
   );

@@ -1,28 +1,33 @@
 "use client";
 
-import { useKioskNav } from "@/lib/kioskNav";
+import { useState } from "react";
+import { navDepth, useKioskNav } from "@/lib/kioskNav";
 
 /**
- * Two always-present kiosk controls, side by side, same place on every screen:
- *  - "‹ Quay lại": history-aware back (returns to the actual previous screen — map, a list, chat…).
- *  - "🏠 Trang chủ": one-tap escape hatch to the start (for a lost or new customer).
- * Pass `onBack` to override the back target (e.g. a product detail falling back to its category).
+ * Kiosk navigation controls, same place on every screen, but only as many as are useful:
+ *  - Shallow (≤1 step from home → "Quay lại" would just go home): a single "‹ Trang chủ".
+ *  - Deep (≥2 steps in → back ≠ home): both "‹ Quay lại" (one step) AND "🏠" (straight home).
+ * Pass `onBack` to override the back target (e.g. a product detail's category fallback).
  */
 export function KioskNavButtons({ onBack }: { onBack?: () => void }) {
   const nav = useKioskNav();
+  // Lazy init reads depth on first client render → correct immediately, no shallow→deep flash.
+  const [deep] = useState(() => (typeof window === "undefined" ? false : navDepth() >= 2));
+  const btn = "whitespace-nowrap rounded-xl bg-brand-light px-4 py-2.5 text-lg font-extrabold text-brand-dark";
+
+  if (!deep) {
+    return (
+      <button onClick={nav.goHome} className={`shrink-0 ${btn}`}>
+        ‹ Trang chủ
+      </button>
+    );
+  }
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <button
-        onClick={() => (onBack ? onBack() : nav.goBack(nav.goHome))}
-        className="whitespace-nowrap rounded-xl bg-brand-light px-4 py-2.5 text-lg font-extrabold text-brand-dark"
-      >
+      <button onClick={() => (onBack ? onBack() : nav.goBack(nav.goHome))} className={btn}>
         ‹ Quay lại
       </button>
-      <button
-        onClick={nav.goHome}
-        aria-label="Trang chủ"
-        className="whitespace-nowrap rounded-xl bg-brand-light px-3 py-2.5 text-lg font-extrabold text-brand-dark"
-      >
+      <button onClick={nav.goHome} aria-label="Trang chủ" className={`${btn} px-3`}>
         🏠
       </button>
     </div>

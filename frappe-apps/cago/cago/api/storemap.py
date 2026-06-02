@@ -126,9 +126,9 @@ _SAMPLE_ZONES = [
 	("Cám vịt / ngan", "Tầng 1", "Cám vịt / ngan", 6, 32, 32, 11, "#0ea5e9", "🦆"),
 	("Cám bò / trâu", "Tầng 1", "Cám bò / trâu", 6, 45, 32, 11, "#84cc16", "🐮"),
 	("Cám cá", "Tầng 1", "Cám cá", 62, 6, 32, 11, "#06b6d4", "🐟"),
-	("Dụng cụ", "Tầng 1", "Dụng cụ", 62, 19, 32, 11, "#64748b", "🔧"),
-	("Giống lúa", "Tầng 1", "Giống lúa", 62, 32, 32, 11, "#22c55e", "🌾"),
-	("Giống rau", "Tầng 1", "Giống rau", 62, 45, 32, 11, "#16a34a", "🥬"),
+	("Thuốc thú y", "Tầng 1", "Thuốc thú y", 62, 19, 32, 11, "#e11d48", "💉"),
+	("Dụng cụ", "Tầng 1", "Dụng cụ", 62, 32, 32, 11, "#64748b", "🔧"),
+	("Giống lúa", "Tầng 1", "Giống lúa", 62, 45, 32, 11, "#22c55e", "🌾"),
 	# --- Tầng hầm: phân bón + thuốc + nông sản ---
 	("Phân vô cơ", "Tầng hầm", "Phân vô cơ", 6, 6, 32, 11, "#3b82f6", "🧴"),
 	("Phân hữu cơ", "Tầng hầm", "Phân hữu cơ", 6, 19, 32, 11, "#84cc16", "♻️"),
@@ -147,6 +147,16 @@ _SAMPLE_AISLE = [
 ]
 
 
+def _ensure_group(name):
+	"""Make sure an Item Group exists so a demo zone maps to a real, browsable category."""
+	if not name:
+		return None
+	if not frappe.db.exists("Item Group", name):
+		parent = frappe.db.get_value("Item Group", {"is_group": 1}, "name") or "All Item Groups"
+		frappe.get_doc({"doctype": "Item Group", "item_group_name": name, "parent_item_group": parent, "is_group": 0}).insert(ignore_permissions=True)
+	return name
+
+
 def seed_sample_map(force=False):
 	"""Create a demo 2-floor store map (only if empty, unless force=1)."""
 	doc = frappe.get_single("Cago Store Map")
@@ -161,9 +171,7 @@ def seed_sample_map(force=False):
 		doc.append("floors", {"label": label, "level": level, "stairs_x": sx, "stairs_y": sy})
 	doc.set("zones", [])
 	for label, floor, grp, x, y, w, h, color, icon in _SAMPLE_ZONES:
-		if not frappe.db.exists("Item Group", grp):
-			grp = None
-		doc.append("zones", {"label": label, "floor": floor, "item_group": grp, "x": x, "y": y, "w": w, "h": h, "color": color, "icon": icon})
+		doc.append("zones", {"label": label, "floor": floor, "item_group": _ensure_group(grp), "x": x, "y": y, "w": w, "h": h, "color": color, "icon": icon})
 	doc.set("aisle", [])
 	for floor, x, y in _SAMPLE_AISLE:
 		doc.append("aisle", {"floor": floor, "x": x, "y": y})

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
-import { useKioskNav } from "@/lib/kioskNav";
+import { useKioskNav, resetKioskDepth } from "@/lib/kioskNav";
 import { useSession } from "@/lib/session";
 import { catColor, catIcon } from "@/lib/kioskUi";
 import type { Category } from "@/lib/types";
@@ -17,6 +17,7 @@ export function Home() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    resetKioskDepth(); // back at home → reset nav depth (heals any drift from gesture-back)
     kiosk.clearFocus();
     frappeCall<Category[]>("cago.api.kiosk.get_categories", {}, { method: "GET" })
       .then((d) => setCategories(d || []))
