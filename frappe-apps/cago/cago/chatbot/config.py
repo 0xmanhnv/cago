@@ -72,9 +72,13 @@ def kiosk_chips() -> dict:
 		except Exception:
 			pass
 	return {
+		# Product context (a specific item is on screen): questions ABOUT that item.
 		"product": ["Còn hàng không?", "Giá bao nhiêu?", "Dùng cho gì?", "Có loại nào khác?", "Có an toàn không?"],
-		"category": ["Loại nào rẻ hơn?", "Loại nào tốt?", "Còn hàng không?"],
-		"general": ["Giá bao nhiêu?", "Còn hàng không?", "Dùng cho lúa", "Trị sâu bệnh", "Phân bón cho cây", "Thuốc diệt chuột"],
+		# Category context (a group is on screen): questions that compare items in the group.
+		"category": ["Loại nào rẻ hơn?", "Loại nào tốt nhất?", "Loại nào còn hàng?", "Dùng thế nào?"],
+		# No context (the opening screen): must be SELF-CONTAINED topics — never product-relative
+		# questions like "Giá bao nhiêu?"/"Còn hàng không?" (bao nhiêu/còn hàng của CÁI GÌ?).
+		"general": ["Cửa hàng bán những gì?", "Thuốc trừ sâu cho lúa", "Phân bón cho cây", "Cám cho gà vịt lợn", "Thuốc diệt chuột", "Thuốc diệt cỏ"],
 	}
 
 
