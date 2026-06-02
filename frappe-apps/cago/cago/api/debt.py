@@ -101,6 +101,7 @@ def _debt_summary(customer):
 	}
 
 
+@frappe.whitelist()
 def get_customer_debt(customer):
 	ensure_cap("debt_view")
 	customer = resolve_customer(customer)

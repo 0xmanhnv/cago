@@ -34,7 +34,7 @@ def set_home_favorites(keys):
 	out = []
 	for it in keys[:40]:
 		if isinstance(it, dict) and it.get("k"):
-			out.append({"k": str(it["k"]), "w": 2 if int(it.get("w") or 1) == 2 else 1})
+			out.append({"k": str(it["k"]), "w": 2 if str(it.get("w")) == "2" else 1})
 		elif isinstance(it, str) and it:
 			out.append({"k": it, "w": 1})
 	frappe.db.set_value("User", user, "cago_home_favorites", frappe.as_json(out))

@@ -7,7 +7,7 @@ direct roles (the owner assigns a chức danh later via /pos/staff). Idempotent.
 
 import frappe
 
-from cago.utils.permissions import ALL_CAP_ROLES, OWNER_ROLES, caps_for_user_roles
+from cago.utils.permissions import ALL_CAP_ROLES, OWNER_ROLES, _expand, caps_for_user_roles
 
 
 def execute():
@@ -23,7 +23,8 @@ def execute():
 	# Map each chức danh's exact capability-set → its name.
 	by_caps = {}
 	for jr in frappe.get_all("Cago Job Role", pluck="name"):
-		caps = frozenset(frappe.get_all("Cago Job Role Cap", filters={"parent": jr, "parenttype": "Cago Job Role"}, pluck="capability"))
+		# Expand so the key matches caps_for_user_roles (which adds implied caps like debt→debt_view).
+		caps = frozenset(_expand(frappe.get_all("Cago Job Role Cap", filters={"parent": jr, "parenttype": "Cago Job Role"}, pluck="capability")))
 		by_caps.setdefault(caps, jr)
 
 	users = {r.parent for r in frappe.get_all("Has Role", filters={"role": ["in", list(ALL_CAP_ROLES)]}, fields=["parent"])}

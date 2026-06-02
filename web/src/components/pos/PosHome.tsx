@@ -117,13 +117,6 @@ export function PosHome() {
       .catch(() => setShowAll(true));
   }, []);
 
-  // Once caps are known, hide favorites the user can't access (don't persist — they reappear if
-  // the capability is granted back). Keeps drag indices aligned with what's rendered.
-  useEffect(() => {
-    if (boot) setFav((prev) => prev.filter((f) => ACTIONS[f.k] && can(f.k)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boot]);
-
   const persist = (next: Fav[]) => {
     frappeCall("cago.api.prefs.set_home_favorites", { keys: JSON.stringify(next) }).catch(() => {});
   };
@@ -133,8 +126,11 @@ export function PosHome() {
   };
   const togglePin = (key: string) => saveFav(fav.some((f) => f.k === key) ? fav.filter((f) => f.k !== key) : [...fav, { k: key, w: 1 }]);
   const setWidth = (key: string, w: 1 | 2) => saveFav(fav.map((f) => (f.k === key ? { ...f, w } : f)));
-  const favKeys = new Set(fav.map((f) => f.k)); // to hide pinned tiles from the lists below
-  const hasFav = fav.length > 0;
+  // Render only favorites the user can still access (filtered at render → no boot/load race; the
+  // full list stays in `fav`/storage so a tile reappears if the capability is granted back).
+  const visFav = fav.filter((f) => ACTIONS[f.k] && can(f.k));
+  const favKeys = new Set(visFav.map((f) => f.k)); // to hide pinned tiles from the lists below
+  const hasFav = visFav.length > 0;
   // No favorites (and not arranging) → the full menu IS the page, shown expanded with no toggle.
   const groupsOpen = !hasFav || editMode || showAll;
 
@@ -225,15 +221,15 @@ export function PosHome() {
         </div>
       )}
       {editMode ? (
-        fav.length === 0 ? (
+        visFav.length === 0 ? (
           <div className="mb-4 rounded-2xl border-2 border-dashed border-emerald-200 bg-white/60 p-4 text-center text-slate-500">
             Chạm ☆ trên một mục bên dưới để ghim lên đây.
           </div>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext items={fav.map((f) => f.k)} strategy={rectSortingStrategy}>
+            <SortableContext items={visFav.map((f) => f.k)} strategy={rectSortingStrategy}>
               <div className="mb-4 grid grid-cols-2 gap-3.5">
-                {fav.map((f) => (
+                {visFav.map((f) => (
                   <SortableFav key={f.k} f={f} onWidth={setWidth} onUnpin={togglePin} />
                 ))}
               </div>
@@ -242,7 +238,7 @@ export function PosHome() {
         )
       ) : hasFav ? (
         <div className="mb-4 grid grid-cols-2 gap-3.5">
-          {fav.map((f) => {
+          {visFav.map((f) => {
             const a = ACTIONS[f.k];
             if (!a) return null;
             return (

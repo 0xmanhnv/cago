@@ -29,7 +29,8 @@ export function isInternal(boot: Bootstrap | null): boolean {
   return !!boot && Array.isArray(boot.caps) && boot.caps.length > 0;
 }
 
-// Owner = holds every capability (super-role). Used to gate owner-only screens (e.g. staff admin).
+// Owner = holds the owner ROLE (matches the server's is_owner). NOT "has all caps" — a staffer
+// granted every capability is still not the owner (can't manage staff / open the Desk).
 export function isOwner(boot: Bootstrap | null): boolean {
-  return !!boot && ALL_CAPS.every((c) => boot.caps?.includes(c));
+  return !!boot && Array.isArray(boot.roles) && boot.roles.some((r) => r === "Cago Owner" || r === "System Manager");
 }
