@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Vietnamese cashier-UI translations for the (optional) POS Awesome screen.
 
@@ -116,7 +116,7 @@ POS_VI = {
 }
 
 # Polish for a rural counter / less tech-savvy seller: shorter, plainer, less ERP/e-commerce
-# wording. These override the generic entries above (reviewed for the AgriMate shop, docs/35).
+# wording. These override the generic entries above (reviewed for the Cago shop, docs/35).
 POS_VI.update(
 	{
 		# Counter sale, not online "giỏ hàng"

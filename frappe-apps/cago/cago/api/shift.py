@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Ca bán hàng tại quầy — per-cashier till shift (mở ca / đóng ca / đếm két).
 

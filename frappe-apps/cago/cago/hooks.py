@@ -1,6 +1,6 @@
 app_name = "cago"
-app_title = "AgriMate Store"
-app_publisher = "AgriMate"
+app_title = "Cago"
+app_publisher = "0xManhnv"
 app_description = (
     "Business customization layer for a rural Vietnamese agricultural supplies store."
 )
@@ -24,7 +24,7 @@ app_include_css = ["/assets/cago/css/posawesome.css?v=2"]
 # The website root "/" serves the public customer kiosk.
 home_page = "kiosk"
 
-# Owner/staff must land on the simplified AgriMate screens, not the ERPNext Desk
+# Owner/staff must land on the simplified Cago screens, not the ERPNext Desk
 # (they lack module permissions, so the Desk would show "Not permitted").
 # These take precedence over `home_page` for the post-login redirect.
 role_home_page = {

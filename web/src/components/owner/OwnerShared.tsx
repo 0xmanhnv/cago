@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
+import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import type { ProductCard } from "@/lib/types";
 
-export const money = (n: number) => n.toLocaleString("vi-VN") + "đ";
+// VND has no decimals — round + group. Single shared formatter (lib/utils) so owner/staff/kiosk match.
+export const money = formatVnd;
 
 export function BackBar({ onBack, title, label = "Trang chủ" }: { onBack: () => void; title?: string; label?: string }) {
   return (
@@ -156,7 +158,7 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
           customer_name: form.name.trim(),
           phone: form.phone.trim(),
           village: form.village.trim(),
-          debt_limit: form.limit ? parseFloat(form.limit) : 0,
+          debt_limit: parseVnd(form.limit),
           wholesale: form.wholesale ? 1 : 0,
         });
         onPick(r.customer);
@@ -176,7 +178,7 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
           <label className="block font-bold text-slate-700">Xóm/thôn (tùy chọn)</label>
           <input value={form.village} onChange={(e) => setForm({ ...form, village: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           <label className="block font-bold text-slate-700">Hạn mức nợ (tùy chọn, đồng)</label>
-          <input inputMode="numeric" value={form.limit} onChange={(e) => setForm({ ...form, limit: e.target.value })} placeholder="Để trống = không giới hạn" className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          <input inputMode="numeric" value={form.limit} onChange={(e) => setForm({ ...form, limit: groupVnd(e.target.value) })} placeholder="Để trống = không giới hạn" className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           <label className="mt-1 flex items-center gap-2 font-bold text-violet-700">
             <input type="checkbox" checked={form.wholesale} onChange={(e) => setForm({ ...form, wholesale: e.target.checked })} className="h-5 w-5" />
             Khách sỉ (mua theo giá sỉ)

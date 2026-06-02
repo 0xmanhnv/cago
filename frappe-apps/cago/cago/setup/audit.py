@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Repeatable security/safety audit (docs/12, docs/18).
 
@@ -78,7 +78,7 @@ def run_audit():
 		checks.append(("Expiry report works without sensitive keys", False, str(exc)))
 
 	failed = [c for c in checks if not c[1]]
-	print("\n=== AgriMate security/safety audit ===")
+	print("\n=== Cago security/safety audit ===")
 	for name, ok, detail in checks:
 		print(f"  {'PASS' if ok else 'FAIL'}  {name}{(' -> ' + detail) if (detail and not ok) else ''}")
 	print(f"=== {len(checks) - len(failed)}/{len(checks)} passed ===\n")

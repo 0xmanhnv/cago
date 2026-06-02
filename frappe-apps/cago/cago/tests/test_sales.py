@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Credit sale (bán chịu trừ tồn): stock + accounting correctness.
 
@@ -177,13 +177,17 @@ class TestQuickSale(FrappeTestCase):
 			frappe.db.set_value("Item", ITEM, "cago_min_price", old_floor or 0)
 			frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
 
-	def test_oversell_is_blocked_with_friendly_message(self):
+	def test_oversell_is_allowed_with_negative_stock(self):
+		"""Rural shops' system stock lags reality, so selling past on-hand is permitted
+		(allow_negative_stock; the POS warns the staff up-front). The sale must go through
+		and stock may go negative — it must NOT fail at payment time."""
 		from cago.api import purchasing, sales
 
 		purchasing.receive_stock(ITEM, 10)
 		on_hand = flt_qty(ITEM)
-		with self.assertRaises(frappe.ValidationError):
-			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": on_hand + 100}]), "cash")
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": on_hand + 100}]), "cash")
+		self.assertEqual(frappe.get_doc("Sales Invoice", r["invoice"]).docstatus, 1)
+		self.assertAlmostEqual(flt_qty(ITEM), on_hand - (on_hand + 100), places=2)
 
 	def test_credit_at_till_reduces_stock_and_raises_debt(self):
 		from cago.api import debt, purchasing, sales
@@ -220,6 +224,22 @@ class TestQuickSale(FrappeTestCase):
 					"item_group": frappe.db.get_value("Item Group", {"is_group": 0}, "name"),
 					"stock_uom": "Nos",
 					"is_stock_item": 1,
+				}
+			).insert(ignore_permissions=True)
+		# A real sale always has a selling price (quick_sale now refuses a 0đ line). This test is
+		# about zero VALUATION (no cost), so give it a price (on the list + stock uom quick_sale
+		# reads) and leave the cost at zero.
+		from cago.utils.dto import SELLING_PRICE_LIST
+
+		if not frappe.db.exists("Item Price", {"item_code": code, "price_list": SELLING_PRICE_LIST, "selling": 1}):
+			frappe.get_doc(
+				{
+					"doctype": "Item Price",
+					"item_code": code,
+					"price_list": SELLING_PRICE_LIST,
+					"selling": 1,
+					"uom": "Nos",
+					"price_list_rate": 10000,
 				}
 			).insert(ignore_permissions=True)
 		purchasing.receive_stock(code, 5)  # no cost_rate -> zero valuation

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
+import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 
 interface CustomerLite {
   customer: string;
@@ -13,11 +14,8 @@ interface CustomerLite {
   outstanding_text: string;
 }
 
-const fmtAmt = (s: string) => {
-  const d = (s || "").replace(/[^\d]/g, "");
-  return d ? Number(d).toLocaleString("vi-VN") : "";
-};
-const parseAmt = (t: string) => parseInt((t || "").replace(/[^\d]/g, ""), 10) || 0;
+const fmtAmt = groupVnd;
+const parseAmt = parseVnd;
 
 export function StaffRecordPayment() {
   const router = useRouter();
@@ -49,14 +47,14 @@ export function StaffRecordPayment() {
       await alertDialog("Nhập số tiền khách trả.", { danger: true });
       return;
     }
-    if (!(await confirmDialog(`Xác nhận: ${picked.customer_name} trả ${amt.toLocaleString("vi-VN")}đ?`, { confirmLabel: "Ghi nhận" }))) return;
+    if (!(await confirmDialog(`Xác nhận: ${picked.customer_name} trả ${formatVnd(amt)}?`, { confirmLabel: "Ghi nhận" }))) return;
     setBusy(true);
     try {
       const r = await frappeCall<{ customer_name: string; outstanding_text: string }>("cago.api.debt.record_repayment", {
         customer: picked.customer,
         amount: amt,
       });
-      await alertDialog(`✅ Đã ghi nhận ${amt.toLocaleString("vi-VN")}đ.\n${r.customer_name} còn nợ: ${r.outstanding_text}.`);
+      await alertDialog(`✅ Đã ghi nhận ${formatVnd(amt)}.\n${r.customer_name} còn nợ: ${r.outstanding_text}.`);
       setPicked(null);
       setAmount("");
       void run(q.trim());

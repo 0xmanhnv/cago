@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Minh Tuyết — Vật tư nông nghiệp",
   description: "Cửa hàng vật tư nông nghiệp Minh Tuyết — tra giá, xem sản phẩm, hỏi trợ lý",
   manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
 };
 
 export const viewport: Viewport = {

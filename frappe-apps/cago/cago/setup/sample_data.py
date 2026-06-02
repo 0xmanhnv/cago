@@ -1,8 +1,8 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Sample-data import for Milestone 1.
 
-Loads `data/sample_products.csv` into ERPNext as Items (with AgriMate custom fields)
+Loads `data/sample_products.csv` into ERPNext as Items (with Cago custom fields)
 and matching selling Item Prices. Idempotent: re-running updates existing records
 instead of creating duplicates.
 

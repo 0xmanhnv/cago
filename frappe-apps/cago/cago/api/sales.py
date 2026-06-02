@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Bán chịu trừ tồn — itemized credit sale (owner-only).
 
@@ -616,6 +616,11 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		rate = _rate_for_uom(code, uom, stock_uom, pl)
 		# A 0/empty rate means "no override" (use the catalogue price), not "sell for free".
 		overridden = allow_price_edit and it and (it.get("rate") not in (None, "")) and flt(it.get("rate")) > 0
+		# Defence in depth: never let an unpriced item ("Liên hệ") be sold for 0đ. The POS blocks
+		# adding it, but guard the API too so no path books a free sale.
+		if not overridden and flt(rate) <= 0:
+			name = frappe.db.get_value("Item", code, "cago_display_name") or code
+			frappe.throw(_("Sản phẩm '{0}' chưa có giá bán. Hãy đặt giá trước khi bán.").format(name))
 		row = {
 			"item_code": code,
 			"qty": qty,

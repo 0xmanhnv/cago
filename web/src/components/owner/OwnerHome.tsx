@@ -25,8 +25,13 @@ export function OwnerHome() {
   }, []);
   const doLogout = async () => {
     if (!(await confirmDialog("Đăng xuất khỏi máy này?", { danger: true, confirmLabel: "Đăng xuất" }))) return;
-    await logout();
-    window.location.href = "/login"; // full reload → fresh guest session + CSRF
+    // Always redirect even if the logout POST fails (offline) — never strand a logged-in shell on
+    // a shared device. The full reload to /login forces a fresh guest session + CSRF.
+    try {
+      await logout();
+    } finally {
+      window.location.href = "/login";
+    }
   };
   const item = (label: string, color: string, href: string) => (
     <button onClick={() => router.push(href)} className={`mt-tile ${color}`}>

@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Discount coupons (mã giảm giá).
 
@@ -91,6 +91,8 @@ def save_coupon(coupon_code, discount_type, discount_value, min_order_amount=0, 
 		frappe.throw(_("Kiểu giảm không hợp lệ."))
 	if flt(discount_value) <= 0:
 		frappe.throw(_("Giá trị giảm phải lớn hơn 0."))
+	if discount_type == "Percent" and flt(discount_value) > 100:
+		frappe.throw(_("Phần trăm giảm không quá 100%."))
 	doc = frappe.get_doc("Cago Coupon", code) if frappe.db.exists("Cago Coupon", code) else frappe.new_doc("Cago Coupon")
 	doc.coupon_code = code
 	doc.discount_type = discount_type

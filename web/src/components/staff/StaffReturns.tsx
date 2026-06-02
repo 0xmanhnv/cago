@@ -52,26 +52,32 @@ export function StaffReturns() {
   const [retLoading, setRetLoading] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const seqRef = useRef(0); // ignore out-of-order list responses (newest tab/query wins)
 
   // All filtering/counting is SERVER-side so the numbers are true totals, not "loaded so far".
   const load = async (t: Tab, query: string) => {
+    const seq = ++seqRef.current;
     setLoading(true);
     try {
       const r = (await frappeCall<SaleRow[]>("cago.api.sales.list_recent_sales", { status: t, query, start: 0, limit: PAGE }, { method: "GET" })) || [];
+      if (seq !== seqRef.current) return;
       setRows(r);
       setHasMore(r.length >= PAGE);
     } catch {
+      if (seq !== seqRef.current) return;
       setRows([]);
       setHasMore(false);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   };
   const loadMore = async () => {
     if (loadingMore || loading) return;
+    const seq = seqRef.current;
     setLoadingMore(true);
     try {
       const r = (await frappeCall<SaleRow[]>("cago.api.sales.list_recent_sales", { status: tab, query: q.trim(), start: rows.length, limit: PAGE }, { method: "GET" })) || [];
+      if (seq !== seqRef.current) return;
       setRows((prev) => [...prev, ...r]);
       setHasMore(r.length >= PAGE);
     } finally {

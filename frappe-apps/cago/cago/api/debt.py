@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Debt API — công nợ (owner-only).
 
@@ -85,9 +85,10 @@ def search_customers(query=None):
 	return out
 
 
-@frappe.whitelist()
 def _debt_summary(customer):
-	"""Guard-free outstanding summary (safe for staff debt collection — no cost/margin)."""
+	"""Guard-free outstanding summary, INTERNAL only (called by record_repayment after its own
+	ensure_can_collect_debt guard). Not whitelisted — must never be reachable directly, or any
+	authenticated session could read any customer's balance."""
 	from erpnext.accounts.utils import get_balance_on
 
 	balance = flt(get_balance_on(party_type="Customer", party=customer, date=frappe.utils.nowdate(), company=_company()))

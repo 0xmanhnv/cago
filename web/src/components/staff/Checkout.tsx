@@ -7,6 +7,7 @@ import { useSession } from "@/lib/session";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
+import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import type { ProductCard, Product, Category } from "@/lib/types";
 
 type PayMode = "cash" | "bank" | "credit" | "split";
@@ -52,13 +53,10 @@ interface RecentSale {
   item_count: number;
 }
 
-const money = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
-// Live thousands-grouping for a money input as the user types: "10000" → "10.000".
-const fmtAmt = (s: string) => {
-  const d = (s || "").replace(/[^\d]/g, "");
-  return d ? Number(d).toLocaleString("vi-VN") : "";
-};
-const parsePrice = (t: string) => parseInt((t || "").replace(/[^\d]/g, ""), 10) || 0;
+// One shared VND helper set (lib/utils) so owner/staff/kiosk render & parse money identically.
+const money = formatVnd;
+const fmtAmt = groupVnd;
+const parsePrice = parseVnd;
 const trim = (n: number) => (Number.isInteger(n) ? n : Math.round(n * 100) / 100);
 const MODE_VI: Record<PayMode, string> = { cash: "Tiền mặt", bank: "Chuyển khoản", credit: "Ghi nợ", split: "Nhiều hình thức" };
 
@@ -154,6 +152,7 @@ export function Checkout() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const searchSeq = useRef(0); // monotonic token: ignore out-of-order search responses
   const STAFF_PAGE = 30;
   // Headroom: hide the search/category bar on scroll-down (more room for products), reveal it
   // instantly on scroll-up — so staff find/filter without scrolling to the very top.
@@ -253,28 +252,34 @@ export function Checkout() {
   };
 
   const run = async (query: string, cat: string = category) => {
+    const seq = ++searchSeq.current; // newest wins; a slow earlier response won't clobber this one
     setLoading(true);
     try {
       const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, category: cat || null, start: 0 }, { method: "GET" })) || [];
+      if (seq !== searchSeq.current) return; // a newer search started — drop this stale result
       setList(r);
       setHasMore(r.length >= STAFF_PAGE);
     } catch {
+      if (seq !== searchSeq.current) return;
       setList([]);
       setHasMore(false);
     } finally {
-      setLoading(false);
+      if (seq === searchSeq.current) setLoading(false);
     }
   };
   // Infinite scroll: fetch the next page and append (server paginates by `start`).
   const loadMore = async () => {
     if (loadingMore || loading) return;
+    const seq = searchSeq.current; // tie this page to the current search; a new run() invalidates it
+    const start = list.length;
     setLoadingMore(true);
     try {
-      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q, category: category || null, start: list.length }, { method: "GET" })) || [];
+      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q, category: category || null, start }, { method: "GET" })) || [];
+      if (seq !== searchSeq.current) return; // search changed mid-flight — don't append to a new list
       setList((prev) => [...prev, ...r]);
       setHasMore(r.length >= STAFF_PAGE);
     } catch {
-      setHasMore(false);
+      if (seq === searchSeq.current) setHasMore(false);
     } finally {
       setLoadingMore(false);
     }
@@ -332,6 +337,13 @@ export function Checkout() {
     // (Barcode scans pass no card → no warning, since scanning implies the item is in hand.)
     if (card && cardOOS(card) && !(await ask(`"${card.display_name}" đang hết hàng trên hệ thống. Vẫn bán (bán âm tồn)?`, { danger: true, confirmLabel: "Vẫn bán" }))) return;
     const m = await ensureMeta(code);
+    // Block items with no price ("Liên hệ"): otherwise the line is 0đ and the sale completes free.
+    // Allow if ANY sale unit is priced (multi-unit items may price by Yến/Tạ, not the base UOM).
+    const priced = (m?.sale_units || []).some((s) => parsePrice(s.price_text) > 0) || parsePrice(card?.price_text || "") > 0;
+    if (!priced) {
+      await notify("Sản phẩm chưa có giá bán. Nhờ chủ cửa hàng đặt giá trước khi bán.", { danger: true });
+      return;
+    }
     setLines((l) => (l[code] ? l : { ...l, [code]: { qty: 1, uom: m?.stock_uom || "" } }));
   };
   // Pre-load a kiosk wanted-list into the cart (from "/staff/sell?wanted=CODE") so staff collect
@@ -539,6 +551,7 @@ export function Checkout() {
       setShiftRefresh((n) => n + 1);
       markWantedDone();
       setLines({});
+      setMeta({}); // drop cached stock so the next sale re-reads fresh on-hand (no stale OOS banner)
       setDiscount("");
       clearCoupon();
       setPayOpen(false);
@@ -585,6 +598,7 @@ export function Checkout() {
       setShiftRefresh((n) => n + 1);
       markWantedDone();
       setLines({});
+      setMeta({}); // drop cached stock so the next sale re-reads fresh on-hand (no stale OOS banner)
       setDiscount("");
       clearCoupon();
       setSplitCash("");
@@ -1028,7 +1042,7 @@ export function Checkout() {
                       onClick={() => setDiscOpen((v) => !v)}
                       className={`rounded-lg border-2 px-3 py-1.5 text-sm font-bold ${disc + couponDisc > 0 ? "border-amber-400 bg-amber-50 text-amber-800" : "border-slate-300 text-slate-600"}`}
                     >
-                      🏷️ Giảm giá / Mã{disc + couponDisc > 0 ? ` · −${money(disc + couponDisc)}` : discOpen || disc + couponDisc > 0 ? " ▲" : " ▼"}
+                      🏷️ Giảm giá / Mã{disc + couponDisc > 0 ? ` · −${money(disc + couponDisc)}` : discOpen ? " ▲" : " ▼"}
                     </button>
                   </div>
                   <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${discOpen || disc + couponDisc > 0 || !!coupon ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>

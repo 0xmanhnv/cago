@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, Warn } from "./OwnerShared";
 
 export function NewProduct() {
@@ -28,7 +29,8 @@ export function NewProduct() {
           cago_display_name: f.name.trim(),
           item_group: f.group,
           stock_uom: f.unit.trim(),
-          selling_price: f.price,
+          // Strip grouping so "150.000" → 150000, not flt("150.000")=150 server-side.
+          selling_price: parseVnd(f.price),
           cago_stock_status_manual: f.stock,
           cago_is_chemical: f.chem ? 1 : 0,
           cago_is_public_visible: f.pub ? 1 : 0,
@@ -60,7 +62,7 @@ export function NewProduct() {
           ))}
         </datalist>
         <label className="block font-bold text-slate-700">Giá bán (đồng)</label>
-        <input inputMode="numeric" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input inputMode="numeric" value={f.price} onChange={(e) => setF({ ...f, price: groupVnd(e.target.value) })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
         <label className="block font-bold text-slate-700">Tồn kho hiển thị</label>
         <select value={f.stock} onChange={(e) => setF({ ...f, stock: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5">
           {["", ...meta.stock_status_options].map((o) => (

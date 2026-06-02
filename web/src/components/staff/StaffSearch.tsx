@@ -18,22 +18,27 @@ export function StaffSearch() {
   const [loadingMore, setLoadingMore] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const seqRef = useRef(0); // ignore out-of-order search responses (newest wins)
 
   const run = async (query: string) => {
+    const seq = ++seqRef.current;
     setLoading(true);
     try {
       const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, start: 0 }, { method: "GET" })) || [];
+      if (seq !== seqRef.current) return;
       setList(r);
       setHasMore(r.length >= PAGE);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   };
   const loadMore = async () => {
     if (loadingMore || loading) return;
+    const seq = seqRef.current;
     setLoadingMore(true);
     try {
       const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q.trim(), start: list.length }, { method: "GET" })) || [];
+      if (seq !== seqRef.current) return;
       setList((prev) => [...prev, ...r]);
       setHasMore(r.length >= PAGE);
     } finally {

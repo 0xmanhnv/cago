@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 
 import frappe
@@ -14,6 +14,6 @@ def get_context(context):
 		raise frappe.Redirect
 
 	context.no_cache = 1
-	# Brand is configurable (Website Settings > App Name), default AgriMate.
-	context.brand = frappe.db.get_single_value("Website Settings", "app_name") or "AgriMate"
+	# Brand is configurable (Website Settings > App Name), default Minh Tuyết.
+	context.brand = frappe.db.get_single_value("Website Settings", "app_name") or "Minh Tuyết"
 	return context

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#16a34a"/>
+  <!-- sprout / leaf mark -->
+  <path d="M256 392c0-70 0-118 0-150" stroke="#dcfce7" stroke-width="26" stroke-linecap="round"/>
+  <path d="M256 250c-46 0-104-22-104-92 0-10 4-18 12-18 64 0 92 52 92 110z" fill="#bbf7d0"/>
+  <path d="M256 250c46 0 104-22 104-92 0-10-4-18-12-18-64 0-92 52-92 110z" fill="#dcfce7"/>
+  <circle cx="256" cy="408" r="16" fill="#dcfce7"/>
+</svg>

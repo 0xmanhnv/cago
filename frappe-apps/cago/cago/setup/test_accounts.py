@@ -1,6 +1,6 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
-"""Demo/test accounts for AgriMate — one per role of the hybrid POS model.
+"""Demo/test accounts for Cago — one per role of the hybrid POS model.
 
     bench --site <site> execute cago.setup.test_accounts.ensure_test_accounts
 

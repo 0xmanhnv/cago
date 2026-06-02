@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Developer diagnostics — run write APIs as a real (non-admin) role to surface
 permission bugs that Administrator would mask.

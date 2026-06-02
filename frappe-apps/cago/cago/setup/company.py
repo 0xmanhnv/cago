@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """One-time accounting/company setup for a bare ERPNext site.
 
@@ -11,7 +11,7 @@ and native POS need them, so this runs the official setup wizard once, idempoten
 
 import frappe
 
-COMPANY_NAME = "AgriMate Store"
+COMPANY_NAME = "Minh Tuyết"
 COMPANY_ABBR = "AS"
 
 
@@ -63,7 +63,7 @@ def ensure_company():
 
 def _apply_store_settings():
 	"""Store-friendly defaults: login by phone (rural users have phones, not email),
-	no public signup, AgriMate brand on the login page, and VND number formatting
+	no public signup, Minh Tuyết brand on the login page, and VND number formatting
 	(no decimals, dot thousands → 1.234.567đ — đồng has no sub-unit)."""
 	frappe.db.set_single_value("System Settings", "allow_login_using_mobile_number", 1)
 	# VND has no fractional unit. fmt_money(currency=) reads the GLOBAL DEFAULTS, so set both
@@ -116,7 +116,7 @@ def _ensure_pos_profile():
 	profile = frappe.get_doc(
 		{
 			"doctype": "POS Profile",
-			"name": "AgriMate POS",
+			"name": "Minh Tuyết POS",
 			"company": company,
 			"warehouse": warehouse,
 			"currency": "VND",

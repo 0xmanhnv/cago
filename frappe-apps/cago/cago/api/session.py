@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Session bootstrap for the decoupled Next.js frontend.
 
@@ -32,7 +32,7 @@ def bootstrap():
 		"is_guest": frappe.session.user == "Guest",
 		"roles": frappe.get_roles(),
 		"csrf_token": frappe.sessions.get_csrf_token(),
-		"brand": frappe.db.get_single_value("Website Settings", "app_name") or "AgriMate",
+		"brand": frappe.db.get_single_value("Website Settings", "app_name") or "Minh Tuyết",
 		"persona": chatbot_config.persona(),
 		"kiosk_chips": chatbot_config.kiosk_chips(),
 		"kiosk_debt_visible": _kiosk_debt_visible(),

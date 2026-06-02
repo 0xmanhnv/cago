@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { confirmDialog, alertDialog } from "@/components/ui/dialog";
+import { confirmDialog } from "@/components/ui/dialog";
 import { BackBar, CustomerPicker, Ok, Warn } from "./OwnerShared";
 import type { ProductCard } from "@/lib/types";
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Lightweight per-IP rate limiting for guest endpoints (anti-abuse / DoS).
 

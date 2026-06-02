@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { confirmDialog, alertDialog } from "@/components/ui/dialog";
+import { confirmDialog } from "@/components/ui/dialog";
 import { SearchInput } from "@/components/ui/ListUI";
+import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
 
 export function DebtAction({ mode }: { mode: "add" | "repay" }) {
@@ -39,9 +40,9 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   if (!info) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
 
   const save = async () => {
-    // VND has no decimals and users may type grouping dots ("1.000"); parseFloat("1.000") = 1,
-    // which would record 1đ instead of 1000đ. Strip to digits like the rest of the money inputs.
-    const val = parseInt((amt || "").replace(/[^\d]/g, ""), 10) || 0;
+    // VND has no decimals and users may type grouping dots ("1.000"); parseVnd strips to digits
+    // so "1.000" → 1000, never the parseFloat("1.000")=1 trap.
+    const val = parseVnd(amt);
     setMsg(null);
     if (busy) return;
     if (!val || val <= 0) return setMsg(<Warn>Số tiền phải lớn hơn 0.</Warn>);
@@ -74,7 +75,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
           </div>
         )}
         <p className="mt-2 text-slate-500">{mode === "add" ? "Số tiền ghi nợ thêm" : "Số tiền khách trả"} (đồng):</p>
-        <input autoFocus inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-3 text-xl" />
+        <input autoFocus inputMode="numeric" value={amt} onChange={(e) => setAmt(groupVnd(e.target.value))} placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-3 text-xl" />
         <button onClick={save} disabled={busy} className={`mt-3 min-h-touch w-full rounded-xl font-extrabold text-white disabled:opacity-50 ${mode === "add" ? "bg-red-600" : "bg-brand"}`}>
           {busy ? "Đang lưu..." : mode === "add" ? "Ghi nợ" : "Xác nhận trả"}
         </button>
@@ -83,7 +84,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
             onClick={async () => {
               const r = await frappeCall<{ configured: boolean; url: string | null }>(
                 "cago.api.payment.vietqr",
-                { amount: parseFloat(amt) || 0, info: `${info.customer_name} tra no` },
+                { amount: parseVnd(amt), info: `${info.customer_name} tra no` },
                 { method: "GET" },
               );
               setQrCfg(r.configured);

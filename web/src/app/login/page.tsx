@@ -8,7 +8,7 @@ import { useSession } from "@/lib/session";
 export default function LoginPage() {
   const router = useRouter();
   const { boot, reload } = useSession();
-  const brand = boot?.brand || "AgriMate";
+  const brand = boot?.brand || "Minh Tuyết";
   const [usr, setUsr] = useState("");
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState("");

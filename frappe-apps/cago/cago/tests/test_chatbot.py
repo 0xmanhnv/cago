@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Tests for the chatbot: providers, factory/switch, safety, context, retrieval roles,
 and the orchestrator (no-data, chemical refusal, real-price cards).

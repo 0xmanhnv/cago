@@ -86,15 +86,17 @@ export function ProductList() {
 
   // fetch when category or search term (from the URL) changes
   useEffect(() => {
+    let active = true; // ignore a stale response if category/q changed before it resolved
     setLoading(true);
     frappeCall<ProductCard[]>(
       "cago.api.kiosk.list_products",
       { category: category || null, query: q || null },
       { method: "GET" },
     )
-      .then((r) => setProducts(r || []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
+      .then((r) => { if (active) setProducts(r || []); })
+      .catch(() => { if (active) setProducts([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [category, q]);
 
   // keep the input in sync when the URL changes (e.g. browser Back)
@@ -247,7 +249,7 @@ export function ProductList() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-[17px] font-extrabold text-brand-dark">{p.display_name}</span>
+                    <span title={p.display_name} className="line-clamp-2 text-[17px] font-extrabold text-brand-dark">{p.display_name}</span>
                     {p.is_chemical && <span className="rounded-full bg-harvest-light px-1.5 py-0.5 text-[11px] font-bold text-harvest-dark">⚠️</span>}
                   </div>
                   <div className={`text-sm font-semibold ${out ? "text-slate-400" : "text-brand/80"}`}>{p.stock_status}</div>

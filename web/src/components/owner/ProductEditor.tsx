@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { frappeCall, uploadFile } from "@/lib/api";
+import { groupVnd, parseVnd } from "@/lib/utils";
 import type { Batch } from "@/lib/types";
 import { BackBar, DraftModal, Ok, Warn } from "./OwnerShared";
 
@@ -128,17 +129,27 @@ export function ProductEditor({ code }: { code: string }) {
 
   const onUpload = async (files: FileList | null) => {
     if (!files || !files.length) return;
+    setMsg(null);
     let last = imgs;
     for (const f of Array.from(files)) {
+      // Phone photos are often several MB; on a rural connection that hangs. Reject early with a
+      // clear message instead of a long silent wait that ends in a generic error.
+      if (!f.type.startsWith("image/")) {
+        setMsg(<Warn>“{f.name}” không phải ảnh.</Warn>);
+        continue;
+      }
+      if (f.size > 8 * 1024 * 1024) {
+        setMsg(<Warn>Ảnh “{f.name}” quá lớn (tối đa 8MB). Chụp nhỏ lại hoặc chọn ảnh khác.</Warn>);
+        continue;
+      }
       try {
         const url = await uploadFile(f);
         last = await frappeCall<{ main?: string; images: string[] }>("cago.api.owner.add_product_image", { item_code: code, image_url: url });
+        setImgs(last); // commit each success so a later failure doesn't discard earlier uploads
       } catch {
-        setMsg(<Warn>Tải ảnh lỗi, thử lại.</Warn>);
-        return;
+        setMsg(<Warn>Tải ảnh “{f.name}” lỗi, thử lại.</Warn>);
       }
     }
-    setImgs(last);
   };
 
   return (
@@ -257,7 +268,7 @@ function StockSection({ code }: { code: string }) {
       const r = await frappeCall<{ qty: number }>("cago.api.purchasing.receive_stock", {
         item_code: code,
         qty: n,
-        cost_rate: cost ? parseFloat(cost) : null,
+        cost_rate: cost ? parseVnd(cost) : null,
         batch_no: stock?.has_batch ? batchNo : null,
       });
       setStock((s) => (s ? { ...s, qty: r.qty } : s));
@@ -298,7 +309,7 @@ function StockSection({ code }: { code: string }) {
       </div>
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" placeholder={`Số lượng nhập (${stock?.uom || ""})`} className="rounded-lg border-2 border-emerald-300 p-2.5" />
-        <input value={cost} onChange={(e) => setCost(e.target.value)} inputMode="numeric" placeholder="Giá nhập / đơn vị (tùy chọn)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input value={cost} onChange={(e) => setCost(groupVnd(e.target.value))} inputMode="numeric" placeholder="Giá nhập / đơn vị (tùy chọn)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
       </div>
       {stock?.has_batch && (
         <select value={batchNo} onChange={(e) => setBatchNo(e.target.value)} className="mt-2 w-full rounded-lg border-2 border-emerald-300 p-2.5">
@@ -369,7 +380,7 @@ function UnitsSection({ code }: { code: string }) {
     if (!n || n <= 0) return setMsg(<Warn>Nhập số quy đổi (lớn hơn 0).</Warn>);
     // Backend wants units_per_stock = how many [sale unit] in 1 [stock unit].
     const upsVal = dir === "perStock" ? n : 1 / n;
-    const p = parseFloat(price);
+    const p = parseVnd(price);
     if (!p || p <= 0) return setMsg(<Warn>Nhập giá bán cho đơn vị này.</Warn>);
     try {
       setD(await frappeCall<Data>("cago.api.units.save_unit", { item_code: code, uom: uom.trim(), units_per_stock: upsVal, price: p }));
@@ -440,7 +451,7 @@ function UnitsSection({ code }: { code: string }) {
             {weightOf(uom)!.label} = {weightOf(uom)!.n} {d.stock_uom}
             <button onClick={() => { setUom(""); setUps(""); setDir("perStock"); }} className="text-amber-700" aria-label="Bỏ chọn">✕</button>
           </span>
-          <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder={`Giá / ${weightOf(uom)!.label} (đồng)`} className="min-w-0 flex-1 rounded-lg border-2 border-emerald-300 p-2.5" />
+          <input value={price} onChange={(e) => setPrice(groupVnd(e.target.value))} inputMode="numeric" placeholder={`Giá / ${weightOf(uom)!.label} (đồng)`} className="min-w-0 flex-1 rounded-lg border-2 border-emerald-300 p-2.5" />
         </div>
       ) : (
         <>
@@ -462,7 +473,7 @@ function UnitsSection({ code }: { code: string }) {
               placeholder={dir === "perStock" ? `1 ${d.stock_uom} = ? ${uom || "đơn vị"}` : `1 ${uom || "đơn vị"} = ? ${d.stock_uom}`}
               className="rounded-lg border-2 border-emerald-300 p-2.5"
             />
-            <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder="Giá / đơn vị (đồng)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
+            <input value={price} onChange={(e) => setPrice(groupVnd(e.target.value))} inputMode="numeric" placeholder="Giá / đơn vị (đồng)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
           </div>
           <p className="mt-1 text-xs text-slate-500">
             {dir === "perStock"
@@ -550,7 +561,7 @@ function WholesalePrice({ code }: { code: string }) {
   const [msg, setMsg] = useState<React.ReactNode>(null);
   useEffect(() => {
     frappeCall<{ wholesale_price: number | null }>("cago.api.owner.get_wholesale_price", { item_code: code }, { method: "GET" })
-      .then((r) => setPrice(r.wholesale_price ? String(r.wholesale_price) : ""))
+      .then((r) => setPrice(r.wholesale_price ? groupVnd(String(r.wholesale_price)) : ""))
       .catch(() => {});
   }, [code]);
   const save = async () => {
@@ -558,7 +569,7 @@ function WholesalePrice({ code }: { code: string }) {
     setBusy(true);
     setMsg(null);
     try {
-      await frappeCall("cago.api.owner.set_wholesale_price", { item_code: code, price: price ? parseFloat(price) : 0 });
+      await frappeCall("cago.api.owner.set_wholesale_price", { item_code: code, price: price ? parseVnd(price) : 0 });
       setMsg(<Ok>✅ Đã lưu giá sỉ.</Ok>);
     } catch (e) {
       setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi lưu giá sỉ."}</Warn>);
@@ -571,7 +582,7 @@ function WholesalePrice({ code }: { code: string }) {
       <div className="text-lg font-extrabold">Giá sỉ (cho khách sỉ)</div>
       <div className="text-sm text-slate-500">Khách được đánh dấu &quot;khách sỉ&quot; sẽ mua theo giá này. Để trống = không có giá sỉ.</div>
       <div className="mt-2 flex gap-2">
-        <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" placeholder="Giá sỉ / đơn vị tồn" className="flex-1 rounded-lg border-2 border-violet-300 p-2.5" />
+        <input value={price} onChange={(e) => setPrice(groupVnd(e.target.value))} inputMode="numeric" placeholder="Giá sỉ / đơn vị tồn" className="flex-1 rounded-lg border-2 border-violet-300 p-2.5" />
         <button onClick={save} disabled={busy} className="rounded-lg bg-violet-600 px-4 font-extrabold text-white disabled:opacity-50">
           Lưu
         </button>

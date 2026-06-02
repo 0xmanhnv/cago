@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, Ok, Warn } from "./OwnerShared";
 
 interface Summary {
@@ -43,9 +44,9 @@ export function Cashbook() {
     setBusy(true);
     try {
       const r = await frappeCall<CloseResult>("cago.api.cashbook.day_close", {
-        counted_cash: parseFloat(counted) || 0,
-        opening_cash: parseFloat(opening) || 0,
-        payouts: parseFloat(payouts) || 0,
+        counted_cash: parseVnd(counted),
+        opening_cash: parseVnd(opening),
+        payouts: parseVnd(payouts),
       });
       setRes(r);
     } catch (e) {
@@ -74,11 +75,11 @@ export function Cashbook() {
         </div>
 
         <div className="mt-3 font-bold text-slate-700">Tiền đầu ca trong két (tùy chọn)</div>
-        <input value={opening} onChange={(e) => setOpening(e.target.value)} inputMode="numeric" placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input value={opening} onChange={(e) => setOpening(groupVnd(e.target.value))} inputMode="numeric" placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
         <div className="mt-2 font-bold text-slate-700">Tiền đã chi ra trong ca (tùy chọn)</div>
-        <input value={payouts} onChange={(e) => setPayouts(e.target.value)} inputMode="numeric" placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input value={payouts} onChange={(e) => setPayouts(groupVnd(e.target.value))} inputMode="numeric" placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
         <div className="mt-2 font-bold text-slate-700">Tiền mặt đếm được trong két *</div>
-        <input value={counted} onChange={(e) => setCounted(e.target.value)} inputMode="numeric" placeholder="Đếm tiền rồi nhập vào" className="mt-1 w-full rounded-lg border-2 border-amber-300 p-3 text-lg" />
+        <input value={counted} onChange={(e) => setCounted(groupVnd(e.target.value))} inputMode="numeric" placeholder="Đếm tiền rồi nhập vào" className="mt-1 w-full rounded-lg border-2 border-amber-300 p-3 text-lg" />
 
         <button onClick={close} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">
           {busy ? "Đang tính..." : "🧮 Chốt ca"}

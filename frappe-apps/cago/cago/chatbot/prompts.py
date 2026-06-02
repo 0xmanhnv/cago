@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Vietnamese prompt templates. The context block is the ONLY product knowledge the
 model receives; system rules forbid inventing data."""

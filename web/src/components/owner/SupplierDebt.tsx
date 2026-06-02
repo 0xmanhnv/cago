@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, Ok, Warn } from "./OwnerShared";
 import type { ProductCard } from "@/lib/types";
 
@@ -136,22 +137,27 @@ function SupplierView({ supplier, name, onBack }: { supplier: string; name: stri
 
 function PaySupplier({ supplier, onDone }: { supplier: string; onDone: () => void }) {
   const [amt, setAmt] = useState("");
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<React.ReactNode>(null);
   const pay = async () => {
-    const v = parseFloat(amt);
+    if (busy) return;
+    const v = parseVnd(amt);
     if (!v || v <= 0) return setMsg(<Warn>Nhập số tiền.</Warn>);
+    setBusy(true);
     try {
       await frappeCall("cago.api.supplier.pay_supplier", { supplier, amount: v });
       onDone();
-    } catch {
-      setMsg(<Warn>Lỗi: không lưu được.</Warn>);
+    } catch (e) {
+      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi: không lưu được."}</Warn>);
+    } finally {
+      setBusy(false);
     }
   };
   return (
     <div className="rounded-xl bg-white p-4">
       <label className="block font-bold text-slate-700">Số tiền trả NCC (đồng)</label>
-      <input autoFocus inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value)} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-3 text-xl" />
-      <button onClick={pay} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">Xác nhận trả</button>
+      <input autoFocus inputMode="numeric" value={amt} onChange={(e) => setAmt(groupVnd(e.target.value))} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-3 text-xl" />
+      <button onClick={pay} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">{busy ? "Đang lưu..." : "Xác nhận trả"}</button>
       {msg}
     </div>
   );
@@ -160,6 +166,7 @@ function PaySupplier({ supplier, onDone }: { supplier: string; onDone: () => voi
 function CreditPurchase({ supplier, onDone }: { supplier: string; onDone: () => void }) {
   const [results, setResults] = useState<ProductCard[]>([]);
   const [lines, setLines] = useState<Record<string, { p: ProductCard; qty: number; rate: string }>>({});
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<React.ReactNode>(null);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
@@ -168,13 +175,18 @@ function CreditPurchase({ supplier, onDone }: { supplier: string; onDone: () => 
   const lineList = Object.values(lines);
   const submit = async () => {
     setMsg(null);
-    const items = lineList.map((x) => ({ item_code: x.p.item_code, qty: x.qty, rate: parseFloat(x.rate) || 0 }));
+    if (busy) return;
+    const items = lineList.map((x) => ({ item_code: x.p.item_code, qty: x.qty, rate: parseVnd(x.rate) }));
     if (!items.length) return setMsg(<Warn>Chưa chọn sản phẩm.</Warn>);
+    if (items.some((i) => i.rate <= 0)) return setMsg(<Warn>Nhập giá nhập cho mỗi sản phẩm.</Warn>);
+    setBusy(true);
     try {
       await frappeCall("cago.api.supplier.credit_purchase", { supplier, items: JSON.stringify(items) });
       onDone();
     } catch (e) {
       setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi nhập hàng."}</Warn>);
+    } finally {
+      setBusy(false);
     }
   };
   return (
@@ -183,11 +195,11 @@ function CreditPurchase({ supplier, onDone }: { supplier: string; onDone: () => 
         <div key={x.p.item_code} className="flex items-center gap-2 border-b border-slate-100 py-2">
           <span className="flex-1 font-bold">{x.p.display_name}</span>
           <input value={x.qty} onChange={(e) => setLines((l) => ({ ...l, [x.p.item_code]: { ...l[x.p.item_code], qty: Math.max(1, parseInt(e.target.value || "1", 10) || 1) } }))} inputMode="numeric" className="w-14 rounded border-2 border-emerald-300 p-1.5 text-center" />
-          <input value={x.rate} onChange={(e) => setLines((l) => ({ ...l, [x.p.item_code]: { ...l[x.p.item_code], rate: e.target.value } }))} inputMode="numeric" placeholder="giá nhập" className="w-24 rounded border-2 border-emerald-300 p-1.5" />
+          <input value={x.rate} onChange={(e) => setLines((l) => ({ ...l, [x.p.item_code]: { ...l[x.p.item_code], rate: groupVnd(e.target.value) } }))} inputMode="numeric" placeholder="giá nhập" className="w-24 rounded border-2 border-emerald-300 p-1.5" />
         </div>
       ))}
       {lineList.length > 0 && (
-        <button onClick={submit} className="my-2 min-h-touch w-full rounded-xl bg-red-600 font-extrabold text-white">📦 Nhập hàng (ghi nợ NCC + tăng tồn)</button>
+        <button onClick={submit} disabled={busy} className="my-2 min-h-touch w-full rounded-xl bg-red-600 font-extrabold text-white disabled:opacity-50">{busy ? "Đang nhập..." : "📦 Nhập hàng (ghi nợ NCC + tăng tồn)"}</button>
       )}
       {msg}
       <input

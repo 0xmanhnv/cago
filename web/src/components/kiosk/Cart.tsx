@@ -10,9 +10,12 @@ export function Cart() {
   const nav = useKioskNav();
   const lines = Object.values(kiosk.cart);
   const [result, setResult] = useState<string | null>(null);
+  const [err, setErr] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
+    if (submitting) return;
+    setErr("");
     setSubmitting(true);
     try {
       const items = lines.map((x) => ({ item_code: x.product.item_code, qty: x.qty }));
@@ -22,7 +25,8 @@ export function Cart() {
       setResult(r.code);
       kiosk.clearCart();
     } catch {
-      /* keep cart, allow retry */
+      // keep the cart so the customer can retry, but tell them it didn't send.
+      setErr("Gửi chưa được, bác thử lại nhé (hoặc nhờ người bán).");
     } finally {
       setSubmitting(false);
     }
@@ -88,8 +92,9 @@ export function Cart() {
             onClick={submit}
             className="mt-4 min-h-touch w-full rounded-2xl bg-brand py-4 text-xl font-extrabold text-white shadow-soft transition hover:-translate-y-0.5 disabled:opacity-50"
           >
-            📨 Gửi cho người bán
+            {submitting ? "Đang gửi…" : "📨 Gửi cho người bán"}
           </button>
+          {err && <div className="mt-3 rounded-xl bg-red-100 p-3 text-center text-red-700">{err}</div>}
         </div>
       )}
     </div>

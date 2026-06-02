@@ -142,13 +142,13 @@ export function Assistant({
         )}
         {history.map((m, i) =>
           m.who === "user" ? (
-            <div key={i} className="my-2 text-right">
+            <div key={m.id ?? i} className="my-2 text-right">
               <span className="inline-block max-w-[85%] rounded-2xl bg-brand px-4 py-2.5 text-left text-white">
                 {m.text}
               </span>
             </div>
           ) : (
-            <div key={i} className="my-2">
+            <div key={m.id ?? i} className="my-2">
               <div
                 className="whitespace-pre-line rounded-2xl bg-white p-3 shadow-sm"
                 dangerouslySetInnerHTML={{ __html: mdLight(m.text) }}

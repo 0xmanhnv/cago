@@ -40,6 +40,7 @@ export function Coupons() {
     setMsg(null);
     if (!form.coupon_code.trim()) return setMsg(<Warn>Nhập mã.</Warn>);
     if (num(form.discount_value) <= 0) return setMsg(<Warn>Nhập giá trị giảm lớn hơn 0.</Warn>);
+    if (form.discount_type === "Percent" && num(form.discount_value) > 100) return setMsg(<Warn>Phần trăm giảm không quá 100%.</Warn>);
     setBusy(true);
     try {
       setRows(

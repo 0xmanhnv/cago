@@ -28,20 +28,23 @@ export function ProductDetail({ code }: { code: string }) {
   const [mainImg, setMainImg] = useState("");
 
   useEffect(() => {
+    let active = true; // tapping related products fast: ignore responses for a product we left
     setLoading(true);
     setError(false);
     frappeCall<Product>("cago.api.kiosk.get_product", { item_code: code }, { method: "GET" })
       .then((p) => {
+        if (!active) return;
         setProduct(p);
         setMainImg((p.images && p.images[0]) || p.image || "");
         setQty(kiosk.cart[code]?.qty || 1); // prefill with what's already in the basket
         kiosk.setFocusProduct(p.item_code, p.display_name, p.category);
         frappeCall<ProductCard[]>("cago.api.kiosk.related_products", { item_code: code }, { method: "GET" })
-          .then((r) => setRelated(r || []))
+          .then((r) => { if (active) setRelated(r || []); })
           .catch(() => {});
       })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      .catch(() => { if (active) setError(true); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 

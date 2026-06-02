@@ -73,6 +73,13 @@ export async function frappeCall<T = unknown>(
     } catch {
       /* ignore */
     }
+    // Session expired (401): the cookie is gone and our CSRF token is stale. Don't strand the
+    // user on a dead page with a confusing error — send them to a fresh login. Guest/bootstrap
+    // endpoints use allow_guest so they never 401, so this only fires for a lost protected session.
+    if (res.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      csrfToken = "";
+      window.location.href = "/login";
+    }
     throw new FrappeError(msg, res.status);
   }
   const json = await res.json();

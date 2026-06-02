@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Chốt ca / sổ quỹ — end-of-day cash reconciliation (owner-only).
 

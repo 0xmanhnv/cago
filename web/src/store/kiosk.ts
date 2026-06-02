@@ -4,12 +4,18 @@ import { create } from "zustand";
 import type { Product, ProductCard } from "@/lib/types";
 
 export interface ChatMsg {
+  id?: number; // stable React key; survives the slice(-50) cap so rows don't re-key
   who: "user" | "bot";
   text: string;
   cards?: ProductCard[];
   warnings?: string[];
   needStaff?: boolean;
 }
+
+// Date.now base (unique across reloads) + counter (unique within a tick) → never collides
+// with ids restored from sessionStorage.
+let msgSeq = 0;
+const nextMsgId = () => Date.now() * 1000 + (++msgSeq % 1000);
 
 interface CartLine {
   product: Product;
@@ -139,7 +145,7 @@ export const useKiosk = create<KioskState>((set, get) => {
     },
     pushMsg: (m) =>
       set((s) => {
-        const history = [...s.history, m].slice(-50);
+        const history = [...s.history, { ...m, id: m.id ?? nextMsgId() }].slice(-50);
         SS?.setItem("cago_chat_history", JSON.stringify(history));
         touch();
         return { history };
