@@ -107,6 +107,13 @@ export function StaffWanted() {
       setBusy(false);
     }
   };
+  // "Hoàn tất" is a one-way-feeling action (it drops the order out of the open list), so confirm
+  // it — an accidental tap shouldn't silently complete the order. Revert stays available below.
+  const completeOrder = async () => {
+    if (!wl || busy) return;
+    if (!(await confirmDialog(`Đánh dấu đơn ${wl.code} đã HOÀN TẤT?`, { confirmLabel: "Hoàn tất" }))) return;
+    void setStatus("Completed");
+  };
   const cancelOrder = async () => {
     if (!wl || busy) return;
     if (!(await confirmDialog(`Huỷ đơn ${wl.code}? (khách không lấy nữa)`, { danger: true, confirmLabel: "Huỷ đơn" }))) return;
@@ -220,7 +227,7 @@ export function StaffWanted() {
                   ⏳ Đang xử lý
                 </button>
                 <button
-                  onClick={() => setStatus("Completed")}
+                  onClick={completeOrder}
                   disabled={busy}
                   className="min-h-[48px] flex-1 rounded-xl border-2 border-emerald-300 bg-white font-bold text-emerald-700"
                 >
@@ -233,6 +240,14 @@ export function StaffWanted() {
           {wl.status !== "Cancelled" && wl.status !== "Completed" && (
             <button onClick={cancelOrder} disabled={busy} className="mt-3 w-full py-2 text-sm font-bold text-red-500 underline disabled:opacity-50">
               🗑 Huỷ đơn (khách không lấy nữa)
+            </button>
+          )}
+
+          {/* Recovery: a Completed/Cancelled order can be put back to "Đang xử lý" — so an accidental
+              tap (this screen has no other undo once the status controls hide) is never a dead end. */}
+          {(wl.status === "Completed" || wl.status === "Cancelled") && (
+            <button onClick={() => setStatus("Processing")} disabled={busy} className="mt-3 w-full py-2 text-sm font-bold text-slate-500 underline disabled:opacity-50">
+              ↩ Đặt lại về &ldquo;Đang xử lý&rdquo;
             </button>
           )}
         </div>
