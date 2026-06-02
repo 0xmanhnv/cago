@@ -118,11 +118,22 @@ export function StoreMapView({
           </circle>
         )}
 
-        {/* stairs marker (each floor) */}
-        {stairs && (map.floors.length > 1) && (
-          <g>
-            <circle cx={stairs.x} cy={stairs.y} r={2.8} fill="#7c3aed" stroke="white" strokeWidth={0.6} />
-            <text x={stairs.x} y={stairs.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.6} pointerEvents="none">🪜</text>
+        {/* stairs marker — tappable to jump to the connected floor (better UX than only the tabs) */}
+        {stairs && map.floors.length > 1 && (
+          <g
+            className="cursor-pointer"
+            onClick={() => {
+              const idx = map.floors.findIndex((f) => f.label === vf);
+              setViewFloor(map.floors[(idx + 1) % map.floors.length].label);
+            }}
+          >
+            {/* pulsing ring hints it's interactive */}
+            <circle cx={stairs.x} cy={stairs.y} r={3.4} fill="none" stroke="#7c3aed" strokeWidth={0.5}>
+              <animate attributeName="r" values="3.4;4.6;3.4" dur="1.4s" repeatCount="indefinite" />
+              <animate attributeName="stroke-opacity" values="0.8;0;0.8" dur="1.4s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={stairs.x} cy={stairs.y} r={3.2} fill="#7c3aed" stroke="white" strokeWidth={0.6} />
+            <text x={stairs.x} y={stairs.y} textAnchor="middle" dominantBaseline="middle" fontSize={2.8} pointerEvents="none">🪜</text>
           </g>
         )}
         {/* start pin (only on its floor) */}
@@ -141,7 +152,7 @@ export function StoreMapView({
           {hasFloors ? ` (${startFloor})` : ""}
         </span>
         {map.floors.length > 1 && (
-          <span className="flex items-center gap-1.5"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white">🪜</span>cầu thang</span>
+          <span className="flex items-center gap-1.5"><span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white">🪜</span>chạm để đổi tầng</span>
         )}
       </div>
 
