@@ -114,6 +114,49 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None, invoiced=1, inv
 
 
 @frappe.whitelist()
+def receive_history(start=0, limit=30):
+	"""Owner: recent stock-ins (Material Receipts) with their saved invoice photo + có/không HĐ flag.
+	Lets the owner review chứng từ later. Owner-only (shows giá vốn)."""
+	ensure_owner()
+	rows = frappe.get_all(
+		"Stock Entry",
+		filters={"stock_entry_type": "Material Receipt", "docstatus": 1},
+		fields=["name", "posting_date", "cago_invoiced", "cago_invoice_image", "total_incoming_value", "creation"],
+		order_by="creation desc",
+		limit=cint(limit),
+		limit_start=cint(start),
+	)
+	out = []
+	for r in rows:
+		dets = frappe.get_all(
+			"Stock Entry Detail",
+			filters={"parent": r.name},
+			fields=["item_code", "qty", "uom", "amount"],
+		)
+		lines = [
+			{
+				"name": frappe.db.get_value("Item", d.item_code, "cago_display_name") or frappe.db.get_value("Item", d.item_code, "item_name") or d.item_code,
+				"qty": flt(d.qty),
+				"uom": d.uom,
+				"amount_text": dto.format_price(d.amount) if d.amount else "",
+			}
+			for d in dets
+		]
+		out.append(
+			{
+				"entry": r.name,
+				"date": str(r.posting_date),
+				"invoiced": bool(r.cago_invoiced),
+				"image": r.cago_invoice_image,
+				"total_text": dto.format_price(r.total_incoming_value) if r.total_incoming_value else "—",
+				"lines": lines,
+				"count": len(lines),
+			}
+		)
+	return out
+
+
+@frappe.whitelist()
 def adjust_stock(item_code, counted_qty, reason=None):
 	"""Kiểm kê: set on-hand to the counted quantity (fix drift from spillage/breakage/theft).
 

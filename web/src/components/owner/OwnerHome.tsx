@@ -26,6 +26,7 @@ const ACTIONS: Record<string, { label: string; color: string; href: string }> = 
   edit: { label: "✏️ Sửa sản phẩm", color: "bg-amber-500", href: "/owner/edit" },
   receive: { label: "📥 Nhập hàng", color: "bg-teal-700", href: "/owner/receive" },
   bulk: { label: "⚡ Nhập hàng loạt", color: "bg-teal-700", href: "/owner/bulk" },
+  receivehist: { label: "📜 Lịch sử nhập", color: "bg-teal-600", href: "/owner/receive-history" },
   lowstock: { label: "📦 Hàng sắp hết", color: "bg-teal-600", href: "/owner/low-stock" },
   expiry: { label: "⏰ Lô & hạn dùng", color: "bg-orange-600", href: "/owner/expiry" },
   categories: { label: "🔀 Sắp xếp loại hàng", color: "bg-teal-600", href: "/owner/categories" },
@@ -39,7 +40,7 @@ const ACTIONS: Record<string, { label: string; color: string; href: string }> = 
 };
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🛒 Bán hàng & giá", keys: ["price", "sell", "creditsale", "coupons", "qr"] },
-  { title: "📦 Hàng hoá & kho", keys: ["new", "edit", "receive", "bulk", "lowstock", "expiry", "categories", "map"] },
+  { title: "📦 Hàng hoá & kho", keys: ["new", "edit", "receive", "bulk", "receivehist", "lowstock", "expiry", "categories", "map"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "supplier", "cashbook"] },
   { title: "📊 Báo cáo", keys: ["reports"] },
 ];
