@@ -168,7 +168,7 @@ export function BulkReceive() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="NHẬP HÀNG LOẠT" />
+      <BackBar onBack={() => router.push("/pos")} title="NHẬP HÀNG LOẠT" />
 
       <div className="mb-3 flex gap-2">
         <TabBtn k="text">✍️ Gõ/dán</TabBtn>

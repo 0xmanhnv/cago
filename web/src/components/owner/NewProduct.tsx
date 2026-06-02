@@ -36,7 +36,7 @@ export function NewProduct() {
           cago_is_public_visible: f.pub ? 1 : 0,
         }),
       });
-      router.push(`/owner/products/${encodeURIComponent(r.item_code)}/edit`);
+      router.push(`/pos/products/${encodeURIComponent(r.item_code)}/edit`);
     } catch {
       setMsg(<Warn>Lỗi: không tạo được sản phẩm.</Warn>);
     }
@@ -44,7 +44,7 @@ export function NewProduct() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="THÊM SẢN PHẨM" />
+      <BackBar onBack={() => router.push("/pos")} title="THÊM SẢN PHẨM" />
       <div className="rounded-xl bg-white p-4">
         <label className="block font-bold text-slate-700">Tên sản phẩm *</label>
         <input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />

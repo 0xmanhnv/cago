@@ -25,7 +25,7 @@ export function PriceLookup() {
           {p.expiry_text && <div className="mt-1 text-slate-500">HSD gần nhất: {p.expiry_text}</div>}
           {p.safety_notes && <Warn>⚠️ {p.safety_notes}</Warn>}
           <button
-            onClick={() => router.push(`/owner/products/${encodeURIComponent(p.item_code)}/edit`)}
+            onClick={() => router.push(`/pos/products/${encodeURIComponent(p.item_code)}/edit`)}
             className="mt-3 min-h-touch w-full rounded-xl bg-amber-500 font-extrabold text-white"
           >
             ✏️ Sửa sản phẩm này
@@ -37,7 +37,7 @@ export function PriceLookup() {
   return (
     <ProductPicker
       title="TRA GIÁ"
-      onBack={() => router.push("/owner")}
+      onBack={() => router.push("/pos")}
       onPick={async (code) => {
         const d = await frappeCall<Product>("cago.api.owner.get_product", { item_code: code }, { method: "GET" });
         setP(d);
@@ -51,8 +51,8 @@ export function EditPicker() {
   return (
     <ProductPicker
       title="SỬA SẢN PHẨM"
-      onBack={() => router.push("/owner")}
-      onPick={(code) => router.push(`/owner/products/${encodeURIComponent(code)}/edit`)}
+      onBack={() => router.push("/pos")}
+      onPick={(code) => router.push(`/pos/products/${encodeURIComponent(code)}/edit`)}
     />
   );
 }

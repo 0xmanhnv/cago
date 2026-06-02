@@ -235,7 +235,7 @@ export function StoreMap() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="SƠ ĐỒ CỬA HÀNG" />
+      <BackBar onBack={() => router.push("/pos")} title="SƠ ĐỒ CỬA HÀNG" />
 
       {/* floor tabs */}
       <div className="mb-2 flex flex-wrap items-center gap-2">

@@ -24,7 +24,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
     return (
       <CustomerPicker
         title={title}
-        onBack={() => router.push("/owner")}
+        onBack={() => router.push("/pos")}
         onPick={async (c) => {
           setCust(c);
           const d = await frappeCall<{ customer_name: string; outstanding_text: string; debt_limit_text?: string }>(
@@ -125,7 +125,7 @@ export function DebtList() {
   const filtered = text ? list.filter((c) => `${c.customer_name} ${c.village || ""}`.toLowerCase().includes(text)) : list;
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="CÔNG NỢ KHÁCH HÀNG" />
+      <BackBar onBack={() => router.push("/pos")} title="CÔNG NỢ KHÁCH HÀNG" />
       {loading ? (
         <div className="py-6 text-center text-slate-500">Đang tải...</div>
       ) : list.length === 0 ? (
@@ -140,7 +140,7 @@ export function DebtList() {
             filtered.map((c) => (
               <button
                 key={c.customer}
-                onClick={() => router.push(`/owner/debt/${encodeURIComponent(c.slug || c.customer)}`)}
+                onClick={() => router.push(`/pos/debt/${encodeURIComponent(c.slug || c.customer)}`)}
                 className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
               >
                 <div>
@@ -180,7 +180,7 @@ export function CustomerLedger({ customer }: { customer: string }) {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner/debt")} label="Quay lại" />
+      <BackBar onBack={() => router.push("/pos/debt")} label="Quay lại" />
       <div className="rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">{d.customer_name}</h2>
         <div className="flex justify-between border-b border-slate-100 py-2">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall, logout } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { hasCap, isInternal, isOwner, type Cap } from "@/lib/caps";
 import { BrandHeader } from "@/components/ui/BrandHeader";
 import { confirmDialog } from "@/components/ui/dialog";
 
@@ -15,54 +16,72 @@ interface Digest {
   has_tasks: boolean;
 }
 
-// Single registry of every owner action. Groups + favorites reference these by key.
-const ACTIONS: Record<string, { label: string; color: string; href: string }> = {
-  price: { label: "🔎 Tra giá", color: "bg-blue-600", href: "/owner/price" },
-  sell: { label: "🛒 Bán hàng", color: "bg-brand", href: "/staff/sell" },
-  creditsale: { label: "🧾 Bán chịu (trừ tồn)", color: "bg-red-600", href: "/owner/credit-sale" },
-  coupons: { label: "🎟 Mã giảm giá", color: "bg-violet-600", href: "/owner/coupons" },
-  qr: { label: "💳 QR thu tiền", color: "bg-violet-600", href: "/owner/settings" },
-  new: { label: "➕ Thêm sản phẩm", color: "bg-teal-600", href: "/owner/products/new" },
-  edit: { label: "✏️ Sửa sản phẩm", color: "bg-amber-500", href: "/owner/edit" },
-  receive: { label: "📥 Nhập hàng", color: "bg-teal-700", href: "/owner/receive" },
-  bulk: { label: "⚡ Nhập hàng loạt", color: "bg-teal-700", href: "/owner/bulk" },
-  receivehist: { label: "📜 Lịch sử nhập", color: "bg-teal-600", href: "/owner/receive-history" },
-  lowstock: { label: "📦 Hàng sắp hết", color: "bg-teal-600", href: "/owner/low-stock" },
-  expiry: { label: "⏰ Lô & hạn dùng", color: "bg-orange-600", href: "/owner/expiry" },
-  categories: { label: "🔀 Sắp xếp loại hàng", color: "bg-teal-600", href: "/owner/categories" },
-  map: { label: "🗺 Sơ đồ cửa hàng", color: "bg-teal-600", href: "/owner/map" },
-  recordpay: { label: "💵 Khách trả nợ", color: "bg-brand", href: "/owner/record-payment" },
-  recorddebt: { label: "📝 Ghi nợ (chỉ tiền)", color: "bg-red-500", href: "/owner/record-debt" },
-  debt: { label: "📒 Công nợ khách", color: "bg-violet-600", href: "/owner/debt" },
-  supplier: { label: "🚚 Công nợ NCC", color: "bg-violet-500", href: "/owner/supplier-debt" },
-  cashbook: { label: "🧮 Chốt ca / Sổ quỹ", color: "bg-blue-700", href: "/owner/cashbook" },
-  reports: { label: "📊 Báo cáo", color: "bg-blue-600", href: "/owner/reports" },
+// Required capability to use an action. null = any back-of-house user (shared); "owner" = owner only.
+type Need = Cap | null | "owner";
+
+// One registry of every back-office action. Tiles render only when the user holds the capability;
+// groups/favorites reference these by key. Hrefs all live under the unified /pos app.
+const ACTIONS: Record<string, { label: string; color: string; href: string; cap: Need }> = {
+  sell: { label: "🛒 Bán hàng", color: "bg-brand", href: "/pos/sell", cap: "sell" },
+  search: { label: "🔎 Tra sản phẩm", color: "bg-blue-600", href: "/pos/search", cap: null },
+  returns: { label: "↩️ Trả hàng", color: "bg-rose-600", href: "/pos/returns", cap: "returns" },
+  orders: { label: "📋 Khách đã chọn", color: "bg-teal-600", href: "/pos/orders", cap: null },
+  assistant: { label: "🤖 Hỏi trợ lý", color: "bg-violet-600", href: "/pos/assistant", cap: null },
+  creditsale: { label: "🧾 Bán chịu (trừ tồn)", color: "bg-red-600", href: "/pos/credit-sale", cap: "sell" },
+  coupons: { label: "🎟 Mã giảm giá", color: "bg-violet-600", href: "/pos/coupons", cap: "settings" },
+  qr: { label: "💳 QR thu tiền", color: "bg-violet-600", href: "/pos/settings", cap: "settings" },
+  price: { label: "🔎 Tra giá / sửa giá", color: "bg-blue-600", href: "/pos/price", cap: "products" },
+  new: { label: "➕ Thêm sản phẩm", color: "bg-teal-600", href: "/pos/products/new", cap: "products" },
+  edit: { label: "✏️ Sửa sản phẩm", color: "bg-amber-500", href: "/pos/edit", cap: "products" },
+  receive: { label: "📥 Nhập hàng", color: "bg-teal-700", href: "/pos/receive", cap: "stock" },
+  bulk: { label: "⚡ Nhập hàng loạt", color: "bg-teal-700", href: "/pos/bulk", cap: "stock" },
+  receivehist: { label: "📜 Lịch sử nhập", color: "bg-teal-600", href: "/pos/receive-history", cap: "stock" },
+  lowstock: { label: "📦 Hàng sắp hết", color: "bg-teal-600", href: "/pos/low-stock", cap: "stock" },
+  expiry: { label: "⏰ Lô & hạn dùng", color: "bg-orange-600", href: "/pos/expiry", cap: "stock" },
+  categories: { label: "🔀 Sắp xếp loại hàng", color: "bg-teal-600", href: "/pos/categories", cap: "products" },
+  map: { label: "🗺 Sơ đồ cửa hàng", color: "bg-teal-600", href: "/pos/map", cap: "settings" },
+  recordpay: { label: "💵 Khách trả nợ", color: "bg-brand", href: "/pos/record-payment", cap: "debt" },
+  recorddebt: { label: "📝 Ghi nợ (chỉ tiền)", color: "bg-red-500", href: "/pos/record-debt", cap: "debt" },
+  debt: { label: "📒 Công nợ khách", color: "bg-violet-600", href: "/pos/debt", cap: "debt" },
+  verify: { label: "🙋 Xem nợ khách", color: "bg-amber-500", href: "/pos/verify", cap: "debt" },
+  supplier: { label: "🚚 Công nợ NCC", color: "bg-violet-500", href: "/pos/supplier-debt", cap: "supplier" },
+  cashbook: { label: "🧮 Chốt ca / Sổ quỹ", color: "bg-blue-700", href: "/pos/cashbook", cap: "cash" },
+  reports: { label: "📊 Báo cáo", color: "bg-blue-600", href: "/pos/reports", cap: "reports" },
+  staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
 };
 const GROUPS: { title: string; keys: string[] }[] = [
-  { title: "🛒 Bán hàng & giá", keys: ["price", "sell", "creditsale", "coupons", "qr"] },
-  { title: "📦 Hàng hoá & kho", keys: ["new", "edit", "receive", "bulk", "receivehist", "lowstock", "expiry", "categories", "map"] },
-  { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "supplier", "cashbook"] },
-  { title: "📊 Báo cáo", keys: ["reports"] },
+  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "orders", "assistant", "creditsale", "coupons", "qr"] },
+  { title: "📦 Hàng hoá & kho", keys: ["price", "new", "edit", "receive", "bulk", "receivehist", "lowstock", "expiry", "categories", "map"] },
+  { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "verify", "supplier", "cashbook"] },
+  { title: "📊 Báo cáo & quản lý", keys: ["reports", "staffadmin"] },
 ];
 
-export function OwnerHome() {
+export function PosHome() {
   const router = useRouter();
   const { boot } = useSession();
   const posUrl = boot?.pos_url;
+  const owner = isOwner(boot);
   const [digest, setDigest] = useState<Digest | null>(null);
   const [fav, setFav] = useState<string[]>([]);
-  const [showAll, setShowAll] = useState(false); // collapse the full menu; expand on demand
-  const [editMode, setEditMode] = useState(false); // "arrange" mode: pin ☆ + drag ⠿ only here
+  const [showAll, setShowAll] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const favRef = useRef<string[]>([]);
   const dragFrom = useRef<number | null>(null);
   const editRef = useRef(false);
   const lp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const justLong = useRef(false); // a long-press just entered edit mode → swallow the releasing tap
+  const justLong = useRef(false);
   favRef.current = fav;
   editRef.current = editMode;
 
-  // Long-press a tile (touch or mouse-hold) → enter "arrange" mode (like iOS home). A quick tap
-  // navigates; a drag/scroll cancels the timer — so normal scrolling never triggers anything.
+  // Whether THIS user may use an action (owner sees all; null = any internal).
+  const can = (k: string) => {
+    const a = ACTIONS[k];
+    if (!a) return false;
+    if (a.cap === null) return isInternal(boot);
+    if (a.cap === "owner") return owner;
+    return hasCap(boot, a.cap);
+  };
+
   const pressStart = () => {
     if (editRef.current) return;
     lp.current = setTimeout(() => {
@@ -72,28 +91,30 @@ export function OwnerHome() {
     }, 450);
   };
   const pressCancel = () => clearTimeout(lp.current);
-  // Tap behaviour for any tile: the tap that ENTERED arrange mode is swallowed (so a long-press
-  // doesn't also pin the held tile); in arrange mode a tap pins/unpins; otherwise it navigates.
   const tapTile = (k: string) => {
     if (justLong.current) { justLong.current = false; return; }
     if (editRef.current) { togglePin(k); return; }
     router.push(ACTIONS[k].href);
   };
-
-  // Clear the long-press timer if we unmount mid-hold (avoids setState on an unmounted view).
   useEffect(() => () => clearTimeout(lp.current), []);
 
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
-    // Favorites are stored per ACCOUNT (follows the owner across devices), not per browser.
     frappeCall<string[]>("cago.api.prefs.get_home_favorites", {}, { method: "GET" })
       .then((saved) => {
         const a = Array.isArray(saved) ? saved.filter((k) => ACTIONS[k]) : [];
         setFav(a);
-        if (!a.length) setShowAll(true); // nothing pinned yet → show the full menu so they can pin
+        if (!a.length) setShowAll(true);
       })
       .catch(() => setShowAll(true));
   }, []);
+
+  // Once caps are known, hide favorites the user can't access (don't persist — they reappear if
+  // the capability is granted back). Keeps drag indices aligned with what's rendered.
+  useEffect(() => {
+    if (boot) setFav((prev) => prev.filter((k) => ACTIONS[k] && can(k)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boot]);
 
   const persist = (next: string[]) => {
     frappeCall("cago.api.prefs.set_home_favorites", { keys: JSON.stringify(next) }).catch(() => {});
@@ -104,7 +125,6 @@ export function OwnerHome() {
   };
   const togglePin = (key: string) => saveFav(fav.includes(key) ? fav.filter((k) => k !== key) : [...fav, key]);
 
-  // Drag-to-reorder favorites (touch + mouse): grab the ⠿ handle, the tile under the finger swaps in.
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       if (dragFrom.current == null) return;
@@ -114,7 +134,6 @@ export function OwnerHome() {
       if (Number.isInteger(to) && to !== dragFrom.current) {
         const from = dragFrom.current;
         dragFrom.current = to;
-        // Functional update — never read a render-synced ref mid-gesture (avoids stale reorders).
         setFav((prev) => {
           const a = [...prev];
           const [m] = a.splice(from, 1);
@@ -131,7 +150,7 @@ export function OwnerHome() {
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp); // touch gesture taken over → end the drag too
+    window.addEventListener("pointercancel", onUp);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -148,8 +167,6 @@ export function OwnerHome() {
     }
   };
 
-  // A normal tile. Tap = open. Long-press = enter arrange mode. The ☆ pin only shows in
-  // arrange mode, so normal browsing stays clean and a finger-scroll never fights a control.
   const Tile = ({ k, wide = false }: { k: string; wide?: boolean }) => {
     const a = ACTIONS[k];
     const pinned = fav.includes(k);
@@ -180,26 +197,25 @@ export function OwnerHome() {
 
   return (
     <div>
-      <BrandHeader subtitle="Chủ cửa hàng" />
+      <BrandHeader subtitle={owner ? "Chủ cửa hàng" : boot?.full_name ? `Nhân viên · ${boot.full_name}` : "Nhân viên"} />
 
       {digest?.has_tasks && (
         <div className="mb-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
           <div className="font-extrabold text-amber-800">📌 Việc cần làm hôm nay</div>
           <div className="mt-1 flex flex-wrap gap-2">
             {digest.low_stock > 0 && (
-              <button onClick={() => router.push("/owner/low-stock")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-amber-800 shadow">📦 {digest.low_stock} hàng sắp hết</button>
+              <button onClick={() => router.push("/pos/low-stock")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-amber-800 shadow">📦 {digest.low_stock} hàng sắp hết</button>
             )}
             {digest.expiring > 0 && (
-              <button onClick={() => router.push("/owner/expiry")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-orange-700 shadow">⏰ {digest.expiring} lô sắp hết hạn</button>
+              <button onClick={() => router.push("/pos/expiry")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-orange-700 shadow">⏰ {digest.expiring} lô sắp hết hạn</button>
             )}
             {digest.debtors > 0 && (
-              <button onClick={() => router.push("/owner/debt")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-red-700 shadow">📒 {digest.debtors} khách nợ · {digest.debt_total_text}</button>
+              <button onClick={() => router.push("/pos/debt")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-red-700 shadow">📒 {digest.debtors} khách nợ · {digest.debt_total_text}</button>
             )}
           </div>
         </div>
       )}
 
-      {/* ⭐ Hay dùng — header + an arrange toggle (works on desktop too; long-press works on touch). */}
       <div className="mb-1 ml-1 mt-1 flex items-center justify-between">
         <div className="text-lg font-extrabold text-brand-dark">⭐ Hay dùng</div>
         <button
@@ -254,7 +270,6 @@ export function OwnerHome() {
         </div>
       )}
 
-      {/* Toggle: keep the page short — favorites stay, the full menu hides behind this. */}
       <button
         onClick={() => setShowAll((v) => !v)}
         className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-200 bg-white py-3 text-lg font-extrabold text-brand-dark"
@@ -262,19 +277,20 @@ export function OwnerHome() {
         🧰 Tất cả chức năng <span className={`inline-block transition-transform duration-300 ${showAll ? "rotate-180" : ""}`}>▾</span>
       </button>
 
-      {/* Grouped sections — smooth expand/collapse via grid-rows 0fr↔1fr (no abrupt show/hide). */}
       <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${showAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden" inert={!showAll ? true : undefined}>
           {GROUPS.map((g) => {
-            const hasPos = g.title.startsWith("🛒") && !!posUrl;
-            const total = g.keys.length + (hasPos ? 1 : 0);
-            const lastOdd = total % 2 === 1; // lone tile on the last row → stretch it full-width
+            const keys = g.keys.filter(can); // only the actions this user may use
+            const hasPos = g.title.startsWith("🛒") && !!posUrl && hasCap(boot, "sell");
+            if (!keys.length && !hasPos) return null; // hide an empty group entirely
+            const total = keys.length + (hasPos ? 1 : 0);
+            const lastOdd = total % 2 === 1;
             return (
               <div key={g.title} className="mb-3">
                 <div className="mb-1.5 ml-1 text-base font-bold text-slate-500">{g.title}</div>
                 <div className="grid grid-cols-2 gap-3.5">
-                  {g.keys.map((k, idx) => (
-                    <Tile key={k} k={k} wide={lastOdd && !hasPos && idx === g.keys.length - 1} />
+                  {keys.map((k, idx) => (
+                    <Tile key={k} k={k} wide={lastOdd && !hasPos && idx === keys.length - 1} />
                   ))}
                   {hasPos && (
                     <a href={posUrl} target="_blank" rel="noopener" className={`mt-tile bg-slate-600 ${lastOdd ? "col-span-2" : ""}`}>🧾 POS Awesome (quầy)</a>
@@ -287,8 +303,10 @@ export function OwnerHome() {
       </div>
 
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
-        <a href="/desk" target="_blank" rel="noopener" className="mt-tile min-h-[64px] bg-slate-500 text-lg">⚙️ Quản lý ERPNext</a>
-        <button onClick={doLogout} className="mt-tile min-h-[64px] bg-red-600 text-lg">🚪 Đăng xuất</button>
+        {owner && (
+          <a href="/desk" target="_blank" rel="noopener" className="mt-tile min-h-[64px] bg-slate-500 text-lg">⚙️ Quản lý ERPNext</a>
+        )}
+        <button onClick={doLogout} className={`mt-tile min-h-[64px] bg-red-600 text-lg ${owner ? "" : "col-span-2"}`}>🚪 Đăng xuất</button>
       </div>
     </div>
   );

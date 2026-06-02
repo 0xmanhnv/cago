@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { OWNER_ROLES } from "@/lib/roles";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { ProductInfo } from "@/components/staff/StaffProductDetail";
@@ -154,7 +153,7 @@ export function Checkout() {
   const { boot } = useSession();
   // /staff/sell is shared by staff AND the owner ("🛒 Bán hàng" tile) — send "back/home" to the
   // caller's real home so an owner doesn't get dumped on the staff home.
-  const home = (boot?.roles || []).some((r) => OWNER_ROLES.includes(r)) ? "/owner" : "/staff";
+  const home = "/pos"; // unified back-office home
   const allowPriceEdit = !!boot?.allow_price_edit; // server re-checks; this only shows the field
   const [list, setList] = useState<ProductCard[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -355,7 +354,7 @@ export function Checkout() {
     }
     setLines((l) => (l[code] ? l : { ...l, [code]: { qty: 1, uom: m?.stock_uom || "" } }));
   };
-  // Pre-load a kiosk wanted-list into the cart (from "/staff/sell?wanted=CODE") so staff collect
+  // Pre-load a kiosk wanted-list into the cart (from "/pos/sell?wanted=CODE") so staff collect
   // payment in the Cago POS instead of being dumped into the raw ERPNext desk invoice.
   useEffect(() => {
     if (!wantedParam) return;

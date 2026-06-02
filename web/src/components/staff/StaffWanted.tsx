@@ -118,7 +118,7 @@ export function StaffWanted() {
   // ERPNext desk invoice. The sell screen pre-loads these items and marks the order Completed.
   const createInvoice = () => {
     if (!wl) return;
-    router.push(`/staff/sell?wanted=${encodeURIComponent(wl.code)}`);
+    router.push(`/pos/sell?wanted=${encodeURIComponent(wl.code)}`);
   };
 
   // ---- Detail view -------------------------------------------------------
@@ -178,7 +178,7 @@ export function StaffWanted() {
   return (
     <div>
       <div className="mb-3.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/staff")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
+        <button onClick={() => router.push("/pos")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Trang chủ
         </button>
         <div className="flex-1 text-2xl font-bold">KHÁCH ĐÃ CHỌN</div>

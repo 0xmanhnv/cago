@@ -37,7 +37,7 @@ export function StaffChat() {
   return (
     <div>
       <div className="mb-3.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/staff")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
+        <button onClick={() => router.push("/pos")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Trang chủ
         </button>
         <div className="flex-1 text-xl font-bold">🤖 Trợ lý</div>
@@ -55,7 +55,7 @@ export function StaffChat() {
               {(m.cards || []).map((c) => (
                 <button
                   key={c.item_code}
-                  onClick={() => router.push(`/staff/products/${encodeURIComponent(c.item_code)}`)}
+                  onClick={() => router.push(`/pos/products/${encodeURIComponent(c.item_code)}`)}
                   className="mt-2 flex w-full items-center gap-3 rounded-xl bg-white p-2.5 text-left shadow"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}

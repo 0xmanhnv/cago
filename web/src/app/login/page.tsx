@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { isInternal } from "@/lib/caps";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,10 +25,8 @@ export default function LoginPage() {
     try {
       await login(usr.trim(), pwd);
       const b = await reload();
-      const roles = b?.roles || [];
-      if (roles.includes("Cago Owner") || roles.includes("System Manager")) router.push("/owner");
-      else if (roles.includes("Cago Staff")) router.push("/staff");
-      else router.push("/");
+      // Any back-of-house user (holds a capability) → unified /pos; customers/guests → kiosk.
+      router.push(isInternal(b) ? "/pos" : "/");
     } catch {
       setErr("Sai tài khoản hoặc mật khẩu. Bác kiểm tra lại nhé.");
       setBusy(false);

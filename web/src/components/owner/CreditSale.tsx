@@ -15,11 +15,11 @@ export function CreditSale() {
     return (
       <CustomerPicker
         title="BÁN CHỊU (giao hàng + ghi nợ)"
-        onBack={() => router.push("/owner")}
+        onBack={() => router.push("/pos")}
         onPick={(c) => setCustomer(c)}
       />
     );
-  return <Cart customer={customer} onBack={() => setCustomer(null)} onHome={() => router.push("/owner")} />;
+  return <Cart customer={customer} onBack={() => setCustomer(null)} onHome={() => router.push("/pos")} />;
 }
 
 function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => void; onHome: () => void }) {

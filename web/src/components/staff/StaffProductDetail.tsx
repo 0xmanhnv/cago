@@ -89,7 +89,7 @@ export function StaffProductDetail({ code }: { code: string }) {
     return (
       <div className="rounded-xl border border-amber-400 bg-amber-100 p-4 text-amber-900">
         Không tải được sản phẩm.{" "}
-        <button onClick={() => router.push("/staff/search")} className="underline">
+        <button onClick={() => router.push("/pos/search")} className="underline">
           Quay lại
         </button>
       </div>
@@ -98,7 +98,7 @@ export function StaffProductDetail({ code }: { code: string }) {
   return (
     <div>
       <div className="mb-3.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/staff/search")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
+        <button onClick={() => router.push("/pos/search")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Quay lại
         </button>
       </div>

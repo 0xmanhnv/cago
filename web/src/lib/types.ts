@@ -93,12 +93,14 @@ export interface Bootstrap {
   full_name?: string;
   is_guest: boolean;
   roles: string[];
+  caps: string[]; // capability keys the user holds (owner = all) — drives the /pos menu
   csrf_token: string;
   brand: string;
   persona: Persona;
   kiosk_chips: KioskChips;
   kiosk_debt_visible: boolean;
   allow_price_edit: boolean;
+  max_discount_pct?: number; // per-staff max whole-bill discount (owner = 100)
   staff_can_collect_debt?: boolean;
   has_posawesome: boolean;
   pos_url?: string | null;

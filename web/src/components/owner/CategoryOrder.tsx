@@ -49,7 +49,7 @@ export function CategoryOrder() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="SẮP XẾP LOẠI HÀNG" />
+      <BackBar onBack={() => router.push("/pos")} title="SẮP XẾP LOẠI HÀNG" />
       <p className="mb-3 ml-1 text-slate-500">
         Dùng ▲ ▼ để đưa loại hàng hay bán lên trên. Thứ tự này áp dụng cho kiosk khách xem.
       </p>

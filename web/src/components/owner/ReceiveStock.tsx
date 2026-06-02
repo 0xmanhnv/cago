@@ -99,7 +99,7 @@ export function ReceiveStock() {
   };
 
   if (!code) {
-    return <ProductPicker title="NHẬP HÀNG" onBack={() => router.push("/owner")} onPick={pick} />;
+    return <ProductPicker title="NHẬP HÀNG" onBack={() => router.push("/pos")} onPick={pick} />;
   }
 
   return (

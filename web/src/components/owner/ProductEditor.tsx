@@ -154,7 +154,7 @@ export function ProductEditor({ code }: { code: string }) {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} label="Quay lại" />
+      <BackBar onBack={() => router.push("/pos")} label="Quay lại" />
       <div className="rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">Sửa: {e.cago_display_name || e.item_name}</h2>
 

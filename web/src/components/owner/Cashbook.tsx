@@ -58,7 +58,7 @@ export function Cashbook() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="CHỐT CA / SỔ QUỸ" />
+      <BackBar onBack={() => router.push("/pos")} title="CHỐT CA / SỔ QUỸ" />
       <div className="rounded-xl bg-white p-4">
         <div className="text-slate-600">Hôm nay đã thu:</div>
         <div className="mt-1 flex justify-between border-b border-slate-100 py-1.5">

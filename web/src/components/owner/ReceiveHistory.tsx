@@ -60,7 +60,7 @@ export function ReceiveHistory() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="LỊCH SỬ NHẬP HÀNG" />
+      <BackBar onBack={() => router.push("/pos")} title="LỊCH SỬ NHẬP HÀNG" />
 
       {loading ? (
         <div className="py-8 text-center text-slate-500">Đang tải...</div>

@@ -66,7 +66,7 @@ export function StaffSearch() {
       { barcode: code.trim() },
       { method: "GET" },
     );
-    if (r.item_code) router.push(`/staff/products/${encodeURIComponent(r.item_code)}`);
+    if (r.item_code) router.push(`/pos/products/${encodeURIComponent(r.item_code)}`);
     else await alertDialog("Không tìm thấy sản phẩm với mã vạch này.");
   };
 
@@ -74,7 +74,7 @@ export function StaffSearch() {
     <div>
       {/* Top row: back + the rarely-typed barcode field (scanned, short). */}
       <div className="mb-2.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/staff")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
+        <button onClick={() => router.push("/pos")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Trang chủ
         </button>
         <input
@@ -109,7 +109,7 @@ export function StaffSearch() {
           {list.map((p) => (
             <button
               key={p.item_code}
-              onClick={() => router.push(`/staff/products/${encodeURIComponent(p.item_code)}`)}
+              onClick={() => router.push(`/pos/products/${encodeURIComponent(p.item_code)}`)}
               className="mb-3 flex w-full items-center gap-3 rounded-xl bg-white p-3.5 text-left shadow"
             >
               <div className="h-[64px] w-[64px] shrink-0 overflow-hidden rounded-lg">

@@ -72,7 +72,7 @@ export function Coupons() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="MÃ GIẢM GIÁ" />
+      <BackBar onBack={() => router.push("/pos")} title="MÃ GIẢM GIÁ" />
 
       <div className="mt-card p-4">
         <div className="text-lg font-extrabold">➕ Tạo / sửa mã</div>

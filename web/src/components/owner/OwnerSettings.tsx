@@ -56,7 +56,7 @@ export function OwnerSettings() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="QR THU TIỀN (VietQR)" />
+      <BackBar onBack={() => router.push("/pos")} title="QR THU TIỀN (VietQR)" />
       <div className="rounded-xl bg-white p-4">
         <p className="text-slate-500">Nhập tài khoản ngân hàng của cửa hàng để hiện mã QR cho khách chuyển khoản đúng số tiền.</p>
         <label className="mt-3 block font-bold text-slate-700">Mã ngân hàng (BIN)</label>
