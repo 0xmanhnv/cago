@@ -264,7 +264,7 @@ def best_sellers(limit=10):
 @frappe.whitelist()
 def debt_list():
 	ensure_owner()
-	customers = frappe.get_all("Customer", fields=["name", "customer_name", "cago_village"])
+	customers = frappe.get_all("Customer", fields=["name", "customer_name", "cago_village", "cago_slug"])
 	out = []
 	for c in customers:
 		bal = get_customer_debt(c.name)["outstanding"]
@@ -272,6 +272,7 @@ def debt_list():
 			out.append(
 				{
 					"customer": c.name,
+					"slug": c.cago_slug or c.name,
 					"customer_name": c.customer_name,
 					"village": c.cago_village,
 					"outstanding": bal,

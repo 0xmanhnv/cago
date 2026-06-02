@@ -397,6 +397,9 @@ def zalo_draft(kind, customer=None, item_code=None):
 	"""Generate a ready-to-copy Zalo/SMS message (debt reminder or restock alert)."""
 	ensure_owner()
 	if kind == "debt_reminder":
+		from cago.customer import resolve_customer
+
+		customer = resolve_customer(customer)
 		if not customer or not frappe.db.exists("Customer", customer):
 			frappe.throw(_("Không tìm thấy khách hàng."))
 		from cago.api.debt import get_customer_debt

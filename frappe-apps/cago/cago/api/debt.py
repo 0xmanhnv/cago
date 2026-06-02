@@ -18,6 +18,7 @@ from frappe.utils import flt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import (
 	record_action,
 )
+from cago.customer import resolve_customer
 from cago.utils import dto
 from cago.utils.permissions import ensure_lang, ensure_owner
 from cago.utils.privileged import as_user
@@ -102,6 +103,7 @@ def _debt_summary(customer):
 
 def get_customer_debt(customer):
 	ensure_owner()
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	company = _company()
@@ -132,6 +134,7 @@ def record_debt(customer, amount, note=None):
 	"""Customer takes goods on credit. Increases receivable via a Journal Entry."""
 	ensure_owner()
 	ensure_lang()
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	amount = flt(amount)
@@ -194,6 +197,7 @@ def record_repayment(customer, amount, note=None):
 	that cashier's till shift and the collector is stamped on the Payment Entry."""
 	cashier = ensure_can_collect_debt()
 	ensure_lang()
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	amount = flt(amount)
@@ -276,6 +280,7 @@ def set_wholesale(customer, on):
 	ensure_owner()
 	from frappe.utils import cint
 
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	val = 1 if cint(on) else 0
@@ -288,6 +293,7 @@ def set_wholesale(customer, on):
 def get_customer_ledger(customer):
 	"""Debt history for one customer: each ghi nợ / trả nợ with a running balance."""
 	ensure_owner()
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	rows = frappe.get_all(
@@ -334,6 +340,7 @@ def cancel_entry(voucher_type, voucher_no, customer=None):
 	"""Cancel a mistaken debt/payment voucher (Journal Entry / Payment Entry)."""
 	ensure_owner()
 	ensure_lang()
+	customer = resolve_customer(customer) if customer else customer
 	if voucher_type not in ("Journal Entry", "Payment Entry"):
 		frappe.throw(_("Chỉ huỷ được bút toán ghi nợ / trả nợ."))
 	if not frappe.db.exists(voucher_type, voucher_no):

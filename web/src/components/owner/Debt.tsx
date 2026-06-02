@@ -111,7 +111,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
 
 export function DebtList() {
   const router = useRouter();
-  const [list, setList] = useState<{ customer: string; customer_name: string; village?: string; outstanding_text: string; outstanding?: number }[]>([]);
+  const [list, setList] = useState<{ customer: string; slug?: string; customer_name: string; village?: string; outstanding_text: string; outstanding?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   useEffect(() => {
@@ -140,7 +140,7 @@ export function DebtList() {
             filtered.map((c) => (
               <button
                 key={c.customer}
-                onClick={() => router.push(`/owner/debt/${encodeURIComponent(c.customer)}`)}
+                onClick={() => router.push(`/owner/debt/${encodeURIComponent(c.slug || c.customer)}`)}
                 className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
               >
                 <div>

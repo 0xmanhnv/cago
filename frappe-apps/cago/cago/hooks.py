@@ -49,6 +49,11 @@ doc_events = {
 		"on_submit": "cago.loyalty.accrue",
 		"on_cancel": "cago.loyalty.reverse",
 	},
+	# Stable URL slug per customer (so links don't carry the Vietnamese docname).
+	"Customer": {
+		"before_insert": "cago.customer.set_slug",
+		"validate": "cago.customer.set_slug",
+	},
 }
 
 # ---------------------------------------------------------------------------

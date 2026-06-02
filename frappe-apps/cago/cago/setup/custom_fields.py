@@ -129,12 +129,24 @@ def ensure_customer_fields():
 					"insert_after": "cago_points",
 					"description": "Bật: khách này mua theo Giá sỉ (nếu sản phẩm có đặt giá sỉ).",
 				},
+				{
+					# Stable URL handle so customer links don't carry the Vietnamese docname
+					# (some customers are named "Cô Ba Test" → fragile in a URL). Auto-filled,
+					# unique-by-code (see cago.customer.set_slug). Resolved back in debt APIs.
+					"fieldname": "cago_slug",
+					"label": "Mã đường dẫn (slug)",
+					"fieldtype": "Data",
+					"insert_after": "cago_wholesale",
+					"read_only": 1,
+					"no_copy": 1,
+					"hidden": 1,
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Customer fields ensured: cago_debt_limit, cago_points, cago_wholesale")
+	print("Customer fields ensured: cago_debt_limit, cago_points, cago_wholesale, cago_slug")
 
 
 def ensure_loyalty_fields():
@@ -284,3 +296,7 @@ def setup_all_fields():
 	ensure_user_fields()
 	ensure_stock_entry_fields()
 	ensure_payment_fields()
+	# Backfill the customer URL slug for any customer created before the field existed.
+	from cago.customer import backfill_slugs
+
+	backfill_slugs()
