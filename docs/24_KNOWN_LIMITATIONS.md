@@ -1,5 +1,17 @@
 # 24 — Known Limitations & Decisions (post-review)
 
+> **Update (2026-06-02) — several items below have since SHIPPED; this banner is the current truth:**
+> - **Credit sale that reduces stock**: built — `cago.api.sales.credit_sale` and `quick_sale(payment_mode="credit")` post a stock-reducing unpaid Sales Invoice (not just the simple `record_debt` Journal). Both respect the credit limit and are idempotent via `cago_client_uuid`.
+> - **Returns**: built — `sales.return_sale` (full + partial; a partial return pro-rates the original discount).
+> - **Supplier payables**: built — `cago.api.supplier` + UI.
+> - **Kiosk self-service debt**: built — OTP/token flow in `cago.api.verify` (staff-approved, audited).
+> - **Debt-balance per-customer GL lookup**: now batched (`sales._outstanding_map`) for snapshots.
+> - **POS Awesome**: evaluated on ERPNext v16 → conditional-GO (docs/34); native POS remains the fallback.
+> - **Offline sell**: added — /pos/sell queues sales offline and auto-syncs when the network returns.
+> - **Till-shift enforcement**: live counter sales now require an open shift server-side (owner + offline-queued sales exempt).
+>
+> The historical notes below are kept for context; treat the banner as authoritative where they conflict.
+
 Recorded after the PM/techlead/BA + security + UX + DB review. None are blocking for
 the MVP pilot; each has a clear future path.
 

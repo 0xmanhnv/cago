@@ -1,5 +1,13 @@
 # 32 — End‑to‑End Review (senior eng / QA / security / UX / ops)
 
+> **STALE SNAPSHOT — updated 2026-06-02.** This is a point-in-time review at commit `cbae8aa`; keep it
+> for history but note what has since shipped. The "features not yet built" in §1/§2 are now mostly DONE:
+> **credit-sale-that-reduces-stock, returns (full+partial), supplier payables UI, kiosk self-service debt
+> (OTP), store map, offline sell, loyalty redemption at the till, capability RBAC + per-staff limits,
+> server-side shift enforcement.** Current live evidence: **116 backend unit tests + 17 frontend (vitest)
+> green · audit 26/26** (the audit now also asserts write guards reject a no-cap caller). The readiness
+> score and "not built" lists below are superseded by this banner.
+
 > **Review only — no code changes.** State reviewed at commit `cbae8aa`
 > (Frappe 16.19 · ERPNext 16.20 · cago 0.1.0 · Next.js 16 in `web/`).
 > Live evidence this review: **52 unit tests pass · audit 11/11 · every owner/staff/owner‑report
