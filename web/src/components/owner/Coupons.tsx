@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar, Ok, Warn, money } from "./OwnerShared";
+import { BackBar, money } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 
 interface Coupon {
   coupon_code: string;
@@ -27,7 +28,6 @@ export function Coupons() {
   const [rows, setRows] = useState<Coupon[]>([]);
   const [form, setForm] = useState<Form>({ ...blank });
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
 
   const load = async () => setRows((await frappeCall<Coupon[]>("cago.api.coupon.list_coupons", {}, { method: "GET" })) || []);
   useEffect(() => {
@@ -37,10 +37,18 @@ export function Coupons() {
   const num = (s: string) => parseInt((s || "").replace(/[^\d]/g, ""), 10) || 0;
 
   const save = async () => {
-    setMsg(null);
-    if (!form.coupon_code.trim()) return setMsg(<Warn>Nhập mã.</Warn>);
-    if (num(form.discount_value) <= 0) return setMsg(<Warn>Nhập giá trị giảm lớn hơn 0.</Warn>);
-    if (form.discount_type === "Percent" && num(form.discount_value) > 100) return setMsg(<Warn>Phần trăm giảm không quá 100%.</Warn>);
+    if (!form.coupon_code.trim()) {
+      toast.error("Nhập mã.");
+      return;
+    }
+    if (num(form.discount_value) <= 0) {
+      toast.error("Nhập giá trị giảm lớn hơn 0.");
+      return;
+    }
+    if (form.discount_type === "Percent" && num(form.discount_value) > 100) {
+      toast.error("Phần trăm giảm không quá 100%.");
+      return;
+    }
     setBusy(true);
     try {
       setRows(
@@ -56,9 +64,9 @@ export function Coupons() {
         }),
       );
       setForm({ ...blank });
-      setMsg(<Ok>✅ Đã lưu mã.</Ok>);
+      toast.success("Đã lưu mã.");
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi lưu mã."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi lưu mã.");
     } finally {
       setBusy(false);
     }
@@ -91,7 +99,6 @@ export function Coupons() {
           <label className="text-sm font-bold text-slate-600">Đến ngày<input type="date" value={form.valid_to} onChange={(e) => setForm({ ...form, valid_to: e.target.value })} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2" /></label>
         </div>
         <button onClick={save} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">💾 Lưu mã</button>
-        {msg}
       </div>
 
       <div className="mt-4 space-y-2">

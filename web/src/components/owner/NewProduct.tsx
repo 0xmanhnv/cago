@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar, Warn } from "./OwnerShared";
+import { BackBar } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 
 export function NewProduct() {
   const router = useRouter();
   const [meta, setMeta] = useState<{ item_groups: string[]; uoms: string[]; stock_status_options: string[] } | null>(null);
   const [f, setF] = useState({ name: "", group: "", unit: "Bao", price: "", stock: "", chem: false, pub: true });
-  const [msg, setMsg] = useState<React.ReactNode>(null);
 
   useEffect(() => {
     frappeCall<typeof meta>("cago.api.owner.get_product_meta", {}, { method: "GET" })
@@ -20,9 +20,14 @@ export function NewProduct() {
   if (!meta) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
 
   const create = async () => {
-    setMsg(null);
-    if (!f.name.trim()) return setMsg(<Warn>Nhập tên sản phẩm.</Warn>);
-    if (!f.group) return setMsg(<Warn>Chọn nhóm hàng.</Warn>);
+    if (!f.name.trim()) {
+      toast.error("Nhập tên sản phẩm.");
+      return;
+    }
+    if (!f.group) {
+      toast.error("Chọn nhóm hàng.");
+      return;
+    }
     try {
       const r = await frappeCall<{ item_code: string }>("cago.api.owner.create_product", {
         data: JSON.stringify({
@@ -38,7 +43,7 @@ export function NewProduct() {
       });
       router.push(`/pos/products/${encodeURIComponent(r.item_code)}/edit`);
     } catch {
-      setMsg(<Warn>Lỗi: không tạo được sản phẩm.</Warn>);
+      toast.error("Lỗi: không tạo được sản phẩm.");
     }
   };
 
@@ -78,7 +83,6 @@ export function NewProduct() {
         <button onClick={create} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
           Tạo sản phẩm
         </button>
-        {msg}
       </div>
     </div>
   );

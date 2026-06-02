@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { alertDialog } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
 import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
 import { money } from "@/components/owner/OwnerShared";
 
@@ -45,7 +45,6 @@ export function StaffReturns() {
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<Tab>("returnable");
   const [busy, setBusy] = useState("");
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const [retRow, setRetRow] = useState<SaleRow | null>(null); // invoice being returned (opens the panel)
   const [retLines, setRetLines] = useState<RetLine[]>([]);
   const [retQty, setRetQty] = useState<Record<string, string>>({});
@@ -143,20 +142,19 @@ export function StaffReturns() {
     if (!retRow || busy) return;
     const lines = retParsed.filter((l) => l.q > 0).map((l) => ({ item_code: l.item_code, qty: l.q }));
     if (!lines.length) {
-      await alertDialog("Chọn số lượng cần trả (lớn hơn 0).");
+      toast.error("Chọn số lượng cần trả (lớn hơn 0).");
       return;
     }
     const inv = retRow.invoice;
     setBusy(inv);
-    setMsg(null);
     try {
       const r = await frappeCall<{ return_invoice: string; total_text: string }>("cago.api.sales.return_sale", { invoice: inv, lines: JSON.stringify(lines) });
-      setMsg(<div className="mb-2.5 rounded-lg bg-emerald-100 p-3 font-bold text-emerald-800">✅ Đã trả hàng {r.total_text}. Hàng đã về kho.</div>);
+      toast.success(`Đã trả hàng ${r.total_text}. Hàng đã về kho.`);
       setRetRow(null);
       void loadCounts();
       await load(tab, q.trim());
     } catch (e) {
-      setMsg(<div className="mb-2.5 rounded-lg bg-red-100 p-3 font-bold text-red-700">Lỗi: {e instanceof Error ? e.message : "không trả được."}</div>);
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không trả được."}`);
     } finally {
       setBusy("");
     }
@@ -172,7 +170,6 @@ export function StaffReturns() {
         </button>
         <div className="flex-1 text-2xl font-bold">TRẢ HÀNG</div>
       </div>
-      {msg}
 
       <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm theo số hoá đơn / tên khách..." />
       <FilterTabs
@@ -224,7 +221,7 @@ export function StaffReturns() {
 
       {/* Return panel — shows the invoice + lets staff return part of each line. */}
       {retRow && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => !busy && setRetRow(null)}>
+        <div className="fixed inset-0 z-50 flex animate-fade-in items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => !busy && setRetRow(null)}>
           <div className="no-scrollbar max-h-[88vh] w-full max-w-[480px] animate-sheet-up overflow-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-1 text-xl font-extrabold">↩ Trả hàng</div>
             <div className="rounded-xl bg-slate-50 p-3 text-sm">

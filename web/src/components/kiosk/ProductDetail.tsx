@@ -221,8 +221,8 @@ export function ProductDetail({ code }: { code: string }) {
       )}
 
       {showMap && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-3 sm:items-center" onClick={() => setShowMap(false)}>
-          <div className="max-h-[90vh] w-full max-w-[520px] overflow-auto rounded-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="animate-fade-in fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-3 sm:items-center" onClick={() => setShowMap(false)}>
+          <div className="animate-sheet-up max-h-[90vh] w-full max-w-[520px] overflow-auto rounded-2xl bg-white p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
               <div className="text-lg font-extrabold text-brand-dark">📍 Vị trí: {product.display_name}</div>
               <button onClick={() => setShowMap(false)} className="rounded-lg bg-slate-200 px-3 py-1.5 font-bold text-slate-700">Đóng</button>

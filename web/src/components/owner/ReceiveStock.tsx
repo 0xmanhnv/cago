@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar, ProductPicker, Ok, Warn, money } from "./OwnerShared";
+import { BackBar, ProductPicker, money } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 
 interface Stock {
   qty: number;
@@ -31,14 +32,12 @@ export function ReceiveStock() {
   const [newBatch, setNewBatch] = useState({ id: "", hsd: "" });
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
 
   const pick = async (c: string) => {
     setCode(c);
     setQty("");
     setCost("");
     setBatch("");
-    setMsg(null);
     try {
       const [p, s] = await Promise.all([
         frappeCall<Prod>("cago.api.owner.get_product", { item_code: c }, { method: "GET" }),
@@ -47,7 +46,7 @@ export function ReceiveStock() {
       setProd(p);
       setStock(s);
     } catch {
-      setMsg(<Warn>Không tải được sản phẩm.</Warn>);
+      toast.error("Không tải được sản phẩm.");
     }
   };
 
@@ -57,7 +56,10 @@ export function ReceiveStock() {
   };
 
   const addBatch = async () => {
-    if (!code || !newBatch.id.trim()) return setMsg(<Warn>Nhập mã lô.</Warn>);
+    if (!code || !newBatch.id.trim()) {
+      toast.error("Nhập mã lô.");
+      return;
+    }
     setBusy(true);
     try {
       await frappeCall("cago.api.inventory.add_batch", { item_code: code, batch_id: newBatch.id.trim(), expiry_date: newBatch.hsd || null });
@@ -66,7 +68,7 @@ export function ReceiveStock() {
       setNewBatch({ id: "", hsd: "" });
       setAdding(false);
     } catch (e) {
-      setMsg(<Warn>Lỗi: {e instanceof Error ? e.message : "không thêm được lô."}</Warn>);
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không thêm được lô."}`);
     } finally {
       setBusy(false);
     }
@@ -75,11 +77,16 @@ export function ReceiveStock() {
   const submit = async () => {
     if (!code) return;
     const q = num(qty);
-    if (q <= 0) return setMsg(<Warn>Nhập số lượng lớn hơn 0.</Warn>);
-    if (stock?.has_batch && !batch) return setMsg(<Warn>Chọn lô (hoặc thêm lô mới) trước khi nhập.</Warn>);
+    if (q <= 0) {
+      toast.error("Nhập số lượng lớn hơn 0.");
+      return;
+    }
+    if (stock?.has_batch && !batch) {
+      toast.error("Chọn lô (hoặc thêm lô mới) trước khi nhập.");
+      return;
+    }
     if (!(await confirmDialog(`Nhập ${q} ${stock?.uom || ""}${cost ? ` · giá vốn ${money(num(cost))}/${stock?.uom || ""}` : ""}?`, { confirmLabel: "Nhập kho" }))) return;
     setBusy(true);
-    setMsg(null);
     try {
       const r = await frappeCall<{ qty: number }>("cago.api.purchasing.receive_stock", {
         item_code: code,
@@ -90,9 +97,9 @@ export function ReceiveStock() {
       setStock((s) => (s ? { ...s, qty: r.qty } : s));
       setQty("");
       setCost("");
-      setMsg(<Ok>✅ Đã nhập kho. Tồn mới: <b>{r.qty} {stock?.uom}</b>.</Ok>);
+      toast.success(`Đã nhập kho. Tồn mới: ${r.qty} ${stock?.uom ?? ""}.`);
     } catch (e) {
-      setMsg(<Warn>Lỗi: {e instanceof Error ? e.message : "không nhập được."}</Warn>);
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không nhập được."}`);
     } finally {
       setBusy(false);
     }
@@ -145,7 +152,6 @@ export function ReceiveStock() {
         <button onClick={submit} disabled={busy} className="mt-4 min-h-touch w-full rounded-2xl bg-brand py-4 text-xl font-extrabold text-white shadow-soft disabled:opacity-50">
           {busy ? "Đang nhập..." : "📥 Nhập kho"}
         </button>
-        {msg}
       </div>
     </div>
   );

@@ -118,9 +118,9 @@ export function ReceiveHistory() {
       )}
 
       {zoom && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" onClick={() => setZoom(null)}>
+        <div className="animate-fade-in fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4" onClick={() => setZoom(null)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={zoom} alt="hoá đơn" className="max-h-[90vh] max-w-full rounded-lg" />
+          <img src={zoom} alt="hoá đơn" className="animate-pop-in max-h-[90vh] max-w-full rounded-lg" />
         </div>
       )}
     </div>

@@ -7,13 +7,13 @@ import { confirmDialog } from "@/components/ui/dialog";
 import { SearchInput } from "@/components/ui/ListUI";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 
 export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const router = useRouter();
   const [cust, setCust] = useState("");
   const [info, setInfo] = useState<{ customer_name: string; outstanding_text: string; debt_limit_text?: string } | null>(null);
   const [amt, setAmt] = useState("");
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [qrCfg, setQrCfg] = useState(true);
@@ -43,17 +43,19 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
     // VND has no decimals and users may type grouping dots ("1.000"); parseVnd strips to digits
     // so "1.000" → 1000, never the parseFloat("1.000")=1 trap.
     const val = parseVnd(amt);
-    setMsg(null);
     if (busy) return;
-    if (!val || val <= 0) return setMsg(<Warn>Số tiền phải lớn hơn 0.</Warn>);
+    if (!val || val <= 0) {
+      toast.error("Số tiền phải lớn hơn 0.");
+      return;
+    }
     if (!(await confirmDialog(`${mode === "add" ? "Ghi nợ " : "Khách trả "}${money(val)} cho ${info.customer_name}?`))) return;
     setBusy(true);
     try {
       const r = await frappeCall<{ outstanding_text: string }>(method, { customer: cust, amount: val });
-      setMsg(<Ok>✅ Xong. Nợ còn lại: {r.outstanding_text}</Ok>);
+      toast.success(`Xong. Nợ còn lại: ${r.outstanding_text}`);
       setAmt("");
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi: không lưu được."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
     } finally {
       setBusy(false);
     }
@@ -103,7 +105,6 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
           </div>
         )}
         {!qrCfg && <Warn>Chưa cài đặt tài khoản QR. Vào &quot;💳 QR thu tiền&quot; ở trang chủ để cài.</Warn>}
-        {msg}
       </div>
     </div>
   );

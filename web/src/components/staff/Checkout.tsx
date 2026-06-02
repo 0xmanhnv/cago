@@ -7,7 +7,8 @@ import { useSession } from "@/lib/session";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { ProductInfo } from "@/components/staff/StaffProductDetail";
-import { confirmDialog, alertDialog } from "@/components/ui/dialog";
+import { confirmDialog } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import type { ProductCard, Product, Category } from "@/lib/types";
 
@@ -207,7 +208,6 @@ export function Checkout() {
   const [discOpen, setDiscOpen] = useState(false); // collapsible discount/coupon section in the pay panel
   // App-wide styled confirm/alert (see components/ui/dialog).
   const ask = confirmDialog;
-  const notify = alertDialog;
   const [autoPrint, setAutoPrint] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
   const [splitCash, setSplitCash] = useState("");
@@ -349,7 +349,7 @@ export function Checkout() {
     // Allow if ANY sale unit is priced (multi-unit items may price by Yến/Tạ, not the base UOM).
     const priced = (m?.sale_units || []).some((s) => parsePrice(s.price_text) > 0) || parsePrice(card?.price_text || "") > 0;
     if (!priced) {
-      await notify("Sản phẩm chưa có giá bán. Nhờ chủ cửa hàng đặt giá trước khi bán.", { danger: true });
+      toast.error("Sản phẩm chưa có giá bán. Nhờ chủ cửa hàng đặt giá trước khi bán.");
       return;
     }
     setLines((l) => (l[code] ? l : { ...l, [code]: { qty: 1, uom: m?.stock_uom || "" } }));
@@ -510,9 +510,9 @@ export function Checkout() {
     try {
       const r = await frappeCall<{ item_code: string | null }>("cago.api.catalog.find_by_barcode", { barcode: code.trim() }, { method: "GET" });
       if (r.item_code) await add(r.item_code);
-      else await notify("Không tìm thấy sản phẩm với mã vạch này.");
+      else toast.info("Không tìm thấy sản phẩm với mã vạch này.");
     } catch {
-      await notify("Không tra được mã vạch.", { danger: true });
+      toast.error("Không tra được mã vạch.");
     }
   };
 
@@ -564,7 +564,7 @@ export function Checkout() {
       pendingPayRef.current = null;
       resume?.();
     } catch (e) {
-      await notify(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`, { danger: true });
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`);
     } finally {
       setBusy(false);
     }
@@ -573,7 +573,7 @@ export function Checkout() {
   const checkout = async (payment_mode: PayMode) => {
     if (cartCodes.length === 0 || busy) return;
     if (payment_mode === "credit" && !cust) {
-      await notify("Chọn khách hàng để ghi nợ (bấm vào ô khách ở trên).");
+      toast.error("Chọn khách hàng để ghi nợ (bấm vào ô khách ở trên).");
       return;
     }
     if (!guardShift(() => checkout(payment_mode))) return;
@@ -606,7 +606,7 @@ export function Checkout() {
         setQr(v.url);
       }
     } catch (e) {
-      await notify(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`, { danger: true });
+      toast.error(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
     } finally {
       setBusy(false);
     }
@@ -617,8 +617,8 @@ export function Checkout() {
     const cashAmt = parseInt((splitCash || "").replace(/[^\d]/g, ""), 10) || 0;
     const bankAmt = parseInt((splitBank || "").replace(/[^\d]/g, ""), 10) || 0;
     const paid = cashAmt + bankAmt;
-    if (paid <= 0) { await notify("Nhập số tiền tiền mặt và/hoặc chuyển khoản."); return; }
-    if (paid < estimate && !cust) { await notify("Trả thiếu thì phải chọn khách (phần còn lại ghi nợ)."); return; }
+    if (paid <= 0) { toast.error("Nhập số tiền tiền mặt và/hoặc chuyển khoản."); return; }
+    if (paid < estimate && !cust) { toast.error("Trả thiếu thì phải chọn khách (phần còn lại ghi nợ)."); return; }
     if (!guardShift(() => checkoutSplit())) return;
     const rest = estimate - paid;
     const msg = rest > 0 ? `Còn lại ${money(rest)} ghi nợ cho ${cust?.customer_name}.` : rest < 0 ? `Thối lại ${money(-rest)}.` : "";
@@ -648,7 +648,7 @@ export function Checkout() {
       setPayOpen(false);
       if (autoPrint) void printReceipt(r.invoice, paper);
     } catch (e) {
-      await notify(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`, { danger: true });
+      toast.error(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
     } finally {
       setBusy(false);
     }
@@ -748,8 +748,8 @@ export function Checkout() {
       <ShiftBar refreshKey={shiftRefresh} onState={setShiftState} />
 
       {openShiftFor && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => { setOpenShiftFor(false); pendingPayRef.current = null; }}>
-          <div className="w-full max-w-[420px] rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => { setOpenShiftFor(false); pendingPayRef.current = null; }}>
+          <div className="w-full max-w-[420px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-xl font-extrabold text-emerald-800">🟢 Mở ca bán hàng</div>
             <p className="mt-1 text-sm text-slate-500">Cần mở ca trước khi bán. Đếm tiền mặt có sẵn trong két đầu ca (để cuối ca đối chiếu).</p>
             <label className="mt-3 block font-bold text-slate-700">Tiền mặt đầu ca</label>
@@ -772,8 +772,8 @@ export function Checkout() {
       )}
 
       {showReprint && (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setShowReprint(false)}>
-          <div className="no-scrollbar max-h-[85vh] w-full max-w-[560px] overflow-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-30 flex animate-fade-in items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setShowReprint(false)}>
+          <div className="no-scrollbar max-h-[85vh] w-full max-w-[560px] animate-sheet-up overflow-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
               <div className="text-xl font-bold">🖨 In lại hoá đơn</div>
               <button onClick={() => setShowReprint(false)} className="rounded-lg bg-slate-200 px-3 py-1.5 font-bold">Đóng</button>
@@ -1292,8 +1292,8 @@ function ProductPreview({
       .finally(() => setLoading(false));
   }, [code]);
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="no-scrollbar flex max-h-[88vh] w-full max-w-[520px] flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[80] flex animate-fade-in items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="no-scrollbar flex max-h-[88vh] w-full max-w-[520px] animate-sheet-up flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
           <div className="text-lg font-extrabold text-brand-dark">Xem lại sản phẩm</div>
           <button onClick={onClose} className="rounded-lg bg-slate-200 px-3 py-1.5 font-bold text-slate-700">Đóng</button>
@@ -1363,7 +1363,7 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
 
   const create = async () => {
     if (busy) return;
-    if (!form.name.trim()) { await alertDialog("Nhập tên khách."); return; }
+    if (!form.name.trim()) { toast.error("Nhập tên khách."); return; }
     setBusy(true);
     try {
       const r = await frappeCall<{ customer: string; customer_name: string }>("cago.api.sales.add_customer_lite", {
@@ -1373,7 +1373,7 @@ function CustomerPicker({ onPick, onWalkIn }: { onPick: (c: Cust) => void; onWal
       });
       onPick({ customer: r.customer, customer_name: r.customer_name, outstanding_text: "Không nợ" });
     } catch (e) {
-      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không tạo được khách."}`, { danger: true });
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không tạo được khách."}`);
     } finally {
       setBusy(false);
     }
@@ -1485,7 +1485,7 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
       setMode("none");
       setOpening("");
     } catch (e) {
-      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`, { danger: true });
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không mở được ca."}`);
     } finally {
       setBusy(false);
     }
@@ -1501,7 +1501,7 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
       setPayouts("");
       await load();
     } catch (e) {
-      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không đóng được ca."}`, { danger: true });
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không đóng được ca."}`);
     } finally {
       setBusy(false);
     }
@@ -1533,8 +1533,8 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
       )}
 
       {mode === "open" && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
-          <div className="w-full max-w-[380px] rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
+          <div className="w-full max-w-[380px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 text-xl font-bold">🟢 Mở ca</div>
             <label className="block font-bold text-slate-600">Tiền mặt có sẵn trong két (đầu ca)</label>
             <input autoFocus inputMode="numeric" value={opening} onChange={(e) => setOpening(fmtAmt(e.target.value))} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-emerald-300 p-3 text-right text-2xl font-extrabold" />
@@ -1547,8 +1547,8 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
       )}
 
       {mode === "close" && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
-          <div className="w-full max-w-[380px] rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
+          <div className="w-full max-w-[380px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-1 text-xl font-bold">🔴 Đóng ca · đếm két</div>
             {!shift.blind && (
               <div className="mb-2 rounded-lg bg-slate-50 p-2 text-sm text-slate-600">
@@ -1568,8 +1568,8 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
       )}
 
       {closed && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={() => setClosed(null)}>
-          <div className="w-full max-w-[380px] rounded-2xl bg-white p-5 text-center" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-40 flex animate-fade-in items-center justify-center bg-black/40 p-4" onClick={() => setClosed(null)}>
+          <div className="w-full max-w-[380px] animate-pop-in rounded-2xl bg-white p-5 text-center" onClick={(e) => e.stopPropagation()}>
             {closed.blind ? (
               // Blind close: cashier only sees that the shift closed + their counted amount.
               <>
@@ -1637,8 +1637,8 @@ function Keypad({ label, value, uom, onClose, onSet }: { label: string; value: n
   };
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-[380px] rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
+      <div className="w-full max-w-[380px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-1 truncate text-center font-bold">{label}</div>
         <div className="mb-3 rounded-xl border-2 border-emerald-300 p-3 text-center text-3xl font-extrabold">
           {draft} <span className="text-lg text-slate-400">{uom}</span>

@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall, uploadFile } from "@/lib/api";
-import { alertDialog } from "@/components/ui/dialog";
 import { groupVnd, parseVnd, formatVnd } from "@/lib/utils";
-import { BackBar, Ok, Warn } from "./OwnerShared";
+import { BackBar } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 
 let RID = 0;
 const rid = () => ++RID;
@@ -55,7 +55,6 @@ export function BulkReceive() {
   const [groups, setGroups] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const [invoiceImage, setInvoiceImage] = useState<string | null>(null); // evidence photo, saved on the receipt
   // select-from-stock
   const [q, setQ] = useState("");
@@ -69,20 +68,22 @@ export function BulkReceive() {
   }, []);
 
   const addParsed = (parsed: ParsedRow[]) => {
-    if (!parsed.length) return setMsg(<Warn>Không đọc được dòng nào. Bác thử gõ rõ hơn hoặc chụp lại ảnh.</Warn>);
+    if (!parsed.length) {
+      toast.error("Không đọc được dòng nào. Bác thử gõ rõ hơn hoặc chụp lại ảnh.");
+      return;
+    }
     setRows((r) => [...r, ...parsed.map(toRow)]);
-    setMsg(<Ok>Đã thêm {parsed.length} dòng vào bảng — bác kiểm tra rồi bấm “Nhập tất cả”.</Ok>);
+    toast.success(`Đã thêm ${parsed.length} dòng vào bảng — bác kiểm tra rồi bấm “Nhập tất cả”.`);
   };
 
   const analyzeText = async () => {
     if (!txt.trim()) return;
     setBusy(true);
-    setMsg(null);
     try {
       addParsed((await frappeCall<ParsedRow[]>("cago.api.bulk.parse_text", { text: txt })) || []);
       setTxt("");
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi phân tích."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi phân tích.");
     } finally {
       setBusy(false);
     }
@@ -90,15 +91,17 @@ export function BulkReceive() {
 
   const onImage = async (file: File | null) => {
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) return setMsg(<Warn>Ảnh quá lớn (tối đa 8MB), chụp lại nhỏ hơn nhé.</Warn>);
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Ảnh quá lớn (tối đa 8MB), chụp lại nhỏ hơn nhé.");
+      return;
+    }
     setReading(true);
-    setMsg(null);
     try {
       const url = await uploadFile(file);
       setInvoiceImage(url); // the photographed invoice is also kept as evidence on the receipt
       addParsed((await frappeCall<ParsedRow[]>("cago.api.bulk.parse_image", { file_url: url })) || []);
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Đọc ảnh chưa được, bác thử lại hoặc gõ tay."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Đọc ảnh chưa được, bác thử lại hoặc gõ tay.");
     } finally {
       setReading(false);
     }
@@ -107,11 +110,14 @@ export function BulkReceive() {
   // Attach an invoice photo as evidence (works in any tab — e.g. typed the list but still keep the paper).
   const attachEvidence = async (file: File | null) => {
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) return setMsg(<Warn>Ảnh quá lớn (tối đa 8MB).</Warn>);
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Ảnh quá lớn (tối đa 8MB).");
+      return;
+    }
     try {
       setInvoiceImage(await uploadFile(file));
     } catch {
-      setMsg(<Warn>Tải ảnh chứng từ lỗi, thử lại.</Warn>);
+      toast.error("Tải ảnh chứng từ lỗi, thử lại.");
     }
   };
 
@@ -133,9 +139,11 @@ export function BulkReceive() {
   const submit = async () => {
     if (busy || rows.length === 0) return;
     const bad = rows.find((r) => !r.name.trim() || r.qty <= 0);
-    if (bad) return setMsg(<Warn>Có dòng thiếu tên hoặc số lượng. Bác kiểm tra lại.</Warn>);
+    if (bad) {
+      toast.error("Có dòng thiếu tên hoặc số lượng. Bác kiểm tra lại.");
+      return;
+    }
     setBusy(true);
-    setMsg(null);
     try {
       const payload = rows.map((r) => ({
         name: r.name.trim(),
@@ -149,12 +157,13 @@ export function BulkReceive() {
       }));
       const res = await frappeCall<{ ok: number; failed: number; results: { name: string; ok: boolean; error?: string }[] }>("cago.api.bulk.bulk_receive", { items: JSON.stringify(payload), invoice_image: invoiceImage });
       const fails = res.results.filter((x) => !x.ok);
-      await alertDialog(`✅ Đã nhập ${res.ok} mặt hàng.${res.failed ? `\n⚠ ${res.failed} dòng lỗi: ${fails.map((f) => f.name).join(", ")}` : ""}`);
+      if (res.failed) toast.error(`Đã nhập ${res.ok} mặt hàng. ${res.failed} dòng lỗi: ${fails.map((f) => f.name).join(", ")}`);
+      else toast.success(`Đã nhập ${res.ok} mặt hàng.`);
       // Results align 1:1 with payload order → keep exactly the failed rows by position (no name collisions).
       setRows(res.failed ? rows.filter((_, i) => res.results[i] && !res.results[i].ok) : []);
       if (!res.failed) setInvoiceImage(null);
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi nhập hàng."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi nhập hàng.");
     } finally {
       setBusy(false);
     }
@@ -229,8 +238,6 @@ export function BulkReceive() {
           </label>
         )}
       </div>
-
-      {msg && <div className="mb-3">{msg}</div>}
 
       {/* Review table */}
       {rows.length > 0 && (

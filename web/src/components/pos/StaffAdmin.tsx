@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { ALL_CAPS, CAP_LABELS, type Cap } from "@/lib/caps";
-import { BackBar, Ok, Warn } from "@/components/owner/OwnerShared";
+import { BackBar } from "@/components/owner/OwnerShared";
 import { confirmDialog } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
 
 interface Staff {
   user: string;
@@ -32,7 +33,6 @@ export function StaffAdmin() {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [roles, setRoles] = useState<JobRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const [editStaff, setEditStaff] = useState<Staff | null>(null);
   const [editRole, setEditRole] = useState<(JobRole & { isNew?: boolean }) | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,7 +62,6 @@ export function StaffAdmin() {
     const save = async () => {
       if (busy) return;
       setBusy(true);
-      setMsg(null);
       try {
         await frappeCall("cago.api.staff_admin.save_staff", {
           user: editStaff.user,
@@ -72,10 +71,11 @@ export function StaffAdmin() {
           blind_shift_close: editStaff.blind_shift_close ? 1 : 0,
         });
         await reload();
+        const name = editStaff.full_name;
         setEditStaff(null);
-        setMsg(<Ok>✅ Đã lưu cho {editStaff.full_name}.</Ok>);
+        toast.success(`Đã lưu cho ${name}.`);
       } catch (e) {
-        setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi: không lưu được."}</Warn>);
+        toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
       } finally {
         setBusy(false);
       }
@@ -154,14 +154,13 @@ export function StaffAdmin() {
     const orig = roles.find((r) => r.name === editRole.name);
     const save = async () => {
       if (busy) return;
-      if (!editRole.title.trim()) return setMsg(<Warn>Nhập tên chức danh.</Warn>);
+      if (!editRole.title.trim()) { toast.error("Nhập tên chức danh."); return; }
       // Removing a capability from a chức danh affects every member → confirm.
       const removed = (orig?.caps || []).filter((c) => !editRole.caps.includes(c));
       if (orig && orig.members > 0 && removed.length) {
         if (!(await confirmDialog(`Bớt quyền sẽ ảnh hưởng ${orig.members} nhân viên đang dùng chức danh này. Tiếp tục?`, { danger: true, confirmLabel: "Lưu" }))) return;
       }
       setBusy(true);
-      setMsg(null);
       try {
         await frappeCall("cago.api.staff_admin.save_job_role", {
           name: editRole.isNew ? undefined : editRole.name,
@@ -171,9 +170,9 @@ export function StaffAdmin() {
         });
         await reload();
         setEditRole(null);
-        setMsg(<Ok>✅ Đã lưu chức danh.</Ok>);
+        toast.success("Đã lưu chức danh.");
       } catch (e) {
-        setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi: không lưu được."}</Warn>);
+        toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
       } finally {
         setBusy(false);
       }
@@ -182,14 +181,13 @@ export function StaffAdmin() {
       if (busy || editRole.isNew) return;
       if (!(await confirmDialog(`Xoá chức danh "${editRole.title}"?`, { danger: true, confirmLabel: "Xoá" }))) return;
       setBusy(true);
-      setMsg(null);
       try {
         await frappeCall("cago.api.staff_admin.delete_job_role", { name: editRole.name });
         await reload();
         setEditRole(null);
-        setMsg(<Ok>✅ Đã xoá.</Ok>);
+        toast.success("Đã xoá.");
       } catch (e) {
-        setMsg(<Warn>{e instanceof Error ? e.message : "Không xoá được."}</Warn>);
+        toast.error(e instanceof Error ? e.message : "Không xoá được.");
       } finally {
         setBusy(false);
       }
@@ -234,7 +232,6 @@ export function StaffAdmin() {
   return (
     <div>
       <BackBar onBack={() => router.push("/pos")} title="NHÂN VIÊN & PHÂN QUYỀN" />
-      {msg}
       <div className="mb-3 flex gap-2">
         <button onClick={() => setTab("staff")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "staff" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>👤 Nhân viên</button>
         <button onClick={() => setTab("roles")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "roles" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>🏷️ Chức danh</button>

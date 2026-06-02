@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar, Ok, Warn } from "./OwnerShared";
+import { BackBar } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 
 interface Cat {
   category: string;
@@ -16,7 +17,6 @@ export function CategoryOrder() {
   const [items, setItems] = useState<Cat[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
 
   useEffect(() => {
     frappeCall<Cat[]>("cago.api.owner.list_categories", {}, { method: "GET" })
@@ -31,17 +31,15 @@ export function CategoryOrder() {
     const next = [...items];
     [next[i], next[j]] = [next[j], next[i]];
     setItems(next);
-    setMsg(null);
   };
 
   const save = async () => {
     setBusy(true);
-    setMsg(null);
     try {
       await frappeCall("cago.api.owner.set_category_order", { categories: JSON.stringify(items.map((c) => c.category)) });
-      setMsg(<Ok>✅ Đã lưu thứ tự. Mở lại kiosk để thấy.</Ok>);
+      toast.success("Đã lưu thứ tự. Mở lại kiosk để thấy.");
     } catch {
-      setMsg(<Warn>Lỗi: không lưu được thứ tự.</Warn>);
+      toast.error("Lỗi: không lưu được thứ tự.");
     } finally {
       setBusy(false);
     }
@@ -93,7 +91,6 @@ export function CategoryOrder() {
           >
             {busy ? "Đang lưu..." : "💾 Lưu thứ tự"}
           </button>
-          {msg}
         </>
       )}
     </div>

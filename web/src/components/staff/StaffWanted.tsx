@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { confirmDialog, alertDialog } from "@/components/ui/dialog";
+import { confirmDialog } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
 import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
 
 const STATUS_VI: Record<string, string> = {
@@ -95,7 +96,7 @@ export function StaffWanted() {
       setWl({ ...wl, status: r.status });
       void loadList();
     } catch (e) {
-      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không đổi được trạng thái."}`, { danger: true });
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không đổi được trạng thái."}`);
     } finally {
       setBusy(false);
     }
@@ -109,7 +110,7 @@ export function StaffWanted() {
       setWl(null);
       void loadList();
     } catch (e) {
-      await alertDialog(`Lỗi: ${e instanceof Error ? e.message : "không huỷ được."}`, { danger: true });
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không huỷ được."}`);
     } finally {
       setBusy(false);
     }

@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar, CustomerPicker, Ok, Warn } from "./OwnerShared";
+import { BackBar, CustomerPicker, Ok } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 import type { ProductCard } from "@/lib/types";
 
 export function CreditSale() {
@@ -26,7 +27,6 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
   const [results, setResults] = useState<ProductCard[]>([]);
   const [lines, setLines] = useState<Record<string, { p: ProductCard; qty: number }>>({});
   const [result, setResult] = useState<{ total_text: string; outstanding_text: string } | null>(null);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const [busy, setBusy] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -48,10 +48,12 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
     });
 
   const submit = async () => {
-    setMsg(null);
     if (busy) return;
     const items = Object.values(lines).map((x) => ({ item_code: x.p.item_code, qty: x.qty }));
-    if (!items.length) return setMsg(<Warn>Chưa chọn sản phẩm.</Warn>);
+    if (!items.length) {
+      toast.error("Chưa chọn sản phẩm.");
+      return;
+    }
     const total = items.reduce((s, i) => s + i.qty, 0);
     if (!(await confirmDialog(`Tạo hoá đơn bán chịu (giao ${total} món, ghi nợ khách)?`, { danger: true, confirmLabel: "Tạo & ghi nợ" }))) return;
     setBusy(true);
@@ -62,7 +64,7 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
       });
       setResult(r);
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi: không tạo được hoá đơn."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi: không tạo được hoá đơn.");
     } finally {
       setBusy(false);
     }
@@ -111,7 +113,6 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
           <button onClick={submit} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-red-600 font-extrabold text-white disabled:opacity-50">
             {busy ? "Đang tạo..." : "🧾 Tạo hoá đơn bán chịu (trừ tồn + ghi nợ)"}
           </button>
-          {msg}
         </div>
       )}
 
@@ -134,7 +135,6 @@ function Cart({ customer, onBack, onHome }: { customer: string; onBack: () => vo
           <span className="rounded-lg bg-brand px-3 py-2 font-extrabold text-white">+ Thêm</span>
         </button>
       ))}
-      {msg && lineList.length === 0 && msg}
     </div>
   );
 }

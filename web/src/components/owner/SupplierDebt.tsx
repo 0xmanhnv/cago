@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar, Ok, Warn } from "./OwnerShared";
+import { BackBar, Ok } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 import type { ProductCard } from "@/lib/types";
 
 type Sup = { supplier: string; supplier_name: string; mobile?: string; debt?: number; debt_text?: string; outstanding_text?: string };
@@ -21,7 +22,6 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
   const [hits, setHits] = useState<Sup[]>([]);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "" });
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
@@ -30,8 +30,10 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
 
   if (adding) {
     const save = async () => {
-      setMsg(null);
-      if (!form.name.trim()) return setMsg(<Warn>Nhập tên nhà cung cấp.</Warn>);
+      if (!form.name.trim()) {
+        toast.error("Nhập tên nhà cung cấp.");
+        return;
+      }
       try {
         const r = await frappeCall<{ supplier: string; supplier_name: string }>("cago.api.supplier.add_supplier", {
           supplier_name: form.name.trim(),
@@ -39,7 +41,7 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
         });
         onPick({ id: r.supplier, name: r.supplier_name });
       } catch {
-        setMsg(<Warn>Lỗi: không tạo được NCC.</Warn>);
+        toast.error("Lỗi: không tạo được NCC.");
       }
     };
     return (
@@ -53,7 +55,6 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
           <button onClick={save} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
             Lưu nhà cung cấp
           </button>
-          {msg}
         </div>
       </div>
     );
@@ -138,17 +139,19 @@ function SupplierView({ supplier, name, onBack }: { supplier: string; name: stri
 function PaySupplier({ supplier, onDone }: { supplier: string; onDone: () => void }) {
   const [amt, setAmt] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const pay = async () => {
     if (busy) return;
     const v = parseVnd(amt);
-    if (!v || v <= 0) return setMsg(<Warn>Nhập số tiền.</Warn>);
+    if (!v || v <= 0) {
+      toast.error("Nhập số tiền.");
+      return;
+    }
     setBusy(true);
     try {
       await frappeCall("cago.api.supplier.pay_supplier", { supplier, amount: v });
       onDone();
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi: không lưu được."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
     } finally {
       setBusy(false);
     }
@@ -158,7 +161,6 @@ function PaySupplier({ supplier, onDone }: { supplier: string; onDone: () => voi
       <label className="block font-bold text-slate-700">Số tiền trả NCC (đồng)</label>
       <input autoFocus inputMode="numeric" value={amt} onChange={(e) => setAmt(groupVnd(e.target.value))} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-3 text-xl" />
       <button onClick={pay} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">{busy ? "Đang lưu..." : "Xác nhận trả"}</button>
-      {msg}
     </div>
   );
 }
@@ -167,24 +169,28 @@ function CreditPurchase({ supplier, onDone }: { supplier: string; onDone: () => 
   const [results, setResults] = useState<ProductCard[]>([]);
   const [lines, setLines] = useState<Record<string, { p: ProductCard; qty: number; rate: string }>>({});
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     frappeCall<ProductCard[]>("cago.api.owner.search_products", { query: "" }, { method: "GET" }).then((r) => setResults(r || []));
   }, []);
   const lineList = Object.values(lines);
   const submit = async () => {
-    setMsg(null);
     if (busy) return;
     const items = lineList.map((x) => ({ item_code: x.p.item_code, qty: x.qty, rate: parseVnd(x.rate) }));
-    if (!items.length) return setMsg(<Warn>Chưa chọn sản phẩm.</Warn>);
-    if (items.some((i) => i.rate <= 0)) return setMsg(<Warn>Nhập giá nhập cho mỗi sản phẩm.</Warn>);
+    if (!items.length) {
+      toast.error("Chưa chọn sản phẩm.");
+      return;
+    }
+    if (items.some((i) => i.rate <= 0)) {
+      toast.error("Nhập giá nhập cho mỗi sản phẩm.");
+      return;
+    }
     setBusy(true);
     try {
       await frappeCall("cago.api.supplier.credit_purchase", { supplier, items: JSON.stringify(items) });
       onDone();
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi nhập hàng."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi nhập hàng.");
     } finally {
       setBusy(false);
     }
@@ -201,7 +207,6 @@ function CreditPurchase({ supplier, onDone }: { supplier: string; onDone: () => 
       {lineList.length > 0 && (
         <button onClick={submit} disabled={busy} className="my-2 min-h-touch w-full rounded-xl bg-red-600 font-extrabold text-white disabled:opacity-50">{busy ? "Đang nhập..." : "📦 Nhập hàng (ghi nợ NCC + tăng tồn)"}</button>
       )}
-      {msg}
       <input
         onChange={(e) => {
           clearTimeout(tRef.current);

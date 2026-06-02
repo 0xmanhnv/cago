@@ -39,6 +39,7 @@ export const alertDialog = (message: string, opts?: { title?: string; danger?: b
 
 export function DialogHost() {
   const [queue, setQueue] = useState<DialogReq[]>([]);
+  const [closing, setClosing] = useState(false); // play the exit animation before unmounting
   const confirmRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     emit = (r) => setQueue((q) => [...q, r]);
@@ -49,8 +50,14 @@ export function DialogHost() {
 
   const cur = queue[0];
   const close = (v: boolean) => {
-    cur?.resolve(v);
-    setQueue((q) => q.slice(1));
+    if (closing || !cur) return;
+    cur.resolve(v);
+    setClosing(true);
+    // Let the fade/scale-out finish, then advance the queue (matches pop-out/fade-out ~0.16s).
+    setTimeout(() => {
+      setClosing(false);
+      setQueue((q) => q.slice(1));
+    }, 170);
   };
 
   // Keyboard: autofocus the primary action; ESC cancels (alert → dismiss), Enter confirms.
@@ -76,13 +83,16 @@ export function DialogHost() {
   const titleId = `dlg-title-${cur.id}`;
   const msgId = `dlg-msg-${cur.id}`;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-5" onClick={() => close(false)}>
+    <div
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-5 ${closing ? "animate-fade-out" : "animate-fade-in"}`}
+      onClick={() => close(cur.alert ? true : false)}
+    >
       <div
         role={cur.alert ? "alertdialog" : "dialog"}
         aria-modal="true"
         aria-labelledby={cur.title ? titleId : msgId}
         aria-describedby={msgId}
-        className="w-full max-w-[400px] rounded-2xl bg-white p-5 shadow-xl"
+        className={`w-full max-w-[400px] rounded-2xl bg-white p-5 shadow-xl ${closing ? "animate-pop-out" : "animate-pop-in"}`}
         onClick={(e) => e.stopPropagation()}
       >
         {cur.title && <div id={titleId} className="mb-1 text-xl font-extrabold text-slate-800">{cur.title}</div>}

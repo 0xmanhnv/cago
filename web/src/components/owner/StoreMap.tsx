@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar, Ok, Warn } from "./OwnerShared";
+import { BackBar } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 import { COLORS, ICONS, toPoints, type MapZone, type Pt, type StoreMap } from "@/lib/storemap";
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -24,7 +25,6 @@ export function StoreMap() {
   const [aisleMode, setAisleMode] = useState(false);
   const [snap, setSnap] = useState(true); // snap-to-grid (like draw.io) → straight lines are easy
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<Drag>(null);
   const floorRef = useRef("");
@@ -219,12 +219,11 @@ export function StoreMap() {
   const save = async () => {
     if (busy) return;
     setBusy(true);
-    setMsg(null);
     try {
       await frappeCall("cago.api.storemap.save_store_map", { data: JSON.stringify(map) });
-      setMsg(<Ok>✅ Đã lưu sơ đồ.</Ok>);
+      toast.success("Đã lưu sơ đồ.");
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi lưu sơ đồ."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi lưu sơ đồ.");
     } finally {
       setBusy(false);
     }
@@ -442,7 +441,6 @@ export function StoreMap() {
         </div>
       )}
 
-      {msg && <div className="mt-3">{msg}</div>}
       <button onClick={save} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand text-lg font-extrabold text-white disabled:opacity-50">
         {busy ? "Đang lưu..." : "💾 Lưu sơ đồ"}
       </button>

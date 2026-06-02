@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { alertDialog } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import type { ProductCard } from "@/lib/types";
 
@@ -67,7 +67,7 @@ export function StaffSearch() {
       { method: "GET" },
     );
     if (r.item_code) router.push(`/pos/products/${encodeURIComponent(r.item_code)}`);
-    else await alertDialog("Không tìm thấy sản phẩm với mã vạch này.");
+    else toast.info("Không tìm thấy sản phẩm với mã vạch này.");
   };
 
   return (

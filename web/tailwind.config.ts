@@ -37,6 +37,9 @@ const config: Config = {
         },
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
         "fade-out": { from: { opacity: "1" }, to: { opacity: "0" } },
+        // Centered dialog: scale + fade in/out (no instant pop).
+        "pop-in": { from: { opacity: "0", transform: "scale(0.94) translateY(8px)" }, to: { opacity: "1", transform: "none" } },
+        "pop-out": { from: { opacity: "1", transform: "none" }, to: { opacity: "0", transform: "scale(0.96) translateY(6px)" } },
       },
       animation: {
         "rise-in": "rise-in 0.45s ease both",
@@ -44,6 +47,8 @@ const config: Config = {
         "sheet-down": "sheet-down 0.2s ease-in both",
         "fade-in": "fade-in 0.2s ease-out both",
         "fade-out": "fade-out 0.2s ease-in both",
+        "pop-in": "pop-in 0.22s cubic-bezier(0.16,1,0.3,1) both",
+        "pop-out": "pop-out 0.16s ease-in both",
       },
       // Large, finger-friendly defaults for rural/elderly users (docs/16).
       minHeight: { touch: "56px" },

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar, Ok, Warn } from "./OwnerShared";
+import { BackBar } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 
 export function OwnerSettings() {
   const router = useRouter();
@@ -11,7 +12,6 @@ export function OwnerSettings() {
   const [debtVisible, setDebtVisible] = useState(false);
   const [priceEdit, setPriceEdit] = useState(false);
   const [staffCollect, setStaffCollect] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
 
   useEffect(() => {
     frappeCall<{ bin: string; account: string; name: string }>("cago.api.payment.get_bank", {}, { method: "GET" })
@@ -45,12 +45,11 @@ export function OwnerSettings() {
   };
 
   const save = async () => {
-    setMsg(null);
     try {
       await frappeCall("cago.api.payment.save_bank", b);
-      setMsg(<Ok>✅ Đã lưu tài khoản nhận tiền.</Ok>);
+      toast.success("Đã lưu tài khoản nhận tiền.");
     } catch {
-      setMsg(<Warn>Lỗi: không lưu được.</Warn>);
+      toast.error("Lỗi: không lưu được.");
     }
   };
 
@@ -68,7 +67,6 @@ export function OwnerSettings() {
         <button onClick={save} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
           💾 Lưu
         </button>
-        {msg}
       </div>
 
       <div className="mt-4 rounded-xl bg-white p-4">

@@ -67,8 +67,8 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
 
 function CallStaff({ onDone }: { onDone: () => void }) {
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-5">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center">
+    <div className="animate-fade-in fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-5">
+      <div className="animate-pop-in w-full max-w-md rounded-2xl bg-white p-6 text-center">
         <div className="text-6xl">🔔</div>
         <h2 className="mt-2 text-2xl font-bold text-red-600">Đã gọi người bán!</h2>
         <p className="text-lg">Bác chờ một chút, người bán sẽ tới giúp bác ngay ạ.</p>

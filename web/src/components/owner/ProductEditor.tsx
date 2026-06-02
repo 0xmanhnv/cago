@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { confirmDialog, alertDialog } from "@/components/ui/dialog";
+import { confirmDialog } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { frappeCall, uploadFile } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import type { Batch } from "@/lib/types";
-import { BackBar, DraftModal, Ok, Warn } from "./OwnerShared";
+import { BackBar, DraftModal } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 
 interface EditData {
   cago_display_name?: string;
@@ -93,7 +94,6 @@ export function ProductEditor({ code }: { code: string }) {
   const router = useRouter();
   const [e, setE] = useState<EditData | null>(null);
   const [data, setData] = useState<Record<string, string | number>>({});
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const [imgs, setImgs] = useState<{ main?: string; images: string[] }>({ images: [] });
   const [draft, setDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -114,14 +114,13 @@ export function ProductEditor({ code }: { code: string }) {
   const set = (k: string, v: string | number) => setData((d) => ({ ...d, [k]: v }));
 
   const save = async () => {
-    setMsg(null);
     if (saving) return;
     setSaving(true);
     try {
       await frappeCall("cago.api.owner.update_product", { item_code: code, data: JSON.stringify(data) });
-      setMsg(<Ok>✅ Đã lưu sản phẩm.</Ok>);
+      toast.success("Đã lưu sản phẩm.");
     } catch (err) {
-      setMsg(<Warn>Lỗi: {err instanceof Error ? err.message : "không lưu được."}</Warn>);
+      toast.error(`Lỗi: ${err instanceof Error ? err.message : "không lưu được."}`);
     } finally {
       setSaving(false);
     }
@@ -129,17 +128,16 @@ export function ProductEditor({ code }: { code: string }) {
 
   const onUpload = async (files: FileList | null) => {
     if (!files || !files.length) return;
-    setMsg(null);
     let last = imgs;
     for (const f of Array.from(files)) {
       // Phone photos are often several MB; on a rural connection that hangs. Reject early with a
       // clear message instead of a long silent wait that ends in a generic error.
       if (!f.type.startsWith("image/")) {
-        setMsg(<Warn>“{f.name}” không phải ảnh.</Warn>);
+        toast.error(`“${f.name}” không phải ảnh.`);
         continue;
       }
       if (f.size > 8 * 1024 * 1024) {
-        setMsg(<Warn>Ảnh “{f.name}” quá lớn (tối đa 8MB). Chụp nhỏ lại hoặc chọn ảnh khác.</Warn>);
+        toast.error(`Ảnh “${f.name}” quá lớn (tối đa 8MB). Chụp nhỏ lại hoặc chọn ảnh khác.`);
         continue;
       }
       try {
@@ -147,7 +145,7 @@ export function ProductEditor({ code }: { code: string }) {
         last = await frappeCall<{ main?: string; images: string[] }>("cago.api.owner.add_product_image", { item_code: code, image_url: url });
         setImgs(last); // commit each success so a later failure doesn't discard earlier uploads
       } catch {
-        setMsg(<Warn>Tải ảnh “{f.name}” lỗi, thử lại.</Warn>);
+        toast.error(`Tải ảnh “${f.name}” lỗi, thử lại.`);
       }
     }
   };
@@ -229,7 +227,6 @@ export function ProductEditor({ code }: { code: string }) {
         >
           📩 Soạn tin báo hàng về
         </button>
-        {msg}
 
         <WholesalePrice code={code} />
         <StockSection code={code} />
@@ -250,7 +247,6 @@ function StockSection({ code }: { code: string }) {
   const [batchNo, setBatchNo] = useState("");
   const [counted, setCounted] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const load = async () => setStock(await frappeCall<Stock>("cago.api.purchasing.get_stock", { item_code: code }, { method: "GET" }));
   useEffect(() => {
     void load();
@@ -258,11 +254,16 @@ function StockSection({ code }: { code: string }) {
   }, [code]);
 
   const receive = async () => {
-    setMsg(null);
     if (busy) return;
     const n = parseFloat(qty);
-    if (!n || n <= 0) return setMsg(<Warn>Nhập số lượng nhập.</Warn>);
-    if (stock?.has_batch && !batchNo) return setMsg(<Warn>Sản phẩm theo lô — chọn lô (thêm lô ở mục Lô &amp; hạn dùng bên dưới).</Warn>);
+    if (!n || n <= 0) {
+      toast.error("Nhập số lượng nhập.");
+      return;
+    }
+    if (stock?.has_batch && !batchNo) {
+      toast.error("Sản phẩm theo lô — chọn lô (thêm lô ở mục Lô & hạn dùng bên dưới).");
+      return;
+    }
     setBusy(true);
     try {
       const r = await frappeCall<{ qty: number }>("cago.api.purchasing.receive_stock", {
@@ -274,28 +275,30 @@ function StockSection({ code }: { code: string }) {
       setStock((s) => (s ? { ...s, qty: r.qty } : s));
       setQty("");
       setCost("");
-      setMsg(<Ok>✅ Đã nhập hàng. Tồn hiện tại: {r.qty}</Ok>);
+      toast.success(`Đã nhập hàng. Tồn hiện tại: ${r.qty}`);
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi nhập hàng."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi nhập hàng.");
     } finally {
       setBusy(false);
     }
   };
 
   const adjust = async () => {
-    setMsg(null);
     if (busy) return;
     const n = parseFloat(counted);
-    if (counted === "" || isNaN(n) || n < 0) return setMsg(<Warn>Nhập số đếm thực tế (≥ 0).</Warn>);
+    if (counted === "" || isNaN(n) || n < 0) {
+      toast.error("Nhập số đếm thực tế (≥ 0).");
+      return;
+    }
     if (!(await confirmDialog(`Đặt tồn thực tế = ${n} ${stock?.uom || ""}? (dùng khi kiểm kê, lệch do hao hụt/vỡ)`, { confirmLabel: "Đặt tồn" }))) return;
     setBusy(true);
     try {
       const r = await frappeCall<{ before: number; qty: number }>("cago.api.purchasing.adjust_stock", { item_code: code, counted_qty: n });
       setStock((s) => (s ? { ...s, qty: r.qty } : s));
       setCounted("");
-      setMsg(<Ok>✅ Đã kiểm kê: {r.before} → {r.qty} {stock?.uom}.</Ok>);
+      toast.success(`Đã kiểm kê: ${r.before} → ${r.qty} ${stock?.uom ?? ""}.`);
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi kiểm kê."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi kiểm kê.");
     } finally {
       setBusy(false);
     }
@@ -335,7 +338,6 @@ function StockSection({ code }: { code: string }) {
           </button>
         </div>
       </div>
-      {msg}
     </div>
   );
 }
@@ -351,7 +353,6 @@ function UnitsSection({ code }: { code: string }) {
   //  - "perStock": 1 [đơn vị tồn] = N [đơn vị bán]  (đơn vị NHỎ hơn, vd 1 Bao = 25 Kg)
   //  - "perUnit":  1 [đơn vị bán] = N [đơn vị tồn]  (đơn vị LỚN hơn, vd 1 Yến = 10 Kg)
   const [dir, setDir] = useState<"perStock" | "perUnit">("perStock");
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const load = async () => setD(await frappeCall<Data>("cago.api.units.get_units", { item_code: code }, { method: "GET" }));
   useEffect(() => {
     void load();
@@ -374,14 +375,22 @@ function UnitsSection({ code }: { code: string }) {
   };
 
   const add = async () => {
-    setMsg(null);
-    if (!uom.trim()) return setMsg(<Warn>Chọn hoặc nhập đơn vị.</Warn>);
+    if (!uom.trim()) {
+      toast.error("Chọn hoặc nhập đơn vị.");
+      return;
+    }
     const n = parseFloat(ups);
-    if (!n || n <= 0) return setMsg(<Warn>Nhập số quy đổi (lớn hơn 0).</Warn>);
+    if (!n || n <= 0) {
+      toast.error("Nhập số quy đổi (lớn hơn 0).");
+      return;
+    }
     // Backend wants units_per_stock = how many [sale unit] in 1 [stock unit].
     const upsVal = dir === "perStock" ? n : 1 / n;
     const p = parseVnd(price);
-    if (!p || p <= 0) return setMsg(<Warn>Nhập giá bán cho đơn vị này.</Warn>);
+    if (!p || p <= 0) {
+      toast.error("Nhập giá bán cho đơn vị này.");
+      return;
+    }
     try {
       setD(await frappeCall<Data>("cago.api.units.save_unit", { item_code: code, uom: uom.trim(), units_per_stock: upsVal, price: p }));
       setUom("");
@@ -389,7 +398,7 @@ function UnitsSection({ code }: { code: string }) {
       setPrice("");
       setDir("perStock");
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi lưu đơn vị."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi lưu đơn vị.");
     }
   };
   const remove = async (u: string, label?: string) => {
@@ -488,7 +497,6 @@ function UnitsSection({ code }: { code: string }) {
       <label className="mt-3 flex items-center gap-2 font-bold text-slate-700">
         <input type="checkbox" checked={d.show_retail} onChange={toggle} className="h-5 w-5" /> Hiện giá bán lẻ cho khách trên kiosk
       </label>
-      {msg}
     </div>
   );
 }
@@ -497,7 +505,6 @@ function BatchSection({ code }: { code: string }) {
   const [rows, setRows] = useState<Batch[]>([]);
   const [bid, setBid] = useState("");
   const [exp, setExp] = useState("");
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   const load = async () => setRows(await frappeCall<Batch[]>("cago.api.inventory.list_batches", { item_code: code }, { method: "GET" }));
   useEffect(() => {
     void load();
@@ -505,9 +512,8 @@ function BatchSection({ code }: { code: string }) {
   }, [code]);
 
   const add = async () => {
-    setMsg(null);
     if (!bid.trim()) {
-      setMsg(<Warn>Nhập mã lô.</Warn>);
+      toast.error("Nhập mã lô.");
       return;
     }
     try {
@@ -516,7 +522,7 @@ function BatchSection({ code }: { code: string }) {
       setExp("");
       await load();
     } catch (err) {
-      setMsg(<Warn>{err instanceof Error ? err.message : "Lỗi thêm lô."}</Warn>);
+      toast.error(err instanceof Error ? err.message : "Lỗi thêm lô.");
     }
   };
 
@@ -550,7 +556,6 @@ function BatchSection({ code }: { code: string }) {
           + Thêm lô
         </button>
       </div>
-      {msg}
     </div>
   );
 }
@@ -558,7 +563,6 @@ function BatchSection({ code }: { code: string }) {
 function WholesalePrice({ code }: { code: string }) {
   const [price, setPrice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
   useEffect(() => {
     frappeCall<{ wholesale_price: number | null }>("cago.api.owner.get_wholesale_price", { item_code: code }, { method: "GET" })
       .then((r) => setPrice(r.wholesale_price ? groupVnd(String(r.wholesale_price)) : ""))
@@ -567,12 +571,11 @@ function WholesalePrice({ code }: { code: string }) {
   const save = async () => {
     if (busy) return;
     setBusy(true);
-    setMsg(null);
     try {
       await frappeCall("cago.api.owner.set_wholesale_price", { item_code: code, price: price ? parseVnd(price) : 0 });
-      setMsg(<Ok>✅ Đã lưu giá sỉ.</Ok>);
+      toast.success("Đã lưu giá sỉ.");
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi lưu giá sỉ."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi lưu giá sỉ.");
     } finally {
       setBusy(false);
     }
@@ -587,7 +590,6 @@ function WholesalePrice({ code }: { code: string }) {
           Lưu
         </button>
       </div>
-      {msg}
     </div>
   );
 }

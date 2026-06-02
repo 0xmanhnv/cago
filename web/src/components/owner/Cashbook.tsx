@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, Ok, Warn } from "./OwnerShared";
+import { toast } from "@/components/ui/toast";
 
 interface Summary {
   cash: number;
@@ -31,16 +32,17 @@ export function Cashbook() {
   const [counted, setCounted] = useState("");
   const [res, setRes] = useState<CloseResult | null>(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
 
   useEffect(() => {
     frappeCall<Summary>("cago.api.cashbook.today_summary", {}, { method: "GET" }).then(setS).catch(() => setS(null));
   }, []);
 
   const close = async () => {
-    setMsg(null);
     if (busy) return;
-    if (counted === "") return setMsg(<Warn>Nhập số tiền mặt đếm được trong két.</Warn>);
+    if (counted === "") {
+      toast.error("Nhập số tiền mặt đếm được trong két.");
+      return;
+    }
     setBusy(true);
     try {
       const r = await frappeCall<CloseResult>("cago.api.cashbook.day_close", {
@@ -50,7 +52,7 @@ export function Cashbook() {
       });
       setRes(r);
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi chốt ca."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi chốt ca.");
     } finally {
       setBusy(false);
     }
@@ -84,7 +86,6 @@ export function Cashbook() {
         <button onClick={close} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">
           {busy ? "Đang tính..." : "🧮 Chốt ca"}
         </button>
-        {msg}
 
         {res && (
           <div className="mt-3 rounded-xl border-2 p-3" style={{ borderColor: res.match ? "#16a34a" : "#dc2626" }}>
