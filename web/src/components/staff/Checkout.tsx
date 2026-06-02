@@ -1162,18 +1162,20 @@ export function Checkout() {
                       </div>
                     </div>
                     {allowPriceEdit && (
-                      <div className="mt-2 flex items-center justify-end gap-2 text-sm">
-                        <span className="text-slate-500">Đơn giá:</span>
+                      <div className="mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-sm">
+                        <span className="whitespace-nowrap text-slate-500">Đơn giá:</span>
                         <input
                           inputMode="numeric"
                           value={line.rate != null ? line.rate.toLocaleString("vi-VN") : ""}
                           onChange={(e) => setRate(p.item_code, e.target.value)}
                           placeholder={fmtAmt(String(unitPrice(p.item_code, line.uom)))}
-                          className={`h-9 w-28 rounded-lg border-2 px-2 text-right font-bold ${line.rate != null ? "border-amber-400 bg-amber-50" : "border-slate-300"}`}
+                          className={`h-9 w-24 rounded-lg border-2 px-2 text-right font-bold ${line.rate != null ? "border-amber-400 bg-amber-50" : "border-slate-300"}`}
                         />
-                        <span className="text-slate-400">/ {labelOf(p.item_code, line.uom)}</span>
+                        <span className="whitespace-nowrap text-slate-400">/ {labelOf(p.item_code, line.uom)}</span>
                         {line.rate != null && (
-                          <button onClick={() => setRate(p.item_code, "")} className="text-amber-700 underline">gốc {money(unitPrice(p.item_code, line.uom))}</button>
+                          <button onClick={() => setRate(p.item_code, "")} className="whitespace-nowrap text-amber-700 underline">
+                            gốc {money(unitPrice(p.item_code, line.uom))}
+                          </button>
                         )}
                       </div>
                     )}

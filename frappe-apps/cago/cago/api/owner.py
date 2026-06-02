@@ -432,11 +432,78 @@ def zalo_draft(kind, customer=None, item_code=None):
 
 @frappe.whitelist()
 def list_categories():
-	"""Owner: the kiosk-visible categories in their current display order, for the reorder screen."""
+	"""Owner: ALL leaf categories (incl. empty + just-created ones) for the manage/reorder screen.
+	Shows a group if it carries a cago icon (owner-managed) or has products — hides ERPNext's
+	stock default groups that this shop never uses."""
 	ensure_cap("products")
-	from cago.api import kiosk
+	rows = frappe.get_all(
+		"Item Group",
+		filters={"is_group": 0},
+		fields=["name", "cago_icon", "cago_color", "cago_sort_order"],
+		order_by="cago_sort_order asc, name asc",
+	)
+	out = []
+	for r in rows:
+		count = frappe.db.count("Item", {"item_group": r.name, "disabled": 0})
+		if not (r.cago_icon or count):
+			continue
+		out.append({"category": r.name, "icon": r.cago_icon or "📦", "color": r.cago_color or "#e6f4ea", "count": count})
+	return out
 
-	return kiosk.get_categories()
+
+def _root_item_group():
+	"""The tree root to hang new leaf categories under (usually 'All Item Groups')."""
+	return (
+		frappe.db.get_value("Item Group", {"is_group": 1, "parent_item_group": ["in", ["", None]]}, "name")
+		or frappe.db.get_value("Item Group", {"is_group": 1}, "name")
+		or "All Item Groups"
+	)
+
+
+@frappe.whitelist()
+def save_category(name, icon=None, color=None, old_name=None):
+	"""Owner: create a new nhóm hàng, or rename/restyle (icon+màu) an existing one.
+	Renaming an Item Group updates every product's category automatically (Frappe rename)."""
+	ensure_cap("products")
+	name = (name or "").strip()
+	if not name:
+		frappe.throw(_("Nhập tên loại hàng."))
+	old = (old_name or "").strip()
+	if old and old != name:
+		if not frappe.db.exists("Item Group", old):
+			frappe.throw(_("Không tìm thấy loại hàng cần đổi tên."))
+		if frappe.db.exists("Item Group", name):
+			frappe.throw(_("Đã có loại hàng tên '{0}'.").format(name))
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):  # rename_doc enforces perms + this version has no ignore_permissions kwarg
+			frappe.rename_doc("Item Group", old, name)
+	elif not frappe.db.exists("Item Group", name):
+		frappe.get_doc(
+			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": _root_item_group(), "is_group": 0}
+		).insert(ignore_permissions=True)
+	if icon is not None:
+		frappe.db.set_value("Item Group", name, "cago_icon", (icon or "").strip() or None)
+	if color is not None:
+		frappe.db.set_value("Item Group", name, "cago_color", (color or "").strip() or None)
+	frappe.db.commit()
+	return {"name": name}
+
+
+@frappe.whitelist()
+def delete_category(name):
+	"""Owner: delete a nhóm hàng — refused if any product still uses it or it has sub-groups."""
+	ensure_cap("products")
+	name = (name or "").strip()
+	if not frappe.db.exists("Item Group", name):
+		return {"deleted": True}
+	if frappe.db.exists("Item", {"item_group": name}):
+		frappe.throw(_("Còn sản phẩm trong loại '{0}'. Hãy chuyển sản phẩm sang loại khác trước khi xoá.").format(name))
+	if frappe.db.exists("Item Group", {"parent_item_group": name}):
+		frappe.throw(_("Loại '{0}' còn loại con bên trong.").format(name))
+	frappe.delete_doc("Item Group", name, ignore_permissions=True)
+	frappe.db.commit()
+	return {"deleted": True}
 
 
 @frappe.whitelist()

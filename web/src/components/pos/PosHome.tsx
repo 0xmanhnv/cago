@@ -41,7 +41,7 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   receivehist: { label: "📜 Lịch sử nhập", color: "bg-teal-600", href: "/pos/receive-history", cap: "stock" },
   lowstock: { label: "📦 Hàng sắp hết", color: "bg-teal-600", href: "/pos/low-stock", cap: "stock" },
   expiry: { label: "⏰ Lô & hạn dùng", color: "bg-orange-600", href: "/pos/expiry", cap: "stock" },
-  categories: { label: "🔀 Sắp xếp loại hàng", color: "bg-teal-600", href: "/pos/categories", cap: "products" },
+  categories: { label: "🗂 Loại hàng", color: "bg-teal-600", href: "/pos/categories", cap: "products" },
   map: { label: "🗺 Sơ đồ cửa hàng", color: "bg-teal-600", href: "/pos/map", cap: "settings" },
   recordpay: { label: "💵 Khách trả nợ", color: "bg-brand", href: "/pos/record-payment", cap: "debt" },
   recorddebt: { label: "📝 Ghi nợ (chỉ tiền)", color: "bg-red-500", href: "/pos/record-debt", cap: "debt" },

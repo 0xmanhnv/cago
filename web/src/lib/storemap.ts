@@ -44,9 +44,21 @@ export const COLORS = [
   "#ef4444", "#dc2626", "#ec4899", "#a855f7", "#8b5cf6", "#6366f1",
   "#0ea5e9", "#06b6d4", "#14b8a6", "#64748b",
 ];
+// Emoji palette for category / store-map / zone icons. Grouped so an agri shop can label its
+// real sections: chăn nuôi, thuỷ sản, phân bón (phân/lân/đạm/NPK), giống, cây trồng, thuốc
+// BVTV, dụng cụ. No single "fertilizer" emoji exists, so we offer several that read as phân bón
+// (bao tải, hạt/granular, bình tưới, túi…) plus crops/livestock/tools.
 export const ICONS = [
-  "🐔", "🐷", "🐮", "🐤", "🦆", "🐟", "🦐", "🌾", "🌱", "🌿", "🍃", "🌽",
-  "🥬", "🍚", "♻️", "🧪", "💊", "☠️", "🐀", "🪤", "🔧", "🧰", "🪣", "🧴",
+  // chăn nuôi / thuỷ sản
+  "🐔", "🐓", "🐷", "🐮", "🐐", "🐑", "🐤", "🦆", "🥚", "🐟", "🦐", "🦀", "🐌",
+  // phân bón (phân / lân / đạm / NPK) + tưới
+  "🧴", "🪣", "💧", "🧂", "🫧", "🛢️", "🧱", "⚗️", "🧫",
+  // giống / hạt / cây trồng / nông sản
+  "🌾", "🌱", "🌿", "🍃", "🪴", "🌽", "🥬", "🥕", "🍅", "🥔", "🍆", "🌶️", "🍓", "🌻", "🥜", "🫘", "🍚",
+  // thuốc BVTV / diệt chuột / an toàn
+  "🧪", "💊", "🐛", "🦗", "🪰", "🦟", "☠️", "🐀", "🪤", "🚫",
+  // dụng cụ / khác
+  "🔧", "🧰", "✂️", "🧤", "🪓", "🧹", "📦", "🏷️", "⚖️", "♻️",
 ];
 
 export const zoneCenter = (z: MapZone): Pt => ({ x: z.x + z.w / 2, y: z.y + z.h / 2 });
@@ -68,51 +80,18 @@ export function findZone(map: StoreMap | null, category?: string | null): MapZon
   return map.zones.find((z) => z.item_group === category) || null;
 }
 
-const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
-
-function projectOnSeg(p: Pt, a: Pt, b: Pt): { pt: Pt; t: number; d: number } {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len2 = dx * dx + dy * dy;
-  let t = len2 === 0 ? 0 : ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
-  t = Math.max(0, Math.min(1, t));
-  const pt = { x: a.x + t * dx, y: a.y + t * dy };
-  return { pt, t, d: dist(p, pt) };
-}
-
-function arcLengths(poly: Pt[]): number[] {
-  const out = [0];
-  for (let i = 1; i < poly.length; i++) out.push(out[i - 1] + dist(poly[i - 1], poly[i]));
-  return out;
-}
-
-function nearestOnPolyline(poly: Pt[], p: Pt): { pt: Pt; s: number } {
-  const arc = arcLengths(poly);
-  let best = { pt: poly[0], s: 0, d: Infinity };
-  for (let i = 0; i < poly.length - 1; i++) {
-    const pr = projectOnSeg(p, poly[i], poly[i + 1]);
-    if (pr.d < best.d) best = { pt: pr.pt, s: arc[i] + pr.t * (arc[i + 1] - arc[i]), d: pr.d };
-  }
-  return { pt: best.pt, s: best.s };
-}
-
 const samePt = (a: Pt, b: Pt) => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01;
 function dedupe(pts: Pt[]): Pt[] {
   return pts.filter((p, i) => i === 0 || !samePt(p, pts[i - 1]));
 }
 
-/** Route from `start` to `target` along one floor's aisle (mall-style). Falls back to an L-route. */
-export function routeOnFloor(aisle: Pt[], start: Pt, target: Pt): Pt[] {
-  if (!aisle || aisle.length < 2) return dedupe([start, { x: target.x, y: start.y }, target]);
-  const arc = arcLengths(aisle);
-  const a = nearestOnPolyline(aisle, start);
-  const b = nearestOnPolyline(aisle, target);
-  const mids: Pt[] = [];
-  for (let i = 0; i < aisle.length; i++) {
-    if (arc[i] > Math.min(a.s, b.s) && arc[i] < Math.max(a.s, b.s)) mids.push(aisle[i]);
-  }
-  if (a.s > b.s) mids.reverse();
-  return dedupe([start, a.pt, ...mids, b.pt, target]);
+/** Shortest, intuitive route from `start` to `target`: a right-angle ("arrow") path — go vertically
+ * to the target's row, then horizontally into it. Earlier this snaked along a drawn aisle (mall-style),
+ * which for a small shop looked long/weird; a rural customer expects the direct way. The aisle is still
+ * drawn (grey) for context, but the red route is the shortest path. (aisle param kept for the signature.)
+ */
+export function routeOnFloor(_aisle: Pt[], start: Pt, target: Pt): Pt[] {
+  return dedupe([start, { x: start.x, y: target.y }, target]);
 }
 
 export interface RouteLeg {
