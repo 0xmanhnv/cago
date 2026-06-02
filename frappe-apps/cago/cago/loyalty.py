@@ -11,7 +11,9 @@ configurable: CAGO_LOYALTY_VND_PER_POINT / site_config cago_loyalty_vnd_per_poin
 import frappe
 from frappe.utils import flt
 
-WALKIN_NAME = "Khách lẻ"  # generic cash customer — no loyalty (would inflate one shared record)
+from cago.utils import dto
+
+WALKIN_NAME = dto.WALKIN_NAME  # single source — must match the customer the sale creates
 
 
 def _is_walkin(customer):

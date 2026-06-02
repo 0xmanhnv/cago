@@ -122,6 +122,25 @@ def set_loyalty(earn_vnd=None, redeem_vnd=None):
 	return get_loyalty()
 
 
+@frappe.whitelist()
+def get_expiry_warn():
+	"""Owner: how many days before expiry counts as 'sắp hết hạn' (resolved value incl. default)."""
+	ensure_cap("settings")
+	from cago.utils.dto import expiry_warn_days
+
+	return {"days": int(expiry_warn_days())}
+
+
+@frappe.whitelist()
+def set_expiry_warn(days=None):
+	"""Owner: set the near-expiry warning window. 0/empty = keep default (60)."""
+	ensure_cap("settings")
+	frappe.db.set_value("Company", debt._company(), "cago_expiry_warn_days", max(0, cint(days)))
+	frappe.flags.cago_expiry_warn_days = None  # drop the request memo so the read re-resolves
+	frappe.db.commit()
+	return get_expiry_warn()
+
+
 def _owes(customer):
 	# Company-scoped to match sales._customer_outstanding — a multi-company site must not sum a
 	# customer's receivables across companies in the kiosk debt lookup.

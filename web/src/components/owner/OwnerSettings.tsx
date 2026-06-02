@@ -14,6 +14,7 @@ export function OwnerSettings() {
   const [priceEdit, setPriceEdit] = useState(false);
   const [staffCollect, setStaffCollect] = useState(false);
   const [loyalty, setLoyalty] = useState({ earn_vnd: "", redeem_vnd: "" });
+  const [expiryDays, setExpiryDays] = useState("");
 
   useEffect(() => {
     frappeCall<{ bin: string; account: string; name: string }>("cago.api.payment.get_bank", {}, { method: "GET" })
@@ -30,6 +31,9 @@ export function OwnerSettings() {
       .catch(() => {});
     frappeCall<{ earn_vnd: number; redeem_vnd: number }>("cago.api.verify.get_loyalty", {}, { method: "GET" })
       .then((d) => setLoyalty({ earn_vnd: String(d.earn_vnd || ""), redeem_vnd: String(d.redeem_vnd || "") }))
+      .catch(() => {});
+    frappeCall<{ days: number }>("cago.api.verify.get_expiry_warn", {}, { method: "GET" })
+      .then((d) => setExpiryDays(String(d.days || "")))
       .catch(() => {});
   }, []);
 
@@ -66,6 +70,18 @@ export function OwnerSettings() {
       });
       setLoyalty({ earn_vnd: String(d.earn_vnd || ""), redeem_vnd: String(d.redeem_vnd || "") });
       toast.success("Đã lưu cài đặt tích điểm.");
+    } catch {
+      toast.error("Lỗi: không lưu được.");
+    }
+  };
+
+  const saveExpiry = async () => {
+    try {
+      const d = await frappeCall<{ days: number }>("cago.api.verify.set_expiry_warn", {
+        days: parseInt(expiryDays.replace(/[^\d]/g, ""), 10) || 0,
+      });
+      setExpiryDays(String(d.days || ""));
+      toast.success("Đã lưu cảnh báo cận hạn.");
     } catch {
       toast.error("Lỗi: không lưu được.");
     }
@@ -135,6 +151,21 @@ export function OwnerSettings() {
         />
         <button onClick={saveLoyalty} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
           💾 Lưu tích điểm
+        </button>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-4">
+        <div className="font-extrabold">⏰ Cảnh báo cận hạn (HSD)</div>
+        <p className="text-slate-500">Sản phẩm còn hạn dùng ≤ số ngày này sẽ hiện &quot;sắp hết hạn&quot;. Để trống = mặc định 60 ngày.</p>
+        <input
+          inputMode="numeric"
+          value={expiryDays}
+          onChange={(e) => setExpiryDays(e.target.value.replace(/[^\d]/g, ""))}
+          placeholder="VD: 60"
+          className="mt-2 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+        />
+        <button onClick={saveExpiry} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
+          💾 Lưu cảnh báo cận hạn
         </button>
       </div>
     </div>

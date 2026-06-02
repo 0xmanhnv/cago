@@ -120,10 +120,11 @@ def add_batch(item_code, batch_id, expiry_date=None, manufacturing_date=None):
 
 
 @frappe.whitelist()
-def expiring_soon(days=DEFAULT_WARN_DAYS):
-	"""Owner report: batches expiring within `days` (or already expired)."""
+def expiring_soon(days=None):
+	"""Owner report: batches expiring within `days` (or already expired). Defaults to the owner's
+	configured near-expiry window (Company.cago_expiry_warn_days) so the report matches the kiosk badge."""
 	ensure_cap("stock")
-	days = cint(days) or DEFAULT_WARN_DAYS
+	days = cint(days) or dto.expiry_warn_days()
 	horizon = add_days(nowdate(), days)
 	# NULL expiry_date is excluded by the `<=` comparison, so only dated batches show.
 	rows = frappe.get_all(

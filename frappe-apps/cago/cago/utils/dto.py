@@ -20,6 +20,7 @@ from frappe.utils import flt
 from cago.utils.safety import safety_warning_for
 from cago.utils.slug import slugify as _slugify
 
+WALKIN_NAME = "Khách lẻ"  # the generic cash customer — one source of truth (loyalty excludes it)
 SELLING_PRICE_LIST = "Standard Selling"
 WHOLESALE_PRICE_LIST = "Giá sỉ"  # optional second selling list for wholesale customers
 
@@ -138,7 +139,26 @@ def format_price(rate, uom=None):
 # --------------------------------------------------------------------------- #
 # Expiry (lô + hạn sử dụng) — Phase 1. Uses ERPNext Batch.expiry_date.
 # --------------------------------------------------------------------------- #
-EXPIRY_WARN_DAYS = 60
+EXPIRY_WARN_DAYS = 60  # default; owner can override via Company.cago_expiry_warn_days (Settings)
+
+
+def expiry_warn_days():
+	"""Days-before-expiry that count as 'sắp hết hạn'. Owner-set on Company, else the default.
+	Memoised on frappe.flags so a list of N items reads it once, not once per item (no N+1)."""
+	import frappe
+
+	cached = getattr(frappe.flags, "cago_expiry_warn_days", None)
+	if cached is not None:
+		return cached
+	days = EXPIRY_WARN_DAYS
+	try:
+		from cago.api import debt
+
+		days = int(frappe.db.get_value("Company", debt._company(), "cago_expiry_warn_days") or 0) or EXPIRY_WARN_DAYS
+	except Exception:
+		days = EXPIRY_WARN_DAYS
+	frappe.flags.cago_expiry_warn_days = days
+	return days
 
 
 def format_date_vi(d):
@@ -159,7 +179,7 @@ def expiry_status(expiry_date):
 	days = date_diff(expiry_date, nowdate())
 	if days < 0:
 		return "expired"
-	if days <= EXPIRY_WARN_DAYS:
+	if days <= expiry_warn_days():
 		return "near"
 	return "ok"
 

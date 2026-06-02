@@ -314,6 +314,13 @@ def ensure_payment_fields():
 					"insert_after": "cago_loyalty_earn_vnd",
 					"description": "Khi khách dùng điểm tại quầy, 1 điểm trừ bao nhiêu đồng (mặc định 1.000đ). 0 = dùng mặc định.",
 				},
+				{
+					"fieldname": "cago_expiry_warn_days",
+					"label": "Cảnh báo cận hạn trước bao nhiêu ngày",
+					"fieldtype": "Int",
+					"insert_after": "cago_loyalty_redeem_vnd",
+					"description": "Sản phẩm còn hạn dùng ≤ số ngày này sẽ hiện 'sắp hết hạn' (mặc định 60). 0 = dùng mặc định.",
+				},
 			],
 			"Payment Entry": [
 				{

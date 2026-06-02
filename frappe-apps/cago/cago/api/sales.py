@@ -25,10 +25,10 @@ SELLING_PRICE_LIST = dto.SELLING_PRICE_LIST
 
 def walkin_customer():
 	"""A generic walk-in customer for cash sales (created once)."""
-	name = frappe.db.get_value("Customer", {"customer_name": "Khách lẻ"}, "name")
+	name = frappe.db.get_value("Customer", {"customer_name": dto.WALKIN_NAME}, "name")
 	if name:
 		return name
-	doc = frappe.get_doc({"doctype": "Customer", "customer_name": "Khách lẻ", "customer_type": "Individual"})
+	doc = frappe.get_doc({"doctype": "Customer", "customer_name": dto.WALKIN_NAME, "customer_type": "Individual"})
 	group = frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
 	territory = frappe.db.get_value("Territory", {"is_group": 0}, "name")
 	if group:
@@ -134,7 +134,7 @@ def _sale_lines(rows):
 
 def _customer_label(customer):
 	"""Display name of the buyer (who it was sold to), or walk-in."""
-	return (customer and frappe.db.get_value("Customer", customer, "customer_name")) or "Khách lẻ"
+	return (customer and frappe.db.get_value("Customer", customer, "customer_name")) or dto.WALKIN_NAME
 
 
 def _existing_sale_result(si_name):
@@ -349,7 +349,7 @@ def search_customers_lite(query=None, start=0):
 	)
 	out = []
 	for c in rows:
-		if c.customer_name == "Khách lẻ":
+		if c.customer_name == dto.WALKIN_NAME:
 			continue  # walk-in isn't a credit customer
 		bal = _customer_outstanding(c.name)
 		out.append(
@@ -415,7 +415,7 @@ def customers_snapshot(limit=2000):
 	bal_map = _outstanding_map([c.name for c in rows])  # one grouped GL query, not one per customer
 	out = []
 	for c in rows:
-		if c.customer_name == "Khách lẻ":
+		if c.customer_name == dto.WALKIN_NAME:
 			continue
 		bal = bal_map.get(c.name, 0.0)
 		out.append(
