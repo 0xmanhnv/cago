@@ -182,6 +182,19 @@ class TestQuickSale(FrappeTestCase):
 		tt = get_time(str(si.posting_time))
 		self.assertEqual((tt.hour, tt.minute), (8, 15))
 
+	def test_quick_sale_replay_after_cancel_does_not_error(self):
+		"""Re-sending a uuid whose invoice was later cancelled must resolve to that invoice (dedup),
+		not hit the unique index and 500."""
+		from cago.api import purchasing, sales
+
+		purchasing.receive_stock(ITEM, 10)
+		uuid = frappe.generate_hash(length=20)
+		r1 = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", client_uuid=uuid)
+		frappe.get_doc("Sales Invoice", r1["invoice"]).cancel()
+		r2 = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", client_uuid=uuid)
+		self.assertEqual(r2["invoice"], r1["invoice"])
+		self.assertTrue(r2.get("duplicate"))
+
 	def test_quick_sale_posted_at_out_of_range_falls_back_to_today(self):
 		"""A forged/stale posted_at (here: years ago) is ignored so it can't back-date the GL/reports."""
 		from cago.api import purchasing, sales

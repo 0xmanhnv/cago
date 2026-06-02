@@ -79,6 +79,9 @@ interface Held {
   lines: Record<string, Line>;
   meta: Record<string, Meta>;
   count: number;
+  discount?: string;
+  discountMode?: "amount" | "percent";
+  redeemPts?: number;
 }
 const HELD_KEY = "cago_held_orders";
 const loadHeld = (): Held[] => {
@@ -507,11 +510,15 @@ export function Checkout() {
   // Loyalty redemption: customer spends points (đồng each = boot.loyalty_redeem_vnd), capped by
   // their balance and by what's left of the bill after other discounts.
   const redeemVnd = boot?.loyalty_redeem_vnd || 1000;
-  const maxRedeem = Math.min(cust?.points || 0, Math.floor(Math.max(0, subtotal - disc - couponDisc) / redeemVnd));
+  // A coupon is validated/counted server-side, so it can only be honoured online; offline we drop
+  // it from the payload (buildSale), so it must ALSO be excluded from the shown/printed total —
+  // otherwise the provisional receipt would undercharge vs. the invoice the server later books.
+  const effCouponDisc = online ? couponDisc : 0;
+  const maxRedeem = Math.min(cust?.points || 0, Math.floor(Math.max(0, subtotal - disc - effCouponDisc) / redeemVnd));
   const redeemUse = Math.max(0, Math.min(redeemPts, maxRedeem));
   const redeemDisc = redeemUse * redeemVnd; // đồng knocked off the bill by spent points
-  const estimate = Math.max(0, subtotal - disc - couponDisc - redeemDisc);
-  const totalSaved = disc + couponDisc + redeemDisc; // everything knocked off the subtotal
+  const estimate = Math.max(0, subtotal - disc - effCouponDisc - redeemDisc);
+  const totalSaved = disc + effCouponDisc + redeemDisc; // everything knocked off the subtotal
 
   const applyCoupon = async () => {
     const code = couponInput.trim();
@@ -586,12 +593,26 @@ export function Checkout() {
 
   const holdOrder = () => {
     if (cartCodes.length === 0) return;
-    const h: Held = { id: String(Date.now()), at: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }), cust, lines, meta, count: cartCodes.length };
+    const h: Held = {
+      id: String(Date.now()),
+      at: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+      cust,
+      lines,
+      meta,
+      count: cartCodes.length,
+      discount,
+      discountMode,
+      redeemPts,
+    };
     const next = [h, ...held];
     setHeld(next);
     saveHeld(next);
+    // Reset the WHOLE bargaining state so it can't bleed onto the next customer's fresh cart.
     setLines({});
     setCust(null);
+    setDiscount("");
+    setDiscountMode("amount");
+    setRedeemPts(0);
     clearCoupon();
     setPayOpen(false);
   };
@@ -599,6 +620,9 @@ export function Checkout() {
     setLines(h.lines);
     setMeta((m) => ({ ...m, ...h.meta }));
     setCust(h.cust);
+    setDiscount(h.discount || "");
+    setDiscountMode(h.discountMode || "amount");
+    setRedeemPts(h.redeemPts || 0);
     const next = held.filter((x) => x.id !== h.id);
     setHeld(next);
     saveHeld(next);

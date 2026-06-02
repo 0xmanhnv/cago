@@ -42,7 +42,7 @@ def _validate(code, subtotal):
 	if c.discount_type == "Percent":
 		disc = round(flt(subtotal) * flt(c.discount_value) / 100.0)
 	else:
-		disc = flt(c.discount_value)
+		disc = round(flt(c.discount_value))  # VND has no sub-unit — keep coupon amounts whole
 	disc = max(0, min(disc, flt(subtotal)))
 	return c, disc
 

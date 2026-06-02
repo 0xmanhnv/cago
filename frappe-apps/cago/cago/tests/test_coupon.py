@@ -125,3 +125,10 @@ class TestCouponValidation(FrappeTestCase):
 		self._make("T-PCT", discount_type="Percent", discount_value=10)
 		_, disc = coupon._validate("T-PCT", 50000)
 		self.assertEqual(disc, 5000)  # 10% of 50.000
+
+	def test_amount_coupon_rounded_to_vnd(self):
+		from cago.api import coupon
+
+		self._make("T-AMT", discount_type="Amount", discount_value=1500.7)
+		_, disc = coupon._validate("T-AMT", 50000)
+		self.assertEqual(disc, 1501)  # VND has no sub-unit → rounded whole

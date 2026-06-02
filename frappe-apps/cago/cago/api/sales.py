@@ -216,7 +216,7 @@ def credit_sale(customer, items, note=None, client_uuid=None):
 	# instead of booking the customer's debt twice on a network retry.
 	client_uuid = (client_uuid or "").strip() or None
 	if client_uuid:
-		existing = frappe.db.get_value("Sales Invoice", {"cago_client_uuid": client_uuid, "docstatus": ["<", 2]}, "name")
+		existing = frappe.db.get_value("Sales Invoice", {"cago_client_uuid": client_uuid}, "name")
 		if existing:
 			return _existing_sale_result(existing)
 	if not frappe.db.exists("Customer", customer):
@@ -695,7 +695,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	# of booking a second one. Must run before any doc creation.
 	client_uuid = (client_uuid or "").strip() or None
 	if client_uuid:
-		existing = frappe.db.get_value("Sales Invoice", {"cago_client_uuid": client_uuid, "docstatus": ["<", 2]}, "name")
+		existing = frappe.db.get_value("Sales Invoice", {"cago_client_uuid": client_uuid}, "name")
 		if existing:
 			return _existing_sale_result(existing)
 	# Offline sells carry the moment they were rung up (posted_at) so the invoice lands in the
