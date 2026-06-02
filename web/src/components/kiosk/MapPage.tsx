@@ -52,31 +52,8 @@ export function MapPage() {
         <div className="rounded-2xl bg-white p-6 text-center text-slate-500">Cửa hàng chưa có sơ đồ. Bác hỏi người bán giúp ạ.</div>
       ) : (
         <>
-          {/* Directory: pick a destination by name (mall-kiosk style). Tapping a zone on the map
-              below does the same. */}
-          <div className="mb-3 rounded-2xl bg-white p-3 shadow-sm">
-            <div className="mb-2 font-bold text-brand-dark">🧭 Bác cần tới đâu? Chạm để xem đường đi:</div>
-            {map.floors.map((f) => (
-              <div key={f.label} className="mb-2 last:mb-0">
-                {map.floors.length > 1 && <div className="mb-1 text-sm font-bold text-slate-500">{f.label}</div>}
-                <div className="flex flex-wrap gap-2">
-                  {map.zones
-                    .filter((z) => z.floor === f.label)
-                    .map((z, i) => (
-                      <button
-                        key={`${z.item_group}-${i}`}
-                        onClick={() => setTarget(z.item_group)}
-                        className={`rounded-xl px-3 py-2 font-bold ${target === z.item_group ? "ring-2 ring-brand ring-offset-1" : ""}`}
-                        style={{ background: z.color, color: "white" }}
-                      >
-                        {z.icon ? `${z.icon} ` : ""}
-                        {z.label}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* The map IS the picker — tap a zone to route. (No separate button list: redundant + cluttered.) */}
+          {!targetZone && <p className="mb-2 text-center font-bold text-brand-dark">🧭 Chạm vào khu cần đến trên sơ đồ để xem đường đi</p>}
 
           <StoreMapView focusCategory={target} onPickZone={setTarget} mapData={map} fixedKiosk={fixed} />
 
@@ -87,7 +64,7 @@ export function MapPage() {
               <button onClick={() => setTarget(null)} className="min-h-touch rounded-xl bg-slate-200 font-extrabold text-slate-700">✖ Chọn nơi khác</button>
             </div>
           ) : (
-            <p className="mt-2 text-center text-slate-500">Chạm một khu ở trên hoặc trên sơ đồ để xem đường đi. (Sơ đồ tham khảo)</p>
+            <p className="mt-2 text-center text-sm text-slate-400">(Sơ đồ tham khảo)</p>
           )}
 
           <label className="mt-5 flex items-center gap-2 rounded-xl bg-slate-100 p-3 text-sm text-slate-600">

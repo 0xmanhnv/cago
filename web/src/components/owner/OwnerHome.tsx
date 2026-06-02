@@ -191,23 +191,27 @@ export function OwnerHome() {
         onClick={() => setShowAll((v) => !v)}
         className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-200 bg-white py-3 text-lg font-extrabold text-brand-dark"
       >
-        {showAll ? "▴ Thu gọn" : "🧰 Tất cả chức năng ▾"}
+        🧰 Tất cả chức năng <span className={`inline-block transition-transform duration-300 ${showAll ? "rotate-180" : ""}`}>▾</span>
       </button>
 
-      {/* Grouped sections (scientific grouping); hidden by default to reduce clutter. */}
-      {showAll && GROUPS.map((g) => (
-        <div key={g.title} className="mb-3">
-          <div className="mb-1.5 ml-1 text-base font-bold text-slate-500">{g.title}</div>
-          <div className="grid grid-cols-2 gap-3.5">
-            {g.keys.map((k) => (
-              <Tile key={k} k={k} />
-            ))}
-            {g.title.startsWith("🛒") && posUrl && (
-              <a href={posUrl} target="_blank" rel="noopener" className="mt-tile bg-slate-600">🧾 POS Awesome (quầy)</a>
-            )}
-          </div>
+      {/* Grouped sections — smooth expand/collapse via grid-rows 0fr↔1fr (no abrupt show/hide). */}
+      <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${showAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden">
+          {GROUPS.map((g) => (
+            <div key={g.title} className="mb-3">
+              <div className="mb-1.5 ml-1 text-base font-bold text-slate-500">{g.title}</div>
+              <div className="grid grid-cols-2 gap-3.5">
+                {g.keys.map((k) => (
+                  <Tile key={k} k={k} />
+                ))}
+                {g.title.startsWith("🛒") && posUrl && (
+                  <a href={posUrl} target="_blank" rel="noopener" className="mt-tile bg-slate-600">🧾 POS Awesome (quầy)</a>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
 
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
         <a href="/desk" target="_blank" rel="noopener" className="mt-tile min-h-[64px] bg-slate-500 text-lg">⚙️ Quản lý ERPNext</a>
