@@ -52,9 +52,24 @@ export function OwnerHome() {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [fav, setFav] = useState<string[]>([]);
   const [showAll, setShowAll] = useState(false); // collapse the full menu; expand on demand
+  const [editMode, setEditMode] = useState(false); // "arrange" mode: pin ☆ + drag ⠿ only here
   const favRef = useRef<string[]>([]);
   const dragFrom = useRef<number | null>(null);
+  const editRef = useRef(false);
+  const lp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   favRef.current = fav;
+  editRef.current = editMode;
+
+  // Long-press a tile (touch or mouse-hold) → enter "arrange" mode (like iOS home). A quick tap
+  // navigates; a drag/scroll cancels the timer — so normal scrolling never triggers anything.
+  const pressStart = () => {
+    if (editRef.current) return;
+    lp.current = setTimeout(() => {
+      setEditMode(true);
+      try { navigator.vibrate?.(15); } catch { /* ignore */ }
+    }, 450);
+  };
+  const pressCancel = () => clearTimeout(lp.current);
 
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
@@ -85,11 +100,15 @@ export function OwnerHome() {
       if (!el) return;
       const to = Number(el.getAttribute("data-fav"));
       if (Number.isInteger(to) && to !== dragFrom.current) {
-        const a = [...favRef.current];
-        const [m] = a.splice(dragFrom.current, 1);
-        a.splice(to, 0, m);
+        const from = dragFrom.current;
         dragFrom.current = to;
-        setFav(a);
+        // Functional update — never read a render-synced ref mid-gesture (avoids stale reorders).
+        setFav((prev) => {
+          const a = [...prev];
+          const [m] = a.splice(from, 1);
+          a.splice(to, 0, m);
+          return a;
+        });
       }
     };
     const onUp = () => {
@@ -115,22 +134,32 @@ export function OwnerHome() {
     }
   };
 
-  // A normal tile with a corner ☆/★ to pin it to "Hay dùng".
+  // A normal tile. Tap = open. Long-press = enter arrange mode. The ☆ pin only shows in
+  // arrange mode, so normal browsing stays clean and a finger-scroll never fights a control.
   const Tile = ({ k }: { k: string }) => {
     const a = ACTIONS[k];
     const pinned = fav.includes(k);
     return (
-      <div className="relative">
-        <button onClick={() => router.push(a.href)} className={`mt-tile w-full ${a.color}`}>
+      <div className={`relative ${editMode ? "animate-jiggle" : ""}`}>
+        <button
+          onClick={() => { if (editMode) { togglePin(k); return; } router.push(a.href); }}
+          onPointerDown={pressStart}
+          onPointerUp={pressCancel}
+          onPointerMove={pressCancel}
+          onPointerLeave={pressCancel}
+          className={`mt-tile w-full ${a.color} ${editMode ? "ring-2 ring-white/70" : ""}`}
+        >
           {a.label}
         </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); togglePin(k); }}
-          aria-label={pinned ? "Bỏ ghim" : "Ghim lên Hay dùng"}
-          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/25 text-sm text-white"
-        >
-          {pinned ? "★" : "☆"}
-        </button>
+        {editMode && (
+          <span
+            onClick={(e) => { e.stopPropagation(); togglePin(k); }}
+            aria-label={pinned ? "Bỏ ghim" : "Ghim lên Hay dùng"}
+            className="absolute right-1.5 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/30 text-sm text-white shadow"
+          >
+            {pinned ? "★" : "☆"}
+          </span>
+        )}
       </div>
     );
   };
@@ -156,11 +185,24 @@ export function OwnerHome() {
         </div>
       )}
 
-      {/* ⭐ Hay dùng — customizable: pin tiles here, drag the ⠿ handle to reorder. */}
-      <div className="mb-1 ml-1 mt-1 text-lg font-extrabold text-brand-dark">⭐ Hay dùng</div>
+      {/* ⭐ Hay dùng — header + an arrange toggle (works on desktop too; long-press works on touch). */}
+      <div className="mb-1 ml-1 mt-1 flex items-center justify-between">
+        <div className="text-lg font-extrabold text-brand-dark">⭐ Hay dùng</div>
+        <button
+          onClick={() => setEditMode((v) => !v)}
+          className={`rounded-full px-3 py-1 text-sm font-bold ${editMode ? "bg-brand text-white" : "bg-white text-brand-dark shadow-sm"}`}
+        >
+          {editMode ? "✓ Xong" : "✏️ Sắp xếp"}
+        </button>
+      </div>
+      {editMode && (
+        <div className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-800">
+          Kéo <b>⠿</b> để đổi chỗ · chạm <b>☆</b> để ghim/bỏ ghim · xong thì bấm <b>Xong</b>.
+        </div>
+      )}
       {fav.length === 0 ? (
         <div className="mb-4 rounded-2xl border-2 border-dashed border-emerald-200 bg-white/60 p-4 text-center text-slate-500">
-          Bấm ☆ trên một mục bên dưới để ghim lên đây cho tiện.
+          {editMode ? "Chạm ☆ trên một mục bên dưới để ghim lên đây." : "Nhấn giữ một mục để sắp xếp, hoặc bấm ☆ sau khi vào “Sắp xếp”."}
         </div>
       ) : (
         <div className="mb-4 grid grid-cols-2 gap-3.5">
@@ -168,18 +210,29 @@ export function OwnerHome() {
             const a = ACTIONS[k];
             if (!a) return null;
             return (
-              <div key={k} data-fav={i} className="relative touch-none">
-                <button onClick={() => router.push(a.href)} className={`mt-tile w-full pl-9 ${a.color}`}>
+              <div key={k} data-fav={i} className={`relative ${editMode ? "animate-jiggle touch-none" : ""}`}>
+                <button
+                  onClick={() => { if (editMode) { togglePin(k); return; } router.push(a.href); }}
+                  onPointerDown={pressStart}
+                  onPointerUp={pressCancel}
+                  onPointerMove={pressCancel}
+                  onPointerLeave={pressCancel}
+                  className={`mt-tile w-full ${editMode ? "pl-9 ring-2 ring-white/70" : ""} ${a.color}`}
+                >
                   {a.label}
                 </button>
-                <span
-                  onPointerDown={(e) => { e.preventDefault(); dragFrom.current = i; }}
-                  className="absolute left-1.5 top-1/2 -translate-y-1/2 cursor-grab select-none px-1 text-xl text-white/80"
-                  aria-label="Kéo để sắp xếp"
-                >
-                  ⠿
-                </span>
-                <button onClick={(e) => { e.stopPropagation(); togglePin(k); }} aria-label="Bỏ ghim" className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white/25 text-sm text-white">★</button>
+                {editMode && (
+                  <>
+                    <span
+                      onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); dragFrom.current = i; }}
+                      className="absolute left-1.5 top-1/2 -translate-y-1/2 cursor-grab select-none px-1 text-xl text-white/90"
+                      aria-label="Kéo để sắp xếp"
+                    >
+                      ⠿
+                    </span>
+                    <span onClick={(e) => { e.stopPropagation(); togglePin(k); }} aria-label="Bỏ ghim" className="absolute right-1.5 top-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/30 text-sm text-white shadow">★</span>
+                  </>
+                )}
               </div>
             );
           })}
@@ -196,7 +249,7 @@ export function OwnerHome() {
 
       {/* Grouped sections — smooth expand/collapse via grid-rows 0fr↔1fr (no abrupt show/hide). */}
       <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${showAll ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
-        <div className="overflow-hidden">
+        <div className="overflow-hidden" inert={!showAll ? true : undefined}>
           {GROUPS.map((g) => (
             <div key={g.title} className="mb-3">
               <div className="mb-1.5 ml-1 text-base font-bold text-slate-500">{g.title}</div>

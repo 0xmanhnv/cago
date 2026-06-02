@@ -53,29 +53,38 @@ export function LowStock() {
   );
 }
 
+type Period = "today" | "week" | "month" | "year" | "custom";
+
 export function Report() {
   const router = useRouter();
   type Summary = { period_label: string; sales_total_text: string; invoice_count: number };
   type Split = { cash_text: string; bank_text: string; other_text: string; credit_text: string };
   type Profit = { revenue_text: string; cogs_text: string; profit_text: string; margin_pct: number };
-  const [period, setPeriod] = useState<"today" | "week" | "month">("today");
+  const [period, setPeriod] = useState<Period>("today");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [s, setS] = useState<Summary | null>(null);
   const [split, setSplit] = useState<Split | null>(null);
   const [profit, setProfit] = useState<Profit | null>(null);
   const [best, setBest] = useState<{ display_name: string; qty: number }[]>([]);
   const [byCust, setByCust] = useState<{ customer_name: string; total_text: string }[]>([]);
-  useEffect(() => {
-    frappeCall<Summary>("cago.api.reports.period_summary", { period }, { method: "GET" }).then(setS);
-    frappeCall<Split>("cago.api.reports.payment_split", { period }, { method: "GET" }).then(setSplit).catch(() => setSplit(null));
-    frappeCall<Profit>("cago.api.reports.gross_profit", { period }, { method: "GET" }).then(setProfit).catch(() => setProfit(null));
-    frappeCall<{ display_name: string; qty: number }[]>("cago.api.reports.best_sellers", { limit: 5 }, { method: "GET" }).then((r) => setBest(r || []));
-    frappeCall<{ customer_name: string; total_text: string }[]>("cago.api.reports.sales_by_customer", { period, limit: 5 }, { method: "GET" }).then((r) => setByCust(r || []));
-  }, [period]);
+  const ready = period !== "custom" || (!!fromDate && !!toDate); // custom needs both dates
 
-  const tab = (p: "today" | "week" | "month", label: string) => (
+  useEffect(() => {
+    if (!ready) return;
+    const args = { period, from_date: fromDate || undefined, to_date: toDate || undefined };
+    setS(null);
+    frappeCall<Summary>("cago.api.reports.period_summary", args, { method: "GET" }).then(setS);
+    frappeCall<Split>("cago.api.reports.payment_split", args, { method: "GET" }).then(setSplit).catch(() => setSplit(null));
+    frappeCall<Profit>("cago.api.reports.gross_profit", args, { method: "GET" }).then(setProfit).catch(() => setProfit(null));
+    frappeCall<{ display_name: string; qty: number }[]>("cago.api.reports.best_sellers", { limit: 5 }, { method: "GET" }).then((r) => setBest(r || []));
+    frappeCall<{ customer_name: string; total_text: string }[]>("cago.api.reports.sales_by_customer", { ...args, limit: 5 }, { method: "GET" }).then((r) => setByCust(r || []));
+  }, [period, fromDate, toDate, ready]);
+
+  const tab = (p: Period, label: string) => (
     <button
       onClick={() => setPeriod(p)}
-      className={`rounded-xl px-4 py-3 font-bold ${p === period ? "bg-blue-600 text-white" : "bg-brand-light text-brand-dark"}`}
+      className={`rounded-xl px-3.5 py-2.5 font-bold ${p === period ? "bg-blue-600 text-white" : "bg-brand-light text-brand-dark"}`}
     >
       {label}
     </button>
@@ -84,13 +93,25 @@ export function Report() {
   return (
     <div>
       <BackBar onBack={() => router.push("/owner")} title="BÁO CÁO" />
-      <div className="mb-3 flex gap-2">
+      <div className="mb-3 flex flex-wrap gap-2">
         {tab("today", "Hôm nay")}
         {tab("week", "Tuần")}
         {tab("month", "Tháng")}
+        {tab("year", "Năm")}
+        {tab("custom", "Khoảng ngày")}
       </div>
+      {period === "custom" && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 shadow-sm">
+          <label className="font-bold text-slate-600">Từ</label>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-lg border-2 border-emerald-300 p-2" />
+          <label className="font-bold text-slate-600">đến</label>
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-lg border-2 border-emerald-300 p-2" />
+        </div>
+      )}
       <div className="rounded-xl bg-white p-4">
-        {!s ? (
+        {!ready ? (
+          <div className="text-center text-slate-500">Chọn từ ngày và đến ngày để xem báo cáo.</div>
+        ) : !s ? (
           <div className="text-slate-500">Đang tải...</div>
         ) : (
           <>

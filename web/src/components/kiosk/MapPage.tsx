@@ -79,7 +79,7 @@ export function MapPage() {
           {targetZone ? (
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <button onClick={readRoute} className="min-h-touch rounded-xl bg-harvest font-extrabold text-white">🔊 Đọc đường đi</button>
-              <button onClick={() => nav.openList(targetZone.item_group)} className="min-h-touch rounded-xl bg-brand font-extrabold text-white">🛒 Xem hàng ở đây</button>
+              <button onClick={() => nav.openList(slugify(targetZone.item_group))} className="min-h-touch rounded-xl bg-brand font-extrabold text-white">🛒 Xem hàng ở đây</button>
               <button onClick={() => pick(null)} className="min-h-touch rounded-xl bg-slate-200 font-extrabold text-slate-700">✖ Chọn nơi khác</button>
             </div>
           ) : (

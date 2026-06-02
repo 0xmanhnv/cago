@@ -33,6 +33,13 @@ role_home_page = {
 }
 
 # ---------------------------------------------------------------------------
+# Schema setup — keep custom fields in sync on every install / migrate so a fresh
+# deploy always has the full Cago schema (no manual ensure_* runs needed).
+# ---------------------------------------------------------------------------
+after_migrate = ["cago.setup.custom_fields.setup_all_fields"]
+after_install = ["cago.setup.custom_fields.setup_all_fields"]
+
+# ---------------------------------------------------------------------------
 # Document events
 # ---------------------------------------------------------------------------
 # Loyalty points accrue on every submitted Sales Invoice (POS + credit sale),

@@ -270,3 +270,17 @@ def ensure_payment_fields():
 	)
 	frappe.db.commit()
 	print("Company/Payment Entry fields ensured: cago_staff_can_collect_debt, cago_cashier")
+
+
+def setup_all_fields():
+	"""Create EVERY Cago custom field (idempotent). Wired to the `after_migrate` hook so a
+	fresh deploy or a `bench migrate` always has the full schema — no manual ensure_* runs."""
+	ensure_category_fields()
+	ensure_retail_field()
+	ensure_stock_fields()
+	ensure_customer_fields()
+	ensure_loyalty_fields()
+	ensure_shift_fields()
+	ensure_user_fields()
+	ensure_stock_entry_fields()
+	ensure_payment_fields()

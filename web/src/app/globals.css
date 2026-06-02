@@ -63,4 +63,16 @@ body {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  /* iOS-style "wobble" to signal that tiles are editable (arrange mode on the owner home). */
+  @keyframes jiggle {
+    0% { transform: rotate(-0.9deg); }
+    50% { transform: rotate(0.9deg); }
+    100% { transform: rotate(-0.9deg); }
+  }
+  .animate-jiggle {
+    animation: jiggle 0.28s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-jiggle { animation: none; }
+  }
 }

@@ -9,14 +9,14 @@ and the debt list. Read-only.
 import frappe
 from frappe.query_builder import Order
 from frappe.query_builder.functions import Count, Sum
-from frappe.utils import add_days, cint, flt, get_first_day, nowdate
+from frappe.utils import add_days, cint, flt, format_date, get_first_day, getdate, nowdate
 
 from cago.api.debt import get_customer_debt
 from cago.utils import dto
 from cago.utils.permissions import ensure_owner
 
 LOW_STOCK_STATUSES = ["Còn ít", "Hết hàng", "Sắp nhập"]
-PERIOD_LABEL = {"today": "Hôm nay", "week": "7 ngày qua", "month": "Tháng này"}
+PERIOD_LABEL = {"today": "Hôm nay", "week": "7 ngày qua", "month": "Tháng này", "year": "Năm nay", "custom": "Khoảng ngày"}
 
 
 def _company():
@@ -29,16 +29,29 @@ def _period_range(period):
 		return add_days(today, -6), today
 	if period == "month":
 		return str(get_first_day(today)), today
+	if period == "year":
+		return f"{getdate(today).year}-01-01", today
 	return today, today
 
 
-@frappe.whitelist()
-def period_summary(period="today"):
-	"""Sales summary for today / week / month."""
-	ensure_owner()
-	if period not in PERIOD_LABEL:
+def _resolve(period, from_date=None, to_date=None):
+	"""(start, end, label) for any report. `custom` uses the from/to dates the owner picked."""
+	if period == "custom" and from_date and to_date:
+		a, b = str(getdate(from_date)), str(getdate(to_date))
+		if a > b:
+			a, b = b, a
+		return a, b, f"{format_date(a, 'dd/MM/yyyy')} – {format_date(b, 'dd/MM/yyyy')}"
+	if period not in PERIOD_LABEL or period == "custom":
 		period = "today"
 	start, end = _period_range(period)
+	return start, end, PERIOD_LABEL[period]
+
+
+@frappe.whitelist()
+def period_summary(period="today", from_date=None, to_date=None):
+	"""Sales summary for today / week / month / year / custom range."""
+	ensure_owner()
+	start, end, label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	res = (
@@ -50,7 +63,7 @@ def period_summary(period="today"):
 	count = (res[0][1] if res and res[0] else 0) or 0
 	return {
 		"period": period,
-		"period_label": PERIOD_LABEL[period],
+		"period_label": label,
 		"from": start,
 		"to": end,
 		"sales_total": total,
@@ -68,12 +81,10 @@ def today_summary():
 
 
 @frappe.whitelist()
-def payment_split(period="today"):
+def payment_split(period="today", from_date=None, to_date=None):
 	"""Tiền mặt / chuyển khoản / khác (từ thanh toán POS) + ghi nợ (outstanding)."""
 	ensure_owner()
-	if period not in PERIOD_LABEL:
-		period = "today"
-	start, end = _period_range(period)
+	start, end, label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	sip = frappe.qb.DocType("Sales Invoice Payment")
@@ -110,7 +121,7 @@ def payment_split(period="today"):
 
 	return {
 		"period": period,
-		"period_label": PERIOD_LABEL[period],
+		"period_label": label,
 		"cash": cash,
 		"cash_text": _t(cash),
 		"bank": bank,
@@ -123,12 +134,10 @@ def payment_split(period="today"):
 
 
 @frappe.whitelist()
-def sales_by_customer(period="month", limit=10):
+def sales_by_customer(period="month", limit=10, from_date=None, to_date=None):
 	"""Owner-only: top customers by sales total in the period."""
 	ensure_owner()
-	if period not in PERIOD_LABEL:
-		period = "month"
-	start, end = _period_range(period)
+	start, end, _label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	rows = (
@@ -152,13 +161,11 @@ def sales_by_customer(period="month", limit=10):
 
 
 @frappe.whitelist()
-def gross_profit(period="today"):
+def gross_profit(period="today", from_date=None, to_date=None):
 	"""Owner-only gross profit = doanh thu (net) − giá vốn (COGS). COGS uses the Sales
 	Invoice Item incoming_rate (set when stock is maintained). Never exposed to staff/kiosk."""
 	ensure_owner()
-	if period not in PERIOD_LABEL:
-		period = "today"
-	start, end = _period_range(period)
+	start, end, label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	sii = frappe.qb.DocType("Sales Invoice Item")
@@ -175,7 +182,7 @@ def gross_profit(period="today"):
 	margin = round(profit / rev * 100) if rev else 0
 	return {
 		"period": period,
-		"period_label": PERIOD_LABEL[period],
+		"period_label": label,
 		"revenue": rev,
 		"revenue_text": dto.format_price(rev) if rev else "0đ",
 		"cogs": cogs,
