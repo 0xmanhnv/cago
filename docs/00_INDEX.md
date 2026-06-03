@@ -60,6 +60,7 @@ Trạng thái: ✅ hiện hành · ⚠️ còn nội dung cũ (đã gắn banner
 | [18_CODING_STANDARDS.md](18_CODING_STANDARDS.md) — Chuẩn code (whitelist/DTO/role) | ✅ |
 
 ### Vận hành & triển khai
+| [42_CAI_DAT.md](42_CAI_DAT.md) — **Cài đặt từ đầu** (Docker: build → up → login → nạp catalog) | ✅ |
 | [38_GO_LIVE_RUNBOOK.md](38_GO_LIVE_RUNBOOK.md) — Go-live: TLS (Caddy), backup, QA thiết bị | ✅ nguồn đúng cho deploy |
 | [33_OPERATIONS_RESTORE_ROLLBACK.md](33_OPERATIONS_RESTORE_ROLLBACK.md) — Backup/Restore/Rollback | ✅ |
 | [19_DEPLOYMENT_PLAN.md](19_DEPLOYMENT_PLAN.md) — Kế hoạch triển khai | ⚠️ thiếu Caddy/backup (xem 38) |
