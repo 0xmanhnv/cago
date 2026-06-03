@@ -7,7 +7,7 @@ and the debt list. Read-only.
 """
 
 import frappe
-from frappe.query_builder import Order
+from frappe.query_builder import Case, Order
 from frappe.query_builder.functions import Count, Sum
 from frappe.utils import add_days, cint, flt, format_date, get_first_day, getdate, nowdate
 
@@ -54,9 +54,11 @@ def period_summary(period="today", from_date=None, to_date=None):
 	start, end, label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
+	# Net sales total includes returns (negative invoices net off), but số hoá đơn counts only real
+	# sales — a return is not an extra sale, so counting it would inflate the invoice count.
 	res = (
 		frappe.qb.from_(si)
-		.select(Sum(si.grand_total), Count(si.name))
+		.select(Sum(si.grand_total), Count(Case().when(si.is_return == 0, si.name)))
 		.where((si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end))
 	).run()
 	total = flt(res[0][0]) if res and res[0] else 0
@@ -212,7 +214,7 @@ def low_stock():
 	# 1) manual statuses
 	for r in frappe.get_all(
 		"Item",
-		filters={"disabled": 0, "cago_stock_auto": 0, "cago_stock_status_manual": ["in", LOW_STOCK_STATUSES]},
+		filters={"disabled": 0, "is_stock_item": 1, "has_variants": 0, "cago_stock_auto": 0, "cago_stock_status_manual": ["in", LOW_STOCK_STATUSES]},
 		fields=["name", "item_name", "cago_display_name", "cago_stock_status_manual", "cago_shelf_location"],
 		order_by="cago_stock_status_manual asc",
 	):
@@ -226,7 +228,7 @@ def low_stock():
 	# 2) auto items at/under reorder (or out of stock)
 	auto = frappe.get_all(
 		"Item",
-		filters={"disabled": 0, "cago_stock_auto": 1},
+		filters={"disabled": 0, "is_stock_item": 1, "has_variants": 0, "cago_stock_auto": 1},
 		fields=["name", "item_name", "cago_display_name", "cago_reorder_level", "cago_shelf_location", "stock_uom"],
 	)
 	qty_map = dto.bin_qty_map([r.name for r in auto])
@@ -245,17 +247,23 @@ def low_stock():
 
 
 @frappe.whitelist()
-def best_sellers(limit=10):
+def best_sellers(limit=10, period="all", from_date=None, to_date=None):
+	"""Top items by quantity sold. Period-scoped when asked (today/week/month/year/custom); defaults
+	to all-time. Returns are excluded so a heavily-returned item isn't ranked as a best seller."""
 	ensure_cap("reports")
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	sii = frappe.qb.DocType("Sales Invoice Item")
+	where = (si.docstatus == 1) & (si.company == company) & (si.is_return == 0)
+	if period and period != "all":
+		start, end, _ = _resolve(period, from_date, to_date)
+		where = where & (si.posting_date >= start) & (si.posting_date <= end)
 	rows = (
 		frappe.qb.from_(sii)
 		.join(si)
 		.on(sii.parent == si.name)
 		.select(sii.item_code, Sum(sii.stock_qty).as_("qty"))
-		.where((si.docstatus == 1) & (si.company == company))
+		.where(where)
 		.groupby(sii.item_code)
 		.orderby(Sum(sii.stock_qty), order=Order.desc)
 		.limit(int(limit))
@@ -290,6 +298,41 @@ def debt_list():
 				}
 			)
 	out.sort(key=lambda x: x["outstanding"], reverse=True)
+	return out
+
+
+@frappe.whitelist()
+def unsafe_questions(days=14, limit=50):
+	"""Chemical-safety questions the chatbot REFUSED (dosage/mixing/stronger/cách ly), recently.
+
+	Every refused turn is logged with safety_flags; this surfaces them so the owner knows which
+	customers asked something risky and may need advising in person — a safety + sales signal that
+	is otherwise invisible. Read-only, owner/reports only; shows the customer phone when captured."""
+	ensure_cap("reports")
+	since = add_days(nowdate(), -int(days or 14))
+	rows = frappe.get_all(
+		"Cago Chatbot Log",
+		filters={"safety_flags": ["!=", ""], "creation": [">=", since]},
+		fields=["question", "safety_flags", "customer_phone", "role", "creation"],
+		order_by="creation desc",
+		limit=int(limit or 50),
+	)
+	_VN = {
+		"dosage": "liều lượng", "mixing": "pha/trộn", "stronger_than_label": "tăng liều",
+		"near_harvest": "cách ly thu hoạch", "misuse": "dùng sai mục đích", "medical": "y tế/thú y",
+	}
+	out = []
+	for r in rows:
+		flags = [f.strip() for f in (r.safety_flags or "").split(",") if f.strip()]
+		out.append(
+			{
+				"question": r.question,
+				"flags": flags,
+				"flags_text": ", ".join(_VN.get(f, f) for f in flags),
+				"phone": r.customer_phone or "",
+				"when": format_date(r.creation),
+			}
+		)
 	return out
 
 

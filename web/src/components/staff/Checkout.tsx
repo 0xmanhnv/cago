@@ -489,6 +489,7 @@ export function Checkout() {
         if (d.discount) setDiscount(d.discount);
         if (d.discountMode) setDiscountMode(d.discountMode);
         if (d.coupon) { setCoupon(d.coupon); setCouponInput(d.coupon); }
+        if (d.redeemPts) setRedeemPts(d.redeemPts); // clamped to balance at use via redeemUse
         Object.keys(d.lines).forEach((c) => void ensureMeta(c)); // re-load names/prices for the rows
       }
     } catch { /* ignore a corrupt draft */ }
@@ -498,11 +499,11 @@ export function Checkout() {
   useEffect(() => {
     if (!restored.current) return; // don't clobber the saved draft with the empty initial render
     try {
-      if (cartCodes.length) window.sessionStorage?.setItem(DRAFT_KEY, JSON.stringify({ lines, cust, discount, discountMode, coupon }));
+      if (cartCodes.length) window.sessionStorage?.setItem(DRAFT_KEY, JSON.stringify({ lines, cust, discount, discountMode, coupon, redeemPts }));
       else window.sessionStorage?.removeItem(DRAFT_KEY); // empty cart (incl. after a completed/held sale) → drop it
     } catch { /* ignore */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, cust, discount, discountMode, coupon]);
+  }, [lines, cust, discount, discountMode, coupon, redeemPts]);
   const discountNum = parseInt((discount || "").replace(/[^\d]/g, ""), 10) || 0;
   // Discount can be a fixed đồng amount or a % of the subtotal (rural staff say "bớt 10%").
   const discRaw = discountMode === "percent" ? Math.round((subtotal * Math.min(discountNum, 100)) / 100) : discountNum;

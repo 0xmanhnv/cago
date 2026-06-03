@@ -321,6 +321,27 @@ def ensure_payment_fields():
 					"insert_after": "cago_loyalty_redeem_vnd",
 					"description": "Sản phẩm còn hạn dùng ≤ số ngày này sẽ hiện 'sắp hết hạn' (mặc định 60). 0 = dùng mặc định.",
 				},
+				{
+					"fieldname": "cago_owner_phone",
+					"label": "Số điện thoại chủ (nhận nhắc việc)",
+					"fieldtype": "Data",
+					"insert_after": "cago_expiry_warn_days",
+					"description": "Số nhận tin nhắc việc hằng ngày (hết hàng / sắp hết hạn / công nợ) qua Zalo/SMS.",
+				},
+				{
+					"fieldname": "cago_notify_webhook",
+					"label": "Cago Notify Webhook URL",
+					"fieldtype": "Data",
+					"insert_after": "cago_owner_phone",
+					"description": "Tùy chọn: URL dịch vụ gửi Zalo/SMS (nhận POST {phone, text}). Để trống = chỉ soạn nháp, không gửi.",
+				},
+				{
+					"fieldname": "cago_notify_token",
+					"label": "Cago Notify Token",
+					"fieldtype": "Password",
+					"insert_after": "cago_notify_webhook",
+					"description": "Tùy chọn: token Bearer gửi kèm tới webhook nhắn tin.",
+				},
 			],
 			"Payment Entry": [
 				{

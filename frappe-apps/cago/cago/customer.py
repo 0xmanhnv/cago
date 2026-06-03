@@ -37,8 +37,11 @@ def resolve_customer(value):
 	(backward compatible) — returns the docname, or the original value if nothing matches."""
 	if not value:
 		return value
-	by_slug = frappe.db.get_value("Customer", {"cago_slug": value}, "name")
-	return by_slug or value
+	# Docname is the canonical key — match it FIRST so a real docname can never be shadowed by some
+	# other customer whose slug happens to equal it. Fall back to slug lookup for URL handles.
+	if frappe.db.exists("Customer", value):
+		return value
+	return frappe.db.get_value("Customer", {"cago_slug": value}, "name") or value
 
 
 def backfill_slugs():

@@ -197,3 +197,60 @@ def adjust_stock(item_code, counted_qty, reason=None):
 	record_action("Other", ref_doctype="Item", ref_name=item_code, old_value=before, new_value=counted)
 	frappe.db.commit()
 	return {"entry": sr.name, "before": before, "qty": flt(dto.get_actual_qty(item_code))}
+
+
+def _last_supplier(item_code):
+	"""Supplier of the most recent credit purchase of this item, so reorder suggestions can be
+	grouped by who the owner usually buys it from. Returns ('', '') when never purchased on credit."""
+	row = frappe.db.sql(
+		"""
+		select pi.supplier, pi.supplier_name
+		from `tabPurchase Invoice Item` pii
+		join `tabPurchase Invoice` pi on pi.name = pii.parent
+		where pii.item_code = %s and pi.docstatus = 1
+		order by pi.posting_date desc, pi.creation desc limit 1
+		""",
+		(item_code,),
+		as_dict=True,
+	)
+	return (row[0].supplier or "", row[0].supplier_name or row[0].supplier or "") if row else ("", "")
+
+
+@frappe.whitelist()
+def reorder_suggestions():
+	"""Gợi ý nhập hàng: các mặt 'auto' đang ở/dưới mức đặt lại (hoặc hết), kèm số lượng đề xuất để
+	bù về ~2× mức đặt lại và nhà cung cấp gần nhất — biến báo cáo hết hàng thành đơn nhập hành động
+	được. Chỉ đọc; gom theo NCC ở giao diện. Không lộ giá vốn."""
+	ensure_cap("stock")
+	auto = frappe.get_all(
+		"Item",
+		filters={"disabled": 0, "is_stock_item": 1, "has_variants": 0, "cago_stock_auto": 1},
+		fields=["name", "item_name", "cago_display_name", "cago_reorder_level", "stock_uom", "cago_shelf_location"],
+	)
+	qty_map = dto.bin_qty_map([r.name for r in auto])
+	out = []
+	for r in auto:
+		qty = flt(qty_map.get(r.name, 0))
+		reorder = flt(r.cago_reorder_level)
+		# Suggest only items needing attention: out of stock, or at/under a set reorder level.
+		if qty > 0 and not (reorder and qty <= reorder):
+			continue
+		# Refill target ≈ 2× reorder level; at least enough to clear the deficit. Unknown if no level.
+		suggest = max(reorder * 2 - qty, reorder) if reorder else 0
+		supplier, supplier_name = _last_supplier(r.name)
+		out.append(
+			{
+				"item_code": r.name,
+				"display_name": r.cago_display_name or r.item_name,
+				"on_hand": qty,
+				"on_hand_text": f"{qty:g} {r.stock_uom}",
+				"reorder_level": reorder,
+				"suggest_qty": suggest,
+				"uom": r.stock_uom,
+				"shelf_location": r.cago_shelf_location,
+				"supplier": supplier,
+				"supplier_name": supplier_name or "Chưa rõ NCC",
+			}
+		)
+	out.sort(key=lambda x: (x["supplier_name"], -x["reorder_level"]))
+	return out

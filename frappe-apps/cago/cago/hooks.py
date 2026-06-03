@@ -38,7 +38,10 @@ after_install = ["cago.setup.custom_fields.setup_all_fields"]
 # site backup (DB + files) and keep the last 7 days. Offsite copy is manual.
 # ---------------------------------------------------------------------------
 scheduler_events = {
-	"daily": ["cago.setup.backup.daily"],
+	"daily": [
+		"cago.setup.backup.daily",
+		"cago.api.alerts.daily_owner_digest",  # push "việc hôm nay" (low stock / near-expiry / debt)
+	],
 }
 
 # ---------------------------------------------------------------------------

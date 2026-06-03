@@ -658,6 +658,38 @@ def return_sale(invoice, lines=None):
 	return {"return_invoice": ret.name, "total_text": dto.format_price(abs(flt(ret.grand_total)))}
 
 
+@frappe.whitelist()
+def exchange_sale(invoice, return_lines, new_items, payment_mode="cash", customer=None, posted_at=None):
+	"""Đổi hàng trong một thao tác: trả lại các mặt đã chọn của hoá đơn cũ + bán các mặt mới, rồi
+	báo CHÊNH LỆCH cần thu thêm hay hoàn lại. Mỗi vế vẫn là một chứng từ chuẩn (trả hàng + bán mới)
+	nên kho và két tự khớp; phần net chỉ để nhân viên biết phải thu/trả bao nhiêu. Bán-mới đi qua
+	quick_sale (bắt buộc đang mở ca, kiểm hạn mức nợ, v.v.)."""
+	ensure_cap("returns")
+	ensure_cap("sell")
+	new_items = frappe.parse_json(new_items) if isinstance(new_items, str) else new_items
+	if not new_items:
+		frappe.throw(_("Chưa chọn hàng đổi lấy."))
+	# Leg 1: refund the returned lines (cash back / debt reduced — return_sale handles both).
+	ret = return_sale(invoice, return_lines)
+	refund_amt = abs(flt(frappe.db.get_value("Sales Invoice", ret["return_invoice"], "grand_total")))
+	# Leg 2: sell the replacement items (quick_sale accepts a parsed list directly).
+	sale = quick_sale(new_items, payment_mode, customer=customer, posted_at=posted_at)
+	new_total = flt(sale.get("total"))
+	net = new_total - refund_amt  # > 0 → thu thêm của khách; < 0 → hoàn lại khách
+	return {
+		"return_invoice": ret["return_invoice"],
+		"refund_total": refund_amt,
+		"refund_text": dto.format_price(refund_amt),
+		"sale_invoice": sale.get("invoice"),
+		"new_total": new_total,
+		"new_total_text": dto.format_price(new_total),
+		"net": net,
+		"net_text": dto.format_price(abs(net)) if net else "0đ",
+		"net_direction": "collect" if net > 0 else ("refund" if net < 0 else "even"),
+		"sale": sale,
+	}
+
+
 def _pos_profile(company):
 	return frappe.db.get_value("POS Profile", {"company": company, "disabled": 0}, "name") or frappe.db.get_value(
 		"POS Profile", {"company": company}, "name"

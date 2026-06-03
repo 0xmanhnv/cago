@@ -358,6 +358,27 @@ def get_customer_ledger(customer):
 
 
 @frappe.whitelist()
+def customer_statement(customer):
+	"""A dated debt statement (sao kê công nợ) for one customer — the same ledger the owner sees,
+	plus a ready-to-share plain-text version a villager can receive on Zalo / screenshot. Defuses
+	'tôi đâu có nợ nhiều thế' disputes with a dated record."""
+	led = get_customer_ledger(customer)  # ensure_cap("debt_view") + resolve inside
+	shop = frappe.db.get_value("Company", _company(), "company_name") or "Minh Tuyết"
+	lines = [f"SAO KÊ CÔNG NỢ — {shop}", f"Khách: {led['customer_name']}", "—" * 12]
+	for e in reversed(led["entries"]):  # oldest → newest reads like a running account
+		sign = "+" if e["type"] == "debt" else "−"
+		lines.append(f"{e['date']}  {e['label']}: {sign}{e['amount_text']}  (còn {e['balance_text']})")
+	lines.append("—" * 12)
+	if led["outstanding"] > 0:
+		lines.append(f"HIỆN CÒN NỢ: {led['outstanding_text']}")
+	elif led["overpaid"]:
+		lines.append(f"CỬA HÀNG ĐANG NỢ LẠI KHÁCH: {led['outstanding_text']}")
+	else:
+		lines.append("ĐÃ THANH TOÁN ĐỦ. Cảm ơn bác ạ!")
+	return {**led, "shop": shop, "statement_text": "\n".join(lines)}
+
+
+@frappe.whitelist()
 def cancel_entry(voucher_type, voucher_no, customer=None):
 	"""Cancel a mistaken debt/payment voucher (Journal Entry / Payment Entry)."""
 	ensure_cap("debt")
