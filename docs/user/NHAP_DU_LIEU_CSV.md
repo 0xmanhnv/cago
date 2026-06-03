@@ -1,6 +1,6 @@
 # Hướng dẫn nhập sản phẩm bằng CSV (go-live)
 
-File mẫu: `products_import_template.csv`. Mở bằng Excel / Google Sheets, **giữ nguyên hàng tiêu đề**,
+File mẫu: `products_import_template.csv`. Hoặc dùng **catalog dựng sẵn sát thị trường**: `catalog_minh_tuyet.csv` (rà + sửa giá theo cửa hàng rồi nạp). Nạp catalog **không** tạo tồn kho — nhập tồn riêng ở **Nhập hàng**. Mở bằng Excel / Google Sheets, **giữ nguyên hàng tiêu đề**,
 điền sản phẩm thật vào các hàng bên dưới, rồi lưu lại dạng **CSV UTF-8**.
 
 ## Ý nghĩa từng cột

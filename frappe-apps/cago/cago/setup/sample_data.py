@@ -44,8 +44,12 @@ AGRI_CHECK_FIELDS = [
 ]
 
 
-def import_sample_products(csv_path=None):
-	"""Import / update Items and selling prices from a products CSV."""
+def import_sample_products(csv_path=None, seed_batches=True):
+	"""Import / update Items and selling prices from a products CSV.
+
+	`seed_batches` seeds DEMO batches + 20-unit stock for chemical items (so the expiry report has
+	data out of the box) — TRUE for the sample/demo seed, but pass FALSE when importing a REAL
+	catalog so the shop doesn't get fake stock/lots."""
 	csv_path = csv_path or _default_csv_path()
 	if not os.path.exists(csv_path):
 		frappe.throw(f"CSV không tìm thấy: {csv_path}")
@@ -98,10 +102,20 @@ def import_sample_products(csv_path=None):
 
 	seed_category_tree()
 	seed_category_presets()
-	seed_sample_batches()
+	if cint(seed_batches):
+		seed_sample_batches()  # demo stock/lots — skip for a real catalog import
 	frappe.db.commit()
 	print(f"Done. Created {created}, updated {updated} item(s). Price list: {DEFAULT_PRICE_LIST}.")
 	return {"created": created, "updated": updated}
+
+
+def import_catalog(csv_path=None):
+	"""Import a REAL product catalog (products + prices only — NO demo stock/lots). Reads the CSV
+	path from the CAGO_IMPORT_CSV env var when not passed, so it can run as a NO-ARG
+	`bench execute cago.setup.sample_data.import_catalog` (some bench versions can't pass --kwargs
+	reliably). Enter real stock afterwards via the Nhập hàng screen."""
+	csv_path = csv_path or os.environ.get("CAGO_IMPORT_CSV")
+	return import_sample_products(csv_path=csv_path, seed_batches=False)
 
 
 # Initial category presentation (icon + colour). This is editable DATA — owners can
