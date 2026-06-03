@@ -9,6 +9,8 @@ import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, goBackSmart, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/toast";
+import { useSession } from "@/lib/session";
+import { hasCap } from "@/lib/caps";
 
 export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const router = useRouter();
@@ -173,15 +175,40 @@ interface LedgerEntry {
 export function CustomerLedger({ customer }: { customer: string }) {
   const router = useRouter();
   type Ledger = { customer_name: string; phone?: string; outstanding_text: string; overpaid?: boolean; points?: number; wholesale?: boolean; entries: LedgerEntry[] };
+  const { boot } = useSession();
+  const canEdit = hasCap(boot, "debt"); // staff with only debt_view see the ledger but can't record
   const [d, setD] = useState<Ledger | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const [statement, setStatement] = useState<string | null>(null);
+  const [amt, setAmt] = useState("");
+  const [busy, setBusy] = useState(false);
   const load = async () => setD(await frappeCall<Ledger>("cago.api.debt.get_customer_ledger", { customer }, { method: "GET" }));
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer]);
   if (!d) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+
+  // Record a repayment / extra debt right here (was two separate home screens) — server enforces cap.
+  const record = async (mode: "repay" | "add") => {
+    const val = parseVnd(amt);
+    if (busy) return;
+    if (!val || val <= 0) { toast.error("Nhập số tiền lớn hơn 0."); return; }
+    const label = mode === "repay" ? "Khách trả" : "Ghi nợ thêm";
+    if (!(await confirmDialog(`${label} ${money(val)} cho ${d.customer_name}?`, { confirmLabel: label }))) return;
+    setBusy(true);
+    try {
+      const method = mode === "repay" ? "cago.api.debt.record_repayment" : "cago.api.debt.record_debt";
+      const r = await frappeCall<{ outstanding_text: string }>(method, { customer, amount: val });
+      toast.success(`Xong. Nợ còn lại: ${r.outstanding_text}`);
+      setAmt("");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div>
@@ -210,6 +237,27 @@ export function CustomerLedger({ customer }: { customer: string }) {
             {d.wholesale ? "Đang bật" : "Đang tắt"}
           </button>
         </div>
+        {/* Thu tiền / Ghi nợ ngay tại sổ — không phải mở màn riêng. Chỉ hiện với người có quyền ghi nợ. */}
+        {canEdit && (
+          <div className="mt-3 rounded-xl border-2 border-slate-200 p-3">
+            <div className="mb-1 font-bold text-slate-700">Thu tiền / Ghi nợ nhanh</div>
+            <input
+              inputMode="numeric"
+              value={amt}
+              onChange={(e) => setAmt(groupVnd(e.target.value))}
+              placeholder="Số tiền (đồng)"
+              className="w-full rounded-lg border-2 border-emerald-300 p-3 text-xl"
+            />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button onClick={() => record("repay")} disabled={busy} className="min-h-touch rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">
+                💵 Khách trả
+              </button>
+              <button onClick={() => record("add")} disabled={busy} className="min-h-touch rounded-xl bg-red-600 font-extrabold text-white disabled:opacity-50">
+                📝 Ghi nợ thêm
+              </button>
+            </div>
+          </div>
+        )}
         <div className="mt-2.5 grid grid-cols-2 gap-2.5">
           <button
             onClick={async () => {

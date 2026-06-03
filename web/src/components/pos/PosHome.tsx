@@ -35,7 +35,7 @@ type Need = Cap | null | "owner";
 const ACTIONS: Record<string, { label: string; color: string; href: string; cap: Need }> = {
   sell: { label: "🛒 Bán hàng", color: "bg-brand", href: "/pos/sell", cap: "sell" },
   search: { label: "🔎 Tra sản phẩm", color: "bg-blue-600", href: "/pos/search", cap: null },
-  returns: { label: "↩️ Trả hàng", color: "bg-rose-600", href: "/pos/returns", cap: "returns" },
+  returns: { label: "↩️ Trả / Đổi hàng", color: "bg-rose-600", href: "/pos/returns", cap: "returns" },
   exchange: { label: "🔁 Đổi hàng", color: "bg-rose-500", href: "/pos/exchange", cap: "returns" },
   orders: { label: "📋 Khách đã chọn", color: "bg-teal-600", href: "/pos/orders", cap: null },
   assistant: { label: "🤖 Hỏi trợ lý", color: "bg-violet-600", href: "/pos/assistant", cap: null },
@@ -45,6 +45,7 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   price: { label: "🔎 Tra giá / sửa giá", color: "bg-blue-600", href: "/pos/price", cap: "products" },
   new: { label: "➕ Thêm sản phẩm", color: "bg-teal-600", href: "/pos/products/new", cap: "products" },
   edit: { label: "✏️ Sửa sản phẩm", color: "bg-amber-500", href: "/pos/edit", cap: "products" },
+  product: { label: "📦 Sản phẩm (tra giá · thêm · sửa)", color: "bg-blue-600", href: "/pos/products", cap: "products" },
   recommended: { label: "⭐ Hàng khuyên dùng", color: "bg-amber-500", href: "/pos/recommended", cap: "products" },
   receive: { label: "📥 Nhập hàng", color: "bg-teal-700", href: "/pos/receive", cap: "stock" },
   bulk: { label: "⚡ Nhập hàng loạt", color: "bg-teal-700", href: "/pos/bulk", cap: "stock" },
@@ -80,11 +81,17 @@ const savedShowAll = () => { try { return window.localStorage?.getItem(SHOW_ALL_
 // Isomorphic: useEffect on the server (no-op) avoids the SSR "useLayoutEffect" warning.
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
+// Grouped into families by frequency: daily actions first, one-time setup last. Items merged into a
+// hub screen (product = thêm/sửa/tra giá; receive links to bulk; returns links to exchange; reorder
+// covers low-stock) are dropped from the home catalog but their routes + ACTIONS stay (so pinned
+// favourites and deep links still resolve).
 const GROUPS: { title: string; keys: string[] }[] = [
-  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "exchange", "orders", "assistant", "coupons", "qr"] },
-  { title: "📦 Hàng hoá & kho", keys: ["alerts", "price", "new", "edit", "recommended", "labels", "receive", "bulk", "receivehist", "lowstock", "reorder", "expiry", "categories", "map"] },
-  { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "verify", "supplier", "cashbook"] },
-  { title: "📊 Báo cáo & quản lý", keys: ["reports", "unsafe", "health", "aisettings", "staffadmin", "help"] },
+  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "orders", "assistant"] },
+  { title: "📦 Sản phẩm", keys: ["product", "recommended", "labels", "health"] },
+  { title: "🏬 Kho & nhập hàng", keys: ["alerts", "receive", "reorder", "expiry", "receivehist"] },
+  { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
+  { title: "📊 Báo cáo", keys: ["reports", "unsafe"] },
+  { title: "⚙️ Cài đặt cửa hàng", keys: ["categories", "map", "coupons", "qr", "aisettings", "staffadmin", "help"] },
 ];
 
 export function PosHome() {

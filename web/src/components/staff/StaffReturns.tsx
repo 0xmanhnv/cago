@@ -168,7 +168,11 @@ export function StaffReturns() {
         <button onClick={() => router.push("/pos")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Trang chủ
         </button>
-        <div className="flex-1 text-2xl font-bold">TRẢ HÀNG</div>
+        <div className="min-w-0 flex-1 text-2xl font-bold">TRẢ HÀNG</div>
+        {/* Đổi hàng = trả + bán mới; live here so it's one "trả/đổi" entry, not two home tiles. */}
+        <button onClick={() => router.push("/pos/exchange")} className="shrink-0 whitespace-nowrap rounded-xl bg-rose-500 px-4 py-3 font-bold text-white">
+          🔁 Đổi hàng
+        </button>
       </div>
 
       <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm theo số hoá đơn / tên khách..." />
