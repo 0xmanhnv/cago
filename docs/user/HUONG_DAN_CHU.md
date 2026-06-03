@@ -1,7 +1,7 @@
 # Hướng dẫn nhanh cho chủ cửa hàng
 
 Bản tóm tắt theo màn hình chính (6 nhóm). Cần chi tiết từng việc (tra giá, sửa giá, ghi nợ, báo
-cáo) xem thêm [22_OWNER_TRAINING_VI.md](../22_OWNER_TRAINING_VI.md).
+cáo) xem thêm [Hướng dẫn chi tiết cho chủ](HUONG_DAN_CHU_CHI_TIET.md).
 
 ## Màn hình chính
 Trên cùng là **📌 Việc cần làm hôm nay** (hàng sắp hết, lô sắp hết hạn, khách nợ — bấm để xem).

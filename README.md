@@ -2,6 +2,8 @@
 
 Bộ tài liệu này dùng để bắt đầu xây dựng **AgriMate** — hệ thống bán hàng cho cửa hàng vật tư nông nghiệp ở nông thôn Việt Nam.
 
+> 📚 **Mục lục tài liệu đầy đủ (chia 2 bộ sử dụng / kỹ thuật):** [`docs/00_INDEX.md`](docs/00_INDEX.md). Hướng dẫn cho chủ & nhân viên: [`docs/user/`](docs/user/). Triển khai thật: [`docs/38_GO_LIVE_RUNBOOK.md`](docs/38_GO_LIVE_RUNBOOK.md).
+
 ## Quyết định mới trong v4
 
 - Product name: **AgriMate**
@@ -59,10 +61,10 @@ ERPNext / Frappe
 | `docs/05_PYTHON_SERVICE_STRATEGY.md` | Chiến lược service phụ trợ bằng Python |
 | `docs/06_ERPNEXT_CUSTOMIZATION.md` | Kế hoạch custom Frappe |
 | `docs/07_DATA_MODEL.md` | Data model/custom fields/DTO |
-| `docs/08_OWNER_STAFF_UI_SPEC.md` | UI đơn giản cho mẹ/chủ cửa hàng và nhân viên |
+| `docs/archive/08_OWNER_STAFF_UI_SPEC.md` | UI đơn giản cho mẹ/chủ cửa hàng và nhân viên |
 | `docs/09_KIOSK_APP_SPEC.md` | UI tablet/kiosk cho khách |
 | `docs/10_CHATBOT_RAG_SPEC.md` | Chatbot an toàn |
-| `docs/11_IMPLEMENTATION_BACKLOG.md` | Backlog theo milestone |
+| `docs/archive/11_IMPLEMENTATION_BACKLOG.md` | Backlog theo milestone |
 | `docs/12_SECURITY_AND_SAFETY.md` | Bảo mật, phân quyền, an toàn thuốc |
 | `docs/13_TEST_PLAN.md` | Test plan |
 | `docs/14_OPERATIONS_AND_TRAINING.md` | Vận hành, đào tạo mẹ dùng, backup |

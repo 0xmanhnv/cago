@@ -1,24 +1,26 @@
 # 00 — Mục lục tài liệu Cago
 
-Tài liệu chia làm **2 bộ**: **📘 Tài liệu sử dụng** (cho chủ/nhân viên, không cần kỹ thuật) và
-**🛠 Tài liệu kỹ thuật** (cho người phát triển/vận hành). Cuối là **🗄 Lưu trữ** (quyết định/đánh
-giá cũ đã bị thay thế — giữ để tra lịch sử, KHÔNG phản ánh hệ thống hiện tại).
+Tài liệu chia làm **2 bộ**:
+- **📘 Tài liệu sử dụng** (`user/`) — cho chủ/nhân viên, không cần kỹ thuật.
+- **🛠 Tài liệu kỹ thuật** (`docs/` gốc) — cho người phát triển/vận hành.
 
-Trạng thái: ✅ hiện hành · ⚠️ còn nội dung cũ (đọc kèm bản mới) · 🗄 lưu trữ.
+Tài liệu lịch sử nằm trong **`archive/`** (giữ tra cứu, KHÔNG phản ánh hệ thống hiện tại).
+Trạng thái: ✅ hiện hành · ⚠️ còn nội dung cũ (đã gắn banner trỏ nguồn đúng).
 
 ---
 
-## 📘 Tài liệu sử dụng (chủ & nhân viên)
+## 📘 Tài liệu sử dụng — `user/`
 
-| Tài liệu | Cho ai | Trạng thái |
-|---|---|---|
-| [user/HUONG_DAN_CHU.md](user/HUONG_DAN_CHU.md) — Hướng dẫn nhanh cho chủ (theo 6 nhóm chức năng mới) | Chủ | ✅ |
-| [22_OWNER_TRAINING_VI.md](22_OWNER_TRAINING_VI.md) — Hướng dẫn chi tiết cho chủ (tra giá, sửa giá, ghi nợ, báo cáo) | Chủ | ✅ |
-| [user/HUONG_DAN_NHAN_VIEN.md](user/HUONG_DAN_NHAN_VIEN.md) — Hướng dẫn bán hàng cho nhân viên | Nhân viên | ✅ |
-| [user/CAU_HOI_THUONG_GAP.md](user/CAU_HOI_THUONG_GAP.md) — Câu hỏi thường gặp & xử lý nhanh | Chủ & NV | ✅ |
-| [38_GO_LIVE_RUNBOOK.md](38_GO_LIVE_RUNBOOK.md) — Mục C (QA thiết bị) & D (dọn dữ liệu) | Chủ/kỹ thuật | ✅ |
+| Tài liệu | Cho ai |
+|---|---|
+| [user/HUONG_DAN_CHU.md](user/HUONG_DAN_CHU.md) — Hướng dẫn nhanh cho chủ (6 nhóm chức năng) | Chủ |
+| [user/HUONG_DAN_CHU_CHI_TIET.md](user/HUONG_DAN_CHU_CHI_TIET.md) — Hướng dẫn chi tiết (tra giá, sửa giá, ghi nợ, báo cáo) | Chủ |
+| [user/HUONG_DAN_NHAN_VIEN.md](user/HUONG_DAN_NHAN_VIEN.md) — Bán/trả/đổi/offline/ghi nợ | Nhân viên |
+| [user/CAU_HOI_THUONG_GAP.md](user/CAU_HOI_THUONG_GAP.md) — Câu hỏi thường gặp & xử lý nhanh | Chủ & NV |
+| [user/NHAP_DU_LIEU_CSV.md](user/NHAP_DU_LIEU_CSV.md) + [products_import_template.csv](user/products_import_template.csv) — Nhập sản phẩm bằng CSV | Chủ/kỹ thuật |
+| [38_GO_LIVE_RUNBOOK.md](38_GO_LIVE_RUNBOOK.md) — Mục C (QA thiết bị) & D (dọn dữ liệu) | Chủ/kỹ thuật |
 
-> Trong app cũng có sẵn nút **📖 Hướng dẫn** (Cài đặt cửa hàng) cho thao tác cơ bản.
+> Trong app cũng có nút **📖 Hướng dẫn** (Cài đặt cửa hàng).
 
 ---
 
@@ -31,29 +33,27 @@ Trạng thái: ✅ hiện hành · ⚠️ còn nội dung cũ (đọc kèm bản
 | [02_ARCHITECTURE.md](02_ARCHITECTURE.md) — Kiến trúc | ⚠️ phần POS đã đổi (xem 36) |
 | [27_FRONTEND_MIGRATION_NEXTJS.md](27_FRONTEND_MIGRATION_NEXTJS.md) — Chuyển frontend sang Next.js | ✅ nguồn đúng cho frontend |
 | [03_ERPNEXT_CAPABILITY_MAP.md](03_ERPNEXT_CAPABILITY_MAP.md) — ERPNext cung cấp gì | ✅ |
-| [17_REPO_STRUCTURE.md](17_REPO_STRUCTURE.md) — Cấu trúc repo | ⚠️ thiếu thư mục `web/` |
-| [15_TECH_STACK_AND_ENGINEERING_GUIDE.md](15_TECH_STACK_AND_ENGINEERING_GUIDE.md) — Tech stack | ⚠️ "Phase 2 mới dùng Next.js" — thực tế đã migrate |
-
-### Dữ liệu & tuỳ biến Frappe
-| [06_ERPNEXT_CUSTOMIZATION.md](06_ERPNEXT_CUSTOMIZATION.md) — Custom fields/DocTypes | ⚠️ thiếu field mới (lô, ca, loyalty, đa đơn vị, khuyên dùng) |
-| [07_DATA_MODEL.md](07_DATA_MODEL.md) — Mô hình dữ liệu / DTO | ⚠️ DTO cũ, thiếu trường mới |
-| [05_PYTHON_SERVICE_STRATEGY.md](05_PYTHON_SERVICE_STRATEGY.md) — Dịch vụ Python (không dùng Go) | ✅ |
+| [17_REPO_STRUCTURE.md](17_REPO_STRUCTURE.md) — Cấu trúc repo | ⚠️ banner → có `web/` |
+| [15_TECH_STACK_AND_ENGINEERING_GUIDE.md](15_TECH_STACK_AND_ENGINEERING_GUIDE.md) — Tech stack | ⚠️ banner → đã migrate Next.js |
 
 ### API & phát triển
 | [39_API_REFERENCE.md](39_API_REFERENCE.md) — Tham chiếu API `cago.api.*` (sinh từ code) | ✅ |
 | [40_FRONTEND_DEV_GUIDE.md](40_FRONTEND_DEV_GUIDE.md) — Hướng dẫn dev frontend (`web/`) | ✅ |
-| [41_DATA_IMPORT.md](41_DATA_IMPORT.md) — Nhập dữ liệu ban đầu (Excel/CSV) | ✅ |
 
-### Frontend / UI
+### Dữ liệu & tuỳ biến Frappe
+| [06_ERPNEXT_CUSTOMIZATION.md](06_ERPNEXT_CUSTOMIZATION.md) — Custom fields/DocTypes | ⚠️ banner → xem code |
+| [07_DATA_MODEL.md](07_DATA_MODEL.md) — Mô hình dữ liệu / DTO | ⚠️ banner → xem dto.py + 39 |
+| [05_PYTHON_SERVICE_STRATEGY.md](05_PYTHON_SERVICE_STRATEGY.md) — Dịch vụ Python (không Go) | ✅ |
+
+### Frontend / UI / POS / Kiosk
+| [36_STAFF_MOBILE_POS_PLAN.md](36_STAFF_MOBILE_POS_PLAN.md) — POS Cago-native `/pos/sell` | ✅ nguồn đúng cho POS |
 | [16_UI_UX_DESIGN_SYSTEM.md](16_UI_UX_DESIGN_SYSTEM.md) — Hệ thiết kế UI/UX | ⚠️ màn chủ đã gom 6 nhóm |
-| [08_OWNER_STAFF_UI_SPEC.md](08_OWNER_STAFF_UI_SPEC.md) — Spec UI chủ/nhân viên | 🗄 spec MVP cũ; xem 27 + 36 |
-| [09_KIOSK_APP_SPEC.md](09_KIOSK_APP_SPEC.md) — Spec kiosk | ⚠️ "design" — kiosk đã build |
+| [09_KIOSK_APP_SPEC.md](09_KIOSK_APP_SPEC.md) — Spec kiosk | ⚠️ kiosk đã build |
 | [37_KIOSK_STORE_MAP.md](37_KIOSK_STORE_MAP.md) — Sơ đồ & chỉ đường kiosk | ✅ |
-| [36_STAFF_MOBILE_POS_PLAN.md](36_STAFF_MOBILE_POS_PLAN.md) — POS nhân viên (Cago-native /pos/sell) | ✅ nguồn đúng cho POS |
 
 ### Chatbot / Trợ lý
-| [25_CHATBOT_ARCHITECTURE.md](25_CHATBOT_ARCHITECTURE.md) — Kiến trúc chatbot | ⚠️ ghi "design" — đã build (`cago/chatbot/*`) |
-| [10_CHATBOT_RAG_SPEC.md](10_CHATBOT_RAG_SPEC.md) — Spec RAG | ⚠️ "design" — đã build |
+| [25_CHATBOT_ARCHITECTURE.md](25_CHATBOT_ARCHITECTURE.md) — Kiến trúc chatbot | ⚠️ đã build (`cago/chatbot/*`) |
+| [10_CHATBOT_RAG_SPEC.md](10_CHATBOT_RAG_SPEC.md) — Spec RAG | ⚠️ đã build |
 
 ### Bảo mật & an toàn
 | [12_SECURITY_AND_SAFETY.md](12_SECURITY_AND_SAFETY.md) — Bảo mật + an toàn hoá chất | ✅ |
@@ -68,30 +68,29 @@ Trạng thái: ✅ hiện hành · ⚠️ còn nội dung cũ (đọc kèm bản
 
 ### Kiểm thử
 | [13_TEST_PLAN.md](13_TEST_PLAN.md) — Kế hoạch test | ⚠️ thiếu test tự động hiện có |
-| [32_E2E_REVIEW.md](32_E2E_REVIEW.md) — Soát E2E | ⚠️ có banner "snapshot cũ" |
+| [32_E2E_REVIEW.md](32_E2E_REVIEW.md) — Soát E2E | ⚠️ banner "snapshot cũ" |
 
 ### Nghiên cứu & phân tích
 | [26_COMPETITIVE_RESEARCH_AND_PLAN.md](26_COMPETITIVE_RESEARCH_AND_PLAN.md) — Đối thủ & kế hoạch | ✅ |
 | [31_MARKET_RESEARCH_2026.md](31_MARKET_RESEARCH_2026.md) — Nghiên cứu thị trường 2026 | ✅ |
-| [30_FEATURE_COVERAGE_GAP_ANALYSIS.md](30_FEATURE_COVERAGE_GAP_ANALYSIS.md) — Phủ tính năng & khoảng trống | ⚠️ vài mục "chưa build" nay đã có |
-| [24_KNOWN_LIMITATIONS.md](24_KNOWN_LIMITATIONS.md) — Giới hạn & quyết định đã biết | ✅ |
-| [04_POS_STRATEGY.md](04_POS_STRATEGY.md) — Chiến lược POS | ⚠️ xem 36 (Cago-native) |
-| [11_IMPLEMENTATION_BACKLOG.md](11_IMPLEMENTATION_BACKLOG.md) — Backlog | 🗄 mốc milestone cũ |
+| [30_FEATURE_COVERAGE_GAP_ANALYSIS.md](30_FEATURE_COVERAGE_GAP_ANALYSIS.md) — Phủ tính năng & khoảng trống | ⚠️ vài mục đã có |
+| [24_KNOWN_LIMITATIONS.md](24_KNOWN_LIMITATIONS.md) — Giới hạn & quyết định | ✅ |
+| [04_POS_STRATEGY.md](04_POS_STRATEGY.md) — Chiến lược POS | ⚠️ banner → Cago-native (36) |
 
 ---
 
-## 🗄 Lưu trữ (đã bị thay thế — chỉ để tra lịch sử)
+## 🗄 `archive/` (lịch sử — đã bị thay thế)
 
-> **POS Awesome đã được GỠ HẲN** (kể cả các tài liệu đánh giá 20/21/28/29/34/35 — đã xoá). POS hiện
-> tại là **Cago-native `/pos/sell`** (xem [36](36_STAFF_MOBILE_POS_PLAN.md)).
+> **POS Awesome đã được GỠ HẲN** (kể cả các tài liệu đánh giá — đã xoá). POS hiện tại là
+> **Cago-native `/pos/sell`** ([36](36_STAFF_MOBILE_POS_PLAN.md)).
 
-| [MILESTONE_0_1_SETUP.md](MILESTONE_0_1_SETUP.md) · [MILESTONE_0_1_TEST.md](MILESTONE_0_1_TEST.md) · [MILESTONE_3_6_UI.md](MILESTONE_3_6_UI.md) | 🗄 nhật ký build cũ (UI mô tả Frappe-native, nay Next.js) |
+| [archive/08_OWNER_STAFF_UI_SPEC.md](archive/08_OWNER_STAFF_UI_SPEC.md) — Spec UI MVP cũ (nay 27 + 36) |
+| [archive/11_IMPLEMENTATION_BACKLOG.md](archive/11_IMPLEMENTATION_BACKLOG.md) — Backlog theo milestone |
+| [archive/MILESTONE_0_1_SETUP.md](archive/MILESTONE_0_1_SETUP.md) · [archive/MILESTONE_0_1_TEST.md](archive/MILESTONE_0_1_TEST.md) · [archive/MILESTONE_3_6_UI.md](archive/MILESTONE_3_6_UI.md) — nhật ký build cũ |
 
 ---
 
-## Việc nên cập nhật tiếp (đề xuất, chưa làm)
-- Viết lại chi tiết **06/07** cho khớp (lô, ca/cashier, loyalty, đa đơn vị, `cago_recommended`) — hiện đã gắn banner "thực tế" + có [39](39_API_REFERENCE.md)/[07] đối chiếu.
-- Viết lại chi tiết **15/17** sang Next.js + `web/` — hiện đã gắn banner trỏ [27](27_FRONTEND_MIGRATION_NEXTJS.md)/[40](40_FRONTEND_DEV_GUIDE.md).
-
-> Đã bổ sung các khoảng trống: API reference (39), Frontend dev guide (40), Data import (41).
-> POS Awesome đã được **gỡ sạch** khỏi code + docs.
+## Ghi chú
+- Các doc ⚠️ đã có **banner** ở đầu file trỏ tới nguồn đúng — chưa viết lại chi tiết (nội dung cốt lõi là code: `cago/setup/custom_fields.py`, `cago/utils/dto.py`, [39](39_API_REFERENCE.md)).
+- Khoảng trống đã bổ sung: API reference (39), Frontend dev guide (40), nhập CSV (user/).
+- POS Awesome đã **gỡ sạch** khỏi code; chỉ còn nhắc trong các doc `archive/`.
