@@ -40,7 +40,6 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   orders: { label: "📋 Khách đã chọn", color: "bg-teal-600", href: "/pos/orders", cap: null },
   assistant: { label: "🤖 Hỏi trợ lý", color: "bg-violet-600", href: "/pos/assistant", cap: null },
   help: { label: "📖 Hướng dẫn", color: "bg-sky-600", href: "/pos/help", cap: null },
-  creditsale: { label: "🧾 Bán chịu (trừ tồn)", color: "bg-red-600", href: "/pos/credit-sale", cap: "sell" },
   coupons: { label: "🎟 Mã giảm giá", color: "bg-violet-600", href: "/pos/coupons", cap: "settings" },
   qr: { label: "💳 QR thu tiền", color: "bg-violet-600", href: "/pos/settings", cap: "settings" },
   price: { label: "🔎 Tra giá / sửa giá", color: "bg-blue-600", href: "/pos/price", cap: "products" },
@@ -80,7 +79,7 @@ const savedShowAll = () => { try { return window.localStorage?.getItem(SHOW_ALL_
 const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 const GROUPS: { title: string; keys: string[] }[] = [
-  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "exchange", "orders", "assistant", "creditsale", "coupons", "qr"] },
+  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "exchange", "orders", "assistant", "coupons", "qr"] },
   { title: "📦 Hàng hoá & kho", keys: ["alerts", "price", "new", "edit", "labels", "receive", "bulk", "receivehist", "lowstock", "reorder", "expiry", "categories", "map"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "verify", "supplier", "cashbook"] },
   { title: "📊 Báo cáo & quản lý", keys: ["reports", "unsafe", "aisettings", "staffadmin", "help"] },
