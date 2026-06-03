@@ -33,7 +33,7 @@ Trạng thái: ✅ hiện hành · ⚠️ còn nội dung cũ (đã gắn banner
 | [02_ARCHITECTURE.md](02_ARCHITECTURE.md) — Kiến trúc | ⚠️ phần POS đã đổi (xem 36) |
 | [27_FRONTEND_MIGRATION_NEXTJS.md](27_FRONTEND_MIGRATION_NEXTJS.md) — Chuyển frontend sang Next.js | ✅ nguồn đúng cho frontend |
 | [03_ERPNEXT_CAPABILITY_MAP.md](03_ERPNEXT_CAPABILITY_MAP.md) — ERPNext cung cấp gì | ✅ |
-| [17_REPO_STRUCTURE.md](17_REPO_STRUCTURE.md) — Cấu trúc repo | ⚠️ banner → có `web/` |
+| [17_REPO_STRUCTURE.md](17_REPO_STRUCTURE.md) — Cấu trúc repo | ✅ viết lại đúng thực tế |
 | [15_TECH_STACK_AND_ENGINEERING_GUIDE.md](15_TECH_STACK_AND_ENGINEERING_GUIDE.md) — Tech stack | ⚠️ banner → đã migrate Next.js |
 
 ### API & phát triển

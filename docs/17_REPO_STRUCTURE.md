@@ -1,133 +1,58 @@
 # 17 — Repository Structure
 
-> ℹ️ **Thực tế hiện tại:** repo có thêm thư mục **`web/`** (app Next.js, public entry). Cấu trúc frontend xem [40](40_FRONTEND_DEV_GUIDE.md).
-
-## 1. Recommended repo
-
-```text
-cago/
-  README.md
-  CLAUDE.md
-
-  docs/
-    01_PRD.md
-    02_ARCHITECTURE.md
-    ...
-    19_DEPLOYMENT_PLAN.md
-
-  prompts/
-    MASTER_PROMPT_FOR_CLAUDE_CODE.md
-    POS_AWESOME_EVALUATION_PROMPT.md
-
-  data/
-    sample_products.csv
-    custom_fields_spec.csv
-
-  frappe-apps/
-    cago/
-      cago/
-        api/
-          kiosk.py
-          staff.py
-          owner.py
-          pos.py
-          chatbot.py
-
-        cago/
-          doctype/
-            cago_product_alternative/
-            cago_wanted_list/
-            cago_owner_action_log/
-
-        www/
-          owner/
-          staff/
-          kiosk/
-
-        public/
-          css/
-          js/
-          images/
-
-        fixtures/
-        hooks.py
-        patches.txt
-        pyproject.toml
-
-  services/
-    chatbot_service/
-    sync_service/
-    image_service/
-    zalo_service/
-
-  scripts/
-    import_products.py
-    export_fixtures.py
-    backup.sh
-    restore.sh
-
-  infra/
-    docker/
-    bench/
-    nginx/
-```
-
-## 2. MVP repo simplification
-
-In MVP, only these are required:
+Cấu trúc thực tế của repo (cập nhật theo hệ thống đang chạy). Sản phẩm: **Cago** (cửa hàng
+Minh Tuyết). Frontend là **Next.js** trong `web/`; backend là Frappe app **`cago`**.
 
 ```text
-docs/
-prompts/
-data/
-frappe-apps/cago/
-scripts/
+agrimate/
+├── CLAUDE.md                     # chỉ dẫn cho Claude Code (quyết định kiến trúc, quy ước)
+├── README.md                     # tổng quan + trỏ docs/00_INDEX.md
+├── docs/                         # tài liệu — xem docs/00_INDEX.md (sử dụng / kỹ thuật / archive)
+│   ├── 00_INDEX.md  user/  archive/  ...
+├── prompts/                      # prompt khởi tạo dự án (lịch sử)
+├── data/                         # dữ liệu mẫu/spec gốc
+├── scripts/                      # tiện ích CLI: import_products, backup.sh, restore.sh, export_fixtures
+│
+├── web/                          # ❖ FRONTEND — Next.js 16 (App Router, TS, Tailwind), public entry
+│   ├── next.config.mjs           #   proxy /api,/app,/files,/assets,/socket.io → Frappe (1 origin)
+│   ├── public/  (PWA: sw.js, manifest)
+│   └── src/
+│       ├── app/                  #   routes: (kiosk)/  pos/  display/  login/  layout/providers/error
+│       ├── components/           #   kiosk/ · staff/ · owner/ · pos/ · ui/ (+ CapabilityGuard, PwaRegister)
+│       ├── lib/                  #   api.ts (frappeCall+CSRF), session, caps, types, utils(VND),
+│       │                         #   kioskNav, cfd, useIsDesktop, offline/ (idb cache+queue+sync)
+│       └── store/kiosk.ts        #   Zustand (giỏ kiosk, phiên chat, overlay)
+│
+├── frappe-apps/cago/             # ❖ BACKEND — custom Frappe app `cago` (API-first)
+│   └── cago/
+│       ├── api/                  #   28 module whitelisted: sales, owner, staff, kiosk, debt,
+│       │                         #   purchasing, supplier, reports, shift, cashbook, coupon,
+│       │                         #   inventory, display, payment, verify, units, staff_admin… (xem 39)
+│       ├── chatbot/              #   orchestrator, retrieval, context, prompts, safety,
+│       │                         #   deterministic (fallback keyword), providers/, config, schema
+│       ├── utils/                #   dto.py (DTO theo vai trò), permissions, slug, safety…
+│       ├── setup/                #   custom_fields, company, sample_data, audit, backup, test_accounts
+│       ├── cago/doctype/         #   DocTypes: cago_coupon, cago_till_shift, cago_wanted_list,
+│       │                         #   cago_store_map (+zone/floor/aisle), cago_job_role, cago_chatbot_log…
+│       ├── fixtures/             #   custom_field.json (core product fields), roles…
+│       ├── patches/  patches.txt #   migrations
+│       ├── tests/                #   FrappeTestCase suite (134 tests)
+│       └── hooks.py              #   after_migrate → setup_all_fields, v.v.
+│
+├── services/cago_chatbot_service/ # dịch vụ Python phụ trợ (tuỳ chọn, tách rời)
+│
+└── infra/docker/                 # ❖ TRIỂN KHAI — Docker compose
+    ├── compose.yaml              #   backend(gunicorn), websocket, scheduler, queue-short/long,
+    │                             #   frontend(nginx Frappe, nội bộ), web(Next.js, public), db, redis,
+    │                             #   + profiles: tls(caddy) · backup
+    ├── compose.override.dev.yaml #   override dev (KHÔNG tự nạp — phải build backend cho mọi đổi cago)
+    ├── Dockerfile  Caddyfile  preflight.sh
+    └── .env.example / .env.production.example
 ```
 
-Do not create `services/` until needed.
+## Quy tắc luồng
+- **Public entry = `web` (Next.js, cổng 8080→3000)**; nó proxy Frappe qua `frontend` (nginx nội bộ của Frappe). Backend **API-first**: `web` gọi `cago.api.*` (cookie session + CSRF).
+- **Backend đổi (kể cả test) → phải `docker compose build backend`** (override dev không tự nạp). Recreate backend → restart `frontend` + `web` (nginx giữ IP upstream cũ → 502).
+- DTO lọc theo vai trò trong `utils/dto.py` (staff không thấy giá vốn/lãi) — có `setup/audit.py` kiểm.
 
-Do not create `kiosk-app/` until Phase 2.
-
-## 3. Naming
-
-Use `cago_` prefix for custom fields:
-
-```text
-cago_display_name
-cago_local_names
-cago_staff_advice
-```
-
-Use `Cago` prefix for custom DocTypes:
-
-```text
-Cago Product Alternative
-Cago Wanted List
-Cago Owner Action Log
-```
-
-## 4. API modules
-
-```text
-cago/api/kiosk.py
-cago/api/staff.py
-cago/api/owner.py
-cago/api/pos.py
-cago/api/chatbot.py
-```
-
-## 5. UI files
-
-MVP:
-
-```text
-www/owner/
-www/staff/
-www/kiosk/
-```
-
-Phase 2 standalone kiosk:
-
-```text
-kiosk-app/
-```
+Xem thêm: [27](27_FRONTEND_MIGRATION_NEXTJS.md) (vì sao Next.js), [39](39_API_REFERENCE.md) (API), [40](40_FRONTEND_DEV_GUIDE.md) (dev `web/`), [38](38_GO_LIVE_RUNBOOK.md) (deploy).
