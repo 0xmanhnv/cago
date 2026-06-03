@@ -71,6 +71,8 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
 type Fav = { k: string; w: 1 | 2 };
 
 const FAV_CACHE = "cago_fav_cache";
+const SHOW_ALL_KEY = "cago_show_all"; // remember whether the owner expanded "Tất cả chức năng"
+const savedShowAll = () => { try { return window.localStorage?.getItem(SHOW_ALL_KEY) === "1"; } catch { return false; } };
 // Hydrate from the local cache BEFORE the browser paints (layout effect), so the "⭐ Hay dùng" tiles
 // appear in the very first frame instead of fetching from the server and popping in (layout shift /
 // jank). Server stays the source of truth — the mount effect revalidates + rewrites the cache.
@@ -131,8 +133,8 @@ export function PosHome() {
     try {
       const raw = window.localStorage?.getItem(FAV_CACHE);
       if (raw) {
-        const a = JSON.parse(raw) as Fav[];
-        if (Array.isArray(a)) { setFav(a.filter((f) => f && ACTIONS[f.k])); setFavLoaded(true); }
+        const a = (JSON.parse(raw) as Fav[]).filter((f) => f && ACTIONS[f.k]);
+        if (Array.isArray(a)) { setFav(a); setFavLoaded(true); setShowAll(a.length ? savedShowAll() : true); }
       }
     } catch { /* ignore a corrupt cache */ }
   }, []);
@@ -169,7 +171,7 @@ export function PosHome() {
               .filter((f) => ACTIONS[f.k])
           : [];
         setFav(a);
-        if (!a.length) setShowAll(true);
+        setShowAll(a.length ? savedShowAll() : true);
         setFavLoaded(true);
         try { window.localStorage?.setItem(FAV_CACHE, JSON.stringify(a)); } catch { /* ignore */ }
       })
@@ -356,7 +358,7 @@ export function PosHome() {
           full menu is the page, shown directly. */}
       {hasFav && !editMode && (
         <button
-          onClick={() => setShowAll((v) => !v)}
+          onClick={() => setShowAll((v) => { const n = !v; try { window.localStorage?.setItem(SHOW_ALL_KEY, n ? "1" : "0"); } catch { /* ignore */ } return n; })}
           className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-200 bg-white py-3 text-lg font-extrabold text-brand-dark"
         >
           🧰 Tất cả chức năng <span className={`inline-block transition-transform duration-300 ${showAll ? "rotate-180" : ""}`}>▾</span>
