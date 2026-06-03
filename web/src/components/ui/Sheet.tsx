@@ -34,9 +34,12 @@ export function Sheet({
           aria-describedby={undefined}
           onOpenAutoFocus={(e) => e.preventDefault()}
           className={
+            // NOTE: centering uses a transform (-translate-x/y-1/2), so the entrance animation must
+            // NOT also animate transform or it clobbers the centering (panel drifts off-screen).
+            // center → fade-in (opacity only); bottom → sheet-up but stays bottom-anchored (no translate).
             (variant === "bottom"
-              ? "fixed inset-x-0 bottom-0 z-[81] mx-auto max-h-[88vh] w-full max-w-[480px] animate-sheet-up overflow-auto rounded-t-2xl bg-white p-4 sm:inset-x-auto sm:left-1/2 sm:bottom-auto sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
-              : "fixed left-1/2 top-1/2 z-[81] max-h-[88vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 animate-pop-in overflow-auto rounded-2xl bg-white p-5") +
+              ? "fixed inset-x-0 bottom-0 z-[81] mx-auto max-h-[88vh] w-full max-w-[480px] animate-sheet-up overflow-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl"
+              : "fixed left-1/2 top-1/2 z-[81] max-h-[88vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 animate-fade-in overflow-auto rounded-2xl bg-white p-5") +
             (className ? ` ${className}` : "")
           }
         >
