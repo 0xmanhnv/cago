@@ -12,6 +12,7 @@ import { BrandHeader } from "@/components/ui/BrandHeader";
 import { confirmDialog } from "@/components/ui/dialog";
 
 interface Digest {
+  out_of_stock: number;
   low_stock: number;
   expiring: number;
   debtors: number;
@@ -47,6 +48,7 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   receive: { label: "📥 Nhập hàng", color: "bg-teal-700", href: "/pos/receive", cap: "stock" },
   bulk: { label: "⚡ Nhập hàng loạt", color: "bg-teal-700", href: "/pos/bulk", cap: "stock" },
   receivehist: { label: "📜 Lịch sử nhập", color: "bg-teal-600", href: "/pos/receive-history", cap: "stock" },
+  alerts: { label: "🔔 Cảnh báo hôm nay", color: "bg-amber-600", href: "/pos/alerts", cap: "stock" },
   lowstock: { label: "📦 Hàng sắp hết", color: "bg-teal-600", href: "/pos/low-stock", cap: "stock" },
   reorder: { label: "🛒 Gợi ý nhập hàng", color: "bg-teal-700", href: "/pos/reorder", cap: "stock" },
   expiry: { label: "⏰ Lô & hạn dùng", color: "bg-orange-600", href: "/pos/expiry", cap: "stock" },
@@ -68,7 +70,7 @@ type Fav = { k: string; w: 1 | 2 };
 
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "exchange", "orders", "assistant", "creditsale", "coupons", "qr"] },
-  { title: "📦 Hàng hoá & kho", keys: ["price", "new", "edit", "labels", "receive", "bulk", "receivehist", "lowstock", "reorder", "expiry", "categories", "map"] },
+  { title: "📦 Hàng hoá & kho", keys: ["alerts", "price", "new", "edit", "labels", "receive", "bulk", "receivehist", "lowstock", "reorder", "expiry", "categories", "map"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "verify", "supplier", "cashbook"] },
   { title: "📊 Báo cáo & quản lý", keys: ["reports", "unsafe", "staffadmin"] },
 ];
@@ -243,10 +245,16 @@ export function PosHome() {
 
       {digest?.has_tasks && (
         <div className="mb-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
-          <div className="font-extrabold text-amber-800">📌 Việc cần làm hôm nay</div>
+          <div className="flex items-center justify-between">
+            <div className="font-extrabold text-amber-800">📌 Việc cần làm hôm nay</div>
+            <button onClick={() => router.push("/pos/alerts")} className="rounded-full bg-white px-3 py-1 text-sm font-bold text-amber-800 shadow-sm">Xem tất cả ›</button>
+          </div>
           <div className="mt-1 flex flex-wrap gap-2">
+            {digest.out_of_stock > 0 && (
+              <button onClick={() => router.push("/pos/alerts")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-red-700 shadow">🔴 {digest.out_of_stock} mặt hàng đang hết</button>
+            )}
             {digest.low_stock > 0 && (
-              <button onClick={() => router.push("/pos/low-stock")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-amber-800 shadow">📦 {digest.low_stock} hàng sắp hết</button>
+              <button onClick={() => router.push("/pos/low-stock")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-amber-800 shadow">🟠 {digest.low_stock} hàng sắp hết</button>
             )}
             {digest.expiring > 0 && (
               <button onClick={() => router.push("/pos/expiry")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-orange-700 shadow">⏰ {digest.expiring} lô sắp hết hạn</button>

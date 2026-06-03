@@ -11,8 +11,10 @@ Run from the scheduler (see hooks.scheduler_events); does nothing on a day with 
 from __future__ import annotations
 
 import frappe
+from frappe.utils import flt
 
-from cago.utils.permissions import ensure_owner
+from cago.utils import dto
+from cago.utils.permissions import ensure_internal, ensure_owner
 
 
 def _owner_users():
@@ -29,8 +31,10 @@ def digest_text():
 	if not d.get("has_tasks"):
 		return ""
 	parts = []
+	if d.get("out_of_stock"):
+		parts.append(f"{d['out_of_stock']} mặt hàng ĐANG HẾT")
 	if d.get("low_stock"):
-		parts.append(f"{d['low_stock']} mặt hàng sắp/hết hàng")
+		parts.append(f"{d['low_stock']} mặt hàng sắp hết")
 	if d.get("expiring"):
 		parts.append(f"{d['expiring']} lô sắp hết hạn")
 	if d.get("debtors"):
@@ -65,6 +69,46 @@ def preview_digest():
 	"""Owner: see today's digest line on demand (same text the daily job would push)."""
 	ensure_owner()
 	return {"text": digest_text()}
+
+
+@frappe.whitelist()
+def today_alerts(limit=40):
+	"""Consolidated 'cảnh báo hôm nay' — the ACTUAL warning items (not just counts), grouped by
+	urgency so the owner can review everything in one screen each morning:
+	🔴 đang hết (mất doanh thu) → 🟠 sắp hết → ⏰ sắp/đã hết hạn → 📒 nợ vượt hạn mức.
+	Read-only; each section degrades to empty if the caller lacks that capability (stock/debt)."""
+	ensure_internal()
+	from cago.api import inventory, reports
+
+	def _safe(fn, default):
+		try:
+			return fn()
+		except frappe.PermissionError:
+			return default
+
+	n = int(limit or 40)
+	low = _safe(reports.low_stock, [])
+	out_of_stock = [r for r in low if r.get("status") == "Hết hàng"][:n]
+	low_only = [r for r in low if r.get("status") != "Hết hàng"][:n]
+	expiring = _safe(inventory.expiring_soon, [])[:n]
+	# Debt alerts = customers OVER their credit limit (actionable), not every debtor.
+	over_limit = []
+	for d in _safe(reports.debt_list, []):
+		limit_amt = flt(frappe.db.get_value("Customer", d["customer"], "cago_debt_limit"))
+		if limit_amt and d["outstanding"] > limit_amt:
+			over_limit.append({**d, "limit_text": dto.format_price(limit_amt)})
+	return {
+		"out_of_stock": out_of_stock,
+		"low_stock": low_only,
+		"expiring": expiring,
+		"over_limit": over_limit[:n],
+		"counts": {
+			"out_of_stock": len(out_of_stock),
+			"low_stock": len(low_only),
+			"expiring": len(expiring),
+			"over_limit": len(over_limit),
+		},
+	}
 
 
 @frappe.whitelist()

@@ -355,8 +355,12 @@ def daily_digest():
 	debts = _safe(debt_list)
 	expiring = _safe(inventory.expiring_soon)
 	total_debt = sum(flt(d["outstanding"]) for d in debts)
+	# Split "đang hết" (zero stock → can't sell, highest urgency) from "sắp hết" so the home can
+	# flag them separately instead of burying lost-sales risk in one count.
+	out_of_stock = sum(1 for r in low if r.get("status") == "Hết hàng")
 	return {
-		"low_stock": len(low),
+		"out_of_stock": out_of_stock,
+		"low_stock": len(low) - out_of_stock,
 		"expiring": len(expiring),
 		"debtors": len(debts),
 		"debt_total_text": dto.format_price(total_debt) if total_debt else "0đ",
