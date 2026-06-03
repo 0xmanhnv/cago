@@ -271,6 +271,16 @@ def get_product_for_edit(item_code):
 	row["images"] = _images(item_code)
 	row["stock_status_options"] = STOCK_STATUS_OPTIONS
 	row["quality_options"] = QUALITY_OPTIONS
+	# Suggestions for the free-text "Vị trí để hàng": shelf labels already used on other products +
+	# the store-map zone names — so the owner reuses consistent wording (this is a human note; the
+	# map itself is located by the product's item_group, not this text).
+	shelves = frappe.get_all("Item", filters={"cago_shelf_location": ["not in", ["", None]]}, pluck="cago_shelf_location") or []
+	zones = []
+	try:
+		zones = [z.label for z in frappe.get_single("Cago Store Map").zones if z.label]
+	except Exception:
+		pass
+	row["shelf_suggestions"] = sorted({s for s in (shelves + zones) if s})
 	return row
 
 

@@ -231,7 +231,20 @@ export function ProductEditor({ code }: { code: string }) {
         <EditCheck label="Tự tính tồn theo số thật (đã nhập hàng)" k="cago_stock_auto" data={data} set={set} />
         <EditField label="Mức đặt lại — 'còn ít' khi tồn ≤ (theo đơn vị tồn)" k="cago_reorder_level" type="number" data={data} set={set} />
         <EditField label="Giá bán tối thiểu (sàn) — chặn bán dưới giá vốn (để trống = không chặn)" k="cago_min_price" type="number" data={data} set={set} />
-        <EditField label="Vị trí để hàng" k="cago_shelf_location" data={data} set={set} />
+        <label className="mt-3 block">
+          <span className="mb-1 block font-bold text-slate-700">Vị trí để hàng</span>
+          <input
+            list="shelf-suggest"
+            value={(data.cago_shelf_location as string) ?? ""}
+            onChange={(ev) => set("cago_shelf_location", ev.target.value)}
+            placeholder="vd: Kệ A3, Khu dụng cụ"
+            className="w-full rounded-lg border-2 border-emerald-300 p-2.5 text-base"
+          />
+          <datalist id="shelf-suggest">
+            {((e.shelf_suggestions as string[]) || []).map((s) => <option key={s} value={s} />)}
+          </datalist>
+          <span className="mt-1 block text-xs text-slate-400">Ghi chú cho nhân viên. Vị trí trên sơ đồ tự theo Nhóm hàng của sản phẩm.</span>
+        </label>
         </Section>
 
         <Section title="📝 Mô tả & tư vấn">
