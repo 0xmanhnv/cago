@@ -353,6 +353,7 @@ def ensure_payment_fields():
 				{"fieldname": "cago_llm_fallback_model", "label": "Cago LLM Fallback Model", "fieldtype": "Data", "insert_after": "cago_llm_fallback_provider"},
 				{"fieldname": "cago_llm_fallback_base_url", "label": "Cago LLM Fallback Base URL", "fieldtype": "Data", "insert_after": "cago_llm_fallback_model"},
 				{"fieldname": "cago_llm_fallback_api_key", "label": "Cago LLM Fallback API Key", "fieldtype": "Password", "insert_after": "cago_llm_fallback_base_url"},
+				{"fieldname": "cago_cfd_token", "label": "Cago CFD Token", "fieldtype": "Data", "insert_after": "cago_llm_fallback_api_key", "read_only": 1, "hidden": 1, "description": "Khoá ghép màn hình phụ cho khách (/display?k=…). Tự sinh."},
 			],
 			"Payment Entry": [
 				{

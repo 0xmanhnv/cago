@@ -91,6 +91,7 @@ export function PosHome() {
   const [digest, setDigest] = useState<Digest | null>(null);
   const [onboard, setOnboard] = useState<Onboarding | null>(null);
   const [onboardHidden, setOnboardHidden] = useState(true);
+  const [cfdToken, setCfdToken] = useState("");
   const [fav, setFav] = useState<Fav[]>([]);
   const [favLoaded, setFavLoaded] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -150,6 +151,12 @@ export function PosHome() {
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [owner]);
+
+  useEffect(() => {
+    if (hasCap(boot, "sell")) {
+      frappeCall<{ token: string }>("cago.api.display.cfd_token", {}, { method: "GET" }).then((r) => setCfdToken(r.token || "")).catch(() => {});
+    }
+  }, [boot]);
 
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
@@ -379,7 +386,7 @@ export function PosHome() {
       </div>
 
       {hasCap(boot, "sell") && (
-        <a href="/display" target="_blank" rel="noopener" className="mt-tile mb-3.5 min-h-[64px] w-full bg-slate-700 text-lg">🖥 Mở màn hình phụ cho khách (cửa sổ mới)</a>
+        <a href={`/display${cfdToken ? `?k=${cfdToken}` : ""}`} target="_blank" rel="noopener" className="mt-tile mb-3.5 min-h-[64px] w-full bg-slate-700 text-lg">🖥 Mở màn hình phụ cho khách (cửa sổ mới)</a>
       )}
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
         {owner && (

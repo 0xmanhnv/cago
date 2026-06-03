@@ -16,6 +16,8 @@ export function OwnerSettings() {
   const [loyalty, setLoyalty] = useState({ earn_vnd: "", redeem_vnd: "" });
   const [expiryDays, setExpiryDays] = useState("");
   const [notify, setNotify] = useState({ owner_phone: "", webhook: "", token: "", has_token: false });
+  const [cfdUrl, setCfdUrl] = useState("");
+  const [cfdCopied, setCfdCopied] = useState(false);
 
   useEffect(() => {
     frappeCall<{ bin: string; account: string; name: string }>("cago.api.payment.get_bank", {}, { method: "GET" })
@@ -38,6 +40,9 @@ export function OwnerSettings() {
       .catch(() => {});
     frappeCall<{ owner_phone: string; webhook: string; has_token: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
       .then((d) => setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token }))
+      .catch(() => {});
+    frappeCall<{ token: string }>("cago.api.display.cfd_token", {}, { method: "GET" })
+      .then((d) => setCfdUrl(d.token ? `${window.location.origin}/display?k=${d.token}` : ""))
       .catch(() => {});
   }, []);
 
@@ -202,6 +207,28 @@ export function OwnerSettings() {
         <button onClick={saveNotify} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
           💾 Lưu cài đặt nhắn tin
         </button>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-4">
+        <div className="font-extrabold">🖥 Màn hình phụ cho khách</div>
+        <p className="text-slate-500">
+          Để hiện giỏ hàng + tổng tiền + QR cho khách xem. Trên <b>cùng máy bán</b> (màn mở rộng): bấm nút
+          “Mở màn hình phụ” ở trang chủ. Trên <b>tablet riêng</b> quay ra khách: mở trình duyệt tới đường dẫn
+          dưới đây (đã có khoá bảo mật — thiết bị lạ không xem được).
+        </p>
+        {cfdUrl ? (
+          <div className="mt-2 flex items-center gap-2">
+            <input readOnly value={cfdUrl} className="min-w-0 flex-1 rounded-lg border-2 border-slate-200 bg-slate-50 p-2.5 text-sm" />
+            <button
+              onClick={() => navigator.clipboard?.writeText(cfdUrl).then(() => { setCfdCopied(true); setTimeout(() => setCfdCopied(false), 1500); }, () => {})}
+              className="shrink-0 rounded-lg bg-brand px-3 py-2.5 text-sm font-bold text-white"
+            >
+              {cfdCopied ? "✅ Đã chép" : "📋 Chép"}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2 text-sm text-slate-400">Đang tạo khoá…</div>
+        )}
       </div>
     </div>
   );

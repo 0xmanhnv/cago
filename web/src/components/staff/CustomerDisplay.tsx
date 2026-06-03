@@ -31,21 +31,24 @@ export function CustomerDisplay() {
       }
     };
     window.addEventListener("storage", onStorage);
-    // Separate device: poll the server relay (~1.2s). Public endpoint — no login needed.
+    // Separate device: poll the server relay (~1.2s), gated by the pairing token in the URL
+    // (/display?k=<token>). No token → no server reads (the same-machine BroadcastChannel still works).
+    const token = new URLSearchParams(window.location.search).get("k") || "";
     let alive = true;
     const poll = async () => {
+      if (!token) return;
       try {
-        const s = await frappeCall<CfdMsg>("cago.api.display.get_state", {}, { method: "GET" });
+        const s = await frappeCall<CfdMsg>("cago.api.display.get_state", { token }, { method: "GET" });
         if (alive && s) setMsg(s);
       } catch {
         /* ignore */
       }
     };
     void poll();
-    const id = setInterval(poll, 1200);
+    const id = token ? setInterval(poll, 1200) : undefined;
     return () => {
       alive = false;
-      clearInterval(id);
+      if (id) clearInterval(id);
       bc?.close();
       window.removeEventListener("storage", onStorage);
     };
