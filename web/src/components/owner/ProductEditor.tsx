@@ -90,6 +90,22 @@ function EditCheck({ label, k, data, set }: FieldProps) {
   );
 }
 
+// Collapsible group. Accordion (not tabs) suits a non-tech owner: every section title is visible at
+// once (nothing hidden behind a tab they might not find), one tap to expand, no horizontal tab strip
+// on a phone — and it matches the Hướng dẫn screen. Most-used groups open by default.
+function Section({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between bg-slate-50 px-4 py-3 text-left">
+        <span className="font-extrabold text-brand-dark">{title}</span>
+        <span className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+      </button>
+      {open && <div className="p-4 pt-2">{children}</div>}
+    </div>
+  );
+}
+
 export function ProductEditor({ code }: { code: string }) {
   const router = useRouter();
   const [e, setE] = useState<EditData | null>(null);
@@ -167,7 +183,7 @@ export function ProductEditor({ code }: { code: string }) {
       <div className="rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">Sửa: {e.cago_display_name || e.item_name}</h2>
 
-        <div className="mt-3 font-extrabold">Ảnh sản phẩm</div>
+        <Section title="🖼 Ảnh sản phẩm" defaultOpen>
         {imgs.main ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imgs.main} alt="" className="max-h-56 w-full rounded-lg bg-slate-100 object-contain" />
@@ -205,7 +221,9 @@ export function ProductEditor({ code }: { code: string }) {
           </div>
         ))}
 
-        <div className="mt-4 text-lg font-extrabold">Thông tin sản phẩm</div>
+        </Section>
+
+        <Section title="🏷 Tên · giá · tồn kho" defaultOpen>
         <EditField label="Tên hiển thị" k="cago_display_name" data={data} set={set} />
         <EditField label="Mã vạch (barcode — quét/nhập)" k="barcode" data={data} set={set} />
         <EditField label="Giá bán (đồng)" k="selling_price" type="number" data={data} set={set} />
@@ -214,6 +232,9 @@ export function ProductEditor({ code }: { code: string }) {
         <EditField label="Mức đặt lại — 'còn ít' khi tồn ≤ (theo đơn vị tồn)" k="cago_reorder_level" type="number" data={data} set={set} />
         <EditField label="Giá bán tối thiểu (sàn) — chặn bán dưới giá vốn (để trống = không chặn)" k="cago_min_price" type="number" data={data} set={set} />
         <EditField label="Vị trí để hàng" k="cago_shelf_location" data={data} set={set} />
+        </Section>
+
+        <Section title="📝 Mô tả & tư vấn">
         <EditField label="Tên dân dã (khách hay gọi)" k="cago_local_names" data={data} set={set} />
         <EditArea label="Mô tả ngắn cho khách" k="cago_public_description" data={data} set={set} />
         <EditField label="Dùng cho" k="cago_use_cases" data={data} set={set} />
@@ -225,39 +246,53 @@ export function ProductEditor({ code }: { code: string }) {
         <EditArea label="Lưu ý an toàn" k="cago_safety_notes" data={data} set={set} />
         <EditCheck label="Là hóa chất/thuốc" k="cago_is_chemical" data={data} set={set} />
         <EditCheck label="Hiển thị trên kiosk" k="cago_is_public_visible" data={data} set={set} />
+        </Section>
 
-        <button onClick={save} disabled={saving} className="mt-4 min-h-touch w-full rounded-xl bg-amber-500 font-extrabold text-white disabled:opacity-50">
+        <Section title="📦 Đơn vị bán & giá sỉ">
+          <UnitsSection code={code} />
+          <WholesalePrice code={code} />
+        </Section>
+
+        <Section title="🏬 Kho & lô / hạn dùng">
+          <StockSection code={code} />
+          <BatchSection code={code} />
+        </Section>
+
+        <Section title="🕘 Lịch sử giá">
+          <PriceHistory code={code} />
+        </Section>
+
+        <Section title="⚙️ Khác">
+          <button
+            onClick={async () => {
+              const r = await frappeCall<{ text: string }>("cago.api.owner.zalo_draft", { kind: "restock", item_code: code });
+              setDraft(r.text);
+            }}
+            className="min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white"
+          >
+            📩 Soạn tin báo hàng về
+          </button>
+          {/* Ngừng bán: a discontinued item disappears from selling/kiosk/alerts/reorder but keeps its
+              history; re-enable anytime. Applied immediately (its own action, not the Lưu button). */}
+          {data.disabled ? (
+            <div className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+              <div className="font-bold text-amber-800">⛔ Mặt hàng đang NGỪNG BÁN</div>
+              <div className="mt-0.5 text-sm text-amber-700">Đang ẩn khỏi bán hàng, kiosk và các cảnh báo. Lịch sử vẫn được giữ.</div>
+              <button onClick={() => setDiscontinued(false)} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">↩️ Bán lại mặt hàng này</button>
+            </div>
+          ) : (
+            <button onClick={() => setDiscontinued(true)} className="mt-3 min-h-touch w-full rounded-xl border-2 border-red-300 font-bold text-red-600">
+              ⛔ Ngừng bán mặt hàng này
+            </button>
+          )}
+        </Section>
+      </div>
+
+      {/* Sticky save — always reachable; no scrolling to the bottom to find it. */}
+      <div className="sticky bottom-0 z-20 -mx-4 mt-3 border-t border-emerald-100 bg-[#f0fdf4]/95 px-4 py-3 backdrop-blur">
+        <button onClick={save} disabled={saving} className="min-h-touch w-full rounded-xl bg-amber-500 text-lg font-extrabold text-white disabled:opacity-50">
           {saving ? "Đang lưu..." : "💾 Lưu sản phẩm"}
         </button>
-        <button
-          onClick={async () => {
-            const r = await frappeCall<{ text: string }>("cago.api.owner.zalo_draft", { kind: "restock", item_code: code });
-            setDraft(r.text);
-          }}
-          className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white"
-        >
-          📩 Soạn tin báo hàng về
-        </button>
-
-        {/* Ngừng bán: a discontinued item disappears from selling, kiosk, alerts & reorder but keeps
-            its history; can be re-enabled anytime. Set immediately (its own action, not the Lưu button). */}
-        {data.disabled ? (
-          <div className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
-            <div className="font-bold text-amber-800">⛔ Mặt hàng đang NGỪNG BÁN</div>
-            <div className="mt-0.5 text-sm text-amber-700">Đang ẩn khỏi bán hàng, kiosk và các cảnh báo. Lịch sử vẫn được giữ.</div>
-            <button onClick={() => setDiscontinued(false)} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">↩️ Bán lại mặt hàng này</button>
-          </div>
-        ) : (
-          <button onClick={() => setDiscontinued(true)} className="mt-3 min-h-touch w-full rounded-xl border-2 border-red-300 font-bold text-red-600">
-            ⛔ Ngừng bán mặt hàng này
-          </button>
-        )}
-
-        <WholesalePrice code={code} />
-        <StockSection code={code} />
-        <UnitsSection code={code} />
-        <BatchSection code={code} />
-        <PriceHistory code={code} />
       </div>
       {draft !== null && <DraftModal text={draft} onClose={() => setDraft(null)} />}
     </div>
