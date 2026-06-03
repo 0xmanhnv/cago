@@ -136,8 +136,9 @@ export function Assistant({
         </div>
       )}
 
-      {/* log */}
-      <div ref={logRef} className="flex-1 overflow-y-auto px-3 py-3">
+      {/* log — overscroll-contain stops wheel/touch scroll from chaining to the page behind the
+          popup once the log hits its top/bottom (so the background doesn't move under the chat). */}
+      <div ref={logRef} className="flex-1 overflow-y-auto overscroll-contain px-3 py-3">
         {history.length === 0 && (
           <div className="text-slate-500">
             Dạ {persona?.pronoun || "cháu"} là <b>{persona?.name || "trợ lý"}</b>
