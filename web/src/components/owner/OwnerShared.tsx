@@ -6,6 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { copyText, formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import { Sheet } from "@/components/ui/Sheet";
+import { CatThumb } from "@/components/kiosk/CatThumb";
 import type { ProductCard } from "@/lib/types";
 
 // VND has no decimals — round + group. Single shared formatter (lib/utils) so owner/staff/kiosk match.
@@ -204,17 +205,20 @@ export function ProductPicker({ title, onBack, onPick }: { title: string; onBack
       ) : list.length === 0 ? (
         <div className="text-slate-500">Không tìm thấy.</div>
       ) : (
-        list.map((p) => (
-          <button key={p.item_code} onClick={() => onPick(p.item_code)} className="mb-3 flex w-full gap-3 rounded-xl bg-white p-3.5 text-left shadow">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {p.image && <img src={p.image} alt="" className="h-[60px] w-[60px] rounded-lg object-cover" />}
-            <div>
-              <div className="font-bold">{p.display_name}</div>
+        <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+        {list.map((p) => (
+          <button key={p.item_code} onClick={() => onPick(p.item_code)} className="mb-3 flex w-full items-center gap-3 rounded-xl bg-white p-3.5 text-left shadow">
+            <div className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg">
+              <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-bold leading-tight">{p.display_name}</div>
               <div className="font-bold text-brand">{p.price_text}</div>
               <div className="text-slate-500">{p.stock_status}</div>
             </div>
           </button>
-        ))
+        ))}
+        </div>
       )}
     </div>
   );
@@ -310,19 +314,21 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
       {list.length === 0 ? (
         <div className="my-2 text-slate-500">Không tìm thấy khách. Bấm &quot;Thêm khách mới&quot; bên dưới.</div>
       ) : (
-        list.map((c) => (
+        <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+        {list.map((c) => (
           <button key={c.customer} onClick={() => onPick(c.customer)} className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow">
-            <div>
+            <div className="min-w-0">
               <div className="font-bold">{c.customer_name}</div>
               <div className="text-slate-500">
                 {c.village || ""} {c.mobile ? `· ${c.mobile}` : ""}
               </div>
             </div>
-            <div className={c.debt && c.debt > 0 ? "font-bold text-red-600" : "text-slate-400"}>
+            <div className={c.debt && c.debt > 0 ? "shrink-0 font-bold text-red-600" : "shrink-0 text-slate-400"}>
               {c.debt && c.debt > 0 ? money(c.debt) : "Không nợ"}
             </div>
           </button>
-        ))
+        ))}
+        </div>
       )}
       <button onClick={() => setAdding(true)} className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
         ➕ Thêm khách mới

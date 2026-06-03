@@ -152,7 +152,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div className="mb-4">
       <div className="mb-1.5 text-sm font-bold text-slate-500">{title}</div>
-      <div className="space-y-2">{children}</div>
+      {/* one column on phone/tablet; two on a wide PC so the queue fills the width */}
+      <div className="space-y-2 xl:grid xl:grid-cols-2 xl:gap-3 xl:space-y-0 [&>button]:xl:col-span-2">{children}</div>
     </div>
   );
 }

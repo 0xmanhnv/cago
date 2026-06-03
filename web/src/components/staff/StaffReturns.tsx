@@ -191,6 +191,7 @@ export function StaffReturns() {
           {groups.map((g) => (
             <div key={g.label}>
               <DateHeader label={g.label} />
+              <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
               {g.items.map((s) => (
                 <div key={s.invoice} className="mb-2.5 flex items-center justify-between gap-3 rounded-xl bg-white p-3.5 shadow-sm">
                   <div className="min-w-0 flex-1">
@@ -212,6 +213,7 @@ export function StaffReturns() {
                   )}
                 </div>
               ))}
+              </div>
             </div>
           ))}
           {hasMore && <div ref={sentinelRef} className="h-1" />}

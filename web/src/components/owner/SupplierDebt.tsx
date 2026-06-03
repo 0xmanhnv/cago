@@ -74,12 +74,14 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
         placeholder="Tìm nhà cung cấp..."
         className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
       />
+      <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
       {(hits.length ? hits : owed).map((s) => (
         <button key={s.supplier} onClick={() => onPick({ id: s.supplier, name: s.supplier_name })} className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow">
-          <div className="font-bold">{s.supplier_name}</div>
-          <div className="font-bold text-red-600">{s.debt_text || s.outstanding_text || ""}</div>
+          <div className="min-w-0 font-bold">{s.supplier_name}</div>
+          <div className="shrink-0 font-bold text-red-600">{s.debt_text || s.outstanding_text || ""}</div>
         </button>
       ))}
+      </div>
       {!hits.length && !owed.length && <Ok>Không nợ nhà cung cấp nào. 🎉</Ok>}
       <button onClick={() => setAdding(true)} className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
         ➕ Thêm nhà cung cấp
