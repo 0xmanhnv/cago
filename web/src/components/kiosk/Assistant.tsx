@@ -272,18 +272,21 @@ export function Assistant({
         )}
       </div>
 
-      {/* chips */}
-      <div className="no-scrollbar flex gap-2 overflow-x-auto border-t border-brand-light bg-[#f0fdf4] px-3 py-2">
-        {pickChips(boot?.kiosk_chips, focusItem, focusCat).map((c) => (
-          <button
-            key={c}
-            disabled={sending}
-            onClick={() => ask(c)}
-            className="flex-none whitespace-nowrap rounded-full border border-emerald-300 bg-brand-light px-3.5 py-2 text-sm font-bold text-brand-dark disabled:opacity-50"
-          >
-            {c}
-          </button>
-        ))}
+      {/* chips — the right-edge fade hints there are more suggestions to scroll to. */}
+      <div className="relative border-t border-brand-light bg-[#f0fdf4]">
+        <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 py-2">
+          {pickChips(boot?.kiosk_chips, focusItem, focusCat).map((c) => (
+            <button
+              key={c}
+              disabled={sending}
+              onClick={() => ask(c)}
+              className="flex-none whitespace-nowrap rounded-full border border-emerald-300 bg-brand-light px-3.5 py-2 text-sm font-bold text-brand-dark disabled:opacity-50"
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#f0fdf4] to-transparent" />
       </div>
 
       {/* composer */}

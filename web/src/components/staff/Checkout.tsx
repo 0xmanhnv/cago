@@ -1134,7 +1134,7 @@ export function Checkout() {
                         <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/45 px-1 text-[10px] leading-tight text-white">🔍</span>
                       </button>
                       <div className="min-w-0 flex-1">
-                        <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.display_name}</button>
+                        <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</button>
                         <div className="text-sm font-bold text-brand">{p.price_text}</div>
                         <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
                           {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${m.stock_uom}` : null) || p.stock_status}

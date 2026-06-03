@@ -35,7 +35,10 @@ export function ProductInfo({ p }: { p: Product }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {p.image && <img src={p.image} alt="" className="max-h-60 w-full rounded-lg bg-slate-100 object-contain" />}
       <h2 className="mt-2 text-xl font-bold">{p.display_name}</h2>
-      <div className="text-3xl font-extrabold text-brand">{p.price_text}</div>
+      {p.recommended && (
+        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-800">⭐ Khuyên dùng</div>
+      )}
+      <div className="mt-1 text-3xl font-extrabold text-brand">{p.price_text}</div>
       {p.sale_units && p.sale_units.length > 1 && (
         <div className="mt-1 text-slate-600">
           Giá bán lẻ: <b>{p.sale_units.slice(1).map((u) => u.price_text).join(" · ")}</b>

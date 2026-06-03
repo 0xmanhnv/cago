@@ -225,7 +225,7 @@ export function ProductDetail({ code }: { code: string }) {
                 <div className="p-2">
                   {/* Reserve 2 lines for the title so 1-line and 2-line cards stay the same height
                       (else the shorter card's content drifts and the row looks broken). */}
-                  <div className="line-clamp-2 min-h-[2.5em] text-sm font-bold leading-tight">{r.display_name}</div>
+                  <div className="line-clamp-2 min-h-[2.5em] text-sm font-bold leading-tight">{r.recommended && <span title="Khuyên dùng">⭐ </span>}{r.display_name}</div>
                   <div className="mt-0.5 text-[13px] font-bold text-brand">{r.price_text}</div>
                 </div>
               </button>
