@@ -19,11 +19,13 @@ export function Assistant({
   onClose,
   onBack,
   onOpenProduct,
+  onOpenCategory,
   onCallStaff,
 }: {
   onClose: () => void; // "Xong / Khách mới" → reset + home
   onBack: () => void; // "‹ Quay lại" → the page the customer opened the assistant from
   onOpenProduct: (code: string) => void;
+  onOpenCategory: (category: string) => void; // tap a category in the "we sell X" reply
   onCallStaff: () => void;
 }) {
   const { boot } = useSession();
@@ -76,6 +78,7 @@ export function Assistant({
         who: "bot",
         text: r.answer_text,
         cards: r.product_cards,
+        cats: r.categories,
         warnings: r.safety_warnings,
         needStaff: r.needs_staff_help,
       });
@@ -159,6 +162,22 @@ export function Assistant({
                 className="whitespace-pre-line rounded-2xl bg-white p-3 shadow-sm"
                 dangerouslySetInnerHTML={{ __html: mdLight(m.text) }}
               />
+              {/* "We sell X" reply: each category is a tappable row → that category's product list. */}
+              {(m.cats || []).length > 0 && (
+                <div className="mt-2 grid gap-1.5">
+                  {m.cats!.map((c) => (
+                    <button
+                      key={c.category}
+                      onClick={() => onOpenCategory(c.category)}
+                      className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-white px-3.5 py-3 text-left font-bold text-brand-dark shadow-sm transition hover:-translate-y-0.5 hover:shadow-card"
+                    >
+                      <span className="text-2xl">{c.icon || "📦"}</span>
+                      <span className="flex-1">{c.category}</span>
+                      <span className="text-xl text-slate-300">›</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {(m.cards || []).map((c) => (
                 <div key={c.item_code} className="mt-2 flex items-center gap-2 rounded-xl bg-white p-2.5 shadow-sm">
                   {c.image ? (

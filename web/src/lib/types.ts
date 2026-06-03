@@ -72,9 +72,15 @@ export interface KioskChips {
   general: string[];
 }
 
+export interface CategoryLink {
+  category: string;
+  icon?: string;
+}
+
 export interface ChatResponse {
   answer_text: string;
   product_cards: ProductCard[];
+  categories?: CategoryLink[];
   safety_warnings: string[];
   needs_staff_help: boolean;
   sources: string[];

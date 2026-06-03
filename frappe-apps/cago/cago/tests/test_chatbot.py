@@ -175,6 +175,9 @@ class TestChatbotOrchestrator(FrappeTestCase):
 		self.assertFalse(r["needs_staff_help"])  # NOT a dead-end "ask the seller"
 		self.assertIn("cửa hàng mình có", r["answer_text"].lower())
 		self.assertNotIn("chưa tìm thấy", r["answer_text"].lower())
+		# Categories come back as tappable links (the UI turns each into a product-list link).
+		self.assertTrue(r["categories"])
+		self.assertTrue(r["categories"][0]["category"])
 
 	def test_chemical_question_is_refused_with_warning(self):
 		r = orchestrator.ask("customer", "thuốc chuột pha bao nhiêu nước")

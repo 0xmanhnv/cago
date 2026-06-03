@@ -72,6 +72,7 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
           onClose={() => { kiosk.newSession(); kiosk.closeAssistant(); }}
           onBack={kiosk.closeAssistant}
           onOpenProduct={(code) => { kiosk.closeAssistant(); nav.openDetail(code); }}
+          onOpenCategory={(cat) => { kiosk.closeAssistant(); nav.openList(cat); }}
           onCallStaff={kiosk.openCallStaff}
         />
       )}

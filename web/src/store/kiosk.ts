@@ -1,13 +1,14 @@
 "use client";
 
 import { create } from "zustand";
-import type { Product, ProductCard } from "@/lib/types";
+import type { CategoryLink, Product, ProductCard } from "@/lib/types";
 
 export interface ChatMsg {
   id?: number; // stable React key; survives the slice(-50) cap so rows don't re-key
   who: "user" | "bot";
   text: string;
   cards?: ProductCard[];
+  cats?: CategoryLink[]; // tappable category links (the "we sell X" reply)
   warnings?: string[];
   needStaff?: boolean;
 }

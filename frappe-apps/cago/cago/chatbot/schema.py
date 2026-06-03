@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass, field
 class ChatResponse:
 	answer_text: str
 	product_cards: list = field(default_factory=list)
+	categories: list = field(default_factory=list)  # tappable {category, icon} for the "we sell X" reply
 	safety_warnings: list = field(default_factory=list)
 	needs_staff_help: bool = False
 	sources: list = field(default_factory=list)  # item_codes used as context

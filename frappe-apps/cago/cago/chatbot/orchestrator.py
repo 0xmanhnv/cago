@@ -53,7 +53,9 @@ def _is_store_overview(message):
 
 
 def _store_overview_answer(role):
-	"""Deterministic 'we sell X, Y, Z' from the real category tree, or None if no categories."""
+	"""Deterministic 'we sell X, Y, Z' from the real category tree. Returns (text, categories) —
+	categories is a list of tappable {category, icon} the UI turns into links to each category's
+	product list. Returns (None, []) when there are no categories with stock."""
 	from cago.api.kiosk import category_tree
 
 	public_only = role not in ("staff", "owner")
@@ -61,15 +63,18 @@ def _store_overview_answer(role):
 		cats = category_tree(public_only=public_only) or []
 	except Exception:
 		cats = []
-	names = [f"{c.get('icon') or '📦'} {c.get('category')}" for c in cats if c.get("count")]
-	if not names:
-		return None
+	cats = [c for c in cats if c.get("count")]
+	if not cats:
+		return None, []
 	p = config.persona()
-	return (
-		f"Dạ {p['pronoun']} là {p['name']} đây ạ. Cửa hàng mình có: "
-		+ "; ".join(names)
-		+ f". Bác bấm vào loại muốn xem, hoặc gõ tên sản phẩm để {p['pronoun']} tra giá giúp ạ."
+	# The UI renders `links` as one tappable row per category (icon + name → that category's product
+	# list), so the text is just a short intro — no inline list to duplicate the rows.
+	text = (
+		f"Dạ {p['pronoun']} là {p['name']} đây ạ. Cửa hàng mình có các loại dưới đây — bác bấm vào "
+		f"loại muốn xem, hoặc gõ tên sản phẩm để {p['pronoun']} tra giá giúp ạ:"
 	)
+	links = [{"category": c.get("category"), "icon": c.get("icon") or "📦"} for c in cats]
+	return text, links
 
 
 def _deterministic_answer(products):
@@ -143,9 +148,11 @@ def ask(role, message, history=None, session_id=None, customer_phone=None, focus
 	# 2) No matching product. If it's a "what do you sell?" question, answer with the category list
 	# (a useful discovery reply); otherwise say we couldn't find it and offer the seller.
 	elif not products:
-		overview = _store_overview_answer(role) if _is_store_overview(message) else None
+		overview, overview_cats = _store_overview_answer(role) if _is_store_overview(message) else (None, [])
 		if overview:
-			resp = ChatResponse(answer_text=overview, needs_staff_help=False, confidence="high")
+			resp = ChatResponse(
+				answer_text=overview, categories=overview_cats, needs_staff_help=False, confidence="high",
+			)
 			provider_used = "overview"
 		else:
 			resp = ChatResponse(
