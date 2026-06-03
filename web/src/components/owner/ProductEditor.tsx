@@ -263,8 +263,11 @@ export function ProductEditor({ code }: { code: string }) {
         <EditCheck label="Hiển thị trên kiosk" k="cago_is_public_visible" data={data} set={set} />
         </Section>
 
-        <Section title="📦 Đơn vị bán & giá sỉ">
+        <Section title="📦 Đơn vị bán & giá lẻ">
           <UnitsSection code={code} />
+        </Section>
+
+        <Section title="🏷 Giá sỉ (cho khách sỉ)">
           <WholesalePrice code={code} />
         </Section>
 
@@ -484,11 +487,23 @@ function UnitsSection({ code }: { code: string }) {
     setD({ ...d, show_retail: !d.show_retail });
   };
 
+  // Live preview so the owner SEES the result before saving (the #1 clarity fix).
+  const pn = parseFloat(ups);
+  const pPrice = parseVnd(price);
+  const wsel = weightOf(uom);
+  const preview =
+    uom.trim() && pn > 0 && pPrice > 0
+      ? wsel
+        ? `1 ${wsel.label} = ${wsel.n} ${d.stock_uom} · ${groupVnd(String(pPrice))}đ/${wsel.label}`
+        : dir === "perStock"
+          ? `1 ${d.stock_uom} = ${pn} ${uom} · ${groupVnd(String(pPrice))}đ/${uom}`
+          : `1 ${uom} = ${pn} ${d.stock_uom} · ${groupVnd(String(pPrice))}đ/${uom}`
+      : null;
+
   return (
-    <div className="mt-5 border-t border-slate-200 pt-3">
-      <div className="text-lg font-extrabold">Đơn vị bán &amp; giá lẻ</div>
+    <div>
       <p className="text-sm text-slate-500">
-        Tồn kho theo <b>{d.stock_uom}</b>. Thêm đơn vị lẻ (kg, lạng…) với giá riêng — ERPNext tự quy đổi tồn khi bán lẻ.
+        Tồn kho theo <b>{d.stock_uom}</b>. Thêm cách bán theo đơn vị khác (kg, lạng, yến…) với giá riêng — hệ thống tự quy đổi tồn khi bán.
       </p>
       {d.units.map((u) => (
         <div key={u.uom} className="mt-1.5 flex items-center justify-between rounded-lg border border-slate-200 px-2.5 py-2">
@@ -516,12 +531,16 @@ function UnitsSection({ code }: { code: string }) {
           </span>
         </div>
       ))}
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-3 text-sm font-bold text-slate-600">Bán lẻ theo đơn vị nhỏ hơn (chạm để chọn):</div>
+      <div className="mt-1 flex flex-wrap gap-2">
         {d.presets.map((p) => (
           <button key={p.uom} onClick={() => { setUom(p.uom); setDir("perStock"); }} className="rounded-full border border-emerald-300 bg-white px-3 py-1.5 text-sm font-bold text-brand-dark" title={p.hint}>
             {p.uom}
           </button>
         ))}
+      </div>
+      <div className="mt-2 text-sm font-bold text-slate-600">Bán theo cân (đơn vị lớn) — chỉ cần nhập giá:</div>
+      <div className="mt-1 flex flex-wrap gap-2">
         {WEIGHT.map((w) => (
           <button key={w.code} onClick={() => pickWeight(w)} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-800" title={`1 ${w.label} = ${w.n} ${d.stock_uom}`}>
             {w.label} <span className="font-normal">(={w.n} {d.stock_uom})</span>
@@ -539,13 +558,15 @@ function UnitsSection({ code }: { code: string }) {
         </div>
       ) : (
         <>
-          {/* Direction toggle — let the owner type the conversion the natural way for either size. */}
-          <div className="mt-2 inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm font-bold">
+          {/* Direction — concrete wording + examples so the owner picks correctly; the live preview
+              below confirms the result before saving. */}
+          <div className="mt-2 text-sm text-slate-600">Đơn vị này so với <b>{d.stock_uom}</b>:</div>
+          <div className="mt-1 inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm font-bold">
             <button onClick={() => setDir("perStock")} className={dir === "perStock" ? "bg-brand px-3 py-1.5 text-white" : "bg-white px-3 py-1.5 text-slate-600"}>
-              Đơn vị nhỏ hơn
+              Nhỏ hơn (Kg, Lạng…)
             </button>
             <button onClick={() => setDir("perUnit")} className={dir === "perUnit" ? "bg-brand px-3 py-1.5 text-white" : "bg-white px-3 py-1.5 text-slate-600"}>
-              Đơn vị lớn hơn
+              Lớn hơn (Thùng, Lốc…)
             </button>
           </div>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -559,12 +580,12 @@ function UnitsSection({ code }: { code: string }) {
             />
             <input value={price} onChange={(e) => setPrice(groupVnd(e.target.value))} inputMode="numeric" placeholder="Giá / đơn vị (đồng)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
           </div>
-          <p className="mt-1 text-xs text-slate-500">
-            {dir === "perStock"
-              ? `Đơn vị bán nhỏ hơn đơn vị tồn — vd 1 ${d.stock_uom} = 25 Kg.`
-              : `Đơn vị bán lớn hơn đơn vị tồn — vd 1 Yến = 10 ${d.stock_uom}.`}
-          </p>
         </>
+      )}
+      {preview ? (
+        <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">👁 Xem trước: {preview}</div>
+      ) : (
+        <p className="mt-2 text-xs text-slate-500">Điền đủ đơn vị + số quy đổi + giá để xem trước.</p>
       )}
       <button onClick={add} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
         + Lưu đơn vị bán
@@ -656,9 +677,8 @@ function WholesalePrice({ code }: { code: string }) {
     }
   };
   return (
-    <div className="mt-5 border-t border-slate-200 pt-3">
-      <div className="text-lg font-extrabold">Giá sỉ (cho khách sỉ)</div>
-      <div className="text-sm text-slate-500">Khách được đánh dấu &quot;khách sỉ&quot; sẽ mua theo giá này. Để trống = không có giá sỉ.</div>
+    <div>
+      <div className="text-sm text-slate-500">Khách được đánh dấu &quot;khách sỉ&quot; sẽ mua theo giá này (theo đơn vị tồn). Để trống = không có giá sỉ.</div>
       <div className="mt-2 flex gap-2">
         <input value={price} onChange={(e) => setPrice(groupVnd(e.target.value))} inputMode="numeric" placeholder="Giá sỉ / đơn vị tồn" className="flex-1 rounded-lg border-2 border-violet-300 p-2.5" />
         <button onClick={save} disabled={busy} className="rounded-lg bg-violet-600 px-4 font-extrabold text-white disabled:opacity-50">
