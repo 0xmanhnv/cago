@@ -106,11 +106,11 @@ export function Assistant({
     // behind stays visible and clickable. No backdrop; close via the header buttons.
     <div className="animate-sheet-up fixed inset-0 z-[60] flex flex-col bg-[#f0fdf4] will-change-transform xl:inset-auto xl:bottom-4 xl:right-4 xl:h-[640px] xl:max-h-[calc(100vh-2rem)] xl:w-[400px] xl:origin-bottom-right xl:animate-chat-pop xl:overflow-hidden xl:rounded-2xl xl:border xl:border-emerald-200 xl:shadow-2xl">
       {/* header — brand gradient bar */}
-      <div className="flex items-center gap-2 bg-gradient-to-r from-brand to-brand-dark px-3 py-3 text-white shadow-card">
-        <button onClick={onBack} className="shrink-0 whitespace-nowrap rounded-xl bg-white/20 px-4 py-3 text-lg font-extrabold text-white">
+      <div className="flex items-center gap-2 bg-gradient-to-r from-brand to-brand-dark px-3 py-2.5 text-white shadow-card">
+        <button onClick={onBack} className="shrink-0 whitespace-nowrap rounded-xl bg-white/20 px-3.5 py-2.5 font-extrabold text-white">
           ‹ Quay lại
         </button>
-        <h2 className="m-0 flex-1 text-xl font-bold">🤖 {persona?.name || "Trợ lý"} — Trợ lý</h2>
+        <h2 className="m-0 min-w-0 flex-1 truncate text-lg font-bold">🤖 {persona?.name || "Trợ lý"} — Trợ lý</h2>
         <button
           onClick={async () => {
             if (await confirmDialog("Kết thúc và xoá cuộc trò chuyện cho khách mới?", { confirmLabel: "Khách mới" })) {
@@ -118,7 +118,7 @@ export function Assistant({
               onClose();
             }
           }}
-          className="rounded-xl bg-harvest px-3 py-3 font-extrabold text-white"
+          className="shrink-0 whitespace-nowrap rounded-xl bg-harvest px-3.5 py-2.5 font-extrabold text-white"
           title="Khách mới"
         >
           🆕 Xong
@@ -234,6 +234,8 @@ export function Assistant({
         {phoneOpen ? (
           <div>
             <div className="flex items-center gap-2">
+              {/* min-w-0 lets the input shrink inside the narrow popup (an input's default
+                  min-width:auto would otherwise overflow and push the buttons off-screen). */}
               <input
                 autoFocus
                 inputMode="tel"
@@ -242,16 +244,17 @@ export function Assistant({
                 onChange={(e) => setPhoneVal(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && savePhone()}
                 placeholder="VD: 0987 654 321"
-                className="flex-1 rounded-lg border-2 border-emerald-300 p-2.5 text-base"
+                className="min-w-0 flex-1 rounded-lg border-2 border-emerald-300 p-2.5 text-base"
               />
-              <button onClick={savePhone} className="h-11 rounded-lg bg-brand px-3.5 font-extrabold text-white">
+              <button onClick={savePhone} className="h-11 shrink-0 rounded-lg bg-brand px-3.5 font-extrabold text-white">
                 Lưu
               </button>
               <button
                 onClick={() => setPhoneOpen(false)}
-                className="h-11 rounded-lg bg-slate-200 px-3.5 font-extrabold text-slate-700"
+                aria-label="Đóng"
+                className="h-11 shrink-0 rounded-lg bg-slate-200 px-3.5 font-extrabold text-slate-700"
               >
-                Đóng
+                ✕
               </button>
             </div>
             {phoneErr && <span className="block px-0.5 pt-1 text-xs text-red-600">Số điện thoại chưa đúng (vd 0987654321).</span>}
