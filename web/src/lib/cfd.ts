@@ -24,14 +24,30 @@ function channel(): BroadcastChannel | null {
   return _ch;
 }
 
-/** Push the current state to the customer display (no-op if not in a browser). */
+let _pushTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Push the current state to the customer display. Same-machine 2nd window updates instantly via
+ * BroadcastChannel; a SEPARATE device gets it by polling the server, so we also relay the state to
+ * the server (debounced). The customer name is stripped from the server copy (privacy on a public,
+ * guest-readable endpoint) — it stays only in the local BroadcastChannel/localStorage copy.
+ */
 export function cfdPost(msg: CfdMsg) {
   try {
     channel()?.postMessage(msg);
-    window.localStorage?.setItem(CFD_LAST, JSON.stringify(msg)); // also drives the `storage` fallback + initial paint
+    window.localStorage?.setItem(CFD_LAST, JSON.stringify(msg));
   } catch {
     /* ignore */
   }
+  // Relay to the server for cross-device displays (fire-and-forget, debounced, dynamic import to
+  // avoid a hard dependency from non-till code).
+  clearTimeout(_pushTimer);
+  const serverMsg = msg.type === "cart" ? { ...msg, customer_name: undefined } : msg;
+  _pushTimer = setTimeout(() => {
+    import("@/lib/api")
+      .then(({ frappeCall }) => frappeCall("cago.api.display.set_state", { data: JSON.stringify(serverMsg) }))
+      .catch(() => {});
+  }, 350);
 }
 
 export function cfdLast(): CfdMsg | null {

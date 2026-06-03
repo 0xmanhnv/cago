@@ -379,7 +379,7 @@ export function PosHome() {
       </div>
 
       {hasCap(boot, "sell") && (
-        <a href="/pos/display" target="_blank" rel="noopener" className="mt-tile mb-3.5 min-h-[64px] w-full bg-slate-700 text-lg">🖥 Mở màn hình phụ cho khách (cửa sổ mới)</a>
+        <a href="/display" target="_blank" rel="noopener" className="mt-tile mb-3.5 min-h-[64px] w-full bg-slate-700 text-lg">🖥 Mở màn hình phụ cho khách (cửa sổ mới)</a>
       )}
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
         {owner && (

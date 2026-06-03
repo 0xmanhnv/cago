@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "@/lib/session";
+import { frappeCall } from "@/lib/api";
 import { CFD_CHANNEL, CFD_LAST, cfdLast, type CfdMsg } from "@/lib/cfd";
 
 /**
@@ -17,6 +18,7 @@ export function CustomerDisplay() {
 
   useEffect(() => {
     setMsg(cfdLast());
+    // Same-machine 2nd window: instant via BroadcastChannel + the storage event.
     const bc = typeof window !== "undefined" && "BroadcastChannel" in window ? new BroadcastChannel(CFD_CHANNEL) : null;
     if (bc) bc.onmessage = (e) => setMsg(e.data as CfdMsg);
     const onStorage = (e: StorageEvent) => {
@@ -29,7 +31,21 @@ export function CustomerDisplay() {
       }
     };
     window.addEventListener("storage", onStorage);
+    // Separate device: poll the server relay (~1.2s). Public endpoint — no login needed.
+    let alive = true;
+    const poll = async () => {
+      try {
+        const s = await frappeCall<CfdMsg>("cago.api.display.get_state", {}, { method: "GET" });
+        if (alive && s) setMsg(s);
+      } catch {
+        /* ignore */
+      }
+    };
+    void poll();
+    const id = setInterval(poll, 1200);
     return () => {
+      alive = false;
+      clearInterval(id);
       bc?.close();
       window.removeEventListener("storage", onStorage);
     };

@@ -19,7 +19,7 @@ function capFor(path: string): { cap?: Cap; owner?: boolean } {
   )
     return { cap: "products" };
   if (path.startsWith("/pos/products/")) return {}; // detail view = any internal
-  if (path.startsWith("/pos/sell") || path.startsWith("/pos/credit-sale") || path.startsWith("/pos/display")) return { cap: "sell" };
+  if (path.startsWith("/pos/sell") || path.startsWith("/pos/credit-sale")) return { cap: "sell" };
   if (path.startsWith("/pos/returns")) return { cap: "returns" };
   if (path.startsWith("/pos/record-payment") || path.startsWith("/pos/record-debt")) return { cap: "debt" }; // write
   if (path.startsWith("/pos/verify") || path.startsWith("/pos/debt")) return { cap: "debt_view" }; // read
