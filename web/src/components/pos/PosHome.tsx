@@ -87,7 +87,6 @@ const GROUPS: { title: string; keys: string[] }[] = [
 export function PosHome() {
   const router = useRouter();
   const { boot } = useSession();
-  const posUrl = boot?.pos_url;
   const owner = isOwner(boot);
   const [digest, setDigest] = useState<Digest | null>(null);
   const [onboard, setOnboard] = useState<Onboarding | null>(null);
@@ -363,20 +362,15 @@ export function PosHome() {
             // Only the actions this user may use AND that aren't already pinned to ⭐ Hay dùng
             // (no duplication: pinned above ⇒ hidden here, and vice-versa).
             const keys = g.keys.filter((k) => can(k) && !favKeys.has(k));
-            const hasPos = g.title.startsWith("🛒") && !!posUrl && hasCap(boot, "sell");
-            if (!keys.length && !hasPos) return null; // hide an empty group entirely
-            const total = keys.length + (hasPos ? 1 : 0);
-            const lastOdd = total % 2 === 1;
+            if (!keys.length) return null; // hide an empty group entirely
+            const lastOdd = keys.length % 2 === 1;
             return (
               <div key={g.title} className="mb-3">
                 <div className="mb-1.5 ml-1 text-base font-bold text-slate-500">{g.title}</div>
                 <div className="grid grid-cols-2 gap-3.5">
                   {keys.map((k, idx) => (
-                    <Tile key={k} k={k} wide={lastOdd && !hasPos && idx === keys.length - 1} />
+                    <Tile key={k} k={k} wide={lastOdd && idx === keys.length - 1} />
                   ))}
-                  {hasPos && (
-                    <a href={posUrl} target="_blank" rel="noopener" className={`mt-tile bg-slate-600 ${lastOdd ? "col-span-2" : ""}`}>🧾 POS Awesome (quầy)</a>
-                  )}
                 </div>
               </div>
             );

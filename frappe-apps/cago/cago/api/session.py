@@ -20,14 +20,6 @@ from cago.utils.permissions import caps_for_user, has_cap, selling_limits
 def bootstrap():
 	"""Everything the frontend needs once per load. Safe for guests (kiosk)."""
 	_limits = selling_limits()
-	has_posawesome = "posawesome" in frappe.get_installed_apps()
-	# Only surface the POS Awesome URL to users who can actually open its desk page (Sales User
-	# etc.) — so mobile staff don't see a button that 404s with "Not permitted".
-	pos_url = None
-	if has_posawesome and frappe.db.exists("Page", "posapp"):
-		page_roles = {r.role for r in frappe.get_doc("Page", "posapp").roles}
-		if page_roles & set(frappe.get_roles()):
-			pos_url = "/app/posapp"  # version-stable entry; Frappe redirects /app->/desk; Next proxies both
 	return {
 		"user": frappe.session.user,
 		"full_name": (frappe.session.user != "Guest" and frappe.db.get_value("User", frappe.session.user, "full_name")) or "",
@@ -48,10 +40,6 @@ def bootstrap():
 		# đồng per loyalty point when redeemed at the till (so the sell UI shows "N điểm = Yđ").
 		"loyalty_redeem_vnd": _loyalty_redeem_vnd(),
 		"staff_can_collect_debt": _staff_can_collect_debt(),
-		"has_posawesome": has_posawesome,
-		# Single source of truth for the POS Awesome desk URL (frontend never hardcodes the
-		# desk path), gated to users who can open it. None = hide the button.
-		"pos_url": pos_url,
 		# Is a store map published? Gate the kiosk "Sơ đồ cửa hàng" tile + product "Xem vị trí".
 		"store_map": _store_map_published(),
 	}

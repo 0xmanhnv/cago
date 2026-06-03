@@ -1,12 +1,11 @@
 # Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
-"""Demo/test accounts for Cago — one per role of the hybrid POS model.
+"""Demo/test accounts for Cago — one per role.
 
     bench --site <site> execute cago.setup.test_accounts.ensure_test_accounts
 
-Idempotent. Password for all (except Administrator) = Test@12345. Counter users (owner +
-counter staff) also get the POS Awesome counter setup (Sales User role + POS Profile
-enrollment) via pos_profile_minimal.enroll_users; the shipper is mobile-only (/staff/sell).
+Idempotent. Password for all (except Administrator) = Test@12345. Everyone sells on the
+Cago-native /pos/sell (POS Awesome was removed).
 """
 
 import frappe
@@ -19,7 +18,6 @@ ACCOUNTS = [
 	{"email": "staff@cago.test", "name": "Nhân viên quầy", "mobile": "0900000002", "roles": ["Cago Staff"]},
 	{"email": "ship@cago.test", "name": "Nhân viên giao hàng", "mobile": "0900000004", "roles": ["Cago Staff"]},
 ]
-COUNTER_USERS = ["owner@cago.test", "staff@cago.test"]  # use POS Awesome at the counter
 
 
 def ensure_test_accounts():
@@ -44,14 +42,6 @@ def ensure_test_accounts():
 		if add:
 			doc.add_roles(*add)
 		print(f"  {a['email']}: roles={a['roles']} mobile={a['mobile']} lang=vi pwd={PASSWORD}")
-
-	# Counter users get the POS Awesome setup (Sales User + POS Profile enrollment); shipper stays mobile-only.
-	try:
-		from cago.setup.pos_profile_minimal import enroll_users
-
-		enroll_users(users=[u for u in COUNTER_USERS if frappe.db.exists("User", u)])
-	except Exception as e:
-		print("  (POS enroll skipped:", e, ")")
 
 	try:
 		from frappe.utils.password import update_password
