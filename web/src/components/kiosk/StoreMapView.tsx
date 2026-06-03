@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { findZone, planRoute, splitStrokes, toPath, toPoints, zoneCenter, type Pt, type StoreMap } from "@/lib/storemap";
 
@@ -29,6 +29,10 @@ export function StoreMapView({
   const [selfFixed, setSelfFixed] = useState(false);
   const [selfLoaded, setSelfLoaded] = useState(false);
   const [viewFloor, setViewFloor] = useState<string>("");
+  // Fit the whole map within the screen: measure where the map starts and cap its height to the
+  // space left below it (so it never overflows offscreen and the shopper sees the whole layout).
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [maxH, setMaxH] = useState<number>();
 
   useEffect(() => {
     setSelfFixed(isFixedKiosk());
@@ -53,6 +57,20 @@ export function StoreMapView({
     setViewFloor(plan ? plan.targetFloor : startFloor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, focusCategory, fixed]);
+
+  // Measure the map's top on screen and on resize; cap its height to the room below (leave ~140px
+  // for the legend + buttons under it) so the whole map fits in view, centered.
+  useEffect(() => {
+    const calc = () => {
+      const el = svgRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setMaxH(Math.max(220, window.innerHeight - top - 140));
+    };
+    calc();
+    window.addEventListener("resize", calc);
+    return () => window.removeEventListener("resize", calc);
+  }, [loaded, map]);
 
   if (!loaded) return <div className="py-6 text-center text-slate-400">Đang tải sơ đồ...</div>;
   if (!map || !map.published || map.zones.length === 0 || !start) return null;
@@ -86,7 +104,12 @@ export function StoreMapView({
         </div>
       )}
 
-      <svg viewBox={`0 0 ${map.width} ${map.height}`} className="w-full rounded-2xl border border-emerald-100 bg-slate-50 shadow-sm" style={{ aspectRatio: `${map.width} / ${map.height}` }}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${map.width} ${map.height}`}
+        className="mx-auto block w-full rounded-2xl border border-emerald-100 bg-slate-50 shadow-sm"
+        style={{ aspectRatio: `${map.width} / ${map.height}`, maxWidth: maxH ? `${(maxH * map.width) / map.height}px` : undefined }}
+      >
         {splitStrokes(aisleOnFloor).map((stroke, si) =>
           stroke.length >= 2 ? (
             <polyline key={`aisle${si}`} points={toPoints(stroke)} fill="none" stroke="#e2e8f0" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
