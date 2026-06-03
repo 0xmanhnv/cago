@@ -98,13 +98,10 @@ export function Assistant({
   };
 
   return (
-    // Phone / kiosk tablet: full-screen (right for touch). PC / big screen (xl): a centered popup
-    // card on a dimmed backdrop — clicking outside goes back (the conversation is kept).
-    <div
-      className="fixed inset-0 z-[60] flex flex-col bg-[#f0fdf4] xl:items-center xl:justify-center xl:bg-black/45 xl:p-6"
-      onClick={(e) => { if (e.target === e.currentTarget) onBack(); }}
-    >
-    <div className="flex h-full w-full flex-col overflow-hidden bg-[#f0fdf4] xl:h-[88vh] xl:max-h-[800px] xl:w-full xl:max-w-[560px] xl:rounded-3xl xl:shadow-2xl">
+    // Phone / kiosk tablet: full-screen (right for touch). PC / big screen (xl): a floating chat
+    // window docked bottom-right (Messenger-style) — it does NOT cover the page, so the screen
+    // behind stays visible and clickable. No backdrop; close via the header buttons.
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[#f0fdf4] xl:inset-auto xl:bottom-4 xl:right-4 xl:h-[640px] xl:max-h-[calc(100vh-2rem)] xl:w-[400px] xl:overflow-hidden xl:rounded-2xl xl:border xl:border-emerald-200 xl:shadow-2xl">
       {/* header — brand gradient bar */}
       <div className="flex items-center gap-2 bg-gradient-to-r from-brand to-brand-dark px-3 py-3 text-white shadow-card">
         <button onClick={onBack} className="shrink-0 whitespace-nowrap rounded-xl bg-white/20 px-4 py-3 text-lg font-extrabold text-white">
@@ -283,7 +280,6 @@ export function Assistant({
           Gửi
         </button>
       </div>
-    </div>
     </div>
   );
 }

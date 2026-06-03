@@ -73,11 +73,12 @@ export function useKioskNav() {
     router.push("/cart");
   }, [router]);
 
+  // The assistant opens as a floating overlay over the current page (not a separate route) so on a
+  // PC it reads as a docked chat window with the page still visible behind it.
   const openChat = useCallback(() => {
-    bump();
     kiosk.ensureFreshSession();
-    router.push("/assistant");
-  }, [kiosk, router]);
+    kiosk.openAssistant();
+  }, [kiosk]);
 
   const openMyDebt = useCallback(() => {
     bump();

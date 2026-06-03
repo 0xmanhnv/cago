@@ -79,7 +79,7 @@ export function Coupons() {
   const valueText = (c: Coupon) => (c.discount_type === "Percent" ? `${c.discount_value}%` : money(c.discount_value));
 
   return (
-    <div>
+    <div className="mx-auto max-w-[760px]">
       <BackBar onBack={() => goBackSmart(router)} title="MÃ GIẢM GIÁ" />
 
       <div className="mt-card p-4">

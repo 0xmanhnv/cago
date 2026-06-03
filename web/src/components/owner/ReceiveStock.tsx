@@ -110,7 +110,7 @@ export function ReceiveStock() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-[760px]">
       <BackBar onBack={() => setCode(null)} title="NHẬP HÀNG" label="Chọn sản phẩm khác" />
       <div className="mt-card p-4">
         <div className="text-xl font-extrabold text-brand-dark">{prod?.display_name || code}</div>

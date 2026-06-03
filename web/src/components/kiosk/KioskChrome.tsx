@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
 import { FloatingFab } from "./FloatingFab";
+import { Assistant } from "./Assistant";
 
 export function KioskChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,9 +20,8 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isAssistant = pathname.startsWith("/assistant");
-  const showFabs = pathname !== "/" && !isAssistant; // home has its own big buttons; chat is full-screen
-  const showCartBar = cartCount > 0 && pathname !== "/cart" && !isAssistant;
+  const showFabs = pathname !== "/"; // home has its own big buttons
+  const showCartBar = cartCount > 0 && pathname !== "/cart" && !kiosk.assistantOpen;
 
   // 900px is right for a tablet; the in-store kiosk runs on a big screen, so widen on xl/2xl
   // (the grids add columns to fill it) instead of stranding content in a narrow centred column.
@@ -50,19 +50,31 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
           >
             🔔 Gọi người bán
           </FloatingFab>
-          <FloatingFab
-            storageKey="cago_fab_chat"
-            onTap={nav.openChat}
-            title="Hỏi trợ lý"
-            style={{ position: "fixed", right: 10, bottom: 78, zIndex: 55 }}
-            className="rounded-full bg-violet-600 px-4 py-3 text-base font-extrabold text-white shadow-lg"
-          >
-            🤖 Hỏi trợ lý
-          </FloatingFab>
+          {!kiosk.assistantOpen && (
+            <FloatingFab
+              storageKey="cago_fab_chat"
+              onTap={nav.openChat}
+              title="Hỏi trợ lý"
+              style={{ position: "fixed", right: 10, bottom: 78, zIndex: 55 }}
+              className="rounded-full bg-violet-600 px-4 py-3 text-base font-extrabold text-white shadow-lg"
+            >
+              🤖 Hỏi trợ lý
+            </FloatingFab>
+          )}
         </>
       )}
 
       {kiosk.callStaffOpen && <CallStaff onDone={kiosk.closeCallStaff} />}
+
+      {/* Assistant chat overlay — floating window on PC, full-screen on phone/tablet. */}
+      {kiosk.assistantOpen && (
+        <Assistant
+          onClose={() => { kiosk.newSession(); kiosk.closeAssistant(); }}
+          onBack={kiosk.closeAssistant}
+          onOpenProduct={(code) => { kiosk.closeAssistant(); nav.openDetail(code); }}
+          onCallStaff={kiosk.openCallStaff}
+        />
+      )}
     </div>
   );
 }

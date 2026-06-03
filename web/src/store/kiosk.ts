@@ -60,6 +60,11 @@ interface KioskState {
   callStaffOpen: boolean;
   openCallStaff: () => void;
   closeCallStaff: () => void;
+
+  // assistant chat overlay (shown over any route — a floating window on PC, full-screen on mobile)
+  assistantOpen: boolean;
+  openAssistant: () => void;
+  closeAssistant: () => void;
 }
 
 function loadSession() {
@@ -181,5 +186,9 @@ export const useKiosk = create<KioskState>((set, get) => {
     callStaffOpen: false,
     openCallStaff: () => set({ callStaffOpen: true }),
     closeCallStaff: () => set({ callStaffOpen: false }),
+
+    assistantOpen: false,
+    openAssistant: () => set({ assistantOpen: true }),
+    closeAssistant: () => set({ assistantOpen: false }),
   };
 });

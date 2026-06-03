@@ -111,7 +111,7 @@ export function OwnerSettings() {
   };
 
   return (
-    <div>
+    <div className="mx-auto max-w-[760px]">
       <BackBar onBack={() => goBackSmart(router)} title="QR THU TIỀN (VietQR)" />
       <div className="rounded-xl bg-white p-4">
         <p className="text-slate-500">Nhập tài khoản ngân hàng của cửa hàng để hiện mã QR cho khách chuyển khoản đúng số tiền.</p>

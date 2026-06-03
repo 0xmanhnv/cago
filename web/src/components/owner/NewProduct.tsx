@@ -48,7 +48,7 @@ export function NewProduct() {
   };
 
   return (
-    <div>
+    <div className="mx-auto max-w-[760px]">
       <BackBar onBack={() => goBackSmart(router)} title="THÊM SẢN PHẨM" />
       <div className="rounded-xl bg-white p-4">
         <label className="block font-bold text-slate-700">Tên sản phẩm *</label>
