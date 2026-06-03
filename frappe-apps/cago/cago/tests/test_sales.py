@@ -70,6 +70,21 @@ class TestCreditSale(FrappeTestCase):
 		self.assertEqual(r1["invoice"], r2["invoice"])
 		self.assertAlmostEqual(bal1, bal2, places=2)  # debt not doubled
 
+	def test_repayment_clears_the_credit_invoice_outstanding(self):
+		"""A repayment must allocate against the open credit invoice so its outstanding_amount hits 0
+		— not just lower the aggregate GL balance while the invoice still shows unpaid."""
+		from cago.api import debt, purchasing, sales
+		from frappe.utils import flt
+
+		purchasing.receive_stock(ITEM, 10)
+		cust = debt.add_customer("KH Tra No Het")["customer"]
+		r = sales.credit_sale(cust, json.dumps([{"item_code": ITEM, "qty": 2}]))
+		owed = flt(frappe.db.get_value("Sales Invoice", r["invoice"], "outstanding_amount"))
+		self.assertGreater(owed, 0)
+		debt.record_repayment(cust, owed)
+		self.assertAlmostEqual(flt(frappe.db.get_value("Sales Invoice", r["invoice"], "outstanding_amount")), 0, places=2)
+		self.assertAlmostEqual(flt(debt.get_customer_debt(cust)["outstanding"]), 0, places=2)
+
 
 def flt_qty(item_code):
 	from frappe.utils import flt
@@ -199,9 +214,9 @@ class TestQuickSale(FrappeTestCase):
 		tt = get_time(str(si.posting_time))
 		self.assertEqual((tt.hour, tt.minute), (8, 15))
 
-	def test_quick_sale_replay_after_cancel_does_not_error(self):
-		"""Re-sending a uuid whose invoice was later cancelled must resolve to that invoice (dedup),
-		not hit the unique index and 500."""
+	def test_quick_sale_replay_after_cancel_flags_cancelled(self):
+		"""Re-sending a uuid whose invoice was later cancelled must resolve to that invoice (dedup,
+		no unique-index 500) AND flag it cancelled — a voided sale must not be reported as live."""
 		from cago.api import purchasing, sales
 
 		purchasing.receive_stock(ITEM, 10)
@@ -211,6 +226,10 @@ class TestQuickSale(FrappeTestCase):
 		r2 = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", client_uuid=uuid)
 		self.assertEqual(r2["invoice"], r1["invoice"])
 		self.assertTrue(r2.get("duplicate"))
+		self.assertTrue(r2.get("cancelled"))
+		self.assertEqual(r2.get("docstatus"), 2)
+		# No second booking happened (the cancelled invoice is the only one for this uuid).
+		self.assertEqual(frappe.db.count("Sales Invoice", {"cago_client_uuid": uuid}), 1)
 
 	def test_quick_sale_posted_at_out_of_range_falls_back_to_today(self):
 		"""A forged/stale posted_at (here: years ago) is ignored so it can't back-date the GL/reports."""

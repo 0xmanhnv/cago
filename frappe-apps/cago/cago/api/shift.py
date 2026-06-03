@@ -29,8 +29,8 @@ def ensure_open_shift(user=None):
 		frappe.throw(_("Bạn chưa mở ca bán hàng. Hãy mở ca trước khi bán."), title=_("Chưa mở ca"))
 
 
-def _cashier_cash_sales(user, since):
-	"""Net cash that should be in THIS cashier's drawer since `since`.
+def _cashier_cash_sales(user, since, until=None):
+	"""Net cash that should be in THIS cashier's drawer for the window [`since`, `until`].
 
 	= Cash-type payment rows on their submitted invoices (a return's negative cash subtracts,
 	  now that return_sale stamps cago_cashier)
@@ -38,35 +38,53 @@ def _cashier_cash_sales(user, since):
 	  while change goes back to the customer, so it must be netted out of the drawer).
 	The change subtraction is computed per-invoice (not in the payment join) so an invoice with
 	several payment rows doesn't subtract its change more than once.
+
+	Sales are attributed by their POSTING datetime (when the sale was rung up), NOT `creation`
+	(the DB-insert/sync time). An offline sale rung up during this shift but synced minutes later
+	carries posting_date/posting_time inside the window via quick_sale(posted_at=...), so it lands
+	in the shift it belongs to; using `creation` would push it past the close into the next shift.
+	`until` (a closed shift's closed_at) bounds the window so a late sync can't leak across shifts.
 	"""
+	# Build the posting-datetime window predicate + params shared by the two SI queries.
+	si_when = "timestamp(si.posting_date, si.posting_time) >= %s"
+	si_args = [user, since]
+	if until:
+		si_when += " and timestamp(si.posting_date, si.posting_time) <= %s"
+		si_args.append(until)
 	cash_in = frappe.db.sql(
-		"""
+		f"""
 		select coalesce(sum(sip.amount), 0)
 		from `tabSales Invoice Payment` sip
 		join `tabSales Invoice` si on si.name = sip.parent
 		join `tabMode of Payment` mop on mop.name = sip.mode_of_payment
-		where si.docstatus = 1 and si.cago_cashier = %s and si.creation >= %s and mop.type = 'Cash'
+		where si.docstatus = 1 and si.cago_cashier = %s and {si_when} and mop.type = 'Cash'
 		""",
-		(user, since),
+		tuple(si_args),
 	)
 	change_out = frappe.db.sql(
-		"""
+		f"""
 		select coalesce(sum(change_amount), 0)
-		from `tabSales Invoice`
-		where docstatus = 1 and cago_cashier = %s and creation >= %s
+		from `tabSales Invoice` si
+		where si.docstatus = 1 and si.cago_cashier = %s and {si_when}
 		""",
-		(user, since),
+		tuple(si_args),
 	)
-	# Cash debt collections (Khách trả nợ) made by this cashier also land in the drawer.
+	# Cash debt collections (Khách trả nợ) made by this cashier also land in the drawer. These are
+	# always real-time counter actions, so creation == posting; bound by the same window.
+	pe_when = "pe.creation >= %s"
+	pe_args = [user, since]
+	if until:
+		pe_when += " and pe.creation <= %s"
+		pe_args.append(until)
 	repaid = frappe.db.sql(
-		"""
+		f"""
 		select coalesce(sum(pe.paid_amount), 0)
 		from `tabPayment Entry` pe
 		join `tabAccount` acc on acc.name = pe.paid_to
 		where pe.docstatus = 1 and pe.payment_type = 'Receive'
-		  and pe.cago_cashier = %s and pe.creation >= %s and acc.account_type = 'Cash'
+		  and pe.cago_cashier = %s and {pe_when} and acc.account_type = 'Cash'
 		""",
-		(user, since),
+		tuple(pe_args),
 	)
 	return (
 		(flt(cash_in[0][0]) if cash_in else 0.0)
@@ -157,7 +175,10 @@ def close_shift(counted_cash, payouts=0, note=None):
 	if not name:
 		frappe.throw(_("Không có ca nào đang mở."))
 	doc = frappe.get_doc("Cago Till Shift", name)
-	cash_sales = _cashier_cash_sales(doc.cashier, doc.opened_at)
+	# Stamp the close time first, then reconcile over exactly [opened_at, closed_at] so a sale that
+	# syncs after this moment can't be (double-)counted in this now-closed shift.
+	doc.closed_at = now_datetime()
+	cash_sales = _cashier_cash_sales(doc.cashier, doc.opened_at, doc.closed_at)
 	expected = flt(doc.opening_cash) + cash_sales - flt(payouts)
 	counted = flt(counted_cash)
 	doc.cash_sales = cash_sales
@@ -167,7 +188,6 @@ def close_shift(counted_cash, payouts=0, note=None):
 	doc.difference = counted - expected
 	doc.note = note
 	doc.status = "Closed"
-	doc.closed_at = now_datetime()
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
 	return {"open": False, **_shift_dto(doc)}

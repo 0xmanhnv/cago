@@ -86,6 +86,18 @@ def search_customers(query=None):
 	return out
 
 
+def ensure_can_collect_debt():
+	"""Live owner kill-switch for staff debt actions. The `debt` capability lets a chức danh use the
+	debt screens; this toggle (Company.cago_staff_can_collect_debt) lets the owner turn staff
+	ghi nợ / thu nợ off at runtime without editing roles. The owner is always allowed."""
+	from cago.utils.permissions import is_owner
+
+	if is_owner():
+		return
+	if not frappe.db.get_value("Company", _company(), "cago_staff_can_collect_debt"):
+		frappe.throw(_("Chủ cửa hàng đang tắt quyền ghi nợ / thu nợ của nhân viên."), title=_("Không được phép"))
+
+
 def _debt_summary(customer):
 	"""Guard-free outstanding summary, INTERNAL only (called by record_repayment after its own
 	ensure_can_collect_debt guard). Not whitelisted — must never be reachable directly, or any
@@ -134,6 +146,7 @@ def get_customer_debt(customer):
 def record_debt(customer, amount, note=None):
 	"""Customer takes goods on credit. Increases receivable via a Journal Entry."""
 	ensure_cap("debt")
+	ensure_can_collect_debt()
 	ensure_lang()
 	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
@@ -186,6 +199,7 @@ def record_repayment(customer, amount, note=None):
 	Requires the `debt` capability — the cash then counts in that cashier's till shift and the
 	collector is stamped on the Payment Entry."""
 	ensure_cap("debt")
+	ensure_can_collect_debt()
 	cashier = frappe.session.user
 	ensure_lang()
 	customer = resolve_customer(customer)
@@ -220,6 +234,23 @@ def record_repayment(customer, amount, note=None):
 			"cago_cashier": cashier,  # who collected — for the till shift + audit
 		}
 	)
+	# Allocate the payment against the customer's open credit invoices FIFO (oldest first) so each
+	# Sales Invoice's outstanding_amount actually clears — otherwise a paid credit sale would keep
+	# showing as unpaid in "Đơn gần đây" while the aggregate balance reads zero. Any amount beyond
+	# the open invoices (or debt booked via Journal Entry) stays on-account, still reducing the
+	# receivable correctly.
+	remaining = amount
+	for inv in frappe.get_all(
+		"Sales Invoice",
+		filters={"customer": customer, "company": company, "docstatus": 1, "is_return": 0, "outstanding_amount": [">", 0]},
+		fields=["name", "outstanding_amount"],
+		order_by="posting_date asc, creation asc",
+	):
+		if remaining <= 0:
+			break
+		alloc = min(remaining, flt(inv.outstanding_amount))
+		pe.append("references", {"reference_doctype": "Sales Invoice", "reference_name": inv.name, "allocated_amount": alloc})
+		remaining -= alloc
 	_submit_privileged(pe)
 	record_action("Debt Payment", ref_doctype="Payment Entry", ref_name=pe.name, new_value=amount)
 	frappe.db.commit()

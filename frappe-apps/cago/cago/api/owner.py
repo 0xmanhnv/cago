@@ -76,9 +76,21 @@ def update_price(item_code, new_price):
 	new_rate = flt(new_price)
 	if new_rate <= 0:
 		frappe.throw(_("Giá phải lớn hơn 0."))
+	# Enforce the giá-sàn floor here too — update_product enforces it, but this separate endpoint
+	# must not be a back door to set the catalogue price below cost-protection.
+	min_price = flt(frappe.db.get_value("Item", item_code, "cago_min_price"))
+	if min_price and new_rate < min_price:
+		frappe.throw(_("Giá bán không được thấp hơn giá sàn ({0}).").format(dto.format_price(min_price)))
 
 	old_rate = dto.get_selling_price(item_code)
 	uom = frappe.db.get_value("Item", item_code, "stock_uom")
+	# No-op: same price → don't write a spurious history row (it would read as a price change).
+	if flt(old_rate) == new_rate:
+		return {
+			"item_code": item_code,
+			"old_price_text": dto.format_price(old_rate, uom),
+			"new_price_text": dto.format_price(new_rate, uom),
+		}
 	_upsert_selling_price(item_code, new_rate, uom)
 
 	record_action(
@@ -468,6 +480,10 @@ def save_category(name, icon=None, color=None, old_name=None):
 	name = (name or "").strip()
 	if not name:
 		frappe.throw(_("Nhập tên loại hàng."))
+	# Refuse a name that collides with an ERPNext built-in group — otherwise we'd silently restyle a
+	# system group, and the owner could never assign products to it (the product forms exclude these).
+	if name in ERPNEXT_DEFAULT_GROUPS:
+		frappe.throw(_("Tên '{0}' trùng nhóm hệ thống. Hãy chọn tên khác.").format(name))
 	old = (old_name or "").strip()
 	if old and old != name:
 		if not frappe.db.exists("Item Group", old):

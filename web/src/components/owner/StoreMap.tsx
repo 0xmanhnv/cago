@@ -157,7 +157,12 @@ export function StoreMap() {
     upd({ floors: [...map.floors, { label, level: map.floors.length + 1, stairs: { x: 50, y: 35 } }] });
     setFloor(label);
   };
-  const renameFloor = (oldLabel: string, label: string) => {
+  const renameFloor = (oldLabel: string, raw: string) => {
+    const label = raw.trim();
+    // A floor's identity IS its label (zones/aisle reference it by string). Refuse an empty or
+    // duplicate label — otherwise the backend drops the unnamed floor on save and its zones/lối đi
+    // are orphaned (lost from every tab + the kiosk). Empty input is simply ignored, not committed.
+    if (!label || map.floors.some((f) => f.label === label && f.label !== oldLabel)) return;
     setMap((m) =>
       m
         ? {

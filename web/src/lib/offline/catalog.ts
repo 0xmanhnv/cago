@@ -17,19 +17,35 @@ export async function refreshCatalog(force = false): Promise<void> {
     frappeCall<CustomerRow[]>("cago.api.sales.customers_snapshot", {}, { method: "GET" }),
   ]);
   const d = await db();
-  {
+  // Guard a degenerate response: never wipe a good cache and replace it with nothing (a transient
+  // auth blip / empty list would otherwise leave staff with an empty offline catalog).
+  if (catalog && catalog.length) {
     const tx = d.transaction("catalog", "readwrite");
     await tx.store.clear();
-    for (const row of catalog || []) await tx.store.put(row);
+    for (const row of catalog) await tx.store.put(row);
     await tx.done;
   }
-  {
+  if (customers && customers.length) {
     const tx = d.transaction("customers", "readwrite");
     await tx.store.clear();
-    for (const row of customers || []) await tx.store.put(row);
+    for (const row of customers) await tx.store.put(row);
     await tx.done;
   }
   await metaSet(LAST_SYNC, Date.now());
+}
+
+/**
+ * Wipe the per-user catalog + customer caches (customer names/phones/debt are private) on logout so
+ * the next staff on a SHARED tablet doesn't read the previous user's data. The sale queue is left
+ * intact on purpose — unsynced offline sales must survive a logout and still flush, and they can't
+ * be silently discarded. They flush under whoever is next logged in (server attributes by cashier
+ * stamped at ring-up time via posted_at; offline already can't re-stamp the cashier).
+ */
+export async function clearUserCaches(): Promise<void> {
+  const d = await db();
+  await d.clear("catalog");
+  await d.clear("customers");
+  await metaSet(LAST_SYNC, 0);
 }
 
 export async function catalogCount(): Promise<number> {

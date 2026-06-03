@@ -51,8 +51,11 @@ def _row(user):
 def list_staff():
 	ensure_owner()
 	rows = frappe.get_all("Has Role", filters={"role": ["in", _INTERNAL_ROLES]}, fields=["parent"], distinct=True)
-	users = sorted({r.parent for r in rows} - {"Administrator", "Guest"})
-	return [_row(u) for u in users]
+	users = {r.parent for r in rows}
+	# Also include accounts that were created with a job role assigned but no cap-role granted yet
+	# (and any capability-less staff) so a just-created account never vanishes from this screen.
+	users |= set(frappe.get_all("Cago User Job Role", filters={"parenttype": "User"}, pluck="parent", distinct=True))
+	return [_row(u) for u in sorted(users - {"Administrator", "Guest"})]
 
 
 @frappe.whitelist()

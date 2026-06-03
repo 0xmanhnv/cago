@@ -33,6 +33,8 @@ export async function enqueueSale(args: SaleArgs, display: SaleDisplay): Promise
     display,
   };
   await (await db()).put("queue", sale);
+  // Let the header badge / pending screen update right away (sync.ts fires the same event on flush).
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("cago:queuechange"));
   return sale;
 }
 

@@ -107,6 +107,14 @@ export async function logout() {
     headers: { "X-Frappe-CSRF-Token": csrfToken },
   });
   csrfToken = ""; // stale after session ends; a fresh guest token is fetched on next bootstrap
+  // Clear the per-user offline caches (catalog + customers) so the next user on a shared tablet
+  // can't read them. Dynamic import avoids a static api↔offline cycle; the sale queue is kept.
+  try {
+    const { clearUserCaches } = await import("./offline/catalog");
+    await clearUserCaches();
+  } catch {
+    /* offline cache not available — nothing to clear */
+  }
 }
 
 // Multipart upload (product images) — Frappe's upload_file, returns file_url.

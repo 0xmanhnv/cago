@@ -128,7 +128,9 @@ def uom_label(uom):
 
 def format_price(rate, uom=None):
 	"""Format a VND amount the way a rural customer reads it: 320.000đ / Bao."""
-	if not rate:
+	# Treat anything that rounds to 0đ as "no price set" — a sub-1đ rate (rounding crumb) must not
+	# render as a free "0đ". Negative amounts (returns) still format normally.
+	if not rate or (rate > 0 and round(rate) == 0):
 		return "Liên hệ"
 	text = f"{int(round(rate)):,}".replace(",", ".") + "đ"
 	if uom:
@@ -206,29 +208,50 @@ def _expiry_dto(item_code):
 	}
 
 
+def selling_warehouse():
+	"""The warehouse a counter sale draws from — on-hand for stock status MUST be measured here, not
+	summed across every warehouse (transit/scrap/another branch), or the shelf shows "Còn hàng" while
+	the counter is empty. Mirrors cago.api.sales._warehouse; cached per request to stay cheap."""
+	if frappe.flags.get("cago_selling_warehouse") is not None:
+		return frappe.flags.cago_selling_warehouse or None
+	company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
+	wh = None
+	for name in ("Stores", "Finished Goods"):
+		wh = frappe.db.get_value("Warehouse", {"company": company, "is_group": 0, "warehouse_name": name}, "name")
+		if wh:
+			break
+	wh = wh or frappe.db.get_value("Warehouse", {"company": company, "is_group": 0}, "name")
+	frappe.flags.cago_selling_warehouse = wh or ""
+	return wh
+
+
 def get_actual_qty(item_code):
-	"""Total on-hand qty across warehouses (ERPNext Bin)."""
+	"""On-hand qty at the selling warehouse (ERPNext Bin)."""
 	bin_table = frappe.qb.DocType("Bin")
-	result = (
-		frappe.qb.from_(bin_table)
-		.select(Sum(bin_table.actual_qty))
-		.where(bin_table.item_code == item_code)
-	).run()
+	q = frappe.qb.from_(bin_table).select(Sum(bin_table.actual_qty)).where(bin_table.item_code == item_code)
+	wh = selling_warehouse()
+	if wh:
+		q = q.where(bin_table.warehouse == wh)
+	result = q.run()
 	return (result[0][0] if result and result[0] else 0) or 0
 
 
 def bin_qty_map(codes):
-	"""Batch on-hand qty for many items in one query: {item_code: qty}."""
+	"""Batch on-hand qty for many items in one query: {item_code: qty} at the selling warehouse."""
 	codes = [c for c in set(codes) if c]
 	if not codes:
 		return {}
 	bin_table = frappe.qb.DocType("Bin")
-	rows = (
+	q = (
 		frappe.qb.from_(bin_table)
 		.select(bin_table.item_code, Sum(bin_table.actual_qty).as_("q"))
 		.where(bin_table.item_code.isin(codes))
 		.groupby(bin_table.item_code)
-	).run(as_dict=True)
+	)
+	wh = selling_warehouse()
+	if wh:
+		q = q.where(bin_table.warehouse == wh)
+	rows = q.run(as_dict=True)
 	return {r.item_code: flt(r.q) for r in rows}
 
 
@@ -311,10 +334,15 @@ def _price_map(codes):
 
 
 def _rate_for(pmap, stock_uom):
-	"""Pick the stock-unit rate from a per-uom price map (fallbacks: uom-less, any)."""
+	"""Pick the BASE (stock-unit) rate from a per-uom price map.
+
+	Only the stock-uom price (or a uom-less price) is a valid base rate. We must NOT fall back to
+	an arbitrary larger-unit price (e.g. a per-Yến/per-bao price) — that would show/charge a 10×–
+	1000× rate as if it were per-kg. A missing base price reads as 0 → "Liên hệ", never a wrong price.
+	"""
 	if not pmap:
 		return 0
-	return pmap.get(stock_uom) or pmap.get("") or next(iter(pmap.values()), 0) or 0
+	return pmap.get(stock_uom) or pmap.get("") or 0
 
 
 def list_dtos(query, audience="staff", public_only=False, category=None, limit=24, start=0):

@@ -84,8 +84,15 @@ class TestChatbotSafety(FrappeTestCase):
 		self.assertIn("stronger_than_label", safety.classify("tăng liều cho mạnh hơn"))
 		self.assertIn("near_harvest", safety.classify("gần thu hoạch có phun được không"))
 
+	def test_detects_dosage_phrasings_without_explicit_units(self):
+		# Common rural phrasings that earlier slipped the unit-bound regex and reached the LLM.
+		for q in ("tỉ lệ bao nhiêu", "dùng bao nhiêu là đủ", "phun mấy lần", "mấy muỗng cho 1 bình", "bón mấy kg cho 1 sào"):
+			self.assertIn("dosage", safety.classify(q), q)
+
 	def test_non_sensitive_is_empty(self):
-		self.assertEqual(safety.classify("cám gà con giá bao nhiêu"), [])
+		# Price / stock questions must NOT be misfired as dosage (they'd be wrongly refused).
+		for q in ("cám gà con giá bao nhiêu", "phân npk bán bao nhiêu tiền", "dùng cho gà thì giá bao nhiêu", "còn hàng không"):
+			self.assertEqual(safety.classify(q), [], q)
 
 	def test_sensitive_is_never_auto_answered(self):
 		self.assertFalse(safety.answerable_from_data(["dosage"], [{"is_chemical": 1}]))

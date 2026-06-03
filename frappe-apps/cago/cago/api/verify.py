@@ -238,9 +238,14 @@ def my_debt(token):
 	rate_guard("verify_debt", limit=30, seconds=300)
 	if not token:
 		frappe.throw(_("Phiên không hợp lệ."))
-	for v in _store().values():
+	d = _store()
+	for v in d.values():
 		if v.get("approved") and v.get("customer") and v.get("token") and hmac.compare_digest(v["token"], token):
 			cust = v["customer"]
+			# Single-use: invalidate the token immediately so it can't be replayed (shoulder-surfed /
+			# left in a URL) to re-read this customer's debt on a shared kiosk within the TTL.
+			v["token"] = ""
+			_save(d)
 			bal = _owes(cust)
 			try:
 				record_action("Other", ref_doctype="Customer", ref_name=cust, new_value="kiosk debt view")

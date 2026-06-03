@@ -141,6 +141,10 @@ def _existing_sale_result(si_name):
 	"""Rebuild a quick_sale result from an already-booked invoice — used when an offline sale is
 	re-sent with the same client_uuid (dedup). `duplicate` lets the caller know it wasn't re-booked."""
 	si = frappe.get_doc("Sales Invoice", si_name)
+	# A re-sent uuid may resolve to an invoice the owner CANCELLED in the meantime (docstatus 2).
+	# That sale was voided — its stock/debt were reversed — so it must NOT be reported as a live
+	# booking. Flag it so the till/offline client surfaces it for re-entry instead of "done".
+	cancelled = si.docstatus == 2
 	total = flt(si.grand_total)
 	out = flt(si.outstanding_amount)
 	mode = "credit" if not si.is_pos else "cash"
@@ -161,8 +165,10 @@ def _existing_sale_result(si_name):
 		"item_count": len(si.items),
 		"customer_name": _customer_label(si.customer),
 		"lines": lines,
-		"outstanding_text": (dto.format_price(out) if out > 0 else ("Không nợ" if mode == "credit" else None)),
+		"outstanding_text": (None if cancelled else (dto.format_price(out) if out > 0 else ("Không nợ" if mode == "credit" else None))),
 		"duplicate": True,
+		"cancelled": cancelled,
+		"docstatus": int(si.docstatus),
 	}
 
 

@@ -687,6 +687,7 @@ export function Checkout() {
     setLines({});
     setMeta({}); // drop cached stock so the next sale re-reads fresh on-hand (no stale OOS banner)
     setDiscount("");
+    setDiscountMode("amount"); // reset đ/% so a "%" mode doesn't bleed into the next customer's discount
     setRedeemPts(0);
     clearCoupon();
     setSplitCash("");
