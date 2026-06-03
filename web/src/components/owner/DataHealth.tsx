@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { confirmDialog } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/toast";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { BackBar, goBackSmart, Ok } from "./OwnerShared";
 
@@ -27,14 +29,54 @@ export function DataHealth() {
   const router = useRouter();
   const [d, setD] = useState<Health | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [mergeFor, setMergeFor] = useState<number | null>(null); // index of the group being merged
 
+  const load = () =>
+    frappeCall<Health>("cago.api.owner.data_health", {}, { method: "GET" }).then(setD).finally(() => setLoading(false));
   useEffect(() => {
-    frappeCall<Health>("cago.api.owner.data_health", {}, { method: "GET" })
-      .then(setD)
-      .finally(() => setLoading(false));
+    void load();
   }, []);
 
   const edit = (code: string) => router.push(`/pos/products/${encodeURIComponent(code)}/edit`);
+
+  // "Không trùng": remember this group so it stops showing.
+  const dismiss = async (items: Row[]) => {
+    if (busy) return;
+    if (!(await confirmDialog("Đánh dấu nhóm này KHÔNG trùng nhau? Sẽ không hiện lại nữa."))) return;
+    setBusy(true);
+    try {
+      await frappeCall("cago.api.owner.dismiss_duplicate", { item_codes: JSON.stringify(items.map((r) => r.item_code)) });
+      toast.success("Đã ghi nhận — không hiện lại nhóm này.");
+      setMergeFor(null);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // "Gộp": keep `target`, absorb every other item in the group into it (irreversible).
+  const merge = async (group: Row[], target: Row) => {
+    if (busy) return;
+    const others = group.filter((r) => r.item_code !== target.item_code);
+    if (!(await confirmDialog(`Gộp ${others.length} mặt hàng vào "${target.display_name}" (${target.item_code})? Tồn/giá/lịch sử dồn về mặt này; các mặt kia bị xoá. KHÔNG hoàn tác được.`, { danger: true, confirmLabel: "Gộp" }))) return;
+    setBusy(true);
+    try {
+      for (const src of others) {
+        await frappeCall("cago.api.owner.merge_products", { source: src.item_code, target: target.item_code });
+      }
+      toast.success("Đã gộp xong.");
+      setMergeFor(null);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Không gộp được.");
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // A collapsible-free section: icon + title + count, then the rows (tap to fix). Severity colours
   // the badge so the owner sees what's most worth fixing first.
@@ -92,11 +134,34 @@ export function DataHealth() {
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     {g.items.map((r) => (
                       <button key={r.item_code} onClick={() => edit(r.item_code)} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-2 text-left">
-                        <span className="min-w-0 truncate font-bold">{r.display_name}</span>
+                        <span className="min-w-0">
+                          <span className="block truncate font-bold">{r.display_name}</span>
+                          <span className="block truncate text-xs text-slate-400">{r.item_code}</span>
+                        </span>
                         <span className="shrink-0 text-xs font-bold text-amber-600">Sửa →</span>
                       </button>
                     ))}
                   </div>
+                  {/* Owner decides: merge (keep one), or mark "not a duplicate" (never show again). */}
+                  {mergeFor === i ? (
+                    <div className="mt-2 rounded-lg bg-amber-50 p-2">
+                      <div className="mb-1.5 text-sm font-bold text-amber-800">Giữ lại mặt nào? (các mặt còn lại gộp vào đây)</div>
+                      <div className="grid gap-1.5 sm:grid-cols-2">
+                        {g.items.map((r) => (
+                          <button key={r.item_code} disabled={busy} onClick={() => merge(g.items, r)} className="rounded-lg bg-brand px-3 py-2 text-left text-sm font-bold text-white disabled:opacity-50">
+                            Giữ: {r.display_name}
+                            <span className="block text-xs font-normal text-white/80">{r.item_code}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <button disabled={busy} onClick={() => setMergeFor(null)} className="mt-1.5 text-sm font-bold text-slate-500">Huỷ</button>
+                    </div>
+                  ) : (
+                    <div className="mt-2 flex gap-2">
+                      <button disabled={busy} onClick={() => setMergeFor(i)} className="flex-1 rounded-lg bg-rose-600 py-2 text-sm font-bold text-white disabled:opacity-50">🔀 Gộp lại</button>
+                      <button disabled={busy} onClick={() => dismiss(g.items)} className="flex-1 rounded-lg border-2 border-slate-300 bg-white py-2 text-sm font-bold text-slate-600 disabled:opacity-50">Không trùng</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

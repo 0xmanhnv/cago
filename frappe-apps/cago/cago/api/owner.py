@@ -100,6 +100,25 @@ def last_backup():
 	return {"exists": True, "when": when, "name": os.path.basename(files[0])}
 
 
+def _default_company():
+	return frappe.defaults.get_global_default("company") or (frappe.get_all("Company", pluck="name") or [None])[0]
+
+
+def _dup_key(item_codes):
+	"""Stable key for a duplicate group = its sorted item_codes. If the membership changes (an item
+	merged/added), the key changes so the pair resurfaces for review."""
+	return "|".join(sorted(item_codes))
+
+
+def _dismissed_dupes():
+	raw = frappe.db.get_value("Company", _default_company(), "cago_dismissed_dupes")
+	try:
+		val = frappe.parse_json(raw) if raw else []
+		return set(val) if isinstance(val, list) else set()
+	except Exception:
+		return set()
+
+
 @frappe.whitelist()
 def data_health():
 	"""Read-only catalog health for the owner: likely-duplicate names + items missing an image,
@@ -133,7 +152,14 @@ def data_health():
 		if key:
 			by_name.setdefault(key, []).append(row)
 
-	duplicates = [{"name": v[0]["display_name"], "items": v} for v in by_name.values() if len(v) > 1]
+	dismissed = _dismissed_dupes()
+	duplicates = []
+	for v in by_name.values():
+		if len(v) <= 1:
+			continue
+		if _dup_key([r["item_code"] for r in v]) in dismissed:
+			continue  # owner already marked this group "not a duplicate"
+		duplicates.append({"name": v[0]["display_name"], "items": v})
 	return {
 		"total": len(items),
 		"duplicates": duplicates,
@@ -142,6 +168,45 @@ def data_health():
 		"uncategorized": uncategorized,
 		"no_shelf": no_shelf,
 	}
+
+
+@frappe.whitelist()
+def dismiss_duplicate(item_codes):
+	"""Owner confirms a flagged group is NOT a duplicate → remember it so it stops showing."""
+	ensure_cap("products")
+	codes = frappe.parse_json(item_codes) if isinstance(item_codes, str) else (item_codes or [])
+	codes = [c for c in codes if c]
+	if len(codes) < 2:
+		return {"ok": True}
+	dismissed = _dismissed_dupes()
+	dismissed.add(_dup_key(codes))
+	frappe.db.set_value("Company", _default_company(), "cago_dismissed_dupes", frappe.as_json(sorted(dismissed)))
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def merge_products(source, target):
+	"""Merge a duplicate Item into another: `source` is absorbed into `target` (the one kept) — all
+	stock, prices and history repoint to `target`, then `source` is removed. Owner-confirmed and
+	irreversible. Uses Frappe's document merge (rename with merge=True)."""
+	ensure_cap("products")
+	if not source or not target or source == target:
+		frappe.throw(_("Chọn hai sản phẩm khác nhau để gộp."))
+	for code in (source, target):
+		if not frappe.db.exists("Item", code):
+			frappe.throw(_("Không tìm thấy sản phẩm: {0}").format(code))
+	src_uom, tgt_uom = frappe.db.get_value("Item", source, "stock_uom"), frappe.db.get_value("Item", target, "stock_uom")
+	if src_uom != tgt_uom:
+		frappe.throw(_("Hai mặt hàng khác đơn vị tồn ({0} ≠ {1}) — không gộp được. Hãy sửa cho khớp hoặc xoá thủ công.").format(src_uom, tgt_uom))
+	try:
+		frappe.rename_doc("Item", source, target, merge=True)
+	except Exception as e:
+		frappe.db.rollback()
+		frappe.throw(_("Không gộp được (có thể còn ràng buộc dữ liệu): {0}").format(str(e)))
+	record_action("Other", ref_doctype="Item", ref_name=target, new_value=f"merge {source} -> {target}")
+	frappe.db.commit()
+	return {"ok": True, "target": target}
 
 
 @frappe.whitelist()
