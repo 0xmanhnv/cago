@@ -35,7 +35,8 @@ export function LowStock() {
           {filtered.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy mặt hàng.</div>
           ) : (
-            filtered.map((p, i) => (
+            <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+            {filtered.map((p, i) => (
               <div key={i} className="mb-2 flex items-center justify-between rounded-xl bg-white p-3.5 shadow">
                 <div>
                   <div className="font-bold">{p.display_name}</div>
@@ -46,7 +47,8 @@ export function LowStock() {
                 </div>
                 <div className="font-bold text-red-600">{p.status}</div>
               </div>
-            ))
+            ))}
+            </div>
           )}
         </>
       )}

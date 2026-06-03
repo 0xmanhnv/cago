@@ -139,7 +139,8 @@ export function DebtList() {
           {filtered.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy khách.</div>
           ) : (
-            filtered.map((c) => (
+            <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+            {filtered.map((c) => (
               <button
                 key={c.customer}
                 onClick={() => router.push(`/pos/debt/${encodeURIComponent(c.slug || c.customer)}`)}
@@ -151,7 +152,8 @@ export function DebtList() {
                 </div>
                 <div className="text-xl font-bold text-red-600">{c.outstanding_text}</div>
               </button>
-            ))
+            ))}
+            </div>
           )}
         </>
       )}
