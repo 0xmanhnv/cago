@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 import { COLORS, ICONS, splitStrokes, toPoints, type MapZone, type Pt, type StoreMap } from "@/lib/storemap";
 
@@ -243,7 +243,7 @@ export function StoreMap() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="SƠ ĐỒ CỬA HÀNG" />
+      <BackBar onBack={() => goBackSmart(router)} title="SƠ ĐỒ CỬA HÀNG" />
 
       {/* floor tabs */}
       <div className="mb-2 flex flex-wrap items-center gap-2">

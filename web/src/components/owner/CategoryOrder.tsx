@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./OwnerShared";
 import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { ICONS } from "@/lib/storemap";
@@ -92,7 +92,7 @@ export function CategoryOrder() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="LOẠI HÀNG (NHÓM HÀNG)" />
+      <BackBar onBack={() => goBackSmart(router)} title="LOẠI HÀNG (NHÓM HÀNG)" />
       <p className="mb-3 ml-1 text-slate-500">Thêm / sửa / xoá loại hàng và sắp xếp thứ tự hiện trên kiosk.</p>
 
       {!form && (

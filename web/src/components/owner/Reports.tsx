@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { SearchInput } from "@/components/ui/ListUI";
 import type { Batch } from "@/lib/types";
-import { BackBar, Ok } from "./OwnerShared";
+import { BackBar, goBackSmart, Ok } from "./OwnerShared";
 
 export function LowStock() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export function LowStock() {
   const filtered = text ? list.filter((p) => `${p.display_name} ${p.shelf_location || ""}`.toLowerCase().includes(text)) : list;
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="HÀNG SẮP HẾT" />
+      <BackBar onBack={() => goBackSmart(router)} title="HÀNG SẮP HẾT" />
       {loading ? (
         <div className="py-6 text-center text-slate-500">Đang tải...</div>
       ) : list.length === 0 ? (
@@ -92,7 +92,7 @@ export function Report() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="BÁO CÁO" />
+      <BackBar onBack={() => goBackSmart(router)} title="BÁO CÁO" />
       <div className="mb-3 flex flex-wrap gap-2">
         {tab("today", "Hôm nay")}
         {tab("week", "Tuần")}
@@ -197,7 +197,7 @@ export function ExpiryReport() {
   }, []);
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="LÔ SẮP HẾT HẠN (60 ngày)" />
+      <BackBar onBack={() => goBackSmart(router)} title="LÔ SẮP HẾT HẠN (60 ngày)" />
       {loading ? (
         <div className="py-6 text-center text-slate-500">Đang tải...</div>
       ) : rows.length === 0 ? (

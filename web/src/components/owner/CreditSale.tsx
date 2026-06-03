@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar, CustomerPicker, Ok } from "./OwnerShared";
+import { BackBar, goBackSmart, CustomerPicker, Ok } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 import type { ProductCard } from "@/lib/types";
 
@@ -16,7 +16,7 @@ export function CreditSale() {
     return (
       <CustomerPicker
         title="BÁN CHỊU (giao hàng + ghi nợ)"
-        onBack={() => router.push("/pos")}
+        onBack={() => goBackSmart(router)}
         onPick={(c) => setCustomer(c)}
       />
     );

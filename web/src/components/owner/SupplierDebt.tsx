@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar, Ok } from "./OwnerShared";
+import { BackBar, goBackSmart, Ok } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 import type { ProductCard } from "@/lib/types";
 
@@ -13,7 +13,7 @@ type Sup = { supplier: string; supplier_name: string; mobile?: string; debt?: nu
 export function SupplierDebt() {
   const router = useRouter();
   const [sel, setSel] = useState<{ id: string; name: string } | null>(null);
-  if (!sel) return <SupplierList onBack={() => router.push("/pos")} onPick={(s) => setSel(s)} />;
+  if (!sel) return <SupplierList onBack={() => goBackSmart(router)} onPick={(s) => setSel(s)} />;
   return <SupplierView supplier={sel.id} name={sel.name} onBack={() => setSel(null)} />;
 }
 

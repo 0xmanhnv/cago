@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
@@ -9,13 +10,42 @@ import type { ProductCard } from "@/lib/types";
 // VND has no decimals — round + group. Single shared formatter (lib/utils) so owner/staff/kiosk match.
 export const money = formatVnd;
 
-export function BackBar({ onBack, title, label = "Trang chủ" }: { onBack: () => void; title?: string; label?: string }) {
+/**
+ * Smart "back to the previous screen": when the user navigated here within the app this session,
+ * step back through real history (so a screen reached from a non-home parent returns to that parent,
+ * not all the way home). On a direct/refresh load with no in-app history, fall back to home.
+ * The `cago_nav` flag is set by PosShell on the first in-app route change.
+ */
+export function goBackSmart(router: ReturnType<typeof useRouter>) {
+  if (typeof window !== "undefined" && window.history.length > 1 && sessionStorage.getItem("cago_nav") === "1") {
+    router.back();
+  } else {
+    router.push("/pos");
+  }
+}
+
+/**
+ * Shared top bar. The arrow goes to the previous step: pass `onBack` for an in-flow sub-step (e.g.
+ * back to a picker), or omit it on a top-level screen to get smart history-back. A persistent 🏠
+ * Home button is ALWAYS shown so home is one tap from anywhere, however deep the user has gone.
+ */
+export function BackBar({ onBack, title, label = "Quay lại" }: { onBack?: () => void; title?: string; label?: string }) {
+  const router = useRouter();
+  const back = onBack ?? (() => goBackSmart(router));
   return (
     <div className="mb-3.5 flex items-center gap-2.5">
-      <button onClick={onBack} className="mt-backbtn">
+      <button onClick={back} className="mt-backbtn">
         ‹ {label}
       </button>
       {title && <div className="mt-title flex-1">{title}</div>}
+      <button
+        onClick={() => router.push("/pos")}
+        aria-label="Về trang chủ"
+        title="Về trang chủ"
+        className="shrink-0 rounded-xl bg-slate-100 px-3.5 py-3 text-xl leading-none text-slate-600"
+      >
+        🏠
+      </button>
     </div>
   );
 }

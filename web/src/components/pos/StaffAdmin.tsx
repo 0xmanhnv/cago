@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { ALL_CAPS, CAP_LABELS, type Cap } from "@/lib/caps";
-import { BackBar } from "@/components/owner/OwnerShared";
+import { BackBar, goBackSmart } from "@/components/owner/OwnerShared";
 import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 
@@ -337,7 +337,7 @@ export function StaffAdmin() {
   // ---------- Lists ----------
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="NHÂN VIÊN & PHÂN QUYỀN" />
+      <BackBar onBack={() => goBackSmart(router)} title="NHÂN VIÊN & PHÂN QUYỀN" />
       <div className="mb-3 flex gap-2">
         <button onClick={() => setTab("staff")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "staff" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>👤 Nhân viên</button>
         <button onClick={() => setTab("roles")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "roles" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>🏷️ Chức danh</button>

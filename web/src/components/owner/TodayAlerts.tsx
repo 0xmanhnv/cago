@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./OwnerShared";
 
 interface StockRow {
   item_code: string;
@@ -68,7 +68,7 @@ export function TodayAlerts() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="🔔 Cảnh báo hôm nay" label="Trang chủ" />
+      <BackBar onBack={() => goBackSmart(router)} title="🔔 Cảnh báo hôm nay" />
       {empty ? (
         <div className="rounded-2xl border-2 border-emerald-100 bg-white p-8 text-center text-slate-500">
           <div className="text-5xl">✅</div>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import type { Product } from "@/lib/types";
-import { BackBar, ProductPicker, Warn } from "./OwnerShared";
+import { BackBar, goBackSmart, ProductPicker, Warn } from "./OwnerShared";
 
 export function PriceLookup() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export function PriceLookup() {
   return (
     <ProductPicker
       title="TRA GIÁ"
-      onBack={() => router.push("/pos")}
+      onBack={() => goBackSmart(router)}
       onPick={async (code) => {
         const d = await frappeCall<Product>("cago.api.owner.get_product", { item_code: code }, { method: "GET" });
         setP(d);
@@ -51,7 +51,7 @@ export function EditPicker() {
   return (
     <ProductPicker
       title="SỬA SẢN PHẨM"
-      onBack={() => router.push("/pos")}
+      onBack={() => goBackSmart(router)}
       onPick={(code) => router.push(`/pos/products/${encodeURIComponent(code)}/edit`)}
     />
   );

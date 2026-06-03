@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
 export function NewProduct() {
@@ -49,7 +49,7 @@ export function NewProduct() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="THÊM SẢN PHẨM" />
+      <BackBar onBack={() => goBackSmart(router)} title="THÊM SẢN PHẨM" />
       <div className="rounded-xl bg-white p-4">
         <label className="block font-bold text-slate-700">Tên sản phẩm *</label>
         <input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />

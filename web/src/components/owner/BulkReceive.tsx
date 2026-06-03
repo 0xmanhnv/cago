@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall, uploadFile } from "@/lib/api";
 import { groupVnd, parseVnd, formatVnd } from "@/lib/utils";
-import { BackBar } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
 let RID = 0;
@@ -177,7 +177,7 @@ export function BulkReceive() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="NHẬP HÀNG LOẠT" />
+      <BackBar onBack={() => goBackSmart(router)} title="NHẬP HÀNG LOẠT" />
 
       <div className="mb-3 flex gap-2">
         <TabBtn k="text">✍️ Gõ/dán</TabBtn>

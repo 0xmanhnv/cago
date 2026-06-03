@@ -6,7 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
 import { SearchInput } from "@/components/ui/ListUI";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
+import { BackBar, goBackSmart, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
 export function DebtAction({ mode }: { mode: "add" | "repay" }) {
@@ -24,7 +24,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
     return (
       <CustomerPicker
         title={title}
-        onBack={() => router.push("/pos")}
+        onBack={() => goBackSmart(router)}
         onPick={async (c) => {
           setCust(c);
           const d = await frappeCall<{ customer_name: string; outstanding_text: string; debt_limit_text?: string }>(
@@ -126,7 +126,7 @@ export function DebtList() {
   const filtered = text ? list.filter((c) => `${c.customer_name} ${c.village || ""}`.toLowerCase().includes(text)) : list;
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="CÔNG NỢ KHÁCH HÀNG" />
+      <BackBar onBack={() => goBackSmart(router)} title="CÔNG NỢ KHÁCH HÀNG" />
       {loading ? (
         <div className="py-6 text-center text-slate-500">Đang tải...</div>
       ) : list.length === 0 ? (

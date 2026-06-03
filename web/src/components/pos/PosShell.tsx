@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { CapabilityGuard } from "@/components/CapabilityGuard";
 import type { Cap } from "@/lib/caps";
@@ -22,16 +23,20 @@ function capFor(path: string): { cap?: Cap; owner?: boolean } {
   if (path.startsWith("/pos/returns")) return { cap: "returns" };
   if (path.startsWith("/pos/record-payment") || path.startsWith("/pos/record-debt")) return { cap: "debt" }; // write
   if (path.startsWith("/pos/verify") || path.startsWith("/pos/debt")) return { cap: "debt_view" }; // read
+  if (path.startsWith("/pos/exchange")) return { cap: "returns" };
   if (
     path.startsWith("/pos/receive") ||
     path.startsWith("/pos/bulk") ||
+    path.startsWith("/pos/alerts") ||
+    path.startsWith("/pos/reorder") ||
     path.startsWith("/pos/low-stock") ||
     path.startsWith("/pos/expiry")
   )
     return { cap: "stock" };
+  if (path.startsWith("/pos/labels")) return { cap: "products" };
   if (path.startsWith("/pos/supplier-debt")) return { cap: "supplier" };
   if (path.startsWith("/pos/cashbook")) return { cap: "cash" };
-  if (path.startsWith("/pos/reports")) return { cap: "reports" };
+  if (path.startsWith("/pos/reports") || path.startsWith("/pos/unsafe")) return { cap: "reports" };
   if (path.startsWith("/pos/coupons") || path.startsWith("/pos/settings") || path.startsWith("/pos/map")) return { cap: "settings" };
   return {}; // /pos home, /pos/search, /pos/orders, /pos/assistant
 }
@@ -39,6 +44,15 @@ function capFor(path: string): { cap?: Cap; owner?: boolean } {
 export function PosShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
   const { cap, owner } = capFor(path);
+  // Record that the user has navigated within the app this session, so BackBar's smart-back knows
+  // there's real in-app history to step back through (vs a cold/refresh load → fall back to home).
+  const prev = useRef<string | null>(null);
+  useEffect(() => {
+    if (prev.current !== null && prev.current !== path) {
+      try { sessionStorage.setItem("cago_nav", "1"); } catch { /* ignore */ }
+    }
+    prev.current = path;
+  }, [path]);
   return (
     <CapabilityGuard cap={cap} owner={owner}>
       {children}

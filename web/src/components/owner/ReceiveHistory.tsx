@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { DateHeader, groupOrdered } from "@/components/ui/ListUI";
-import { BackBar } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./OwnerShared";
 
 interface Line {
   name: string;
@@ -60,7 +60,7 @@ export function ReceiveHistory() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="LỊCH SỬ NHẬP HÀNG" />
+      <BackBar onBack={() => goBackSmart(router)} title="LỊCH SỬ NHẬP HÀNG" />
 
       {loading ? (
         <div className="py-8 text-center text-slate-500">Đang tải...</div>

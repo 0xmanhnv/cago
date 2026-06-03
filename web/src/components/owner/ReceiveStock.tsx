@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar, ProductPicker, money } from "./OwnerShared";
+import { BackBar, goBackSmart, ProductPicker, money } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
 interface Stock {
@@ -106,7 +106,7 @@ export function ReceiveStock() {
   };
 
   if (!code) {
-    return <ProductPicker title="NHẬP HÀNG" onBack={() => router.push("/pos")} onPick={pick} />;
+    return <ProductPicker title="NHẬP HÀNG" onBack={() => goBackSmart(router)} onPick={pick} />;
   }
 
   return (

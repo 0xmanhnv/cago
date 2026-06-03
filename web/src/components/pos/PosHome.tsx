@@ -84,6 +84,7 @@ export function PosHome() {
   const [onboard, setOnboard] = useState<Onboarding | null>(null);
   const [onboardHidden, setOnboardHidden] = useState(true);
   const [fav, setFav] = useState<Fav[]>([]);
+  const [favLoaded, setFavLoaded] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const editRef = useRef(false);
@@ -143,8 +144,9 @@ export function PosHome() {
           : [];
         setFav(a);
         if (!a.length) setShowAll(true);
+        setFavLoaded(true);
       })
-      .catch(() => setShowAll(true));
+      .catch(() => { setShowAll(true); setFavLoaded(true); });
   }, []);
 
   const persist = (next: Fav[]) => {
@@ -162,7 +164,9 @@ export function PosHome() {
   const favKeys = new Set(visFav.map((f) => f.k)); // to hide pinned tiles from the lists below
   const hasFav = visFav.length > 0;
   // No favorites (and not arranging) → the full menu IS the page, shown expanded with no toggle.
-  const groupsOpen = !hasFav || editMode || showAll;
+  // Gate on favLoaded: before favorites arrive we keep the groups COLLAPSED, so a user WITH
+  // favorites never sees the list flash open then animate shut (the jank) on entering/returning home.
+  const groupsOpen = favLoaded && (!hasFav || editMode || showAll);
 
   // Smooth drag-to-reorder via dnd-kit (lift + neighbours slide + snap on drop, like iOS).
   // Small distance constraint so tapping the ↔/★ buttons doesn't start a drag.

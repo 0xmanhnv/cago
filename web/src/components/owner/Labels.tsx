@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar, ProductPicker } from "./OwnerShared";
+import { BackBar, goBackSmart, ProductPicker } from "./OwnerShared";
 
 interface Label {
   item_code: string;
@@ -67,7 +67,7 @@ export function Labels() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="🏷 In tem giá / kệ" label="Trang chủ" />
+      <BackBar onBack={() => goBackSmart(router)} title="🏷 In tem giá / kệ" />
       <button onClick={() => setPicking(true)} className="mb-3 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
         ➕ Thêm sản phẩm
       </button>

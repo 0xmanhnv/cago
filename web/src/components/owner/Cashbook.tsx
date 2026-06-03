@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar, Ok, Warn } from "./OwnerShared";
+import { BackBar, goBackSmart, Ok, Warn } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
 interface Summary {
@@ -60,7 +60,7 @@ export function Cashbook() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="CHỐT CA / SỔ QUỸ" />
+      <BackBar onBack={() => goBackSmart(router)} title="CHỐT CA / SỔ QUỸ" />
       <div className="rounded-xl bg-white p-4">
         <div className="text-slate-600">Hôm nay đã thu:</div>
         <div className="mt-1 flex justify-between border-b border-slate-100 py-1.5">

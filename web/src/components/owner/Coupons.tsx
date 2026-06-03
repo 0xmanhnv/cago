@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar, money } from "./OwnerShared";
+import { BackBar, goBackSmart, money } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
 interface Coupon {
@@ -80,7 +80,7 @@ export function Coupons() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="MÃ GIẢM GIÁ" />
+      <BackBar onBack={() => goBackSmart(router)} title="MÃ GIẢM GIÁ" />
 
       <div className="mt-card p-4">
         <div className="text-lg font-extrabold">➕ Tạo / sửa mã</div>

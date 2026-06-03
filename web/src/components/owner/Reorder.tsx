@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar, DraftModal } from "./OwnerShared";
+import { BackBar, goBackSmart, DraftModal } from "./OwnerShared";
 
 interface Suggest {
   item_code: string;
@@ -40,7 +40,7 @@ export function Reorder() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="🛒 Gợi ý nhập hàng" label="Trang chủ" />
+      <BackBar onBack={() => goBackSmart(router)} title="🛒 Gợi ý nhập hàng" />
       {rows.length === 0 ? (
         <div className="rounded-2xl border-2 border-emerald-100 bg-white p-6 text-center text-slate-500">
           Hiện chưa có mặt hàng nào dưới mức đặt lại. 👍

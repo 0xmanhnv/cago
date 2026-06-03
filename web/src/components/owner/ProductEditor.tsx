@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall, uploadFile } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import type { Batch } from "@/lib/types";
-import { BackBar, DraftModal } from "./OwnerShared";
+import { BackBar, goBackSmart, DraftModal } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
 interface EditData {
@@ -152,7 +152,7 @@ export function ProductEditor({ code }: { code: string }) {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} label="Quay lại" />
+      <BackBar onBack={() => goBackSmart(router)} label="Quay lại" />
       <div className="rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">Sửa: {e.cago_display_name || e.item_name}</h2>
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 import { groupVnd, parseVnd } from "@/lib/utils";
 
@@ -107,7 +107,7 @@ export function OwnerSettings() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="QR THU TIỀN (VietQR)" />
+      <BackBar onBack={() => goBackSmart(router)} title="QR THU TIỀN (VietQR)" />
       <div className="rounded-xl bg-white p-4">
         <p className="text-slate-500">Nhập tài khoản ngân hàng của cửa hàng để hiện mã QR cho khách chuyển khoản đúng số tiền.</p>
         <label className="mt-3 block font-bold text-slate-700">Mã ngân hàng (BIN)</label>

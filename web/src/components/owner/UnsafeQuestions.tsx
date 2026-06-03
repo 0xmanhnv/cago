@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./OwnerShared";
 
 interface Q {
   question: string;
@@ -26,7 +26,7 @@ export function UnsafeQuestions() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="⚠️ Câu hỏi cần lưu ý" label="Trang chủ" />
+      <BackBar onBack={() => goBackSmart(router)} title="⚠️ Câu hỏi cần lưu ý" />
       <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
         Trợ lý đã <b>từ chối</b> trả lời các câu hỏi về liều lượng / pha trộn / cách ly (14 ngày gần đây).
         Bác nên tư vấn trực tiếp cho khách hoặc nhờ người có chuyên môn.
