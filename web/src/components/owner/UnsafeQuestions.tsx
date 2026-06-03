@@ -36,7 +36,8 @@ export function UnsafeQuestions() {
           Chưa có câu hỏi nào cần lưu ý. 👍
         </div>
       ) : (
-        rows.map((q, i) => (
+        <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+        {rows.map((q, i) => (
           <div key={i} className="mb-2.5 rounded-2xl border border-amber-100 bg-white p-3.5 shadow-sm">
             <div className="font-medium text-[#1b2733]">“{q.question}”</div>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
@@ -45,7 +46,8 @@ export function UnsafeQuestions() {
               {q.phone && <span className="ml-auto font-bold text-brand-dark">📞 {q.phone}</span>}
             </div>
           </div>
-        ))
+        ))}
+        </div>
       )}
     </div>
   );

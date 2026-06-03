@@ -38,7 +38,8 @@ function Section({ title, tint, children, count }: { title: string; tint: string
   return (
     <div className={`mb-3 rounded-2xl border-l-4 bg-white p-3.5 shadow-sm ${tint}`}>
       <div className="mb-1.5 font-extrabold">{title} ({count})</div>
-      {children}
+      {/* two columns on a wide PC so the alert rows fill the width instead of one long column */}
+      <div className="xl:grid xl:grid-cols-2 xl:gap-x-5">{children}</div>
     </div>
   );
 }

@@ -85,6 +85,7 @@ export function Reorder() {
             <button onClick={() => router.push("/pos/receive")} className="mx-1 rounded-md bg-teal-600 px-2 py-0.5 font-bold text-white">📥 Nhập hàng</button>
             ghi số lượng + giá nhập thật.
           </div>
+          <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-3">
           {Object.entries(groups).map(([supplier, items]) => {
             const n = chosenIn(items).length;
             const allOn = n === items.length;
@@ -137,6 +138,7 @@ export function Reorder() {
               </div>
             );
           })}
+          </div>
         </>
       )}
       {draft !== null && (

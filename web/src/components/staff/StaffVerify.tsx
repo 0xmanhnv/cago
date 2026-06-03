@@ -47,7 +47,8 @@ export function StaffVerify() {
       {list.length === 0 ? (
         <div className="text-slate-500">Chưa có khách nào yêu cầu. (Khi khách nhập SĐT ở kiosk, yêu cầu sẽ hiện ở đây.)</div>
       ) : (
-        list.map((r) => (
+        <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+        {list.map((r) => (
           <div key={r.request_id} className="mb-2 flex items-center justify-between rounded-xl bg-white p-3.5 shadow">
             <div>
               <div className="font-bold">{r.customer_name || "Khách (chưa rõ tên)"}</div>
@@ -61,7 +62,8 @@ export function StaffVerify() {
               {r.customer_name ? "✅ Xác nhận" : "Không có hồ sơ"}
             </button>
           </div>
-        ))
+        ))}
+        </div>
       )}
     </div>
   );

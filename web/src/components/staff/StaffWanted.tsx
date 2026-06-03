@@ -292,6 +292,7 @@ export function StaffWanted() {
         return groupOrdered(list, (o) => o.date_group || o.created).map((g) => (
           <div key={g.label}>
             <DateHeader label={g.label} />
+            <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
             {g.items.map((o) => (
               <button
                 key={o.code}
@@ -312,6 +313,7 @@ export function StaffWanted() {
                 <div className="text-2xl text-slate-300">›</div>
               </button>
             ))}
+            </div>
           </div>
         ));
       })()}
