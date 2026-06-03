@@ -136,11 +136,20 @@ _SAMPLE_ZONES = [
 	("Giống lúa", "Tầng hầm", "Giống lúa", 62, 21, 32, 13, "#22c55e", "🌾"),
 	("Giống rau", "Tầng hầm", "Giống rau", 62, 36, 32, 13, "#16a34a", "🥬"),
 ]
+# A NETWORK of lối đi: a central vertical corridor down each floor + horizontal branches running in
+# the gap (x 38–62) at each shelf row, so the route can reach every zone along drawn aisles.
+# Each tuple: (floor, x, y, b) — b=1 starts a new stroke (separate corridor).
 _SAMPLE_AISLE = [
-	("Tầng 1", 50, 60),
-	("Tầng 1", 50, 4),
-	("Tầng hầm", 50, 62),
-	("Tầng hầm", 50, 4),
+	# Tầng 1: central spine + branches to the top row (y17) and bottom row (y39)
+	("Tầng 1", 50, 4, 1), ("Tầng 1", 50, 56, 0),
+	("Tầng 1", 38, 17, 1), ("Tầng 1", 62, 17, 0),
+	("Tầng 1", 38, 39, 1), ("Tầng 1", 62, 39, 0),
+	# Tầng hầm: central spine + branches to the 4 shelf rows
+	("Tầng hầm", 50, 4, 1), ("Tầng hầm", 50, 64, 0),
+	("Tầng hầm", 38, 12, 1), ("Tầng hầm", 62, 12, 0),
+	("Tầng hầm", 38, 27, 1), ("Tầng hầm", 62, 27, 0),
+	("Tầng hầm", 38, 42, 1), ("Tầng hầm", 62, 42, 0),
+	("Tầng hầm", 38, 57, 1), ("Tầng hầm", 62, 57, 0),
 ]
 
 
@@ -170,8 +179,8 @@ def seed_sample_map(force=False):
 	for label, floor, grp, x, y, w, h, color, icon in _SAMPLE_ZONES:
 		doc.append("zones", {"label": label, "floor": floor, "item_group": _ensure_group(grp), "x": x, "y": y, "w": w, "h": h, "color": color, "icon": icon})
 	doc.set("aisle", [])
-	for floor, x, y in _SAMPLE_AISLE:
-		doc.append("aisle", {"floor": floor, "x": x, "y": y})
+	for floor, x, y, b in _SAMPLE_AISLE:
+		doc.append("aisle", {"floor": floor, "x": x, "y": y, "b": b})
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
 	return {"floors": len(doc.floors), "zones": len(doc.zones), "published": True}
