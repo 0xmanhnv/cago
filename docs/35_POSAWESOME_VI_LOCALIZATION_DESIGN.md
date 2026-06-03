@@ -1,5 +1,7 @@
 # 35 — POS Awesome Vietnamese Localization — Design (no code yet)
 
+> 🗄 **LƯU TRỮ.** Việt hoá POS Awesome — không còn áp dụng (POS Awesome đã gỡ).
+
 **Date:** 2026-06-01 · **Status:** design for approval · **Scope:** make the POS Awesome cashier UI Vietnamese for Cago, safely and maintainably. Builds on docs/34 (POS Awesome = optional, owner-scoped POS on v16).
 
 Hard constraints honored: no ERPNext core, no Frappe core, no Cago business logic inside POS Awesome, **Cago does not depend on POS Awesome**, native ERPNext POS stays usable.

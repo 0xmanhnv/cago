@@ -1,5 +1,7 @@
 # 28 — POS Awesome V15 → ERPNext/Frappe v16 Porting Strategy (Evaluation)
 
+> 🗄 **LƯU TRỮ.** POS Awesome đã **gỡ hẳn**; không port/fork. POS hiện tại: Cago-native `/pos/sell` — [36](36_STAFF_MOBILE_POS_PLAN.md).
+
 > **Status: EVALUATION ONLY — no code.** Builds on docs/04, docs/20, docs/21 (verdict
 > there: *defer*). This document upgrades that into a concrete *porting* strategy if/when
 > we decide to invest. Native ERPNext POS remains the mandatory fallback at all times.

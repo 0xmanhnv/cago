@@ -1,5 +1,7 @@
 # 10 — Chatbot / RAG Spec
 
+> ℹ️ **Đã triển khai.** Chatbot đã build (`cago/chatbot/*` + trợ lý kiosk). Đây là spec thiết kế gốc.
+
 ## 1. Decision
 
 Chatbot is optional P2, implemented with Python if needed.

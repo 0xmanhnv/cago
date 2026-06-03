@@ -1,5 +1,7 @@
 # 21 — POS Awesome Evaluation Report (Milestone 2)
 
+> 🗄 **LƯU TRỮ.** POS Awesome đã được đánh giá rồi **gỡ hẳn**. POS hiện tại là Cago-native `/pos/sell` — xem [36](36_STAFF_MOBILE_POS_PLAN.md).
+
 **Date:** 2026-05-31 · **Target platform:** ERPNext v16 / Frappe v16
 **Verdict: ⛔ DEFER — do NOT include POS Awesome in the v16 MVP. Ship on native ERPNext POS.**
 

@@ -1,5 +1,7 @@
 # 20 — POS Awesome V15 Evaluation Notes (preparation)
 
+> 🗄 **LƯU TRỮ.** POS Awesome đã được đánh giá rồi **gỡ hẳn**. POS hiện tại là Cago-native `/pos/sell` — xem [36](36_STAFF_MOBILE_POS_PLAN.md). Giữ để tra lịch sử.
+
 > Status: **PREPARATION ONLY.** No POS Awesome code is installed or depended on in
 > Milestone 0/1. This file is the worksheet for the Milestone 2 evaluation. Native
 > ERPNext POS remains the mandatory fallback at all times.

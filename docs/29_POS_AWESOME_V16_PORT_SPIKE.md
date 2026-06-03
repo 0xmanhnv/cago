@@ -1,5 +1,7 @@
 # 29 — POS Awesome v16 Port — Spike Milestone 1
 
+> 🗄 **LƯU TRỮ.** Spike POS Awesome — đã **gỡ hẳn**. POS hiện tại: Cago-native `/pos/sell` — [36](36_STAFF_MOBILE_POS_PLAN.md).
+
 > Companion to docs/28 (full porting strategy). **Owner-approved direction (2026-05-31):**
 > *Port POS Awesome in parallel, but MVP/production ships on ERPNext native POS.*
 > (The brief named this `docs/22`; that number is already `OWNER_TRAINING_VI`, so it lives at 29.)

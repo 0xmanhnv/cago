@@ -1,5 +1,7 @@
 # 34 — POS Awesome V15 on ERPNext/Frappe v16: Evaluation Result
 
+> 🗄 **LƯU TRỮ.** Kết luận trong file là giai đoạn cân nhắc; **quyết định cuối: GỠ HẲN POS Awesome**. POS hiện tại: Cago-native `/pos/sell` — [36](36_STAFF_MOBILE_POS_PLAN.md).
+
 **Date:** 2026-06-01
 **Verdict:** **CONDITIONAL-GO** — usable directly as an *optional, owner-only* enhanced POS. No fork required for that scope. Native ERPNext POS and the Cago `/staff/sell` checkout remain the primary selling paths.
 
