@@ -23,9 +23,9 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
   const showFabs = pathname !== "/" && !isAssistant; // home has its own big buttons; chat is full-screen
   const showCartBar = cartCount > 0 && pathname !== "/cart" && !isAssistant;
 
+  // 900px is right for a tablet; the in-store kiosk runs on a big screen, so widen on xl/2xl
+  // (the grids add columns to fill it) instead of stranding content in a narrow centred column.
   return (
-    {/* 900px is right for a tablet; the in-store kiosk runs on a big screen, so widen on xl/2xl
-        (grids below add columns to fill it) instead of stranding content in a narrow centred column. */}
     <div className="mx-auto max-w-[900px] px-4 pb-24 pt-4 text-[#14271b] xl:max-w-[1320px] 2xl:max-w-[1600px]">
       {children}
 
