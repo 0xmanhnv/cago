@@ -9,7 +9,7 @@ import type { Cap } from "@/lib/caps";
 // pages. Most-specific paths first. Routes that are shared lookups (home, search, orders,
 // assistant, a product detail view) need only "any internal" → no cap.
 function capFor(path: string): { cap?: Cap; owner?: boolean } {
-  if (path.startsWith("/pos/staff")) return { owner: true }; // managing employees = owner-only
+  if (path.startsWith("/pos/staff") || path.startsWith("/pos/ai-settings")) return { owner: true }; // owner-only
   if (path.startsWith("/pos/products/") && path.endsWith("/edit")) return { cap: "products" };
   if (
     path.startsWith("/pos/products/new") ||

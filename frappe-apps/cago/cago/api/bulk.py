@@ -218,29 +218,46 @@ def _vision_extract(image_b64: str, mime: str) -> list[dict]:
 	cfg = config.load_primary()
 	if not cfg.api_key or cfg.provider in ("deterministic", "fake", None):
 		frappe.throw(_("Chưa cấu hình AI đọc ảnh. Vào cấu hình LLM (CAGO_LLM_*) rồi thử lại, hoặc dùng cách gõ dòng."))
+	# Reading an invoice photo needs a VISION-capable model. The chat model may be text-only (e.g.
+	# deepseek-v4-flash → 400 on an image), so allow a dedicated CAGO_LLM_VISION_MODEL that overrides
+	# just the OCR model (same provider/key/base_url); falls back to the chat model when unset.
+	vision_model = config._get("CAGO_LLM_VISION_MODEL", "cago_llm_vision_model", db_field="cago_llm_vision_model") or cfg.model
 	try:
 		import httpx
 	except ImportError:
 		frappe.throw(_("Thiếu thư viện httpx trên máy chủ."))
 
 	try:
-		text = _vision_call(cfg, image_b64, mime, httpx)
+		text = _vision_call(cfg, image_b64, mime, httpx, vision_model)
 	except httpx.HTTPStatusError as e:
 		code = e.response.status_code
-		frappe.throw(_("AI đọc ảnh lỗi (mã {0}). Kiểm tra cấu hình AI hoặc thử lại, hoặc gõ tay.").format(code))
+		# Surface WHY the provider rejected it — a 400 is almost always "this model can't read images"
+		# or an unsupported field, and the body says which. Log the full detail; show a short hint.
+		body = ""
+		try:
+			body = e.response.text[:400]
+		except Exception:
+			pass
+		frappe.log_error(title="Cago vision OCR failed", message=f"{code} {getattr(e.request, 'url', '')}\nmodel={cfg.model} provider={cfg.provider}\n{body}")
+		hint = ""
+		low = body.lower()
+		if code == 400 and ("image" in low or "vision" in low or "multimodal" in low or "not support" in low):
+			hint = _(" — model '{0}' có vẻ không đọc được ảnh. Hãy chọn model có thị giác (vd gpt-4o, gemini-1.5-flash, claude-3-5-sonnet).").format(cfg.model or "?")
+		frappe.throw(_("AI đọc ảnh lỗi (mã {0}){1} Hoặc gõ tay.").format(code, hint or _(". Chi tiết: {0}").format(body[:160] or "—")))
 	except httpx.HTTPError:
 		frappe.throw(_("Không gọi được AI đọc ảnh (mạng/timeout). Thử lại hoặc gõ tay."))
 	return _extract_json_array(text)
 
 
-def _vision_call(cfg, image_b64, mime, httpx) -> str:
+def _vision_call(cfg, image_b64, mime, httpx, model=None) -> str:
 	p = (cfg.provider or "").lower()
+	model = model or cfg.model
 	timeout = 60
 	with httpx.Client(timeout=timeout) as client:
 		if p == "anthropic":
 			base = (cfg.base_url or "https://api.anthropic.com").rstrip("/")
 			payload = {
-				"model": cfg.model or "claude-3-5-sonnet-latest",
+				"model": model or "claude-3-5-sonnet-latest",
 				"max_tokens": 2000,
 				"messages": [{"role": "user", "content": [
 					{"type": "image", "source": {"type": "base64", "media_type": mime, "data": image_b64}},
@@ -253,7 +270,7 @@ def _vision_call(cfg, image_b64, mime, httpx) -> str:
 			return "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text")
 		if p == "gemini":
 			base = (cfg.base_url or "https://generativelanguage.googleapis.com").rstrip("/")
-			model = cfg.model or "gemini-1.5-flash"
+			model = model or "gemini-1.5-flash"
 			payload = {"contents": [{"parts": [{"text": _VISION_PROMPT}, {"inline_data": {"mime_type": mime, "data": image_b64}}]}]}
 			r = client.post(f"{base}/v1beta/models/{model}:generateContent?key={cfg.api_key}", json=payload)
 			r.raise_for_status()
@@ -261,7 +278,7 @@ def _vision_call(cfg, image_b64, mime, httpx) -> str:
 		# OpenAI-compatible (openai, deepseek with vision, etc.)
 		base = (cfg.base_url or "https://api.openai.com/v1").rstrip("/")
 		payload = {
-			"model": cfg.model or "gpt-4o-mini",
+			"model": model or "gpt-4o-mini",
 			"max_tokens": 2000,
 			"messages": [{"role": "user", "content": [
 				{"type": "text", "text": _VISION_PROMPT},

@@ -342,6 +342,17 @@ def ensure_payment_fields():
 					"insert_after": "cago_notify_webhook",
 					"description": "Tùy chọn: token Bearer gửi kèm tới webhook nhắn tin.",
 				},
+				# AI / trợ lý config — owner-editable in the app so provider/model/fallback can change
+				# live (no redeploy). Read by cago.chatbot.config with precedence env > here > site_config.
+				{"fieldname": "cago_llm_provider", "label": "Cago LLM Provider", "fieldtype": "Data", "insert_after": "cago_notify_token", "description": "openai | anthropic | gemini | deterministic"},
+				{"fieldname": "cago_llm_model", "label": "Cago LLM Model", "fieldtype": "Data", "insert_after": "cago_llm_provider"},
+				{"fieldname": "cago_llm_base_url", "label": "Cago LLM Base URL", "fieldtype": "Data", "insert_after": "cago_llm_model"},
+				{"fieldname": "cago_llm_api_key", "label": "Cago LLM API Key", "fieldtype": "Password", "insert_after": "cago_llm_base_url"},
+				{"fieldname": "cago_llm_vision_model", "label": "Cago LLM Vision Model (đọc ảnh)", "fieldtype": "Data", "insert_after": "cago_llm_api_key", "description": "Model có thị giác để đọc ảnh hoá đơn (vd gpt-4o, gemini-1.5-flash). Trống = dùng model chính."},
+				{"fieldname": "cago_llm_fallback_provider", "label": "Cago LLM Fallback Provider", "fieldtype": "Data", "insert_after": "cago_llm_vision_model"},
+				{"fieldname": "cago_llm_fallback_model", "label": "Cago LLM Fallback Model", "fieldtype": "Data", "insert_after": "cago_llm_fallback_provider"},
+				{"fieldname": "cago_llm_fallback_base_url", "label": "Cago LLM Fallback Base URL", "fieldtype": "Data", "insert_after": "cago_llm_fallback_model"},
+				{"fieldname": "cago_llm_fallback_api_key", "label": "Cago LLM Fallback API Key", "fieldtype": "Password", "insert_after": "cago_llm_fallback_base_url"},
 			],
 			"Payment Entry": [
 				{

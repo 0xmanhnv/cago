@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -63,16 +63,24 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   cashbook: { label: "🧮 Chốt ca / Sổ quỹ", color: "bg-blue-700", href: "/pos/cashbook", cap: "cash" },
   reports: { label: "📊 Báo cáo", color: "bg-blue-600", href: "/pos/reports", cap: "reports" },
   unsafe: { label: "⚠️ Câu hỏi cần lưu ý", color: "bg-amber-600", href: "/pos/unsafe", cap: "reports" },
+  aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "owner" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
 };
 // A pinned home tile: which action + how wide (1 = half, 2 = full row on the 2-col grid).
 type Fav = { k: string; w: 1 | 2 };
 
+const FAV_CACHE = "cago_fav_cache";
+// Hydrate from the local cache BEFORE the browser paints (layout effect), so the "⭐ Hay dùng" tiles
+// appear in the very first frame instead of fetching from the server and popping in (layout shift /
+// jank). Server stays the source of truth — the mount effect revalidates + rewrites the cache.
+// Isomorphic: useEffect on the server (no-op) avoids the SSR "useLayoutEffect" warning.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "exchange", "orders", "assistant", "creditsale", "coupons", "qr"] },
   { title: "📦 Hàng hoá & kho", keys: ["alerts", "price", "new", "edit", "labels", "receive", "bulk", "receivehist", "lowstock", "reorder", "expiry", "categories", "map"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "verify", "supplier", "cashbook"] },
-  { title: "📊 Báo cáo & quản lý", keys: ["reports", "unsafe", "staffadmin"] },
+  { title: "📊 Báo cáo & quản lý", keys: ["reports", "unsafe", "aisettings", "staffadmin"] },
 ];
 
 export function PosHome() {
@@ -117,6 +125,17 @@ export function PosHome() {
   };
   useEffect(() => () => clearTimeout(lp.current), []);
 
+  // Paint the cached favorites immediately (pre-paint) → no pop-in on entering/returning home.
+  useIsoLayoutEffect(() => {
+    try {
+      const raw = window.localStorage?.getItem(FAV_CACHE);
+      if (raw) {
+        const a = JSON.parse(raw) as Fav[];
+        if (Array.isArray(a)) { setFav(a.filter((f) => f && ACTIONS[f.k])); setFavLoaded(true); }
+      }
+    } catch { /* ignore a corrupt cache */ }
+  }, []);
+
   useEffect(() => {
     if (!owner) return;
     // First-run checklist — only while not all done and the owner hasn't dismissed it.
@@ -145,6 +164,7 @@ export function PosHome() {
         setFav(a);
         if (!a.length) setShowAll(true);
         setFavLoaded(true);
+        try { window.localStorage?.setItem(FAV_CACHE, JSON.stringify(a)); } catch { /* ignore */ }
       })
       .catch(() => { setShowAll(true); setFavLoaded(true); });
   }, []);
