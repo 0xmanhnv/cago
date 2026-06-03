@@ -57,6 +57,50 @@ def search_products(query=None, recommended_only=0):
 
 
 @frappe.whitelist()
+def data_health():
+	"""Read-only catalog health for the owner: likely-duplicate names + items missing an image,
+	price, category or shelf location — so the owner can spot & clean the issues that hurt daily use."""
+	ensure_cap("products")
+	import re
+
+	items = frappe.get_all(
+		"Item",
+		filters={"disabled": 0},
+		fields=["name", "item_name", "cago_display_name", "image", "item_group", "stock_uom", "cago_shelf_location"],
+	)
+	prices = dto._price_map([i.name for i in items])
+	root_groups = {None, "", "All Item Groups", "Products", "Tất cả nhóm sản phẩm"}
+
+	def label(i):
+		return i.cago_display_name or i.item_name
+
+	no_image, no_price, uncategorized, no_shelf, by_name = [], [], [], [], {}
+	for i in items:
+		row = {"item_code": i.name, "display_name": label(i)}
+		if not i.image:
+			no_image.append(row)
+		if not (dto._rate_for(prices.get(i.name) or {}, i.stock_uom) or 0) > 0:
+			no_price.append(row)
+		if i.item_group in root_groups:
+			uncategorized.append(row)
+		if not i.cago_shelf_location:
+			no_shelf.append(row)
+		key = re.sub(r"\s+", " ", (label(i) or "").strip().lower())
+		if key:
+			by_name.setdefault(key, []).append(row)
+
+	duplicates = [{"name": v[0]["display_name"], "items": v} for v in by_name.values() if len(v) > 1]
+	return {
+		"total": len(items),
+		"duplicates": duplicates,
+		"no_image": no_image,
+		"no_price": no_price,
+		"uncategorized": uncategorized,
+		"no_shelf": no_shelf,
+	}
+
+
+@frappe.whitelist()
 def set_recommended(item_code, on):
 	"""Toggle the ⭐ 'khuyên dùng' flag for one item (used by the bulk manage screen)."""
 	ensure_cap("products")

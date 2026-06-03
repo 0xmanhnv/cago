@@ -64,6 +64,7 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   cashbook: { label: "🧮 Chốt ca / Sổ quỹ", color: "bg-blue-700", href: "/pos/cashbook", cap: "cash" },
   reports: { label: "📊 Báo cáo", color: "bg-blue-600", href: "/pos/reports", cap: "reports" },
   unsafe: { label: "⚠️ Câu hỏi cần lưu ý", color: "bg-amber-600", href: "/pos/unsafe", cap: "reports" },
+  health: { label: "🩺 Kiểm tra dữ liệu", color: "bg-blue-600", href: "/pos/health", cap: "products" },
   aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "owner" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
 };
@@ -83,7 +84,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "exchange", "orders", "assistant", "coupons", "qr"] },
   { title: "📦 Hàng hoá & kho", keys: ["alerts", "price", "new", "edit", "recommended", "labels", "receive", "bulk", "receivehist", "lowstock", "reorder", "expiry", "categories", "map"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "verify", "supplier", "cashbook"] },
-  { title: "📊 Báo cáo & quản lý", keys: ["reports", "unsafe", "aisettings", "staffadmin", "help"] },
+  { title: "📊 Báo cáo & quản lý", keys: ["reports", "unsafe", "health", "aisettings", "staffadmin", "help"] },
 ];
 
 export function PosHome() {
