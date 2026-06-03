@@ -50,7 +50,14 @@ export function DataHealth() {
     void load();
   }, []);
 
-  const count = (k: string) => (d ? (k === "duplicates" ? d.duplicates.length : (d[k as keyof Health] as Row[]).length) : 0);
+  // Defensive: `active` is "" until the effect picks a tab (it runs after the first render with
+  // data), and an unknown key must not crash on `.length`.
+  const rowsFor = (k: string): Row[] => {
+    if (!d || k === "duplicates") return [];
+    const v = d[k as keyof Health];
+    return Array.isArray(v) ? (v as Row[]) : [];
+  };
+  const count = (k: string) => (!d ? 0 : k === "duplicates" ? d.duplicates.length : rowsFor(k).length);
 
   // Pick the default/auto tab: first (most important) tab with items; keep current if it still has
   // items (so after fixing/merging we don't jump away unexpectedly), else advance.
@@ -103,7 +110,7 @@ export function DataHealth() {
   const badgeTone = (sev: Sev, n: number) =>
     n === 0 ? "bg-emerald-100 text-emerald-700" : sev === "bad" ? "bg-red-100 text-red-700" : sev === "warn" ? "bg-amber-100 text-amber-800" : "bg-slate-200 text-slate-600";
 
-  const rowsOf = (k: string) => (d ? (d[k as keyof Health] as Row[]) : []);
+  const rowsOf = rowsFor; // safe (guards unknown/empty active)
 
   const tab = d ? TABS.find((t) => t.key === active) : undefined;
   const allClean = d && TABS.every((t) => count(t.key) === 0);
