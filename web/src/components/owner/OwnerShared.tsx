@@ -74,12 +74,14 @@ export function DraftModal({
   phone,
   title = "📩 Tin nhắn (Zalo/SMS)",
   allowPrint = false,
+  note,
 }: {
   text: string;
   onClose: () => void;
   phone?: string;
   title?: string;
   allowPrint?: boolean;
+  note?: React.ReactNode; // owner-only guidance shown OUTSIDE the copyable text
 }) {
   const [copyState, setCopyState] = useState<"idle" | "ok" | "fail">("idle");
   const [canSend, setCanSend] = useState(false);
@@ -116,26 +118,32 @@ export function DraftModal({
   return (
     <Sheet open onClose={onClose} label={title}>
         <h3 className="text-lg font-bold">{title}</h3>
-        <textarea readOnly value={text} rows={allowPrint ? 9 : 5} className="mt-2 w-full rounded-lg border-2 border-slate-300 p-3 text-base" />
+        <textarea readOnly value={text} rows={allowPrint ? 8 : 5} className="mt-2 w-full rounded-lg border-2 border-slate-300 p-3 text-base" />
+        {note && <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">{note}</div>}
         {sent === true && <Ok>Đã gửi tin nhắn.</Ok>}
         {sent === false && <Warn>Gửi không thành công — bác sao chép gửi tay giúp nhé.</Warn>}
         {copyState === "ok" && <Ok>Đã sao chép! Mở Zalo/tin nhắn và dán (giữ → Dán).</Ok>}
         {copyState === "fail" && <Warn>Máy không cho tự sao chép. Bác giữ ngón tay vào ô chữ phía trên → “Chọn tất cả” → “Sao chép”.</Warn>}
-        <div className="mt-3 flex flex-wrap gap-2.5">
-          {allowPrint && (
-            <button onClick={print} className="min-h-touch flex-1 rounded-xl bg-blue-600 font-extrabold text-white">🖨 In</button>
-          )}
-          {canSend && phone && (
-            <button onClick={send} disabled={sending} className="min-h-touch flex-1 rounded-xl bg-violet-600 font-extrabold text-white disabled:opacity-60">
+        <div className="mt-3 grid grid-cols-2 gap-2.5">
+          <button onClick={doCopy} className="min-h-touch whitespace-nowrap rounded-xl bg-brand font-extrabold text-white">
+            {copyState === "ok" ? "✅ Đã chép" : "📋 Sao chép"}
+          </button>
+          {canSend && phone ? (
+            <button onClick={send} disabled={sending} className="min-h-touch whitespace-nowrap rounded-xl bg-violet-600 font-extrabold text-white disabled:opacity-60">
               {sending ? "Đang gửi…" : "📤 Gửi luôn"}
             </button>
+          ) : allowPrint ? (
+            <button onClick={print} className="min-h-touch whitespace-nowrap rounded-xl bg-blue-600 font-extrabold text-white">🖨 In</button>
+          ) : (
+            <button onClick={onClose} className="min-h-touch whitespace-nowrap rounded-xl bg-slate-200 font-extrabold text-slate-700">Đóng</button>
           )}
-          <button onClick={doCopy} className="min-h-touch flex-1 rounded-xl bg-brand font-extrabold text-white">
-            {copyState === "ok" ? "✅ Đã sao chép" : "📋 Sao chép"}
-          </button>
-          <button onClick={onClose} className="min-h-touch flex-1 rounded-xl bg-slate-200 font-extrabold text-slate-700">
-            Đóng
-          </button>
+          {/* Second row when both Send AND Print apply, or to always offer Đóng without crowding. */}
+          {allowPrint && canSend && phone && (
+            <button onClick={print} className="min-h-touch whitespace-nowrap rounded-xl bg-blue-600 font-extrabold text-white">🖨 In</button>
+          )}
+          {(canSend && phone) || allowPrint ? (
+            <button onClick={onClose} className="min-h-touch whitespace-nowrap rounded-xl bg-slate-200 font-extrabold text-slate-700">Đóng</button>
+          ) : null}
         </div>
     </Sheet>
   );

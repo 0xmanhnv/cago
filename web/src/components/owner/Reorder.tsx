@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { useSession } from "@/lib/session";
 import { toast } from "@/components/ui/toast";
 import { BackBar, goBackSmart, DraftModal } from "./OwnerShared";
 
@@ -20,6 +21,8 @@ type Pick = { on: boolean; qty: string };
 
 export function Reorder() {
   const router = useRouter();
+  const { boot } = useSession();
+  const shop = boot?.brand || "Minh Tuyết";
   const [rows, setRows] = useState<Suggest[] | null>(null);
   const [pick, setPick] = useState<Record<string, Pick>>({});
   const [draft, setDraft] = useState<string | null>(null);
@@ -59,13 +62,12 @@ export function Reorder() {
       toast.error(`Nhập số lượng (> 0) cho: ${missing.map((it) => it.display_name).join(", ")}`);
       return;
     }
-    const lines = [`ĐƠN ĐẶT HÀNG — ${supplier}`, "—".repeat(12)];
-    for (const it of chosen) {
-      lines.push(`• ${it.display_name}: ${qtyOf(it.item_code)} ${it.uom} (còn ${it.on_hand_text})`);
-    }
-    lines.push("—".repeat(12));
-    lines.push("→ Gửi danh sách này cho nhà cung cấp.");
-    lines.push("→ Khi hàng về: vào 📥 Nhập hàng để ghi số lượng + giá nhập (lúc đó tồn kho mới cập nhật).");
+    // Clean order to SEND the supplier — only what they need: shop name + items + qty. NO internal
+    // stock ("còn X"), no "Chưa rõ NCC", no owner instructions (those go in the `note`, outside the copy).
+    const head = ["ĐƠN ĐẶT HÀNG", `Cửa hàng: ${shop}`];
+    if (supplier && supplier !== "Chưa rõ NCC") head.push(`Kính gửi: ${supplier}`);
+    const lines = [...head, "————————————"];
+    for (const it of chosen) lines.push(`• ${it.display_name}: ${qtyOf(it.item_code)} ${it.uom}`);
     setDraft(lines.join("\n"));
   };
 
@@ -137,7 +139,20 @@ export function Reorder() {
           })}
         </>
       )}
-      {draft !== null && <DraftModal text={draft} title="🛒 Đơn nhập hàng" allowPrint onClose={() => setDraft(null)} />}
+      {draft !== null && (
+        <DraftModal
+          text={draft}
+          title="🛒 Đơn đặt hàng (gửi NCC)"
+          allowPrint
+          note={
+            <>
+              ↗ Gửi danh sách trên cho nhà cung cấp (Sao chép / In).
+              <br />↗ Khi hàng về: vào <b>📥 Nhập hàng</b> ghi số lượng + giá nhập — lúc đó tồn kho mới cập nhật.
+            </>
+          }
+          onClose={() => setDraft(null)}
+        />
+      )}
     </div>
   );
 }
