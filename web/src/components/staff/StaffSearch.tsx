@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { CatThumb } from "@/components/kiosk/CatThumb";
-import type { ProductCard } from "@/lib/types";
+import { CategoryNav } from "@/components/ui/CategoryNav";
+import type { ProductCard, Category } from "@/lib/types";
 
 const PAGE = 30;
 
@@ -17,6 +18,8 @@ export function StaffSearch() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "card">("list"); // dense list by default (fast lookup)
+  const [cats, setCats] = useState<Category[]>([]);
+  const [category, setCategory] = useState(""); // active category filter ("" = all)
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const seqRef = useRef(0); // ignore out-of-order search responses (newest wins)
@@ -31,11 +34,11 @@ export function StaffSearch() {
     window.localStorage?.setItem("cago_search_view", v);
   };
 
-  const run = async (query: string) => {
+  const run = async (query: string, cat = category) => {
     const seq = ++seqRef.current;
     setLoading(true);
     try {
-      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, start: 0 }, { method: "GET" })) || [];
+      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, category: cat || null, start: 0 }, { method: "GET" })) || [];
       if (seq !== seqRef.current) return;
       setList(r);
       setHasMore(r.length >= PAGE);
@@ -48,7 +51,7 @@ export function StaffSearch() {
     const seq = seqRef.current;
     setLoadingMore(true);
     try {
-      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q.trim(), start: list.length }, { method: "GET" })) || [];
+      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q.trim(), category: category || null, start: list.length }, { method: "GET" })) || [];
       if (seq !== seqRef.current) return;
       setList((prev) => [...prev, ...r]);
       setHasMore(r.length >= PAGE);
@@ -56,8 +59,14 @@ export function StaffSearch() {
       setLoadingMore(false);
     }
   };
+  const pickCategory = (c: string) => {
+    setCategory(c);
+    void run(q.trim(), c);
+  };
   useEffect(() => {
     void run("");
+    frappeCall<Category[]>("cago.api.staff.list_categories", {}, { method: "GET" }).then((d) => setCats(d || [])).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Auto load-more when the bottom sentinel scrolls into view.
   useEffect(() => {
@@ -83,34 +92,42 @@ export function StaffSearch() {
 
   return (
     <div>
-      {/* Top row: back + the rarely-typed barcode field (scanned, short). */}
+      {/* Top row: back + the primary name search (the most-used field, so it gets top spot
+          and the biggest input). The barcode field is secondary (below). */}
       <div className="mb-2.5 flex items-center gap-2.5">
         <button onClick={() => router.push("/pos")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Trang chủ
         </button>
         <input
-          placeholder="⌨ Quét mã vạch..."
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              void findBarcode((e.target as HTMLInputElement).value);
-              (e.target as HTMLInputElement).value = "";
-            }
+          autoFocus
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            clearTimeout(tRef.current);
+            tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
           }}
-          className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base"
+          placeholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
+          className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
         />
       </div>
-      {/* The frequently-used name search gets a full-width, larger input. */}
+      {/* Barcode is rarely typed by hand (a scanner fires keystrokes + Enter), so it stays a
+          slim, muted secondary field rather than competing with the name search. */}
       <input
-        autoFocus
-        value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
-          clearTimeout(tRef.current);
-          tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
+        placeholder="⌨ Hoặc quét mã vạch..."
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            void findBarcode((e.target as HTMLInputElement).value);
+            (e.target as HTMLInputElement).value = "";
+          }
         }}
-        placeholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
-        className="mb-3.5 w-full rounded-xl border-2 border-slate-300 p-3.5 text-lg"
+        className="mb-2.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm"
       />
+      {/* Category quick-filter — browse a whole group without typing (same control as the sell screen). */}
+      {cats.length > 0 && (
+        <div className="mb-3">
+          <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />
+        </div>
+      )}
       {/* Result count + list/card toggle (same control as the sell screen, for consistency). */}
       {!loading && list.length > 0 && (
         <div className="mb-2.5 flex items-center justify-between">
