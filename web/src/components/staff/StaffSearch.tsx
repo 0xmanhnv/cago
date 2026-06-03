@@ -148,7 +148,7 @@ export function StaffSearch() {
                     <div className="line-clamp-2 min-h-[2.5em] font-bold leading-tight">{p.display_name}</div>
                     <div className="mt-0.5 font-bold text-brand">{p.price_text}</div>
                     <div className="mt-auto pt-1 text-sm text-slate-500">
-                      {p.stock_status} {p.category ? `· ${p.category}` : ""}
+                      {[p.stock_status, p.category].filter(Boolean).join(" · ")}
                     </div>
                   </div>
                 </button>
@@ -165,7 +165,7 @@ export function StaffSearch() {
                     <div className="font-bold leading-tight">{p.display_name}</div>
                     <div className="font-bold text-brand">{p.price_text}</div>
                     <div className="text-slate-500">
-                      {p.stock_status} {p.category ? `· ${p.category}` : ""}
+                      {[p.stock_status, p.category].filter(Boolean).join(" · ")}
                     </div>
                   </div>
                 </button>
