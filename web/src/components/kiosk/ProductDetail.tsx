@@ -99,11 +99,14 @@ export function ProductDetail({ code }: { code: string }) {
         </div>
         <div>
         <h2 className="mt-3 text-2xl font-bold lg:mt-0">{product.display_name}</h2>
-        {product.recommended && (
-          <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-800">
-            ⭐ Cửa hàng khuyên dùng
-          </div>
-        )}
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {product.best_seller && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-sm font-bold text-rose-700">🏆 Bán chạy</span>
+          )}
+          {product.recommended && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-800">⭐ Cửa hàng khuyên dùng</span>
+          )}
+        </div>
         <div className="mt-1 text-3xl font-extrabold text-brand">{product.price_text}</div>
         {product.sale_units && product.sale_units.length > 1 && (
           <div className="mt-1 text-slate-600">
@@ -225,7 +228,7 @@ export function ProductDetail({ code }: { code: string }) {
                 <div className="p-2">
                   {/* Reserve 2 lines for the title so 1-line and 2-line cards stay the same height
                       (else the shorter card's content drifts and the row looks broken). */}
-                  <div className="line-clamp-2 min-h-[2.5em] text-sm font-bold leading-tight">{r.recommended && <span title="Khuyên dùng">⭐ </span>}{r.display_name}</div>
+                  <div className="line-clamp-2 min-h-[2.5em] text-sm font-bold leading-tight">{r.best_seller && <span title="Bán chạy">🏆 </span>}{r.recommended && <span title="Khuyên dùng">⭐ </span>}{r.display_name}</div>
                   <div className="mt-0.5 text-[13px] font-bold text-brand">{r.price_text}</div>
                 </div>
               </button>

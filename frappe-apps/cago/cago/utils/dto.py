@@ -319,6 +319,44 @@ LIST_FIELDS = [
 # --------------------------------------------------------------------------- #
 # Search
 # --------------------------------------------------------------------------- #
+def best_seller_codes(days=90, limit=12):
+	"""Ordered list of top-selling PUBLIC item_codes over the last `days` (returns excluded).
+	Cached ~1h so the 🔥 badge + kiosk 'bán chạy' row don't re-aggregate Sales Invoices on every
+	product-list request. Returns [] when there are no sales yet."""
+	cache = frappe.cache()
+	key = f"cago:best_sellers:{days}:{limit}"
+	cached = cache.get_value(key)
+	if cached is not None:
+		return cached
+	from frappe.query_builder import Order
+	from frappe.query_builder.functions import Sum
+	from frappe.utils import add_days, today
+
+	si = frappe.qb.DocType("Sales Invoice")
+	sii = frappe.qb.DocType("Sales Invoice Item")
+	item = frappe.qb.DocType("Item")
+	start = add_days(today(), -int(days))
+	try:
+		rows = (
+			frappe.qb.from_(sii)
+			.join(si).on(sii.parent == si.name)
+			.join(item).on(sii.item_code == item.name)
+			.select(sii.item_code)
+			.where(
+				(si.docstatus == 1) & (si.is_return == 0) & (si.posting_date >= start)
+				& (item.disabled == 0) & (item.cago_is_public_visible == 1)
+			)
+			.groupby(sii.item_code)
+			.orderby(Sum(sii.stock_qty), order=Order.desc)
+			.limit(int(limit))
+		).run(as_dict=True)
+		codes = [r.item_code for r in rows]
+	except Exception:
+		codes = []
+	cache.set_value(key, codes, expires_in_sec=3600)
+	return codes
+
+
 def _price_map(codes):
 	"""Batch-fetch selling prices for many items in a single query, keyed by uom so a
 	per-UOM retail price never shadows the stock-unit price. Returns {code: {uom: rate}}."""
@@ -347,7 +385,7 @@ def _rate_for(pmap, stock_uom):
 	return pmap.get(stock_uom) or pmap.get("") or 0
 
 
-def list_dtos(query, audience="staff", public_only=False, category=None, limit=24, start=0, recommended_only=False):
+def list_dtos(query, audience="staff", public_only=False, category=None, limit=24, start=0, recommended_only=False, codes=None):
 	"""Lightweight list/search results built with 2 queries total (items + prices).
 
 	List cards don't need alternatives or live stock qty, so we skip the per-item
@@ -358,6 +396,8 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 		base["cago_is_public_visible"] = 1
 	if recommended_only:
 		base["cago_recommended"] = 1
+	if codes:
+		base["name"] = ["in", list(codes)]
 	if category:
 		# The URL carries a slug (e.g. "cam-chan-nuoi"); resolve it back to the group name.
 		# Accepts a real group name too (back-compat). Unknown → keep as-is (yields no match).
@@ -401,13 +441,14 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 	cat_meta = category_meta_map([r.item_group for r in rows])
 	# on-hand only needed for auto-status items, but one grouped query is cheap
 	qty_map = bin_qty_map([r.name for r in rows if r.get("cago_stock_auto")])
+	bs = set(best_seller_codes())  # cached; for the 🔥 badge
 	return [
-		_list_dto(r, _rate_for(prices.get(r.name) or {}, r.stock_uom), audience, cat_meta, qty_map)
+		_list_dto(r, _rate_for(prices.get(r.name) or {}, r.stock_uom), audience, cat_meta, qty_map, bs)
 		for r in rows
 	]
 
 
-def _list_dto(r, rate, audience, cat_meta=None, qty_map=None):
+def _list_dto(r, rate, audience, cat_meta=None, qty_map=None, bs_set=None):
 	meta = (cat_meta or {}).get(r.item_group) or category_meta(r.item_group)
 	out = {
 		"item_code": r.name,
@@ -417,6 +458,7 @@ def _list_dto(r, rate, audience, cat_meta=None, qty_map=None):
 		"stock_status": stock_status_for(r, (qty_map or {}).get(r.name, 0)),
 		"is_chemical": bool(r.cago_is_chemical),
 		"recommended": bool(r.get("cago_recommended")),  # ⭐ owner-picked "khuyên dùng"; public-safe
+		"best_seller": r.name in (bs_set or ()),  # 🔥 top-selling (computed); public-safe
 		"category": r.item_group,
 		"category_icon": meta["icon"],
 		"category_color": meta["color"],
@@ -546,6 +588,7 @@ def public_dto(item):
 		"stock_status": stock_status_for(item, qty),
 		"is_chemical": bool(item.cago_is_chemical),
 		"recommended": bool(_get(item, "cago_recommended")),
+		"best_seller": item.name in set(best_seller_codes()),
 		"safety_notes": safety_warning_for(item),
 		**_expiry_dto(item.name),
 		**({"sale_units": sale_units(item)} if _get(item, "cago_show_retail_on_kiosk") else {}),
@@ -583,6 +626,7 @@ def staff_dto(item):
 		"alternatives": get_alternatives(item.name),
 		"is_chemical": bool(item.cago_is_chemical),
 		"recommended": bool(_get(item, "cago_recommended")),
+		"best_seller": item.name in set(best_seller_codes()),
 		"safety_notes": safety_warning_for(item),
 		**_expiry_dto(item.name),
 		"sale_units": sale_units(item),

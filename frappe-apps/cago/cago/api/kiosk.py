@@ -112,6 +112,17 @@ def list_products(category=None, query=None, recommended_only=0):
 
 
 @frappe.whitelist(allow_guest=True)
+def best_sellers(limit=8):
+	"""Public 'bán chạy' row for the kiosk home — top-selling public products, in sold order."""
+	codes = dto.best_seller_codes()[: cint(limit) or 8]
+	if not codes:
+		return []
+	cards = dto.list_dtos(None, audience="public", public_only=True, codes=codes, limit=len(codes))
+	order = {c: i for i, c in enumerate(codes)}
+	return sorted(cards, key=lambda x: order.get(x["item_code"], 999))
+
+
+@frappe.whitelist(allow_guest=True)
 def get_product(item_code):
 	"""Single public DTO. 404 unless the item is flagged kiosk-visible."""
 	visible = frappe.db.get_value(

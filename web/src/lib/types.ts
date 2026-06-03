@@ -15,6 +15,7 @@ export interface ProductCard {
   short_description?: string;
   is_chemical?: boolean;
   recommended?: boolean; // ⭐ owner-picked "khuyên dùng"
+  best_seller?: boolean; // 🏆 top-selling (computed from sales)
   stock_auto?: boolean; // true = on-hand is tracked (so 0 means really out of stock)
   actual_stock_qty?: number | null; // real on-hand in stock units (null when not tracked)
   allow_oversell?: boolean; // item may be sold beyond stock (default false → blocked at the till)
@@ -38,6 +39,7 @@ export interface Product {
   stock_auto?: boolean;
   is_chemical?: boolean;
   recommended?: boolean; // ⭐ owner-picked "khuyên dùng"
+  best_seller?: boolean; // 🏆 top-selling
   safety_notes?: string | null;
   // expiry (Phase 1)
   nearest_expiry?: string | null;

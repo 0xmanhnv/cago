@@ -180,7 +180,7 @@ export function StaffSearch() {
                   <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="grid" />
                   <div className="flex flex-1 flex-col p-2.5">
                     <div className="line-clamp-2 min-h-[2.5em] font-bold leading-tight">
-                      {p.recommended && <span title="Khuyên dùng">⭐ </span>}
+                      {p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}
                       {p.display_name}
                     </div>
                     <div className="mt-0.5 font-bold text-brand">{p.price_text}</div>
@@ -200,7 +200,7 @@ export function StaffSearch() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-bold leading-tight">
-                      {p.recommended && <span title="Khuyên dùng">⭐ </span>}
+                      {p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}
                       {p.display_name}
                     </div>
                     <div className="font-bold text-brand">{p.price_text}</div>

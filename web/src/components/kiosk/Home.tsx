@@ -6,7 +6,8 @@ import { useKiosk } from "@/store/kiosk";
 import { useKioskNav, resetKioskDepth } from "@/lib/kioskNav";
 import { useSession } from "@/lib/session";
 import { catColor, catIcon } from "@/lib/kioskUi";
-import type { Category } from "@/lib/types";
+import { CatThumb } from "./CatThumb";
+import type { Category, ProductCard } from "@/lib/types";
 
 export function Home() {
   const nav = useKioskNav();
@@ -14,6 +15,7 @@ export function Home() {
   const { boot } = useSession();
   const brand = boot?.brand || "Minh Tuyết";
   const [categories, setCategories] = useState<Category[]>([]);
+  const [best, setBest] = useState<ProductCard[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -21,6 +23,9 @@ export function Home() {
     kiosk.clearFocus();
     frappeCall<Category[]>("cago.api.kiosk.get_categories", {}, { method: "GET" })
       .then((d) => setCategories(d || []))
+      .catch(() => {});
+    frappeCall<ProductCard[]>("cago.api.kiosk.best_sellers", { limit: 8 }, { method: "GET" })
+      .then((d) => setBest(d || []))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -60,6 +65,31 @@ export function Home() {
           style={{ paddingLeft: "3.25rem" }}
         />
       </div>
+
+      {/* 🏆 Bán chạy — top-selling products so customers see what's popular. Hidden when no sales yet. */}
+      {best.length > 0 && (
+        <>
+          <SectionTitle>🏆 Bán chạy</SectionTitle>
+          <div className="no-scrollbar -mx-1 mb-6 flex gap-3 overflow-x-auto px-1 pb-1 lg:grid lg:grid-cols-4 lg:overflow-visible xl:grid-cols-5">
+            {best.map((p) => (
+              <button
+                key={p.item_code}
+                onClick={() => nav.openDetail(p.item_code)}
+                className="flex w-[150px] flex-none flex-col overflow-hidden rounded-2xl border border-emerald-100 bg-white text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-card lg:w-auto"
+              >
+                <div className="relative">
+                  <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="grid" />
+                  <span className="absolute left-2 top-2 rounded-full bg-rose-600 px-2 py-0.5 text-xs font-bold text-white shadow">🏆 Bán chạy</span>
+                </div>
+                <div className="flex flex-1 flex-col p-2.5">
+                  <div className="line-clamp-2 min-h-[2.5em] text-sm font-bold leading-tight">{p.display_name}</div>
+                  <div className="mt-auto pt-1 font-extrabold text-brand">{p.price_text}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <SectionTitle>🧺 Chọn loại hàng</SectionTitle>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
