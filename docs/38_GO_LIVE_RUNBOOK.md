@@ -48,9 +48,12 @@ docker compose --profile backup up -d backup
   Mất máy chủ mà sao lưu cùng máy = mất luôn.
 
 **Sao lưu thủ công ngay** (trước khi nâng cấp/sửa lớn):
-```bash
-docker compose exec backend bench --site agrimate.localhost backup --with-files --backup-path /offsite
-```
+- **Trong app (khuyến nghị cho chủ):** Cài đặt cửa hàng → **💾 Sao lưu dữ liệu** → "Sao lưu ngay".
+  Chạy nền, tự chép ra `/offsite` nếu đã gắn — không cần dòng lệnh.
+- Hoặc dòng lệnh:
+  ```bash
+  docker compose exec backend bench --site agrimate.localhost backup --with-files --backup-path /offsite
+  ```
 
 **Diễn tập khôi phục** (làm 1 lần để chắc bản sao dùng được — xem chi tiết docs/33):
 khôi phục bản mới nhất vào một site thử, kiểm công nợ + vài hoá đơn khớp. Sao lưu chưa

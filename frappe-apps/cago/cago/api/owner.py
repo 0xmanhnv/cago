@@ -16,7 +16,7 @@ from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import (
 	record_action,
 )
 from cago.utils import dto
-from cago.utils.permissions import ensure_cap, ensure_internal
+from cago.utils.permissions import ensure_cap, ensure_internal, ensure_owner
 
 
 @frappe.whitelist()
@@ -54,6 +54,50 @@ def search_products(query=None, recommended_only=0):
 	from frappe.utils import cint
 
 	return dto.list_dtos(query, audience="owner", public_only=False, recommended_only=bool(cint(recommended_only)))
+
+
+def _run_backup():
+	"""Background job: full DB + files backup, then copy offsite if /offsite is mounted."""
+	import os
+	import shutil
+
+	from frappe.utils.backups import new_backup
+
+	b = new_backup(ignore_files=False, force=True)
+	if os.path.isdir("/offsite"):
+		for f in (b.backup_path_db, b.backup_path_files, b.backup_path_private_files):
+			try:
+				if f and os.path.exists(f):
+					shutil.copy2(f, "/offsite/")
+			except Exception:
+				pass
+
+
+@frappe.whitelist()
+def backup_now():
+	"""Owner-triggered backup (DB + files). Runs in the background so the request returns fast;
+	lets a non-technical owner back up without the command line."""
+	ensure_owner()
+	frappe.enqueue("cago.api.owner._run_backup", queue="long", timeout=1800)
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def last_backup():
+	"""Name + time of the most recent backup file, for the owner UI."""
+	ensure_owner()
+	import datetime
+	import glob
+	import os
+
+	from frappe.utils import get_site_path
+
+	d = get_site_path("private", "backups")
+	files = sorted(glob.glob(os.path.join(d, "*-database.sql.gz")), key=os.path.getmtime, reverse=True) if os.path.isdir(d) else []
+	if not files:
+		return {"exists": False}
+	when = format_datetime(datetime.datetime.fromtimestamp(os.path.getmtime(files[0])))
+	return {"exists": True, "when": when, "name": os.path.basename(files[0])}
 
 
 @frappe.whitelist()

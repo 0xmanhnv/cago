@@ -68,6 +68,7 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   health: { label: "🩺 Kiểm tra dữ liệu", color: "bg-blue-600", href: "/pos/health", cap: "products" },
   aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "owner" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
+  backup: { label: "💾 Sao lưu dữ liệu", color: "bg-slate-600", href: "/pos/backup", cap: "owner" },
 };
 // A pinned home tile: which action + how wide (1 = half, 2 = full row on the 2-col grid).
 type Fav = { k: string; w: 1 | 2 };
@@ -91,7 +92,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🏬 Kho & nhập hàng", keys: ["alerts", "receive", "reorder", "expiry", "receivehist"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
   { title: "📊 Báo cáo", keys: ["reports", "unsafe"] },
-  { title: "⚙️ Cài đặt cửa hàng", keys: ["categories", "map", "coupons", "qr", "aisettings", "staffadmin", "help"] },
+  { title: "⚙️ Cài đặt cửa hàng", keys: ["categories", "map", "coupons", "qr", "aisettings", "staffadmin", "backup", "help"] },
 ];
 
 export function PosHome() {
