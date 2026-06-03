@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, Cago and contributors
 """Tests for the chatbot's safety guardrails and answer assembly.
 
 Retrieval is monkeypatched so tests run offline (no ERPNext needed).

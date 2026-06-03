@@ -1,12 +1,12 @@
 # ERPNext Agri Store Starter Pack v4
 
-Bộ tài liệu này dùng để bắt đầu xây dựng **AgriMate** — hệ thống bán hàng cho cửa hàng vật tư nông nghiệp ở nông thôn Việt Nam.
+Bộ tài liệu này dùng để bắt đầu xây dựng **Cago** — hệ thống bán hàng cho cửa hàng vật tư nông nghiệp ở nông thôn Việt Nam.
 
 > 📚 **Mục lục tài liệu đầy đủ (chia 2 bộ sử dụng / kỹ thuật):** [`docs/00_INDEX.md`](docs/00_INDEX.md). Hướng dẫn cho chủ & nhân viên: [`docs/user/`](docs/user/). Triển khai thật: [`docs/38_GO_LIVE_RUNBOOK.md`](docs/38_GO_LIVE_RUNBOOK.md).
 
 ## Quyết định mới trong v4
 
-- Product name: **AgriMate**
+- Product name: **Cago**
 - Repository: `agrimate`
 - Custom Frappe app: `cago`
 - MVP UI: **Frappe-native pages + Jinja/HTML + Vanilla JS + simple CSS**

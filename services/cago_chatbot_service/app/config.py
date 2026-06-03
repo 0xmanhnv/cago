@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, Cago and contributors
 """Service configuration (env-driven)."""
 
 import os

@@ -1,6 +1,6 @@
 # Milestone 0 + 1 — Setup & Runbook
 
-Covers environment prep (M0) and the data foundation (M1) for AgriMate on
+Covers environment prep (M0) and the data foundation (M1) for Cago on
 **ERPNext v16 / Frappe v16**. Everything store-specific lives in the custom app
 `cago`; ERPNext/Frappe core is never modified.
 
@@ -53,7 +53,7 @@ bench --site agrimate.local execute \
 python scripts/import_products.py --site agrimate.local
 ```
 
-Loads `data/sample_products.csv` → 4 Items with AgriMate fields + Standard Selling
+Loads `data/sample_products.csv` → 4 Items with Cago fields + Standard Selling
 prices. Re-running updates in place (idempotent).
 
 The importer is self-sufficient on a freshly created site (one that has not been

@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, Cago and contributors
 """Retrieval: fetch public product data from the ERPNext kiosk API.
 
 Only the guest-safe kiosk endpoint is used, so the chatbot can never see buying

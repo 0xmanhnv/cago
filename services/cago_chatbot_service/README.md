@@ -1,6 +1,6 @@
 # cago_chatbot_service
 
-Optional Python (FastAPI) chatbot for AgriMate. Answers customer product questions
+Optional Python (FastAPI) chatbot for Cago. Answers customer product questions
 **strictly from the store's public data** via the guest-safe kiosk API.
 
 ## Guardrails (docs/10, docs/12)

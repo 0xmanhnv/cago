@@ -1,4 +1,4 @@
-# AgriMate — Docker setup
+# Cago — Docker setup
 
 Full ERPNext **v16** stack with the `cago` app baked into a custom image.
 Based on the official `frappe_docker` topology (separate backend / frontend /

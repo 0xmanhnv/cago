@@ -29,7 +29,7 @@ Trạng thái: ✅ hiện hành · ⚠️ còn nội dung cũ (đã gắn banner
 ### Tổng quan & kiến trúc
 | Tài liệu | Trạng thái |
 |---|---|
-| [01_PRD.md](01_PRD.md) — Yêu cầu sản phẩm | ⚠️ còn tên "AgriMate" (nay = Cago) |
+| [01_PRD.md](01_PRD.md) — Yêu cầu sản phẩm | ✅ |
 | [02_ARCHITECTURE.md](02_ARCHITECTURE.md) — Kiến trúc | ⚠️ phần POS đã đổi (xem 36) |
 | [27_FRONTEND_MIGRATION_NEXTJS.md](27_FRONTEND_MIGRATION_NEXTJS.md) — Chuyển frontend sang Next.js | ✅ nguồn đúng cho frontend |
 | [03_ERPNEXT_CAPABILITY_MAP.md](03_ERPNEXT_CAPABILITY_MAP.md) — ERPNext cung cấp gì | ✅ |

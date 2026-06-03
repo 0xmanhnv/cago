@@ -4,7 +4,7 @@
 
 > Status: **DESIGN ONLY. Do not code until approved.**
 > Naming: the repo app is **`cago`** (module `Cago`, APIs under `cago.api.*`). The
-> brief's `cago_store` maps to `cago`. The visible brand stays "AgriMate".
+> brief's `cago_store` maps to `cago`. The visible brand stays "Cago".
 > Builds on existing: `cago.utils.dto` (role-filtered DTOs), `cago.api.{kiosk,staff,owner}`,
 > and the current `services/cago_chatbot_service` (deterministic prototype) which this
 > design supersedes/absorbs.

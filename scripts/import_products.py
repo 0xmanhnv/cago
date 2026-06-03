@@ -18,7 +18,7 @@ TARGET = "cago.setup.sample_data.import_sample_products"
 
 
 def main():
-	parser = argparse.ArgumentParser(description="Import AgriMate sample products.")
+	parser = argparse.ArgumentParser(description="Import Cago sample products.")
 	parser.add_argument("--site", required=True, help="Frappe site name")
 	parser.add_argument("--csv", help="Absolute path to a products CSV (optional)")
 	parser.add_argument("--bench", default=".", help="Path to frappe-bench dir (default: cwd)")

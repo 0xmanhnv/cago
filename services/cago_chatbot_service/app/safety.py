@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, Cago and contributors
 """Safety guardrails for the chatbot (see docs/10_CHATBOT_RAG_SPEC.md, docs/12)."""
 
 import re

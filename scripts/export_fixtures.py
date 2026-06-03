@@ -14,7 +14,7 @@ import sys
 
 
 def main():
-	parser = argparse.ArgumentParser(description="Export AgriMate fixtures.")
+	parser = argparse.ArgumentParser(description="Export Cago fixtures.")
 	parser.add_argument("--site", required=True, help="Frappe site name")
 	parser.add_argument("--bench", default=".", help="Path to frappe-bench dir (default: cwd)")
 	args = parser.parse_args()

@@ -1,4 +1,4 @@
-# AgriMate — full ERPNext v16 stack with the cago app baked in.
+# Cago — full ERPNext v16 stack with the cago app baked in.
 #
 #   cd infra/docker
 #   cp .env.example .env          # adjust passwords / ports / site name

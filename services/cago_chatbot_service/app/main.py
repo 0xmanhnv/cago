@@ -1,5 +1,5 @@
-# Copyright (c) 2026, AgriMate and contributors
-"""AgriMate chatbot service (FastAPI).
+# Copyright (c) 2026, Cago and contributors
+"""Cago chatbot service (FastAPI).
 
 Answers customer product questions strictly from the store's public data. Never
 invents price/stock/dosage; always appends the safety warning for chemicals;
@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from . import retrieval, safety
 
-app = FastAPI(title="AgriMate Chatbot", version="0.1.0")
+app = FastAPI(title="Cago Chatbot", version="0.1.0")
 
 
 class ChatRequest(BaseModel):

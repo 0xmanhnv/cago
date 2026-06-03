@@ -1,6 +1,6 @@
 # cago
 
-Custom Frappe app — the **core business customization layer** for **AgriMate**, a sales
+Custom Frappe app — the **core business customization layer** for **Cago**, a sales
 support system for a rural Vietnamese agricultural supplies store.
 
 This app sits on top of ERPNext/Frappe (the source of truth for Item, Item Price, Stock,
