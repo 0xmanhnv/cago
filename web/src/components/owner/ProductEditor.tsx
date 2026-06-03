@@ -113,6 +113,17 @@ export function ProductEditor({ code }: { code: string }) {
 
   const set = (k: string, v: string | number) => setData((d) => ({ ...d, [k]: v }));
 
+  const setDiscontinued = async (off: boolean) => {
+    if (off && !(await confirmDialog("Ngừng bán mặt hàng này? Nó sẽ ẩn khỏi bán hàng, kiosk và các cảnh báo (lịch sử vẫn giữ). Có thể bán lại sau.", { danger: true, confirmLabel: "Ngừng bán" }))) return;
+    try {
+      await frappeCall("cago.api.owner.update_product", { item_code: code, data: JSON.stringify({ disabled: off ? 1 : 0 }) });
+      set("disabled", off ? 1 : 0);
+      toast.success(off ? "Đã ngừng bán mặt hàng này." : "Đã bán lại mặt hàng này.");
+    } catch (err) {
+      toast.error(`Lỗi: ${err instanceof Error ? err.message : "không cập nhật được."}`);
+    }
+  };
+
   const save = async () => {
     if (saving) return;
     setSaving(true);
@@ -227,6 +238,20 @@ export function ProductEditor({ code }: { code: string }) {
         >
           📩 Soạn tin báo hàng về
         </button>
+
+        {/* Ngừng bán: a discontinued item disappears from selling, kiosk, alerts & reorder but keeps
+            its history; can be re-enabled anytime. Set immediately (its own action, not the Lưu button). */}
+        {data.disabled ? (
+          <div className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-3">
+            <div className="font-bold text-amber-800">⛔ Mặt hàng đang NGỪNG BÁN</div>
+            <div className="mt-0.5 text-sm text-amber-700">Đang ẩn khỏi bán hàng, kiosk và các cảnh báo. Lịch sử vẫn được giữ.</div>
+            <button onClick={() => setDiscontinued(false)} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">↩️ Bán lại mặt hàng này</button>
+          </div>
+        ) : (
+          <button onClick={() => setDiscontinued(true)} className="mt-3 min-h-touch w-full rounded-xl border-2 border-red-300 font-bold text-red-600">
+            ⛔ Ngừng bán mặt hàng này
+          </button>
+        )}
 
         <WholesalePrice code={code} />
         <StockSection code={code} />

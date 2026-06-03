@@ -253,8 +253,9 @@ EDITABLE_FIELDS = (
 	"cago_safety_notes",
 	"cago_is_chemical",
 	"cago_is_public_visible",
+	"disabled",  # "Ngừng bán" — discontinued items vanish from sell/kiosk/alerts/reorder but keep history
 )
-_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto")
+_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto", "disabled")
 STOCK_STATUS_OPTIONS = ["Còn nhiều", "Còn hàng", "Còn ít", "Hết hàng", "Sắp nhập"]
 QUALITY_OPTIONS = ["Phổ thông", "Trung cấp", "Cao cấp"]
 
