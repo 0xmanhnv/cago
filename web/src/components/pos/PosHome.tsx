@@ -19,6 +19,13 @@ interface Digest {
   has_tasks: boolean;
 }
 
+interface Onboarding {
+  steps: { key: string; label: string; done: boolean; href: string }[];
+  done: number;
+  total: number;
+  all_done: boolean;
+}
+
 // Required capability to use an action. null = any back-of-house user (shared); "owner" = owner only.
 type Need = Cap | null | "owner";
 
@@ -28,6 +35,7 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   sell: { label: "🛒 Bán hàng", color: "bg-brand", href: "/pos/sell", cap: "sell" },
   search: { label: "🔎 Tra sản phẩm", color: "bg-blue-600", href: "/pos/search", cap: null },
   returns: { label: "↩️ Trả hàng", color: "bg-rose-600", href: "/pos/returns", cap: "returns" },
+  exchange: { label: "🔁 Đổi hàng", color: "bg-rose-500", href: "/pos/exchange", cap: "returns" },
   orders: { label: "📋 Khách đã chọn", color: "bg-teal-600", href: "/pos/orders", cap: null },
   assistant: { label: "🤖 Hỏi trợ lý", color: "bg-violet-600", href: "/pos/assistant", cap: null },
   creditsale: { label: "🧾 Bán chịu (trừ tồn)", color: "bg-red-600", href: "/pos/credit-sale", cap: "sell" },
@@ -40,7 +48,9 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   bulk: { label: "⚡ Nhập hàng loạt", color: "bg-teal-700", href: "/pos/bulk", cap: "stock" },
   receivehist: { label: "📜 Lịch sử nhập", color: "bg-teal-600", href: "/pos/receive-history", cap: "stock" },
   lowstock: { label: "📦 Hàng sắp hết", color: "bg-teal-600", href: "/pos/low-stock", cap: "stock" },
+  reorder: { label: "🛒 Gợi ý nhập hàng", color: "bg-teal-700", href: "/pos/reorder", cap: "stock" },
   expiry: { label: "⏰ Lô & hạn dùng", color: "bg-orange-600", href: "/pos/expiry", cap: "stock" },
+  labels: { label: "🏷 In tem giá", color: "bg-blue-600", href: "/pos/labels", cap: "products" },
   categories: { label: "🗂 Loại hàng", color: "bg-teal-600", href: "/pos/categories", cap: "products" },
   map: { label: "🗺 Sơ đồ cửa hàng", color: "bg-teal-600", href: "/pos/map", cap: "settings" },
   recordpay: { label: "💵 Khách trả nợ", color: "bg-brand", href: "/pos/record-payment", cap: "debt" },
@@ -50,16 +60,17 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   supplier: { label: "🚚 Công nợ NCC", color: "bg-violet-500", href: "/pos/supplier-debt", cap: "supplier" },
   cashbook: { label: "🧮 Chốt ca / Sổ quỹ", color: "bg-blue-700", href: "/pos/cashbook", cap: "cash" },
   reports: { label: "📊 Báo cáo", color: "bg-blue-600", href: "/pos/reports", cap: "reports" },
+  unsafe: { label: "⚠️ Câu hỏi cần lưu ý", color: "bg-amber-600", href: "/pos/unsafe", cap: "reports" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
 };
 // A pinned home tile: which action + how wide (1 = half, 2 = full row on the 2-col grid).
 type Fav = { k: string; w: 1 | 2 };
 
 const GROUPS: { title: string; keys: string[] }[] = [
-  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "orders", "assistant", "creditsale", "coupons", "qr"] },
-  { title: "📦 Hàng hoá & kho", keys: ["price", "new", "edit", "receive", "bulk", "receivehist", "lowstock", "expiry", "categories", "map"] },
+  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "exchange", "orders", "assistant", "creditsale", "coupons", "qr"] },
+  { title: "📦 Hàng hoá & kho", keys: ["price", "new", "edit", "labels", "receive", "bulk", "receivehist", "lowstock", "reorder", "expiry", "categories", "map"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "verify", "supplier", "cashbook"] },
-  { title: "📊 Báo cáo & quản lý", keys: ["reports", "staffadmin"] },
+  { title: "📊 Báo cáo & quản lý", keys: ["reports", "unsafe", "staffadmin"] },
 ];
 
 export function PosHome() {
@@ -68,6 +79,8 @@ export function PosHome() {
   const posUrl = boot?.pos_url;
   const owner = isOwner(boot);
   const [digest, setDigest] = useState<Digest | null>(null);
+  const [onboard, setOnboard] = useState<Onboarding | null>(null);
+  const [onboardHidden, setOnboardHidden] = useState(true);
   const [fav, setFav] = useState<Fav[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -100,6 +113,21 @@ export function PosHome() {
     router.push(ACTIONS[k].href);
   };
   useEffect(() => () => clearTimeout(lp.current), []);
+
+  useEffect(() => {
+    if (!owner) return;
+    // First-run checklist — only while not all done and the owner hasn't dismissed it.
+    const dismissed = (() => { try { return window.localStorage?.getItem("cago_onboard_done") === "1"; } catch { return false; } })();
+    if (dismissed) return;
+    frappeCall<Onboarding>("cago.api.alerts.onboarding_status", {}, { method: "GET" })
+      .then((o) => {
+        setOnboard(o);
+        setOnboardHidden(o.all_done);
+        if (o.all_done) { try { window.localStorage?.setItem("cago_onboard_done", "1"); } catch { /* ignore */ } }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner]);
 
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
@@ -185,6 +213,33 @@ export function PosHome() {
   return (
     <div>
       <BrandHeader subtitle={owner ? "Chủ cửa hàng" : boot?.full_name ? `Nhân viên · ${boot.full_name}` : "Nhân viên"} />
+
+      {owner && onboard && !onboardHidden && (
+        <div className="mb-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-3">
+          <div className="flex items-center justify-between">
+            <div className="font-extrabold text-brand-dark">🚀 Bắt đầu nhanh ({onboard.done}/{onboard.total})</div>
+            <button
+              onClick={() => { setOnboardHidden(true); try { window.localStorage?.setItem("cago_onboard_done", "1"); } catch { /* ignore */ } }}
+              className="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-500 shadow-sm"
+            >
+              Ẩn
+            </button>
+          </div>
+          <div className="mt-2 flex flex-col gap-1.5">
+            {onboard.steps.map((s) => (
+              <button
+                key={s.key}
+                onClick={() => !s.done && router.push(s.href)}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold ${s.done ? "bg-white/60 text-slate-400" : "bg-white text-brand-dark shadow-sm"}`}
+              >
+                <span>{s.done ? "✅" : "⬜"}</span>
+                <span className={s.done ? "line-through" : ""}>{s.label}</span>
+                {!s.done && <span className="ml-auto text-slate-300">›</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {digest?.has_tasks && (
         <div className="mb-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">

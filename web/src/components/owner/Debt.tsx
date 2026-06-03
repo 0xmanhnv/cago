@@ -169,9 +169,10 @@ interface LedgerEntry {
 
 export function CustomerLedger({ customer }: { customer: string }) {
   const router = useRouter();
-  type Ledger = { customer_name: string; outstanding_text: string; overpaid?: boolean; points?: number; wholesale?: boolean; entries: LedgerEntry[] };
+  type Ledger = { customer_name: string; phone?: string; outstanding_text: string; overpaid?: boolean; points?: number; wholesale?: boolean; entries: LedgerEntry[] };
   const [d, setD] = useState<Ledger | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
+  const [statement, setStatement] = useState<string | null>(null);
   const load = async () => setD(await frappeCall<Ledger>("cago.api.debt.get_customer_ledger", { customer }, { method: "GET" }));
   useEffect(() => {
     void load();
@@ -206,15 +207,26 @@ export function CustomerLedger({ customer }: { customer: string }) {
             {d.wholesale ? "Đang bật" : "Đang tắt"}
           </button>
         </div>
-        <button
-          onClick={async () => {
-            const r = await frappeCall<{ text: string }>("cago.api.owner.zalo_draft", { kind: "debt_reminder", customer });
-            setDraft(r.text);
-          }}
-          className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white"
-        >
-          📩 Soạn tin nhắc nợ (Zalo)
-        </button>
+        <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+          <button
+            onClick={async () => {
+              const r = await frappeCall<{ text: string }>("cago.api.owner.zalo_draft", { kind: "debt_reminder", customer });
+              setDraft(r.text);
+            }}
+            className="min-h-touch rounded-xl bg-teal-600 font-extrabold text-white"
+          >
+            📩 Nhắc nợ (Zalo)
+          </button>
+          <button
+            onClick={async () => {
+              const r = await frappeCall<{ statement_text: string }>("cago.api.debt.customer_statement", { customer }, { method: "GET" });
+              setStatement(r.statement_text);
+            }}
+            className="min-h-touch rounded-xl bg-blue-600 font-extrabold text-white"
+          >
+            📄 Sao kê (in/gửi)
+          </button>
+        </div>
         <div className="mt-3 font-extrabold">Lịch sử ghi nợ / trả nợ</div>
         {d.entries.length === 0 && <div className="text-slate-500">Chưa có giao dịch.</div>}
         {d.entries.map((e, i) => (
@@ -246,7 +258,10 @@ export function CustomerLedger({ customer }: { customer: string }) {
           </div>
         ))}
       </div>
-      {draft !== null && <DraftModal text={draft} onClose={() => setDraft(null)} />}
+      {draft !== null && <DraftModal text={draft} phone={d.phone} onClose={() => setDraft(null)} />}
+      {statement !== null && (
+        <DraftModal text={statement} phone={d.phone} title="📄 Sao kê công nợ" allowPrint onClose={() => setStatement(null)} />
+      )}
     </div>
   );
 }

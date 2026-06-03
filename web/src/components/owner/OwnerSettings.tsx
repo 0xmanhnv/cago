@@ -15,6 +15,7 @@ export function OwnerSettings() {
   const [staffCollect, setStaffCollect] = useState(false);
   const [loyalty, setLoyalty] = useState({ earn_vnd: "", redeem_vnd: "" });
   const [expiryDays, setExpiryDays] = useState("");
+  const [notify, setNotify] = useState({ owner_phone: "", webhook: "", token: "", has_token: false });
 
   useEffect(() => {
     frappeCall<{ bin: string; account: string; name: string }>("cago.api.payment.get_bank", {}, { method: "GET" })
@@ -34,6 +35,9 @@ export function OwnerSettings() {
       .catch(() => {});
     frappeCall<{ days: number }>("cago.api.verify.get_expiry_warn", {}, { method: "GET" })
       .then((d) => setExpiryDays(String(d.days || "")))
+      .catch(() => {});
+    frappeCall<{ owner_phone: string; webhook: string; has_token: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
+      .then((d) => setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token }))
       .catch(() => {});
   }, []);
 
@@ -70,6 +74,20 @@ export function OwnerSettings() {
       });
       setLoyalty({ earn_vnd: String(d.earn_vnd || ""), redeem_vnd: String(d.redeem_vnd || "") });
       toast.success("Đã lưu cài đặt tích điểm.");
+    } catch {
+      toast.error("Lỗi: không lưu được.");
+    }
+  };
+
+  const saveNotify = async () => {
+    try {
+      const d = await frappeCall<{ owner_phone: string; webhook: string; has_token: boolean }>("cago.api.notify.set_notify_config", {
+        owner_phone: notify.owner_phone,
+        webhook: notify.webhook,
+        ...(notify.token ? { token: notify.token } : {}),
+      });
+      setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token });
+      toast.success("Đã lưu cài đặt nhắn tin.");
     } catch {
       toast.error("Lỗi: không lưu được.");
     }
@@ -166,6 +184,23 @@ export function OwnerSettings() {
         />
         <button onClick={saveExpiry} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
           💾 Lưu cảnh báo cận hạn
+        </button>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-4">
+        <div className="font-extrabold">📩 Nhắn tin Zalo/SMS (tuỳ chọn)</div>
+        <p className="text-slate-500">
+          Số của chủ để nhận nhắc việc hằng ngày (hết hàng / cận hạn / công nợ). Muốn gửi tin cho khách
+          ngay trong app, dán đường dẫn dịch vụ gửi tin (webhook nhận {"{phone, text}"}). Để trống = chỉ soạn nháp để sao chép.
+        </p>
+        <label className="mt-3 block font-bold text-slate-700">Số điện thoại chủ (nhận nhắc việc)</label>
+        <input value={notify.owner_phone} onChange={(e) => setNotify({ ...notify, owner_phone: e.target.value })} inputMode="tel" placeholder="VD: 0912345678" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <label className="mt-3 block font-bold text-slate-700">Webhook gửi tin (tuỳ chọn)</label>
+        <input value={notify.webhook} onChange={(e) => setNotify({ ...notify, webhook: e.target.value })} placeholder="https://..." className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <label className="mt-3 block font-bold text-slate-700">Token (tuỳ chọn){notify.has_token ? " — đã lưu" : ""}</label>
+        <input value={notify.token} onChange={(e) => setNotify({ ...notify, token: e.target.value })} placeholder={notify.has_token ? "•••••• (để trống nếu giữ nguyên)" : "Bearer token"} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <button onClick={saveNotify} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
+          💾 Lưu cài đặt nhắn tin
         </button>
       </div>
     </div>

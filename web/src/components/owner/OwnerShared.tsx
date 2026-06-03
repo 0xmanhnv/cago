@@ -37,14 +37,66 @@ export function Ok({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function DraftModal({ text, onClose }: { text: string; onClose: () => void }) {
+export function DraftModal({
+  text,
+  onClose,
+  phone,
+  title = "📩 Tin nhắn (Zalo/SMS)",
+  allowPrint = false,
+}: {
+  text: string;
+  onClose: () => void;
+  phone?: string;
+  title?: string;
+  allowPrint?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
+  const [canSend, setCanSend] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<null | boolean>(null);
+  useEffect(() => {
+    // Show the "Gửi luôn" button only when the owner has wired a messaging webhook (else copy-only).
+    frappeCall<{ configured: boolean }>("cago.api.notify.notify_status", {}, { method: "GET" })
+      .then((r) => setCanSend(!!r.configured))
+      .catch(() => setCanSend(false));
+  }, []);
+  const send = async () => {
+    if (!phone) return;
+    setSending(true);
+    try {
+      await frappeCall("cago.api.notify.send_draft", { phone, text });
+      setSent(true);
+    } catch {
+      setSent(false);
+    } finally {
+      setSending(false);
+    }
+  };
+  const print = () => {
+    const w = window.open("", "_blank", "width=380,height=640");
+    if (!w) return;
+    const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    w.document.write(`<pre style="font:14px/1.5 monospace;white-space:pre-wrap;padding:14px;margin:0">${esc}</pre>`);
+    w.document.close();
+    w.focus();
+    w.print();
+  };
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-5">
       <div className="w-full max-w-md rounded-2xl bg-white p-5">
-        <h3 className="text-lg font-bold">📩 Tin nhắn (sao chép gửi Zalo)</h3>
-        <textarea readOnly value={text} rows={5} className="mt-2 w-full rounded-lg border-2 border-slate-300 p-3 text-base" />
-        <div className="mt-3 flex gap-2.5">
+        <h3 className="text-lg font-bold">{title}</h3>
+        <textarea readOnly value={text} rows={allowPrint ? 9 : 5} className="mt-2 w-full rounded-lg border-2 border-slate-300 p-3 text-base" />
+        {sent === true && <Ok>Đã gửi tin nhắn.</Ok>}
+        {sent === false && <Warn>Gửi không thành công — bác sao chép gửi tay giúp nhé.</Warn>}
+        <div className="mt-3 flex flex-wrap gap-2.5">
+          {allowPrint && (
+            <button onClick={print} className="min-h-touch flex-1 rounded-xl bg-blue-600 font-extrabold text-white">🖨 In</button>
+          )}
+          {canSend && phone && (
+            <button onClick={send} disabled={sending} className="min-h-touch flex-1 rounded-xl bg-violet-600 font-extrabold text-white disabled:opacity-60">
+              {sending ? "Đang gửi…" : "📤 Gửi luôn"}
+            </button>
+          )}
           <button
             onClick={() => navigator.clipboard?.writeText(text).then(() => setCopied(true), () => setCopied(false))}
             className="min-h-touch flex-1 rounded-xl bg-brand font-extrabold text-white"

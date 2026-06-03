@@ -65,3 +65,25 @@ def preview_digest():
 	"""Owner: see today's digest line on demand (same text the daily job would push)."""
 	ensure_owner()
 	return {"text": digest_text()}
+
+
+@frappe.whitelist()
+def onboarding_status():
+	"""First-run checklist for a non-technical owner: which setup steps are done. Drives a dismissible
+	'bắt đầu' card on the home so she isn't dropped into an empty system with no guidance."""
+	ensure_owner()
+	company = frappe.defaults.get_global_default("company") or frappe.db.get_value("Company", {}, "name")
+	has_products = bool(frappe.db.exists("Item", {"disabled": 0, "has_variants": 0, "is_sales_item": 1}))
+	has_price = bool(frappe.db.exists("Item Price", {"selling": 1, "price_list_rate": [">", 0]}))
+	has_category = bool(frappe.db.exists("Item Group", {"is_group": 0, "cago_icon": ["!=", ""]}))
+	has_bank = bool(company and frappe.db.get_value("Company", company, "cago_bank_bin"))
+	has_staff = bool(frappe.db.exists("Has Role", {"role": "Cago Sell", "parenttype": "User"}))
+	steps = [
+		{"key": "products", "label": "Thêm sản phẩm đầu tiên", "done": has_products, "href": "/pos/products/new"},
+		{"key": "price", "label": "Đặt giá bán", "done": has_price, "href": "/pos/price"},
+		{"key": "category", "label": "Tạo loại hàng (có biểu tượng)", "done": has_category, "href": "/pos/categories"},
+		{"key": "bank", "label": "Cài QR/chuyển khoản", "done": has_bank, "href": "/pos/settings"},
+		{"key": "staff", "label": "Thêm nhân viên bán hàng", "done": has_staff, "href": "/pos/staff"},
+	]
+	done = sum(1 for s in steps if s["done"])
+	return {"steps": steps, "done": done, "total": len(steps), "all_done": done == len(steps)}

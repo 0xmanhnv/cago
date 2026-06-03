@@ -348,6 +348,7 @@ def get_customer_ledger(customer):
 	return {
 		"customer": customer,
 		"customer_name": cust["customer_name"],
+		"phone": frappe.db.get_value("Customer", customer, "mobile_no") or "",
 		"outstanding": cust["outstanding"],
 		"outstanding_text": cust["outstanding_text"],
 		"overpaid": cust["outstanding"] < 0,
