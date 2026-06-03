@@ -762,7 +762,7 @@ export function Checkout() {
     }
     if (!guardShift(() => checkout(payment_mode))) return;
     const who = cust ? ` cho ${cust.customer_name}` : "";
-    if (!(await ask(`${MODE_VI[payment_mode]} ${cartCodes.length} mặt hàng${who}?`, { confirmLabel: MODE_VI[payment_mode] }))) return;
+    if (!(await ask(`${MODE_VI[payment_mode]} ${cartCodes.length} mặt hàng · ${money(payTotal)}${who}?`, { confirmLabel: MODE_VI[payment_mode] }))) return;
     setBusy(true);
     const { args, display } = buildSale(payment_mode);
     const outstanding = payment_mode === "credit" ? display.total_text : null;
@@ -1097,7 +1097,9 @@ export function Checkout() {
         {loading ? (
           <div className="py-6 text-center text-slate-500">Đang tải...</div>
         ) : list.length === 0 ? (
-          <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy sản phẩm.</div>
+          <div className="rounded-xl bg-white p-6 text-center text-slate-400">
+            {q.trim() || category ? "Không tìm thấy sản phẩm. Thử gõ tên khác." : "Gõ tên sản phẩm hoặc chọn loại hàng để xem."}
+          </div>
         ) : (
           <div className={`grid gap-2.5 ${viewMode === "list" ? "grid-cols-1 items-start" : "grid-cols-2 items-stretch lg:grid-cols-3 2xl:grid-cols-4"}`}>
           {list.map((p) => {
@@ -1266,15 +1268,15 @@ export function Checkout() {
                         <div key={c} className="px-2.5 py-2">
                           <div className="flex items-center gap-2">
                             <div className="min-w-0 flex-1">
-                              <div className="truncate font-bold leading-tight">{nameOf(c)}</div>
-                              <div className="text-xs text-slate-500">{money(linePrice(c))} / {labelOf(c, ln.uom)}</div>
+                              <div className="truncate text-base font-bold leading-tight">{nameOf(c)}</div>
+                              <div className="text-sm text-slate-500">{money(linePrice(c))} / {labelOf(c, ln.uom)}</div>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
-                              <button onClick={() => setQty(c, ln.qty - 1)} className="h-9 w-9 rounded-lg bg-slate-200 text-xl font-bold">−</button>
-                              <button onClick={() => setKeypad(c)} title="Bấm để nhập số lượng" className="h-9 w-12 rounded-lg border-2 border-emerald-300 text-center font-extrabold">{trim(ln.qty)}</button>
-                              <button onClick={() => setQty(c, ln.qty + 1)} className="h-9 w-9 rounded-lg bg-brand text-xl font-bold text-white">＋</button>
+                              <button onClick={() => setQty(c, ln.qty - 1)} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
+                              <button onClick={() => setKeypad(c)} title="Bấm để nhập số lượng" className="h-11 w-14 rounded-lg border-2 border-emerald-300 text-center text-lg font-extrabold">{trim(ln.qty)}</button>
+                              <button onClick={() => setQty(c, ln.qty + 1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
                             </div>
-                            <div className="w-[68px] shrink-0 text-right text-sm font-extrabold text-brand">{money(linePrice(c) * ln.qty)}</div>
+                            <div className="w-[80px] shrink-0 text-right text-base font-extrabold text-brand">{money(linePrice(c) * ln.qty)}</div>
                             <button onClick={() => setQty(c, 0)} aria-label="Bỏ" className="shrink-0 rounded-lg bg-red-50 px-2 py-1 text-sm font-bold text-red-600">✕</button>
                           </div>
                           {/* Multi-unit items: switch Kg / Yến / Bao right in the cart (changes the price). */}
