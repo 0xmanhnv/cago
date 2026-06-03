@@ -1,6 +1,6 @@
 # Milestone 3–6 — UI & API layer (MVP)
 
-> 🗄 **LƯU TRỮ.** Frontend nay là **Next.js (`web/`)** — xem [27](../27_FRONTEND_MIGRATION_NEXTJS.md). Doc này mô tả UI Frappe-native MVP cũ.
+> 🗄 **ARCHIVED.** The front end is now **Next.js (`web/`)** — see [27](../27_FRONTEND_MIGRATION_NEXTJS.md). This doc describes the old Frappe-native MVP UI.
 
 Implements the owner, staff and kiosk experiences plus the whitelisted API/DTO
 layer they sit on. All store logic stays in `cago`; ERPNext core is

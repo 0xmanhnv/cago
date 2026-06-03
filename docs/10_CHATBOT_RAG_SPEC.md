@@ -1,6 +1,6 @@
 # 10 — Chatbot / RAG Spec
 
-> ℹ️ **Đã triển khai.** Chatbot đã build (`cago/chatbot/*` + trợ lý kiosk). Đây là spec thiết kế gốc.
+> ℹ️ **Implemented.** The chatbot is built (`cago/chatbot/*` + the kiosk assistant). This is the original design spec.
 
 ## 1. Decision
 

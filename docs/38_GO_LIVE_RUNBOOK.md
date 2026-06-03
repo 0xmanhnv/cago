@@ -1,132 +1,130 @@
 # 38 — Go-Live Runbook (hardening, backup, device QA)
 
-Mục tiêu: đưa Cago từ "chạy được trên máy dev" sang **vận hành thật an toàn** cho một cửa
-hàng ở nông thôn. Làm theo thứ tự. Các lệnh chạy trong `infra/docker/`.
+Goal: take Cago from "runs on dev" to **safe real-world operation** for a rural shop. Do the steps
+in order. Commands run from `infra/docker/`.
 
-> Bối cảnh: 1 máy chủ nhỏ (mini-PC) trong cửa hàng, vài tablet/điện thoại + máy in nhiệt
-> 58mm + máy quét mã vạch trong cùng mạng LAN. Chủ ít rành công nghệ.
+> Context: one small in-store server (mini-PC), a few tablets/phones + a 58 mm thermal printer + a
+> barcode scanner on the same LAN. The owner is not tech-savvy. UI labels are quoted in Vietnamese.
 
 ---
 
-## 0. Triển khai production (có domain/IP) — tóm tắt
+## 0. Production deploy (with a domain/IP) — summary
 
 ```bash
 cd infra/docker
-cp .env.production.example .env          # rồi điền: ADMIN_PASSWORD, DB_ROOT_PASSWORD, SITE_DOMAIN...
-# (LOAD_SAMPLE_DATA=0 → site khởi tạo SẠCH, không có sản phẩm demo; nạp catalog thật bằng CSV)
-bash preflight.sh                        # phải hết "lỗi chặn" mới đi tiếp
+cp .env.production.example .env          # fill in: ADMIN_PASSWORD, DB_ROOT_PASSWORD, SITE_DOMAIN...
+# (LOAD_SAMPLE_DATA=0 → the site starts CLEAN, no demo products; import the real catalog via CSV)
+bash preflight.sh                        # all "blockers" must be clear before continuing
 docker compose build backend web
 docker compose --profile tls --profile backup up -d
 ```
 
-**HTTPS = Caddy (đã chọn — xem mục A3).** Đặt `SITE_DOMAIN` trong `.env`:
-- **Có domain** (vd `cago.minhtuyet.vn`) trỏ A-record về IP server + mở cổng **80 & 443**
-  → Caddy **tự lấy cert Let's Encrypt thật**, tự gia hạn, **không cần cài gì lên thiết bị**. (Tốt nhất.)
-- **Chỉ IP public trần** → Caddy serve cert nội bộ; cài root CA của Caddy lên thiết bị 1 lần
-  (`docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt` → cài vào tablet/điện thoại).
+**HTTPS = Caddy (chosen — see §A3).** Set `SITE_DOMAIN` in `.env`:
+- **With a domain** (e.g. `cago.minhtuyet.vn`) pointing an A-record at the server IP + ports **80 & 443**
+  open → Caddy **auto-obtains a real Let's Encrypt cert**, auto-renews, **nothing to install on devices** (best).
+- **Bare public IP only** → Caddy serves an internal cert; install Caddy's root CA on each device once
+  (`docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt` → install on tablets/phones).
 
-Sau khi bật Caddy, đặt `HTTP_PUBLISH_BIND=127.0.0.1` để cổng 8080 (HTTP trần) **không lộ ra mạng** —
-mọi người vào qua `https://<domain>` (Caddy 443).
+After enabling Caddy, set `HTTP_PUBLISH_BIND=127.0.0.1` so the plain-HTTP port 8080 is **not exposed
+to the network** — everyone connects via `https://<domain>` (Caddy on 443).
 
-`preflight.sh` kiểm nhanh: mật khẩu mặc định, TLS, cổng HTTP hở, offsite backup, compose hợp lệ.
+`preflight.sh` quickly checks: default passwords, TLS, exposed HTTP port, offsite backup, compose validity.
 
 ---
 
-## A. Bảo mật trước khi go-live (bắt buộc)
+## A. Security before go-live (mandatory)
 
-1. **Đổi mật khẩu Administrator mặc định.** `infra/docker/.env` đang là
-   `ADMIN_PASSWORD=change-me-admin`. Đặt mật khẩu mạnh, rồi đổi cả trên site đang chạy:
+1. **Change the default Administrator password.** `infra/docker/.env` ships
+   `ADMIN_PASSWORD=change-me-admin`. Set a strong one, then change it on the running site too:
    ```bash
-   docker compose exec backend bench --site agrimate.localhost set-admin-password '<MẬT_KHẨU_MỚI>'
+   docker compose exec backend bench --site agrimate.localhost set-admin-password '<NEW_PASSWORD>'
    ```
-   Administrator chỉ dùng để quản trị; chủ/nhân viên đăng nhập bằng tài khoản riêng (xem
-   "👥 Nhân viên & quyền").
+   Administrator is for admin only; owner/staff log in with their own accounts (see "👥 Nhân viên & quyền").
 
-2. **Đổi mọi mật khẩu hạ tầng** trong `.env` (DB, v.v.) khỏi giá trị mẫu.
+2. **Change all infrastructure passwords** in `.env` (DB, etc.) away from the sample values.
 
-3. **HTTPS (đã chọn: Caddy).** `http://` báo "Not Secure" và chặn bớt clipboard/camera. Dự án có
-   sẵn service **`caddy`** (profile `tls`) đứng trước `web`:
+3. **HTTPS (chosen: Caddy).** `http://` shows "Not Secure" and limits clipboard/camera. The project
+   ships a **`caddy`** service (profile `tls`) in front of `web`:
    ```bash
    docker compose --profile tls up -d caddy
    ```
-   Cấu hình bằng `SITE_DOMAIN` trong `.env` (xem mục 0). Vì sao Caddy (không phải nginx): trên một
-   máy ở cửa hàng, gánh nặng là **vòng đời chứng chỉ** — Caddy tự lấy/tự gia hạn (Let's Encrypt khi
-   có domain) hoặc tự cấp cert nội bộ, *set-and-forget*; nginx phải tự tạo cert + tự nhớ gia hạn.
-   nginx nội bộ của Frappe (service `frontend`) **giữ nguyên** — Caddy chỉ bọc HTTPS ở ngoài cùng.
+   Configured via `SITE_DOMAIN` (see §0). Why Caddy (not nginx): on a single in-store box the hard
+   part is the **certificate lifecycle** — Caddy obtains/renews automatically (Let's Encrypt with a
+   domain) or issues an internal cert, set-and-forget; nginx would need manual cert creation + renewal.
+   Frappe's internal nginx (the `frontend` service) is **unchanged** — Caddy only wraps HTTPS on the outside.
 
-4. **Không mở ra Internet.** Cago thiết kế cho LAN. Nếu cần truy cập từ xa, dùng VPN, KHÔNG
-   forward cổng thẳng.
+4. **Do not expose to the Internet.** Cago is designed for the LAN. For remote access use a VPN, do
+   NOT port-forward directly.
 
-5. **Khoá quyền theo vai trò.** Mỗi nhân viên một tài khoản; chỉ bật capability cần thiết
-   (giá vốn/lãi/biên ẩn với nhân viên — đã có audit kiểm). Xem màn "👥 Nhân viên & quyền".
+5. **Lock down by role.** One account per staff member; enable only the needed capabilities (cost/
+   profit/margin are hidden from staff — enforced and audited). See "👥 Nhân viên & quyền".
 
 ---
 
-## B. Sao lưu & khôi phục (bắt buộc — đây là tiền + công nợ của tiệm)
+## B. Backup & restore (mandatory — this is the shop's money + receivables)
 
-**Bật sao lưu tự động** (opt-in, không ảnh hưởng stack thường):
+**Enable automatic backups** (opt-in, doesn't affect the normal stack):
 ```bash
 docker compose --profile backup up -d backup
 ```
-- Mặc định: mỗi 24h (`BACKUP_INTERVAL`), giữ 14 ngày (`BACKUP_KEEP_DAYS`).
-- Bản sao ghi vào `infra/docker/backups/offsite/` (DB + files).
-- **Off-machine thật:** trỏ `./backups/offsite` (mục `x-bench-volumes-offsite` trong
-  `compose.yaml`) sang **USB/ổ NAS/thư mục đồng bộ Google Drive** để bản sao không nằm cùng máy.
-  Mất máy chủ mà sao lưu cùng máy = mất luôn.
+- Defaults: every 24h (`BACKUP_INTERVAL`), keep 14 days (`BACKUP_KEEP_DAYS`).
+- Backups are written to `infra/docker/backups/offsite/` (DB + files).
+- **True off-machine:** repoint `./backups/offsite` (the `x-bench-volumes-offsite` anchor in
+  `compose.yaml`) to a **USB drive / NAS / Google-Drive-synced folder** so a copy lives off the box.
+  Losing the server with backups only on that server = total loss.
 
-**Sao lưu thủ công ngay** (trước khi nâng cấp/sửa lớn):
-- **Trong app (khuyến nghị cho chủ):** Cài đặt cửa hàng → **💾 Sao lưu dữ liệu** → "Sao lưu ngay".
-  Chạy nền, tự chép ra `/offsite` nếu đã gắn — không cần dòng lệnh.
-- Hoặc dòng lệnh:
+**Back up now** (before an upgrade / big change):
+- **In-app (recommended for the owner):** Store Settings → **💾 Sao lưu dữ liệu** → "Sao lưu ngay".
+  Runs in the background, copies to `/offsite` if mounted — no command line.
+- Or CLI:
   ```bash
   docker compose exec backend bench --site agrimate.localhost backup --with-files --backup-path /offsite
   ```
 
-**Diễn tập khôi phục** (làm 1 lần để chắc bản sao dùng được — xem chi tiết docs/33):
-khôi phục bản mới nhất vào một site thử, kiểm công nợ + vài hoá đơn khớp. Sao lưu chưa
-test-restore = chưa phải sao lưu.
+**Restore drill** (do it once to prove a backup is usable — details in docs/33): restore the latest
+backup into a scratch site, verify receivables + a few invoices match. An untested backup is not a backup.
 
 ---
 
-## C. QA trên thiết bị thật (tôi không tự chạy phần cứng được — chủ/kỹ thuật làm)
+## C. On-device QA (hardware can't be exercised from CI — owner/technician runs this)
 
-Mở trên đúng thiết bị sẽ dùng ở quầy. Đánh dấu ✅ từng mục.
+Open on the actual counter devices. Tick each item.
 
-### C1. Máy in nhiệt 58mm (in phiếu)
-- [ ] Bán 1 đơn tiền mặt → bật "Tự in phiếu" → phiếu ra đúng khổ 58mm, không tràn/cắt chữ.
-- [ ] In lại từ "🖨 In lại" → đúng hoá đơn.
-- [ ] Tiếng Việt có dấu in đúng (không vuông/mất dấu).
+### C1. 58 mm thermal printer (receipts)
+- [ ] Make one cash sale → enable "Tự in phiếu" → receipt prints at the correct 58 mm width, no overflow/clipping.
+- [ ] Reprint via "🖨 In lại" → correct invoice.
+- [ ] Vietnamese diacritics print correctly (no boxes/missing marks).
 
-### C2. Máy quét mã vạch
-- [ ] Ở màn Bán, quét 1 sản phẩm có mã vạch → tự thêm vào giỏ.
-- [ ] Ở "Tra cứu", quét → mở đúng sản phẩm.
-- [ ] Mã không có trong hệ thống → báo "không tìm thấy", không treo.
+### C2. Barcode scanner
+- [ ] On the Sell screen, scan a product with a barcode → it's added to the cart.
+- [ ] On "Tra cứu" (lookup), scan → opens the right product.
+- [ ] A code not in the system → "not found", no hang.
 
-### C3. Bán offline (mạng chập chờn — rủi ro cao ở nông thôn)
-- [ ] Mở /pos/sell khi CÓ mạng (để cache catalog) → TẮT wifi.
-- [ ] Trang vẫn mở; tìm sản phẩm + chọn khách cũ vẫn chạy.
-- [ ] Chốt 1 đơn tiền mặt + 1 đơn ghi nợ → hiện "PHIẾU TẠM — CHƯA ĐỒNG BỘ"; badge "Offline · 2 đơn chờ".
-- [ ] Chuyển khoản/QR + Thêm khách mới + mã giảm giá bị khoá khi offline.
-- [ ] BẬT mạng lại → tự đồng bộ → 2 hoá đơn thật xuất hiện, tồn giảm đúng 1 lần/đơn, công nợ tăng đúng.
-- [ ] Bấm chốt 2 lần lúc mạng yếu → chỉ 1 hoá đơn (chống trùng).
+### C3. Offline selling (flaky network — high risk in rural areas)
+- [ ] Open /pos/sell while ONLINE (to cache the catalog) → turn off wifi.
+- [ ] The page still opens; search + picking an existing customer still work.
+- [ ] Complete one cash sale + one credit sale → shows "PHIẾU TẠM — CHƯA ĐỒNG BỘ"; badge "Offline · 2 pending".
+- [ ] Bank/QR + add-new-customer + coupon are locked while offline.
+- [ ] Turn the network back ON → auto-sync → 2 real invoices appear, stock drops once per order, debt increases correctly.
+- [ ] Tap checkout twice on a weak network → only one invoice (idempotency).
 
-### C4. Màn phụ cho khách (CFD) + kiosk
-- [ ] Mở "🖥 Màn hình phụ cho khách" trên màn thứ 2 ở quầy → giỏ + tổng tiền cập nhật theo màn bán; KHÔNG hiện giá vốn.
-- [ ] Kiosk trên màn to ở cửa hàng: danh mục/sản phẩm vừa khung; sơ đồ hiện trọn vẹn; trợ lý mở dạng cửa sổ chat ở góc trên PC, full màn trên tablet.
-- [ ] Thử trên điện thoại khách: kiosk + trợ lý dùng tốt, nút đủ to.
+### C4. Customer-facing display (CFD) + kiosk
+- [ ] Open "🖥 Màn hình phụ cho khách" on a second screen at the counter → cart + total mirror the sell screen; cost is NOT shown.
+- [ ] Kiosk on the big in-store screen: categories/products fit; the map shows fully; the assistant opens as a corner chat window on PC, full-screen on tablet.
+- [ ] Try on a customer phone: kiosk + assistant work, buttons large enough.
 
-### C5. Thanh toán QR (VietQR)
-- [ ] Cài tài khoản ở "💳 QR thu tiền" → hiện QR khi thu nợ/bán; quét bằng app ngân hàng ra đúng số tiền.
-
----
-
-## D. Dữ liệu sạch trước khi mở cửa
-- [ ] Vào **🩺 Kiểm tra dữ liệu**: xử lý hết "Thiếu giá", gộp "Có thể trùng", bổ sung ảnh/phân loại.
-- [ ] Đánh dấu **⭐ Hàng khuyên dùng** cho các mặt hàng muốn đẩy.
-- [ ] Kiểm **Sơ đồ cửa hàng** khớp bố trí thật; bật "kiosk cố định" trên tablet đặt tại quầy.
+### C5. QR payment (VietQR)
+- [ ] Configure the account under "💳 QR thu tiền" → a QR shows on collect-debt/sell; scanning with a banking app shows the right amount.
 
 ---
 
-## E. Sau go-live (định kỳ)
-- Tuần: liếc 🩺 Kiểm tra dữ liệu + "Cảnh báo hôm nay" (hàng sắp hết / lô cận hạn).
-- Tháng: kiểm thư mục sao lưu offsite có bản mới; thử khôi phục 1 lần/quý.
+## D. Clean data before opening
+- [ ] Open **🩺 Kiểm tra dữ liệu**: clear all "Thiếu giá" (missing price), merge "Có thể trùng" (duplicates), add images/categories.
+- [ ] Flag **⭐ Hàng khuyên dùng** (recommended) for the items you want to push.
+- [ ] Check **Sơ đồ cửa hàng** (store map) matches the real layout; enable "fixed kiosk" on the counter tablet.
+
+---
+
+## E. After go-live (recurring)
+- Weekly: glance at 🩺 Kiểm tra dữ liệu + "Cảnh báo hôm nay" (low stock / near-expiry lots).
+- Monthly: confirm the offsite backup folder has fresh copies; run a restore test once a quarter.

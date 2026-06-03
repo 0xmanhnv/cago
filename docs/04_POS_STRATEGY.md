@@ -1,6 +1,6 @@
 # 04 — POS Strategy
 
-> 🗄 **Lỗi thời một phần.** Quyết định cuối: POS = **Cago-native `/pos/sell`** (xem [36](36_STAFF_MOBILE_POS_PLAN.md)); POS Awesome đã **gỡ hẳn**. Phần đánh giá POS Awesome bên dưới chỉ là lịch sử.
+> 🗄 **Partly outdated.** Final decision: the POS is **Cago-native `/pos/sell`** (see [36](36_STAFF_MOBILE_POS_PLAN.md)); POS Awesome was **fully removed**. The POS Awesome evaluation below is historical only.
 
 ## 1. Decision
 

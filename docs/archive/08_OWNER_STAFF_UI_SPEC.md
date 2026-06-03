@@ -1,6 +1,6 @@
 # 08 — Owner and Staff UI Spec
 
-> 🗄 **Spec MVP cũ.** UI hiện tại: [27](../27_FRONTEND_MIGRATION_NEXTJS.md) (Next.js) + [36](../36_STAFF_MOBILE_POS_PLAN.md) (POS). Màn chủ đã gom 6 nhóm.
+> 🗄 **Old MVP spec.** Current UI: [27](../27_FRONTEND_MIGRATION_NEXTJS.md) (Next.js) + [36](../36_STAFF_MOBILE_POS_PLAN.md) (POS). The owner home is now grouped into 6 sections.
 
 ## 1. Owner UI
 

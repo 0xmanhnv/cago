@@ -1,6 +1,6 @@
 # 07 — Data Model
 
-> ℹ️ **Thực tế hiện tại:** DTO/trường đã mở rộng (ca, loyalty, đa đơn vị, khuyên dùng, offline…). Nguồn đúng: `cago/utils/dto.py` + [39](39_API_REFERENCE.md).
+> ℹ️ **Current reality:** DTOs/fields have grown (shift, loyalty, multi-UOM, recommended, offline…). Source of truth: `cago/utils/dto.py` + [39](39_API_REFERENCE.md).
 
 ## 1. Source of truth
 

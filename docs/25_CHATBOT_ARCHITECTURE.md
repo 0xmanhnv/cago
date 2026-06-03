@@ -1,6 +1,6 @@
 # 25 — Chatbot Architecture & Implementation Plan (DESIGN — not yet built)
 
-> ℹ️ **Đã triển khai.** Kiến trúc này đã được build (`cago/chatbot/*`). Giữ làm tài liệu thiết kế.
+> ℹ️ **Implemented.** This architecture is built (`cago/chatbot/*`). Kept as the design document.
 
 > Status: **DESIGN ONLY. Do not code until approved.**
 > Naming: the repo app is **`cago`** (module `Cago`, APIs under `cago.api.*`). The

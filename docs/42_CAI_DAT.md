@@ -1,65 +1,67 @@
-# 42 — Cài đặt (từ máy trắng đến chạy được)
+# 42 — Installation (from a bare machine to a running system)
 
-Hướng dẫn cài đặt Cago bằng Docker. Cago = ERPNext v16 (backend) + app `cago` + Next.js (`web/`),
-đóng gói trong Docker compose ở `infra/docker/`. Chi tiết kỹ thuật từng service: `infra/docker/README.md`.
+Install Cago with Docker. Cago = ERPNext v16 (backend) + the `cago` app + Next.js (`web/`), all
+packaged in Docker Compose under `infra/docker/`. Per-service technical detail: `infra/docker/README.md`.
 
-> Triển khai THẬT (domain, HTTPS, đổi mật khẩu, backup, QA thiết bị): xem [38_GO_LIVE_RUNBOOK.md](38_GO_LIVE_RUNBOOK.md).
+> For a REAL deployment (domain, HTTPS, password change, backups, device QA) see
+> [38_GO_LIVE_RUNBOOK.md](38_GO_LIVE_RUNBOOK.md).
 
-## 1. Yêu cầu máy
-- Máy chủ: **mini-PC đặt tại cửa hàng** hoặc **VPS**. Tối thiểu ~**4GB RAM, 2 CPU, 20GB đĩa** (thoải mái: 8GB RAM).
-- Hệ điều hành: Linux (Ubuntu/Debian khuyến nghị). macOS/Windows chạy dev được.
-- **Docker + Docker Compose v2**. Kiểm tra: `docker --version` và `docker compose version`.
-  - Ubuntu cài nhanh: `curl -fsSL https://get.docker.com | sh` (rồi `sudo usermod -aG docker $USER`, đăng xuất/đăng nhập lại).
+## 1. Requirements
+- Server: an **in-store mini-PC** or a **VPS**. Minimum ~**4 GB RAM, 2 CPU, 20 GB disk** (8 GB RAM comfortable).
+- OS: Linux (Ubuntu/Debian recommended). macOS/Windows work for dev.
+- **Docker + Docker Compose v2**. Check: `docker --version` and `docker compose version`.
+  - Quick install on Ubuntu: `curl -fsSL https://get.docker.com | sh` (then `sudo usermod -aG docker $USER`, log out/in).
 
-## 2. Lấy mã nguồn
+## 2. Get the code
 ```bash
 git clone <repo-url> cago && cd cago/infra/docker
 ```
 
-## 3. Cấu hình `.env`
-- **Thử nghiệm (dev, có dữ liệu mẫu):**
+## 3. Configure `.env`
+- **Trying it out (dev, with sample data):**
   ```bash
   cp .env.example .env
   ```
-- **Chạy thật (production, catalog rỗng):**
+- **Real deployment (production, empty catalog):**
   ```bash
   cp .env.production.example .env
   ```
-  Mở `.env` điền: `ADMIN_PASSWORD`, `DB_ROOT_PASSWORD` (mạnh, khác nhau), `SITE_DOMAIN` (nếu có domain).
-  `LOAD_SAMPLE_DATA=0` để không nạp sản phẩm demo.
+  Edit `.env`: set `ADMIN_PASSWORD`, `DB_ROOT_PASSWORD` (strong, distinct), `SITE_DOMAIN` (if you have a domain).
+  Keep `LOAD_SAMPLE_DATA=0` so no demo products are seeded.
 
-## 4. Build & chạy
+## 4. Build & start
 ```bash
-docker compose build                 # build image (ERPNext + cago + web). Lần đầu khá lâu.
-docker compose up -d                 # khởi động; service create-site tự tạo site 1 lần
-docker compose logs -f create-site   # xem tới khi tạo site xong rồi Ctrl-C
+docker compose build                 # build the image (ERPNext + cago + web). Slow the first time.
+docker compose up -d                 # start; the create-site service initialises the site once
+docker compose logs -f create-site   # watch until site creation finishes, then Ctrl-C
 ```
-`create-site` (chạy 1 lần, idempotent): tạo site → **seed_baseline** (company, price list, danh mục, job role) → nạp demo nếu `LOAD_SAMPLE_DATA=1`. Bật/tắt `up`/`down` an toàn (dữ liệu nằm trong volume).
+`create-site` (runs once, idempotent): creates the site → **seed_baseline** (company, price lists,
+categories, job roles) → seeds demo products only if `LOAD_SAMPLE_DATA=1`. `up`/`down` cycles are
+safe (data lives in named volumes).
 
-## 5. Truy cập & đăng nhập
-- Mở trình duyệt: **`http://<IP-máy>:8080`** (vd `http://192.168.1.10:8080`).
-- Quản trị ERPNext: `Administrator` / `ADMIN_PASSWORD`.
-- Chủ/nhân viên: tạo tài khoản trong **Cài đặt → 👥 Nhân viên & quyền** (xem [docs/user](user/)).
+## 5. Access & login
+- Browser: **`http://<server-ip>:8080`** (e.g. `http://192.168.1.10:8080`).
+- ERPNext admin: `Administrator` / `ADMIN_PASSWORD`.
+- Owner/staff: create accounts in **Store Settings → 👥 Nhân viên & quyền** (see [user/](user/)).
 
-## 6. Nạp catalog thật + tồn kho
+## 6. Load the real catalog + stock
 ```bash
-# trong frappe-bench của container (hoặc dùng script):
 docker compose exec backend python /home/frappe/frappe-bench/apps/cago/scripts/import_products.py \
-  --site <site> --csv /đường-dẫn/catalog.csv
+  --site <site> --csv /path/to/catalog.csv
 ```
-Hoặc theo [user/NHAP_DU_LIEU_CSV.md](user/NHAP_DU_LIEU_CSV.md) (có sẵn `user/catalog_minh_tuyet.csv`).
-Import **không** tạo tồn — nhập số lượng tồn qua màn **📥 Nhập hàng**.
+Or follow [user/NHAP_DU_LIEU_CSV.md](user/NHAP_DU_LIEU_CSV.md) (a ready `user/catalog_minh_tuyet.csv` is provided).
+Import does **not** create stock — enter quantities via the **📥 Nhập hàng** (Receive) screen.
 
-## 7. Lệnh thường dùng
+## 7. Common operations
 ```bash
-docker compose ps                                   # trạng thái service
-docker compose logs -f backend                      # log backend
-docker compose exec backend bench --site <site> migrate     # chạy migration
-docker compose exec backend bench --site <site> console     # python console
-docker compose restart frontend web                 # sau khi recreate backend (tránh 502)
+docker compose ps                                       # service status
+docker compose logs -f backend                          # backend logs
+docker compose exec backend bench --site <site> migrate # run migrations
+docker compose exec backend bench --site <site> console # python console
+docker compose restart frontend web                     # after recreating backend (avoids 502)
 ```
 
-## 8. Cập nhật phiên bản (deploy code mới)
+## 8. Upgrade (deploy new code)
 ```bash
 git pull
 docker compose build backend web
@@ -67,20 +69,23 @@ docker compose up -d
 docker compose exec backend bench --site <site> migrate
 docker compose restart frontend web
 ```
-> Backend đổi (kể cả test) **phải build lại backend** (override dev không tự nạp). Recreate backend → **restart `frontend` + `web`** (nginx giữ IP cũ → 502).
+> Any backend change (tests included) **requires rebuilding backend** (the dev override isn't loaded
+> by default). Recreating backend → **restart `frontend` + `web`** (the Frappe nginx caches the old
+> upstream IP → 502 otherwise).
 
-## 9. Sao lưu & khôi phục
-- Bật backup tự động: `docker compose --profile backup up -d backup` (xem [38](38_GO_LIVE_RUNBOOK.md) mục B).
-- Trong app: **Cài đặt → 💾 Sao lưu dữ liệu**. Khôi phục/rollback: [33_OPERATIONS_RESTORE_ROLLBACK.md](33_OPERATIONS_RESTORE_ROLLBACK.md).
+## 9. Backup & restore
+- Enable automatic backups: `docker compose --profile backup up -d backup` (see [38](38_GO_LIVE_RUNBOOK.md) §B).
+- In-app: **Store Settings → 💾 Sao lưu dữ liệu**. Restore / rollback: [33_OPERATIONS_RESTORE_ROLLBACK.md](33_OPERATIONS_RESTORE_ROLLBACK.md).
 
-## 10. Dừng / khởi động lại
+## 10. Stop / restart
 ```bash
-docker compose stop      # dừng (giữ dữ liệu)
-docker compose up -d      # chạy lại
-docker compose down       # gỡ container (dữ liệu vẫn trong volume)
-# docker compose down -v  # !! XOÁ luôn dữ liệu (volume) — chỉ khi muốn làm lại từ đầu
+docker compose stop      # stop (keeps data)
+docker compose up -d      # start again
+docker compose down       # remove containers (data stays in volumes)
+# docker compose down -v  # !! also DELETES data (volumes) — only to start completely fresh
 ```
 
 ---
-Tiếp theo để chạy thật an toàn: **[38_GO_LIVE_RUNBOOK.md](38_GO_LIVE_RUNBOOK.md)** (HTTPS bằng Caddy, đổi mật khẩu, backup offsite, QA máy in/quét/offline).
-Cấu trúc dự án & 3 lớp dữ liệu: **[17_REPO_STRUCTURE.md](17_REPO_STRUCTURE.md)**.
+Next, to run safely in production: **[38_GO_LIVE_RUNBOOK.md](38_GO_LIVE_RUNBOOK.md)** (Caddy HTTPS,
+password change, offsite backup, printer/scanner/offline QA).
+Project layout & the 3 data layers: **[17_REPO_STRUCTURE.md](17_REPO_STRUCTURE.md)**.
