@@ -14,7 +14,7 @@ import time
 
 from cago.utils.safety import STANDARD_SAFETY_WARNING
 
-from . import config, context, observability, prompts, retrieval, safety
+from . import config, context, deterministic, observability, prompts, retrieval, safety
 from .providers import LLMError, get_provider
 from .schema import ChatResponse
 
@@ -163,14 +163,22 @@ def ask(role, message, history=None, session_id=None, customer_phone=None, focus
 			)
 			provider_used = "overview"
 		else:
-			resp = ChatResponse(
-				answer_text=_no_data_answer(), needs_staff_help=True, confidence="low",
-			)
+			# No product + no LLM: catch greetings / thanks / store-info via keywords before giving up.
+			det = deterministic.reply(role, message, [])
+			if det:
+				resp = ChatResponse(answer_text=det, needs_staff_help=False, confidence="medium")
+				provider_used = "keyword"
+			else:
+				resp = ChatResponse(
+					answer_text=_no_data_answer(), needs_staff_help=True, confidence="low",
+				)
 	# 3) Normal: LLM if configured, else deterministic. Both grounded in retrieved data.
 	else:
 		text, prov, model = _llm_answer(role, products, message, history)
 		if text is None:
-			text = _deterministic_answer(products)
+			# No LLM (or it failed): keyword-matched answer from the retrieved data; generic list as last resort.
+			text = deterministic.reply(role, message, products) or _deterministic_answer(products)
+			provider_used = "keyword"
 		else:
 			provider_used, model_used = prov, model
 		resp = ChatResponse(

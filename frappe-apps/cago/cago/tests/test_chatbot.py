@@ -190,3 +190,21 @@ class TestChatbotOrchestrator(FrappeTestCase):
 		card = r["product_cards"][0]
 		self.assertTrue(card["price_text"])
 		self.assertIn(KIOSK_ITEM, r["sources"])
+
+	def test_keyword_fallback_stock_intent(self):
+		"""No-LLM keyword path: a 'còn hàng?' question answers about stock from real data."""
+		r = orchestrator.ask("staff", "cám gà con còn hàng không")
+		self.assertTrue(r["product_cards"])
+		self.assertNotIn("chưa tìm thấy", r["answer_text"].lower())  # not the dead-end fallback
+
+	def test_keyword_fallback_thanks_no_staff(self):
+		"""'cảm ơn' is handled socially (no product, no dead-end, no escalation)."""
+		r = orchestrator.ask("customer", "cảm ơn")
+		self.assertIn("cảm ơn", r["answer_text"].lower())
+		self.assertFalse(r["needs_staff_help"])
+
+	def test_keyword_fallback_accentless(self):
+		"""Rural users type without accents — 'gia bao nhieu' still matches the price intent."""
+		r = orchestrator.ask("staff", "cam ga con gia bao nhieu")
+		self.assertTrue(r["product_cards"])
+		self.assertNotIn("chưa tìm thấy", r["answer_text"].lower())
