@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { SearchInput } from "@/components/ui/ListUI";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { Batch } from "@/lib/types";
 import { BackBar, goBackSmart, Ok } from "./OwnerShared";
 
@@ -24,7 +25,7 @@ export function LowStock() {
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="HÀNG SẮP HẾT" />
       {loading ? (
-        <div className="py-6 text-center text-slate-500">Đang tải...</div>
+        <SkeletonRows rows={6} thumb={false} />
       ) : list.length === 0 ? (
         <Ok>Không có hàng nào sắp hết. 👍</Ok>
       ) : (
@@ -199,7 +200,7 @@ export function ExpiryReport() {
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="LÔ SẮP HẾT HẠN (60 ngày)" />
       {loading ? (
-        <div className="py-6 text-center text-slate-500">Đang tải...</div>
+        <SkeletonRows rows={6} thumb={false} />
       ) : rows.length === 0 ? (
         <Ok>Không có lô nào sắp hết hạn. 👍</Ok>
       ) : (

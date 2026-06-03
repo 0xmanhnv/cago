@@ -7,6 +7,7 @@ import { confirmDialog } from "@/components/ui/dialog";
 import { SearchInput } from "@/components/ui/ListUI";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, goBackSmart, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/toast";
 
 export function DebtAction({ mode }: { mode: "add" | "repay" }) {
@@ -128,7 +129,7 @@ export function DebtList() {
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="CÔNG NỢ KHÁCH HÀNG" />
       {loading ? (
-        <div className="py-6 text-center text-slate-500">Đang tải...</div>
+        <SkeletonRows rows={6} thumb={false} />
       ) : list.length === 0 ? (
         <Ok>Không có khách nào đang nợ. 🎉</Ok>
       ) : (

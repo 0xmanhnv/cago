@@ -111,9 +111,13 @@ export function CustomerDisplay() {
             )}
           </div>
           {cart.saved_text && <div className="mt-2 text-right text-xl text-amber-200">Đã giảm {cart.saved_text}</div>}
-          <div className="mt-3 flex items-center justify-between rounded-2xl bg-white/15 px-5 py-4">
-            <span className="text-2xl font-bold">Tổng cộng</span>
-            <span className="text-5xl font-extrabold text-harvest">{cart.total_text}</span>
+          {/* Stack label above the amount + size the number to the viewport so it never overlaps the
+              label or overflow on a narrow phone (the screen may be a phone, tablet, or wide monitor). */}
+          <div className="mt-3 rounded-2xl bg-white/15 px-5 py-4 text-center">
+            <div className="text-xl font-bold text-emerald-50">Tổng cộng</div>
+            <div className="break-words font-extrabold leading-tight text-harvest" style={{ fontSize: "clamp(2.25rem, 11vw, 5rem)" }}>
+              {cart.total_text}
+            </div>
           </div>
         </div>
       )}

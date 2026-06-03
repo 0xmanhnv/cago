@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { copyText, formatVnd, groupVnd, parseVnd } from "@/lib/utils";
+import { Sheet } from "@/components/ui/Sheet";
 import type { ProductCard } from "@/lib/types";
 
 // VND has no decimals — round + group. Single shared formatter (lib/utils) so owner/staff/kiosk match.
@@ -85,7 +85,6 @@ export function DraftModal({
   const [canSend, setCanSend] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<null | boolean>(null);
-  useLockBodyScroll(true); // don't let the page scroll behind the modal
   const doCopy = async () => setCopyState((await copyText(text)) ? "ok" : "fail");
   useEffect(() => {
     // Show the "Gửi luôn" button only when the owner has wired a messaging webhook (else copy-only).
@@ -115,8 +114,7 @@ export function DraftModal({
     w.print();
   };
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-5">
-      <div className="w-full max-w-md rounded-2xl bg-white p-5">
+    <Sheet open onClose={onClose} label={title}>
         <h3 className="text-lg font-bold">{title}</h3>
         <textarea readOnly value={text} rows={allowPrint ? 9 : 5} className="mt-2 w-full rounded-lg border-2 border-slate-300 p-3 text-base" />
         {sent === true && <Ok>Đã gửi tin nhắn.</Ok>}
@@ -139,8 +137,7 @@ export function DraftModal({
             Đóng
           </button>
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

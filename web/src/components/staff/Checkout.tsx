@@ -18,6 +18,7 @@ import { enqueueSale } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
 import { cfdPost } from "@/lib/cfd";
 import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 
 type PayMode = "cash" | "bank" | "credit" | "split";
 interface SaleResult {
@@ -1095,7 +1096,7 @@ export function Checkout() {
 
       <div>
         {loading ? (
-          <div className="py-6 text-center text-slate-500">Đang tải...</div>
+          <SkeletonRows rows={6} />
         ) : list.length === 0 ? (
           <div className="rounded-xl bg-white p-6 text-center text-slate-400">
             {q.trim() || category ? "Không tìm thấy sản phẩm. Thử gõ tên khác." : "Gõ tên sản phẩm hoặc chọn loại hàng để xem."}
