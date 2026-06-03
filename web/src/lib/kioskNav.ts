@@ -89,6 +89,11 @@ export function useKioskNav() {
     router.push("/map");
   }, [router]);
 
+  const openHelp = useCallback(() => {
+    bump();
+    router.push("/help");
+  }, [router]);
+
   // Pop one screen; fall back to `fallback` (default home) on a fresh entry with no in-app history.
   const goBack = useCallback(
     (fallback?: () => void) => {
@@ -105,5 +110,5 @@ export function useKioskNav() {
     [router],
   );
 
-  return { goHome, openList, openDetail, openCart, openChat, openMyDebt, openMap, goBack };
+  return { goHome, openList, openDetail, openCart, openChat, openMyDebt, openMap, openHelp, goBack };
 }

@@ -44,6 +44,7 @@ export interface SaleArgs {
   discount_amount?: number;
   coupon?: string;
   redeem_points?: number;
+  delivery_charge?: number;
   payments?: { mode: "cash" | "bank"; amount: number }[];
 }
 

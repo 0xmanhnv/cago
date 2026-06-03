@@ -16,6 +16,7 @@ import { type SaleArgs, type SaleDisplay } from "@/lib/offline/db";
 import { findByBarcodeLocal, getProductLocal, refreshCatalog, searchCatalogLocal, searchCustomersLocal } from "@/lib/offline/catalog";
 import { enqueueSale } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
+import { cfdPost } from "@/lib/cfd";
 
 type PayMode = "cash" | "bank" | "credit" | "split";
 interface SaleResult {
@@ -249,6 +250,7 @@ export function Checkout() {
   const [discount, setDiscount] = useState("");
   const [discountMode, setDiscountMode] = useState<"amount" | "percent">("amount");
   const [redeemPts, setRedeemPts] = useState(0); // loyalty points the customer spends this sale
+  const [delivery, setDelivery] = useState(""); // optional delivery fee (phí giao hàng) added to the bill
   const [custInPanel, setCustInPanel] = useState(false); // change-customer picker inside the pay panel
   const [viewMode, setViewMode] = useState<"list" | "card">("list"); // staff default = dense list (speed)
   const [couponInput, setCouponInput] = useState("");
@@ -519,6 +521,10 @@ export function Checkout() {
   const redeemUse = Math.max(0, Math.min(redeemPts, maxRedeem));
   const redeemDisc = redeemUse * redeemVnd; // đồng knocked off the bill by spent points
   const estimate = Math.max(0, subtotal - disc - effCouponDisc - redeemDisc);
+  // Delivery fee is a flat add-on to what the customer pays (not discountable). payTotal = the amount
+  // due; `estimate` stays the goods-after-discount figure used by the discount/redeem maths.
+  const deliveryNum = parseInt((delivery || "").replace(/[^\d]/g, ""), 10) || 0;
+  const payTotal = estimate + deliveryNum;
   const totalSaved = disc + effCouponDisc + redeemDisc; // everything knocked off the subtotal
 
   const applyCoupon = async () => {
@@ -677,11 +683,31 @@ export function Checkout() {
       discount_amount: disc || 0,
       coupon: online ? coupon || undefined : undefined, // coupons need server validation → online only
       redeem_points: redeemUse || 0,
+      delivery_charge: deliveryNum || undefined,
       ...(payments ? { payments } : {}),
     };
-    const display: SaleDisplay = { customer_name: cust?.customer_name, total_text: money(estimate), item_count: cartCodes.length, payment_mode, lines: dispLines };
+    const display: SaleDisplay = { customer_name: cust?.customer_name, total_text: money(payTotal), item_count: cartCodes.length, payment_mode, lines: dispLines };
     return { args, display };
   };
+
+  // Mirror the live cart to the customer-facing display (/pos/display) — only name/qty/line total +
+  // the grand total (never cost). Posts an idle "welcome" when the cart empties.
+  useEffect(() => {
+    if (!cartCodes.length) { cfdPost({ type: "idle" }); return; }
+    cfdPost({
+      type: "cart",
+      lines: cartCodes.map((c) => ({ name: nameOf(c), qty: lines[c].qty, amount_text: money(linePrice(c) * lines[c].qty) })),
+      total_text: money(payTotal),
+      saved_text: totalSaved > 0 ? money(totalSaved) : undefined,
+      customer_name: cust?.customer_name,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, payTotal, totalSaved, cust]);
+  // Show the payment QR big on the customer display while it's up.
+  useEffect(() => {
+    if (qr) cfdPost({ type: "qr", url: qr, amount_text: money(payTotal) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qr]);
 
   // Reset the cart + pay panel after a sale (online or queued).
   const clearCart = () => {
@@ -690,6 +716,7 @@ export function Checkout() {
     setDiscount("");
     setDiscountMode("amount"); // reset đ/% so a "%" mode doesn't bleed into the next customer's discount
     setRedeemPts(0);
+    setDelivery("");
     clearCoupon();
     setSplitCash("");
     setSplitBank("");
@@ -780,9 +807,9 @@ export function Checkout() {
     const bankAmt = parseInt((splitBank || "").replace(/[^\d]/g, ""), 10) || 0;
     const paid = cashAmt + bankAmt;
     if (paid <= 0) { toast.error("Nhập số tiền tiền mặt và/hoặc chuyển khoản."); return; }
-    if (paid < estimate && !cust) { toast.error("Trả thiếu thì phải chọn khách (phần còn lại ghi nợ)."); return; }
+    if (paid < payTotal && !cust) { toast.error("Trả thiếu thì phải chọn khách (phần còn lại ghi nợ)."); return; }
     if (!guardShift(() => checkoutSplit())) return;
-    const rest = estimate - paid;
+    const rest = payTotal - paid;
     const msg = rest > 0 ? `Còn lại ${money(rest)} ghi nợ cho ${cust?.customer_name}.` : rest < 0 ? `Thối lại ${money(-rest)}.` : "";
     if (!(await ask(`Thu Tiền mặt ${money(cashAmt)} + Chuyển khoản ${money(bankAmt)}. ${msg} Xác nhận?`))) return;
     setBusy(true);
@@ -1217,7 +1244,7 @@ export function Checkout() {
                     <span className="block truncate text-sm text-slate-500">
                       🛒 {cartCodes.length} mặt hàng{cust ? ` · ${cust.customer_name}` : ""}
                     </span>
-                    <span className="text-2xl font-extrabold text-brand">{money(estimate)}</span>
+                    <span className="text-2xl font-extrabold text-brand">{money(payTotal)}</span>
                   </span>
                   <span className="shrink-0 rounded-xl bg-brand px-5 py-3 text-lg font-extrabold text-white">Thanh toán ▲</span>
                 </button>
@@ -1301,7 +1328,7 @@ export function Checkout() {
                       🏷️ Giảm giá / Mã{totalSaved > 0 ? ` · −${money(totalSaved)}` : discOpen ? " ▲" : " ▼"}
                     </button>
                   </div>
-                  <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${discOpen || totalSaved > 0 || !!coupon ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                  <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${discOpen || totalSaved > 0 || !!coupon || deliveryNum > 0 ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                     <div className="overflow-hidden">
                     <div className="mt-2 space-y-2 rounded-xl border border-amber-200 bg-amber-50/50 p-2.5">
                       {/* Manual "giảm trực tiếp" is bargaining — only when the owner enabled price
@@ -1379,6 +1406,17 @@ export function Checkout() {
                           )}
                         </div>
                       )}
+                      {/* Phí giao hàng tận nơi (cám/phân bao nặng) — cộng thẳng vào tiền khách trả. */}
+                      <div className="flex items-center justify-between gap-2 border-t border-amber-200 pt-2">
+                        <span className="text-sm text-slate-600">🚚 Phí giao hàng</span>
+                        <input
+                          inputMode="numeric"
+                          value={delivery}
+                          onChange={(e) => setDelivery(fmtAmt(e.target.value))}
+                          placeholder="0"
+                          className="h-9 w-24 rounded-lg border-2 border-amber-300 px-2 text-right"
+                        />
+                      </div>
                     </div>
                     </div>
                   </div>
@@ -1388,7 +1426,7 @@ export function Checkout() {
                       <div className="text-sm font-bold text-slate-500">Tổng tiền</div>
                       {totalSaved > 0 && <div className="text-xs font-bold text-amber-700">đã giảm {money(totalSaved)}</div>}
                     </div>
-                    <span className="text-3xl font-extrabold text-brand">{money(estimate)}</span>
+                    <span className="text-3xl font-extrabold text-brand">{money(payTotal)}</span>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2">
               <button onClick={() => checkout("cash")} disabled={busy} className="min-h-touch rounded-xl bg-brand py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
@@ -1430,7 +1468,7 @@ export function Checkout() {
                 </div>
                 {(() => {
                   const paid = (parseInt(splitCash.replace(/[^\d]/g, ""), 10) || 0) + (parseInt(splitBank.replace(/[^\d]/g, ""), 10) || 0);
-                  const rest = estimate - paid;
+                  const rest = payTotal - paid;
                   return (
                     <div className="mt-1.5 text-center text-sm font-bold">
                       {rest > 0 ? <span className="text-red-600">Còn lại ghi nợ: {money(rest)}{!cust && " (cần chọn khách)"}</span> : rest < 0 ? <span className="text-brand">Thối lại: {money(-rest)}</span> : <span className="text-brand">Đủ tiền ✓</span>}
@@ -1673,12 +1711,15 @@ const num = (s: string) => parseInt((s || "").replace(/[^\d]/g, ""), 10) || 0;
 
 function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open: boolean) => void }) {
   const [shift, setShift] = useState<ShiftState | null>(null);
-  const [mode, setMode] = useState<"none" | "open" | "close">("none");
+  const [mode, setMode] = useState<"none" | "open" | "close" | "mv">("none");
   const [opening, setOpening] = useState("");
   const [counted, setCounted] = useState("");
   const [payouts, setPayouts] = useState("");
   const [busy, setBusy] = useState(false);
   const [closed, setClosed] = useState<CloseResult | null>(null);
+  const [mvKind, setMvKind] = useState<"Nộp quỹ" | "Rút quỹ" | "Chi vặt">("Rút quỹ");
+  const [mvAmt, setMvAmt] = useState("");
+  const [mvReason, setMvReason] = useState("");
 
   const apply = (s: ShiftState) => {
     setShift(s);
@@ -1727,6 +1768,23 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
     }
   };
 
+  const doMovement = async () => {
+    if (busy) return;
+    if (num(mvAmt) <= 0) { toast.error("Nhập số tiền lớn hơn 0."); return; }
+    setBusy(true);
+    try {
+      apply(await frappeCall<ShiftState>("cago.api.shift.add_cash_movement", { kind: mvKind, amount: num(mvAmt), reason: mvReason }));
+      setMode("none");
+      setMvAmt("");
+      setMvReason("");
+      toast.success(`Đã ghi ${mvKind.toLowerCase()}.`);
+    } catch (e) {
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không ghi được."}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!shift) return null;
   return (
     <div className="mb-2.5">
@@ -1748,7 +1806,31 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
               </>
             )}
           </div>
-          <button onClick={() => setMode("close")} className="shrink-0 rounded-lg bg-red-600 px-3 py-2 font-bold text-white">🔴 Đóng ca</button>
+          <div className="flex shrink-0 gap-1.5">
+            <button onClick={() => setMode("mv")} className="rounded-lg bg-amber-500 px-2.5 py-2 text-sm font-bold text-white">💵 Quỹ</button>
+            <button onClick={() => setMode("close")} className="rounded-lg bg-red-600 px-3 py-2 font-bold text-white">🔴 Đóng ca</button>
+          </div>
+        </div>
+      )}
+
+      {mode === "mv" && (
+        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
+          <div className="w-full max-w-[380px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 text-xl font-bold">💵 Nộp / rút quỹ · chi vặt</div>
+            <div className="grid grid-cols-3 gap-2">
+              {(["Nộp quỹ", "Rút quỹ", "Chi vặt"] as const).map((k) => (
+                <button key={k} onClick={() => setMvKind(k)} className={`rounded-xl py-2.5 text-sm font-bold ${mvKind === k ? "bg-brand text-white" : "bg-slate-100 text-slate-700"}`}>{k}</button>
+              ))}
+            </div>
+            <label className="mt-3 block font-bold text-slate-600">Số tiền</label>
+            <input autoFocus inputMode="numeric" value={mvAmt} onChange={(e) => setMvAmt(fmtAmt(e.target.value))} placeholder="0" className="mt-1 w-full rounded-xl border-2 border-emerald-300 p-3 text-right text-2xl font-extrabold" />
+            <label className="mt-2 block font-bold text-slate-600">Lý do</label>
+            <input value={mvReason} onChange={(e) => setMvReason(e.target.value)} placeholder="vd: mua trà nước, chủ lấy tiền…" className="mt-1 w-full rounded-xl border-2 border-emerald-200 p-2.5" />
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => setMode("none")} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold">Huỷ</button>
+              <button onClick={doMovement} disabled={busy} className="flex-[2] rounded-xl bg-amber-600 py-3 text-lg font-extrabold text-white disabled:opacity-50">Ghi vào sổ quỹ</button>
+            </div>
+          </div>
         </div>
       )}
 

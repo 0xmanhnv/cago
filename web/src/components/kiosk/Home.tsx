@@ -93,6 +93,7 @@ export function Home() {
         const cards = [
           <HelpCard key="chat" onClick={nav.openChat} icon="🤖" title="Hỏi trợ lý" from="from-violet-500" to="to-violet-700" />,
           <HelpCard key="staff" onClick={kiosk.openCallStaff} icon="🔔" title="Gọi người bán" from="from-rose-500" to="to-red-600" />,
+          <HelpCard key="help" onClick={nav.openHelp} icon="❓" title="Hướng dẫn" from="from-sky-500" to="to-blue-700" />,
           boot?.store_map ? <HelpCard key="map" onClick={nav.openMap} icon="🗺" title="Sơ đồ cửa hàng" from="from-teal-500" to="to-emerald-700" /> : null,
           boot?.kiosk_debt_visible ? <HelpCard key="debt" onClick={nav.openMyDebt} icon="📒" title="Công nợ của tôi" from="from-amber-400" to="to-harvest-dark" /> : null,
         ].filter(Boolean);
