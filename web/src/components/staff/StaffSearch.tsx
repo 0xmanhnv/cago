@@ -16,9 +16,20 @@ export function StaffSearch() {
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "card">("list"); // dense list by default (fast lookup)
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const seqRef = useRef(0); // ignore out-of-order search responses (newest wins)
+
+  // Persist the list/card choice (own key — lookup vs the sell screen are different contexts).
+  useEffect(() => {
+    const v = window.localStorage?.getItem("cago_search_view");
+    if (v === "list" || v === "card") setViewMode(v);
+  }, []);
+  const chooseView = (v: "list" | "card") => {
+    setViewMode(v);
+    window.localStorage?.setItem("cago_search_view", v);
+  };
 
   const run = async (query: string) => {
     const seq = ++seqRef.current;
@@ -100,30 +111,67 @@ export function StaffSearch() {
         placeholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
         className="mb-3.5 w-full rounded-xl border-2 border-slate-300 p-3.5 text-lg"
       />
+      {/* Result count + list/card toggle (same control as the sell screen, for consistency). */}
+      {!loading && list.length > 0 && (
+        <div className="mb-2.5 flex items-center justify-between">
+          <span className="text-sm text-slate-400">{list.length} sản phẩm{hasMore ? "+" : ""}</span>
+          <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
+            <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
+            <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
+          </div>
+        </div>
+      )}
       {loading ? (
         <div className="py-6 text-center text-slate-500">Đang tải...</div>
       ) : list.length === 0 ? (
-        <div className="text-slate-500">Không tìm thấy.</div>
+        <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy. Thử gõ tên khác.</div>
       ) : (
         <>
-          {list.map((p) => (
-            <button
-              key={p.item_code}
-              onClick={() => router.push(`/pos/products/${encodeURIComponent(p.item_code)}`)}
-              className="mb-3 flex w-full items-center gap-3 rounded-xl bg-white p-3.5 text-left shadow"
-            >
-              <div className="h-[64px] w-[64px] shrink-0 overflow-hidden rounded-lg">
-                <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-bold leading-tight">{p.display_name}</div>
-                <div className="font-bold text-brand">{p.price_text}</div>
-                <div className="text-slate-500">
-                  {p.stock_status} {p.category ? `· ${p.category}` : ""}
-                </div>
-              </div>
-            </button>
-          ))}
+          {/* list = dense rows (2 columns on a wide PC so they don't stretch empty);
+              card = thumbnail grid that adds columns to fill a big in-store screen. */}
+          <div
+            className={`grid gap-3 ${
+              viewMode === "list"
+                ? "grid-cols-1 xl:grid-cols-2 xl:gap-x-3"
+                : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5"
+            }`}
+          >
+            {list.map((p) =>
+              viewMode === "card" ? (
+                <button
+                  key={p.item_code}
+                  onClick={() => router.push(`/pos/products/${encodeURIComponent(p.item_code)}`)}
+                  className="flex h-full flex-col overflow-hidden rounded-xl bg-white text-left shadow transition hover:-translate-y-0.5 hover:shadow-card"
+                >
+                  <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="grid" />
+                  <div className="flex flex-1 flex-col p-2.5">
+                    <div className="line-clamp-2 min-h-[2.5em] font-bold leading-tight">{p.display_name}</div>
+                    <div className="mt-0.5 font-bold text-brand">{p.price_text}</div>
+                    <div className="mt-auto pt-1 text-sm text-slate-500">
+                      {p.stock_status} {p.category ? `· ${p.category}` : ""}
+                    </div>
+                  </div>
+                </button>
+              ) : (
+                <button
+                  key={p.item_code}
+                  onClick={() => router.push(`/pos/products/${encodeURIComponent(p.item_code)}`)}
+                  className="flex w-full items-center gap-3 rounded-xl bg-white p-3.5 text-left shadow"
+                >
+                  <div className="h-[64px] w-[64px] shrink-0 overflow-hidden rounded-lg">
+                    <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold leading-tight">{p.display_name}</div>
+                    <div className="font-bold text-brand">{p.price_text}</div>
+                    <div className="text-slate-500">
+                      {p.stock_status} {p.category ? `· ${p.category}` : ""}
+                    </div>
+                  </div>
+                </button>
+              ),
+            )}
+          </div>
           {hasMore && <div ref={sentinelRef} className="h-1" />}
           {loadingMore && <div className="py-4 text-center text-slate-400">Đang tải thêm...</div>}
         </>

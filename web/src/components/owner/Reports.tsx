@@ -206,7 +206,8 @@ export function ExpiryReport() {
       ) : rows.length === 0 ? (
         <Ok>Không có lô nào sắp hết hạn. 👍</Ok>
       ) : (
-        rows.map((b) => (
+        <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+        {rows.map((b) => (
           <div key={b.batch} className="mb-2 flex items-center justify-between rounded-xl bg-white p-3.5 shadow">
             <div>
               <div className="font-bold">{b.display_name}</div>
@@ -218,7 +219,8 @@ export function ExpiryReport() {
               {b.expiry_status === "expired" ? "Đã hết hạn" : `Còn ${b.days_left} ngày`}
             </div>
           </div>
-        ))
+        ))}
+        </div>
       )}
     </div>
   );

@@ -71,10 +71,14 @@ export function ProductDetail({ code }: { code: string }) {
         <KioskNavButtons onBack={goBack} />
       </div>
 
-      <div className="animate-rise-in rounded-3xl border border-emerald-100 bg-white p-4 shadow-card">
+      {/* On a big in-store screen (lg+) the single touch column wastes half the width: put the
+          gallery in a sticky left column and all the info/actions on the right. Phone/tablet keep
+          the stacked card. */}
+      <div className="animate-rise-in rounded-3xl border border-emerald-100 bg-white p-4 shadow-card lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:p-6">
+        <div className="lg:sticky lg:top-4">
         {mainImg ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={mainImg} alt={product.display_name} className="max-h-80 w-full rounded-2xl bg-emerald-50 object-contain" />
+          <img src={mainImg} alt={product.display_name} className="max-h-80 w-full rounded-2xl bg-emerald-50 object-contain lg:max-h-[440px]" />
         ) : (
           <CatThumb icon={product.category_icon} color={product.category_color} name={product.display_name} variant="big" />
         )}
@@ -92,7 +96,9 @@ export function ProductDetail({ code }: { code: string }) {
             ))}
           </div>
         )}
-        <h2 className="mt-3 text-2xl font-bold">{product.display_name}</h2>
+        </div>
+        <div>
+        <h2 className="mt-3 text-2xl font-bold lg:mt-0">{product.display_name}</h2>
         <div className="text-3xl font-extrabold text-brand">{product.price_text}</div>
         {product.sale_units && product.sale_units.length > 1 && (
           <div className="mt-1 text-slate-600">
@@ -195,17 +201,20 @@ export function ProductDetail({ code }: { code: string }) {
             </button>
           </div>
         )}
+        </div>
       </div>
 
       {related.length > 0 && (
         <div className="mt-5">
           <div className="mb-2 font-extrabold">🛒 Sản phẩm liên quan</div>
-          <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1.5">
+          {/* Phone/tablet: a swipeable row. Big screen: wrap into a grid so the related items
+              fill the width instead of hiding off-screen to the right. */}
+          <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1.5 lg:grid lg:grid-cols-4 lg:overflow-visible xl:grid-cols-5">
             {related.map((r) => (
               <button
                 key={r.item_code}
                 onClick={() => nav.openDetail(r.item_code)}
-                className="flex w-[140px] flex-none flex-col overflow-hidden rounded-2xl border border-emerald-100 bg-white text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-card"
+                className="flex w-[140px] flex-none flex-col overflow-hidden rounded-2xl border border-emerald-100 bg-white text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-card lg:w-auto"
               >
                 <CatThumb image={r.image} icon={r.category_icon} color={r.category_color} name={r.display_name} variant="grid" />
                 <div className="p-2">
