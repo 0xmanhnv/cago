@@ -211,19 +211,22 @@ def low_stock():
 	on-hand is at/under the reorder level (→ gợi ý nhập hàng)."""
 	ensure_cap("stock")
 	out = {}
-	# 1) manual statuses
-	for r in frappe.get_all(
+	# 1) manual statuses — still show the REAL on-hand (from Bin) so "Còn ít" has a concrete number.
+	manual = frappe.get_all(
 		"Item",
 		filters={"disabled": 0, "is_stock_item": 1, "has_variants": 0, "cago_stock_auto": 0, "cago_stock_status_manual": ["in", LOW_STOCK_STATUSES]},
-		fields=["name", "item_name", "cago_display_name", "cago_stock_status_manual", "cago_shelf_location"],
+		fields=["name", "item_name", "cago_display_name", "cago_stock_status_manual", "cago_shelf_location", "stock_uom"],
 		order_by="cago_stock_status_manual asc",
-	):
+	)
+	mqty = dto.bin_qty_map([r.name for r in manual])
+	for r in manual:
+		q = flt(mqty.get(r.name, 0))
 		out[r.name] = {
 			"item_code": r.name,
 			"display_name": r.cago_display_name or r.item_name,
 			"status": r.cago_stock_status_manual,
 			"shelf_location": r.cago_shelf_location,
-			"qty": None,
+			"qty": f"{q:g} {r.stock_uom}",
 		}
 	# 2) auto items at/under reorder (or out of stock)
 	auto = frappe.get_all(

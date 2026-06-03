@@ -385,7 +385,7 @@ export function PosHome() {
 
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
         {owner && (
-          <a href="/desk" target="_blank" rel="noopener" className="mt-tile min-h-[64px] bg-slate-500 text-lg">⚙️ Quản lý ERPNext</a>
+          <a href="/app" target="_blank" rel="noopener" className="mt-tile min-h-[64px] bg-slate-500 text-lg">⚙️ Quản lý ERPNext</a>
         )}
         <button onClick={doLogout} className={`mt-tile min-h-[64px] bg-red-600 text-lg ${owner ? "" : "col-span-2"}`}>🚪 Đăng xuất</button>
       </div>

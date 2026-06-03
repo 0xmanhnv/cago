@@ -218,25 +218,32 @@ def _last_supplier(item_code):
 
 @frappe.whitelist()
 def reorder_suggestions():
-	"""Gợi ý nhập hàng: các mặt 'auto' đang ở/dưới mức đặt lại (hoặc hết), kèm số lượng đề xuất để
-	bù về ~2× mức đặt lại và nhà cung cấp gần nhất — biến báo cáo hết hàng thành đơn nhập hành động
-	được. Chỉ đọc; gom theo NCC ở giao diện. Không lộ giá vốn."""
+	"""Gợi ý nhập hàng: MỌI mặt đang cảnh báo hết — auto ở/dưới mức đặt lại HOẶC mặt chủ tự đánh dấu
+	(Còn ít / Hết hàng / Sắp nhập) — kèm số lượng đề xuất và nhà cung cấp gần nhất. Khớp đúng với
+	'Cảnh báo hôm nay' để nút 'Nhập' không dẫn tới màn trống. Chỉ đọc; gom theo NCC. Không lộ giá vốn."""
 	ensure_cap("stock")
-	auto = frappe.get_all(
+	from cago.api.reports import LOW_STOCK_STATUSES
+
+	items = frappe.get_all(
 		"Item",
-		filters={"disabled": 0, "is_stock_item": 1, "has_variants": 0, "cago_stock_auto": 1},
-		fields=["name", "item_name", "cago_display_name", "cago_reorder_level", "stock_uom", "cago_shelf_location"],
+		filters={"disabled": 0, "is_stock_item": 1, "has_variants": 0},
+		fields=["name", "item_name", "cago_display_name", "cago_stock_auto", "cago_reorder_level", "cago_stock_status_manual", "stock_uom", "cago_shelf_location"],
 	)
-	qty_map = dto.bin_qty_map([r.name for r in auto])
+	qty_map = dto.bin_qty_map([r.name for r in items])
 	out = []
-	for r in auto:
+	for r in items:
 		qty = flt(qty_map.get(r.name, 0))
 		reorder = flt(r.cago_reorder_level)
-		# Suggest only items needing attention: out of stock, or at/under a set reorder level.
-		if qty > 0 and not (reorder and qty <= reorder):
-			continue
-		# Refill target ≈ 2× reorder level; at least enough to clear the deficit. Unknown if no level.
-		suggest = max(reorder * 2 - qty, reorder) if reorder else 0
+		if r.cago_stock_auto:
+			# Auto-tracked: needs attention when out of stock or at/under the reorder level.
+			if qty > 0 and not (reorder and qty <= reorder):
+				continue
+			suggest = max(reorder * 2 - qty, reorder) if reorder else 0
+		else:
+			# Manual: include only if the owner flagged it low; qty target is the owner's call (0 = "?").
+			if r.cago_stock_status_manual not in LOW_STOCK_STATUSES:
+				continue
+			suggest = 0
 		supplier, supplier_name = _last_supplier(r.name)
 		out.append(
 			{
