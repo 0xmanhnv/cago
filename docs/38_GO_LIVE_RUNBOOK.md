@@ -8,6 +8,29 @@ hàng ở nông thôn. Làm theo thứ tự. Các lệnh chạy trong `infra/doc
 
 ---
 
+## 0. Triển khai production (có domain/IP) — tóm tắt
+
+```bash
+cd infra/docker
+cp .env.production.example .env          # rồi điền: ADMIN_PASSWORD, DB_ROOT_PASSWORD, SITE_DOMAIN...
+bash preflight.sh                        # phải hết "lỗi chặn" mới đi tiếp
+docker compose build backend web
+docker compose --profile tls --profile backup up -d
+```
+
+**HTTPS = Caddy (đã chọn — xem mục A3).** Đặt `SITE_DOMAIN` trong `.env`:
+- **Có domain** (vd `cago.minhtuyet.vn`) trỏ A-record về IP server + mở cổng **80 & 443**
+  → Caddy **tự lấy cert Let's Encrypt thật**, tự gia hạn, **không cần cài gì lên thiết bị**. (Tốt nhất.)
+- **Chỉ IP public trần** → Caddy serve cert nội bộ; cài root CA của Caddy lên thiết bị 1 lần
+  (`docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt` → cài vào tablet/điện thoại).
+
+Sau khi bật Caddy, đặt `HTTP_PUBLISH_BIND=127.0.0.1` để cổng 8080 (HTTP trần) **không lộ ra mạng** —
+mọi người vào qua `https://<domain>` (Caddy 443).
+
+`preflight.sh` kiểm nhanh: mật khẩu mặc định, TLS, cổng HTTP hở, offsite backup, compose hợp lệ.
+
+---
+
 ## A. Bảo mật trước khi go-live (bắt buộc)
 
 1. **Đổi mật khẩu Administrator mặc định.** `infra/docker/.env` đang là
@@ -20,12 +43,15 @@ hàng ở nông thôn. Làm theo thứ tự. Các lệnh chạy trong `infra/doc
 
 2. **Đổi mọi mật khẩu hạ tầng** trong `.env` (DB, v.v.) khỏi giá trị mẫu.
 
-3. **HTTPS trên LAN.** Trình duyệt báo "Not Secure" trên `http://` và `navigator.clipboard`,
-   máy ảnh QR… bị giới hạn. Hai cách:
-   - **Tên miền nội bộ + chứng chỉ tin cậy:** đặt một reverse-proxy (Caddy/Traefik) trước
-     `frontend`, cấp chứng chỉ cho tên kiểu `cago.local`. Đơn giản nhất cho 1 máy.
-   - **Chứng chỉ tự ký** cài vào các tablet/điện thoại (chấp nhận thủ công 1 lần/thiết bị).
-   Tối thiểu: phục vụ qua HTTPS để phiên đăng nhập + sao chép QR + quét mã hoạt động đầy đủ.
+3. **HTTPS (đã chọn: Caddy).** `http://` báo "Not Secure" và chặn bớt clipboard/camera. Dự án có
+   sẵn service **`caddy`** (profile `tls`) đứng trước `web`:
+   ```bash
+   docker compose --profile tls up -d caddy
+   ```
+   Cấu hình bằng `SITE_DOMAIN` trong `.env` (xem mục 0). Vì sao Caddy (không phải nginx): trên một
+   máy ở cửa hàng, gánh nặng là **vòng đời chứng chỉ** — Caddy tự lấy/tự gia hạn (Let's Encrypt khi
+   có domain) hoặc tự cấp cert nội bộ, *set-and-forget*; nginx phải tự tạo cert + tự nhớ gia hạn.
+   nginx nội bộ của Frappe (service `frontend`) **giữ nguyên** — Caddy chỉ bọc HTTPS ở ngoài cùng.
 
 4. **Không mở ra Internet.** Cago thiết kế cho LAN. Nếu cần truy cập từ xa, dùng VPN, KHÔNG
    forward cổng thẳng.

@@ -194,8 +194,10 @@ services:
     depends_on:
       frontend:
         condition: service_started
+    # Dev/LAN: published on all interfaces (0.0.0.0). In production behind Caddy (TLS), set
+    # HTTP_PUBLISH_BIND=127.0.0.1 so only Caddy (443) is reachable from the network, not plain HTTP.
     ports:
-      - "${HTTP_PUBLISH_PORT:-8080}:3000"
+      - "${HTTP_PUBLISH_BIND:-0.0.0.0}:${HTTP_PUBLISH_PORT:-8080}:3000"
 
   # --- datastores ------------------------------------------------------------
   db:
@@ -269,9 +271,32 @@ services:
       db:
         condition: service_healthy
 
+  # Optional TLS reverse proxy (production). Opt-in: `docker compose --profile tls up -d caddy`.
+  # SITE_DOMAIN = a real domain → Caddy auto-obtains a Let's Encrypt cert (needs DNS → this server
+  # + ports 80/443 open). SITE_DOMAIN = a bare IP → Caddy serves a self-signed/internal cert
+  # (install Caddy's root CA on devices once). Either way it terminates HTTPS in front of `web`.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["tls"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-:443}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_started
+
 volumes:
   sites:
   logs:
   db-data:
   redis-cache-data:
   redis-queue-data:
+  caddy-data:
+  caddy-config:
