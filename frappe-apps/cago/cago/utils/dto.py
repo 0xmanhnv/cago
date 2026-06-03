@@ -348,7 +348,7 @@ def best_seller_codes(days=30, limit=10):
 			.select(sii.item_code)
 			.where(
 				(si.docstatus == 1) & (si.is_return == 0) & (si.posting_date >= start)
-				& (item.disabled == 0) & (item.cago_is_public_visible == 1)
+				& (item.disabled == 0) & (item.cago_is_public_visible == 1) & (item.is_stock_item == 1)
 			)
 			.groupby(sii.item_code)
 			.orderby(Count(sii.name), order=Order.desc)

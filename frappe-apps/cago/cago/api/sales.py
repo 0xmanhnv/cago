@@ -714,6 +714,7 @@ def _delivery_item():
 					"stock_uom": "Nos",
 					"is_stock_item": 0,
 					"is_sales_item": 1,
+					"cago_is_public_visible": 0,  # internal service line — never shown to kiosk/customers
 				}
 			).insert(ignore_permissions=True)
 	return code
