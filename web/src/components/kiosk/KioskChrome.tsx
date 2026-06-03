@@ -24,7 +24,9 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
   const showCartBar = cartCount > 0 && pathname !== "/cart" && !isAssistant;
 
   return (
-    <div className="mx-auto max-w-[900px] px-4 pb-24 pt-4 text-[#14271b]">
+    {/* 900px is right for a tablet; the in-store kiosk runs on a big screen, so widen on xl/2xl
+        (grids below add columns to fill it) instead of stranding content in a narrow centred column. */}
+    <div className="mx-auto max-w-[900px] px-4 pb-24 pt-4 text-[#14271b] xl:max-w-[1320px] 2xl:max-w-[1600px]">
       {children}
 
       {showCartBar && (

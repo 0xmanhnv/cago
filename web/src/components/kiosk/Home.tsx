@@ -62,7 +62,7 @@ export function Home() {
       </div>
 
       <SectionTitle>🧺 Chọn loại hàng</SectionTitle>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {categories.map((c, i) => (
           <CategoryCard
             key={c.slug}
@@ -80,9 +80,8 @@ export function Home() {
           icon="🛒"
           title="Xem tất cả"
           sub="toàn bộ sản phẩm"
-          // When the category count is even, this view-all tile is the lone item on the last
-          // row → stretch it full-width (a wide CTA) instead of leaving an empty gap beside it.
-          wide={categories.length % 2 === 0}
+          // Grid auto-places the last tile across breakpoints (2→5 cols), so keep it a normal card.
+          wide={false}
           delay={120 + categories.length * 50}
         />
       </div>
