@@ -18,6 +18,7 @@ import { enqueueSale } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
 import { cfdPost } from "@/lib/cfd";
 import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
+import { useIsDesktop } from "@/lib/useIsDesktop";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 
 type PayMode = "cash" | "bank" | "credit" | "split";
@@ -699,7 +700,11 @@ export function Checkout() {
     return { args, display };
   };
 
-  useLockBodyScroll(payOpen); // don't let the page scroll behind the open pay panel
+  // On a wide PC screen the pay panel becomes a cart docked on the right (always open, no
+  // bottom sheet); on phone/tablet it stays the slide-up sheet. desktop drives that switch.
+  const desktop = useIsDesktop();
+  const panelOpen = payOpen || desktop; // docked cart on PC is always "expanded"
+  useLockBodyScroll(payOpen && !desktop); // sheet locks scroll; docked cart must not
 
   // Mirror the live cart to the customer-facing display (/pos/display) — only name/qty/line total +
   // the grand total (never cost). Posts an idle "welcome" when the cart empties.
@@ -928,7 +933,10 @@ export function Checkout() {
   }
 
   return (
-    <div className="pb-24">
+    // PC (xl): two columns — products left, the cart/pay panel docked right. Phone/tablet: one
+    // column with the slide-up pay sheet (pb-24 leaves room for the fixed bottom bar).
+    <div className="pb-24 xl:grid xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start xl:gap-6 xl:pb-4">
+      <div className="min-w-0">
       <div className="mb-2.5 flex items-center gap-2.5">
         <button onClick={() => router.push(home)} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Trang chủ
@@ -1243,13 +1251,26 @@ export function Checkout() {
         </button>
       )}
 
+      </div>
+
+      {/* PC only: when the cart is empty the right column would be blank — show a hint instead. */}
+      {cartCodes.length === 0 && (
+        <aside className="hidden xl:flex xl:sticky xl:top-4 min-h-[300px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-400">
+          <div className="text-5xl">🛒</div>
+          <div className="mt-2 font-bold">Giỏ hàng trống</div>
+          <div className="mt-1 text-sm">Tìm và bấm ＋ Thêm sản phẩm ở bên trái để bắt đầu bán.</div>
+        </aside>
+      )}
+
       {cartCodes.length > 0 && (
         <>
-          {/* Dim the page when the payment panel is open so it reads as a deliberate sheet. */}
-          {payOpen && <div className={`fixed inset-0 z-10 bg-black/30 ${payClosing ? "animate-fade-out" : "animate-fade-in"}`} onClick={closePay} aria-hidden />}
-          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+          {/* Dim the page when the slide-up sheet is open (phone/tablet only — the docked PC cart
+              never dims). */}
+          {payOpen && !desktop && <div className={`fixed inset-0 z-10 bg-black/30 ${payClosing ? "animate-fade-out" : "animate-fade-in"}`} onClick={closePay} aria-hidden />}
+          {/* Phone/tablet: fixed slide-up sheet. PC (xl): a normal sticky card in the right column. */}
+          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)] xl:sticky xl:inset-x-auto xl:bottom-auto xl:top-4 xl:z-auto xl:rounded-2xl xl:border xl:shadow-card">
             <div className="mx-auto max-w-[960px]">
-              {!payOpen ? (
+              {!panelOpen ? (
                 // COLLAPSED — one slim row. Keeps the product list visible so staff can keep
                 // searching/adding; tap to open the full payment panel only when ready.
                 <button onClick={() => setPayOpen(true)} className="flex w-full items-center justify-between gap-3 p-3 text-left">
@@ -1262,13 +1283,14 @@ export function Checkout() {
                   <span className="shrink-0 rounded-xl bg-brand px-5 py-3 text-lg font-extrabold text-white">Thanh toán ▲</span>
                 </button>
               ) : (
-                <div className={`no-scrollbar max-h-[82vh] overflow-auto p-3 ${payClosing ? "animate-sheet-down" : "animate-sheet-up"}`}>
-                  <button onClick={closePay} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500">
+                <div className={`no-scrollbar max-h-[82vh] overflow-auto p-3 xl:max-h-[calc(100vh-2rem)] xl:animate-none ${payClosing ? "animate-sheet-down" : "animate-sheet-up"}`}>
+                  <button onClick={closePay} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500 xl:hidden">
                     ▼ Thu gọn — chọn thêm hàng
                   </button>
+                  <div className="mb-2 hidden text-lg font-extrabold text-brand-dark xl:block">🛒 Giỏ hàng</div>
                   {/* Cart lines — listed + qty-editable right here, so staff never has to close the
                       panel to fix a quantity. Tap the number for the keypad; ✕ removes the line. */}
-                  <div className="mb-2 max-h-[38vh] divide-y divide-slate-100 overflow-auto rounded-xl border border-slate-200">
+                  <div className="mb-2 max-h-[38vh] divide-y divide-slate-100 overflow-auto rounded-xl border border-slate-200 xl:max-h-none xl:overflow-visible">
                     {cartCodes.map((c) => {
                       const ln = lines[c];
                       const units = meta[c]?.sale_units || [];
