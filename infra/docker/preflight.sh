@@ -40,6 +40,10 @@ fi
 [ "${HTTP_PUBLISH_BIND:-0.0.0.0}" = "127.0.0.1" ] && ok "Cổng HTTP chỉ mở ở localhost (sau Caddy)." \
   || note "HTTP_PUBLISH_BIND=0.0.0.0 → :${HTTP_PUBLISH_PORT:-8080} mở HTTP trần ra mạng. Sau Caddy nên đặt 127.0.0.1."
 
+# 2b. Demo data off in production.
+[ "${LOAD_SAMPLE_DATA:-1}" = "0" ] && ok "Sẽ khởi tạo catalog SẠCH (không nạp sản phẩm mẫu)." \
+  || note "LOAD_SAMPLE_DATA=1 → site mới sẽ nạp 54 sản phẩm DEMO. Production nên đặt 0 + nạp catalog thật (CSV)."
+
 # 3. Backups configured + offsite repointed.
 grep -q "x-bench-volumes-offsite" compose.yaml && ok "Có cấu hình offsite backup." || note "Không thấy offsite backup."
 grep -qE "^\s*-\s*\./backups/offsite:/offsite" compose.yaml \

@@ -13,6 +13,7 @@ hàng ở nông thôn. Làm theo thứ tự. Các lệnh chạy trong `infra/doc
 ```bash
 cd infra/docker
 cp .env.production.example .env          # rồi điền: ADMIN_PASSWORD, DB_ROOT_PASSWORD, SITE_DOMAIN...
+# (LOAD_SAMPLE_DATA=0 → site khởi tạo SẠCH, không có sản phẩm demo; nạp catalog thật bằng CSV)
 bash preflight.sh                        # phải hết "lỗi chặn" mới đi tiếp
 docker compose build backend web
 docker compose --profile tls --profile backup up -d

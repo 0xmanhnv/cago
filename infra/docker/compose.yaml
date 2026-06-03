@@ -86,11 +86,16 @@ services:
         --set-default
         "$$SITE_NAME";
         bench --site "$$SITE_NAME" execute cago.setup.company.ensure_company;
-        bench --site "$$SITE_NAME" execute cago.setup.sample_data.import_sample_products
+        if [ "$$LOAD_SAMPLE_DATA" = "1" ]; then
+          bench --site "$$SITE_NAME" execute cago.setup.sample_data.import_sample_products;
+        else
+          echo "LOAD_SAMPLE_DATA != 1 — starting with an EMPTY catalog (production). Import real products via docs/user/NHAP_DU_LIEU_CSV.md";
+        fi
     environment:
       SITE_NAME: ${SITE_NAME:-agrimate.localhost}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-admin}
+      LOAD_SAMPLE_DATA: ${LOAD_SAMPLE_DATA:-1}  # 1 = seed demo products (dev); 0 = clean (production)
     volumes: *bench_volumes
     depends_on:
       configurator:
