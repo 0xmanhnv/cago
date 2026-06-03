@@ -319,17 +319,21 @@ LIST_FIELDS = [
 # --------------------------------------------------------------------------- #
 # Search
 # --------------------------------------------------------------------------- #
-def best_seller_codes(days=90, limit=12):
+def best_seller_codes(days=30, limit=10):
 	"""Ordered list of top-selling PUBLIC item_codes over the last `days` (returns excluded).
-	Cached ~1h so the 🔥 badge + kiosk 'bán chạy' row don't re-aggregate Sales Invoices on every
-	product-list request. Returns [] when there are no sales yet."""
+
+	Ranked by HOW OFTEN sold (count of sale lines), NOT by summed quantity — quantities aren't
+	comparable across items with different stock UOMs (Bao vs Kg vs Chai), so a feed sold by the bag
+	would lose to fertiliser sold by the kg. Frequency = "nhiều người mua" = the real 'bán chạy'.
+	30-day window keeps it season-aware (an off-season top item drops off). Cached ~1h so the 🏆
+	badge + kiosk row don't re-aggregate Sales Invoices on every product-list request. [] when no sales."""
 	cache = frappe.cache()
 	key = f"cago:best_sellers:{days}:{limit}"
 	cached = cache.get_value(key)
 	if cached is not None:
 		return cached
 	from frappe.query_builder import Order
-	from frappe.query_builder.functions import Sum
+	from frappe.query_builder.functions import Count
 	from frappe.utils import add_days, today
 
 	si = frappe.qb.DocType("Sales Invoice")
@@ -347,7 +351,7 @@ def best_seller_codes(days=90, limit=12):
 				& (item.disabled == 0) & (item.cago_is_public_visible == 1)
 			)
 			.groupby(sii.item_code)
-			.orderby(Sum(sii.stock_qty), order=Order.desc)
+			.orderby(Count(sii.name), order=Order.desc)
 			.limit(int(limit))
 		).run(as_dict=True)
 		codes = [r.item_code for r in rows]
