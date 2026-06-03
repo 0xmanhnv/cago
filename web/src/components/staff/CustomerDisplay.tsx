@@ -54,8 +54,9 @@ export function CustomerDisplay() {
     };
   }, []);
 
-  const idle = !msg || msg.type === "idle";
-  const cart = msg && msg.type === "cart" ? msg : null;
+  // An empty cart shows the welcome screen, never a card with a phantom total.
+  const cart = msg?.type === "cart" && msg.lines.length > 0 ? msg : null;
+  const idle = !msg || msg.type === "idle" || (msg.type === "cart" && !cart);
 
   return (
     // Fixed full-bleed: escape the /pos layout's centered max-width box so the customer screen

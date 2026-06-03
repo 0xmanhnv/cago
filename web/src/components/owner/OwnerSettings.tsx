@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { BackBar, goBackSmart } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
-import { groupVnd, parseVnd } from "@/lib/utils";
+import { copyText, groupVnd, parseVnd } from "@/lib/utils";
 
 export function OwnerSettings() {
   const router = useRouter();
@@ -220,7 +220,7 @@ export function OwnerSettings() {
           <div className="mt-2 flex items-center gap-2">
             <input readOnly value={cfdUrl} className="min-w-0 flex-1 rounded-lg border-2 border-slate-200 bg-slate-50 p-2.5 text-sm" />
             <button
-              onClick={() => navigator.clipboard?.writeText(cfdUrl).then(() => { setCfdCopied(true); setTimeout(() => setCfdCopied(false), 1500); }, () => {})}
+              onClick={async () => { if (await copyText(cfdUrl)) { setCfdCopied(true); setTimeout(() => setCfdCopied(false), 1500); } else { toast.error("Máy không cho tự sao chép — bác chọn đường dẫn rồi copy tay."); } }}
               className="shrink-0 rounded-lg bg-brand px-3 py-2.5 text-sm font-bold text-white"
             >
               {cfdCopied ? "✅ Đã chép" : "📋 Chép"}

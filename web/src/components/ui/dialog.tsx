@@ -60,10 +60,15 @@ export function DialogHost() {
     }, 170);
   };
 
-  // Keyboard: autofocus the primary action; ESC cancels (alert → dismiss), Enter confirms.
-  // (Owner may use a keyboard; AT users need ESC.) Keyed on the current request id.
+  const panelRef = useRef<HTMLDivElement>(null);
+  // Keyboard + focus management. autofocus the primary action; ESC cancels (alert → dismiss), Enter
+  // confirms; Tab is TRAPPED inside the dialog; focus is RESTORED to the prior element on close; and
+  // the background is scroll-locked so the page behind can't move under the modal (touch + AT win).
   useEffect(() => {
     if (!cur) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     confirmRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -72,10 +77,27 @@ export function DialogHost() {
       } else if (e.key === "Enter") {
         e.preventDefault();
         close(true);
+      } else if (e.key === "Tab") {
+        // Focus trap: keep Tab/Shift+Tab within the dialog's focusables.
+        const f = panelRef.current?.querySelectorAll<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
+        if (!f || !f.length) return;
+        const first = f[0];
+        const last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      prevFocus?.focus?.();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur?.id]);
 
@@ -88,6 +110,7 @@ export function DialogHost() {
       onClick={() => close(cur.alert ? true : false)}
     >
       <div
+        ref={panelRef}
         role={cur.alert ? "alertdialog" : "dialog"}
         aria-modal="true"
         aria-labelledby={cur.title ? titleId : msgId}

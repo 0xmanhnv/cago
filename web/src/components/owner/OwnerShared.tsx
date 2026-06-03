@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
-import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
+import { copyText, formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import type { ProductCard } from "@/lib/types";
 
 // VND has no decimals — round + group. Single shared formatter (lib/utils) so owner/staff/kiosk match.
@@ -80,10 +81,12 @@ export function DraftModal({
   title?: string;
   allowPrint?: boolean;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "ok" | "fail">("idle");
   const [canSend, setCanSend] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState<null | boolean>(null);
+  useLockBodyScroll(true); // don't let the page scroll behind the modal
+  const doCopy = async () => setCopyState((await copyText(text)) ? "ok" : "fail");
   useEffect(() => {
     // Show the "Gửi luôn" button only when the owner has wired a messaging webhook (else copy-only).
     frappeCall<{ configured: boolean }>("cago.api.notify.notify_status", {}, { method: "GET" })
@@ -118,6 +121,8 @@ export function DraftModal({
         <textarea readOnly value={text} rows={allowPrint ? 9 : 5} className="mt-2 w-full rounded-lg border-2 border-slate-300 p-3 text-base" />
         {sent === true && <Ok>Đã gửi tin nhắn.</Ok>}
         {sent === false && <Warn>Gửi không thành công — bác sao chép gửi tay giúp nhé.</Warn>}
+        {copyState === "ok" && <Ok>Đã sao chép! Mở Zalo/tin nhắn và dán (giữ → Dán).</Ok>}
+        {copyState === "fail" && <Warn>Máy không cho tự sao chép. Bác giữ ngón tay vào ô chữ phía trên → “Chọn tất cả” → “Sao chép”.</Warn>}
         <div className="mt-3 flex flex-wrap gap-2.5">
           {allowPrint && (
             <button onClick={print} className="min-h-touch flex-1 rounded-xl bg-blue-600 font-extrabold text-white">🖨 In</button>
@@ -127,11 +132,8 @@ export function DraftModal({
               {sending ? "Đang gửi…" : "📤 Gửi luôn"}
             </button>
           )}
-          <button
-            onClick={() => navigator.clipboard?.writeText(text).then(() => setCopied(true), () => setCopied(false))}
-            className="min-h-touch flex-1 rounded-xl bg-brand font-extrabold text-white"
-          >
-            {copied ? "✅ Đã sao chép" : "📋 Sao chép"}
+          <button onClick={doCopy} className="min-h-touch flex-1 rounded-xl bg-brand font-extrabold text-white">
+            {copyState === "ok" ? "✅ Đã sao chép" : "📋 Sao chép"}
           </button>
           <button onClick={onClose} className="min-h-touch flex-1 rounded-xl bg-slate-200 font-extrabold text-slate-700">
             Đóng

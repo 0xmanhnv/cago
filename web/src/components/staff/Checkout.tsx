@@ -17,6 +17,7 @@ import { findByBarcodeLocal, getProductLocal, refreshCatalog, searchCatalogLocal
 import { enqueueSale } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
 import { cfdPost } from "@/lib/cfd";
+import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
 
 type PayMode = "cash" | "bank" | "credit" | "split";
 interface SaleResult {
@@ -689,6 +690,8 @@ export function Checkout() {
     const display: SaleDisplay = { customer_name: cust?.customer_name, total_text: money(payTotal), item_count: cartCodes.length, payment_mode, lines: dispLines };
     return { args, display };
   };
+
+  useLockBodyScroll(payOpen); // don't let the page scroll behind the open pay panel
 
   // Mirror the live cart to the customer-facing display (/pos/display) — only name/qty/line total +
   // the grand total (never cost). Posts an idle "welcome" when the cart empties.
@@ -1720,6 +1723,7 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
   const [mvKind, setMvKind] = useState<"Nộp quỹ" | "Rút quỹ" | "Chi vặt">("Rút quỹ");
   const [mvAmt, setMvAmt] = useState("");
   const [mvReason, setMvReason] = useState("");
+  useLockBodyScroll(mode !== "none" || !!closed); // lock background while a shift sheet/result is open
 
   const apply = (s: ShiftState) => {
     setShift(s);
