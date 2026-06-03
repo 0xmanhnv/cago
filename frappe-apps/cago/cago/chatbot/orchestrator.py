@@ -79,13 +79,21 @@ def _store_overview_answer(role):
 
 def _deterministic_answer(products):
 	lines = ["Dạ, theo dữ liệu cửa hàng mình đang có:"]
-	for p in products[:5]:
-		bits = [f"• {p.get('display_name')}: {p.get('price_text')}"]
+	# Owner-recommended items first + a ⭐ marker, so "loại nào tốt nhất?" surfaces them.
+	ordered = sorted(products, key=lambda p: not p.get("recommended"))
+	any_reco = False
+	for p in ordered[:5]:
+		star = ""
+		if p.get("recommended"):
+			star, any_reco = "⭐ ", True
+		bits = [f"• {star}{p.get('display_name')}: {p.get('price_text')}"]
 		if p.get("use_cases"):
 			bits.append(f"(dùng cho: {p['use_cases']})")
 		if p.get("stock_status"):
 			bits.append(f"- {p['stock_status']}")
 		lines.append(" ".join(bits))
+	if any_reco:
+		lines.append("(⭐ là loại cửa hàng khuyên dùng.)")
 	return "\n".join(lines)
 
 

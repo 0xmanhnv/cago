@@ -254,9 +254,10 @@ EDITABLE_FIELDS = (
 	"cago_is_chemical",
 	"cago_is_public_visible",
 	"cago_allow_oversell",  # cho bán quá tồn (mặc định tắt) — per-item negative-stock opt-in
+	"cago_recommended",  # ⭐ khuyên dùng — trợ lý ưu tiên gợi ý, badge trên thẻ
 	"disabled",  # "Ngừng bán" — discontinued items vanish from sell/kiosk/alerts/reorder but keep history
 )
-_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto", "cago_allow_oversell", "disabled")
+_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto", "cago_allow_oversell", "cago_recommended", "disabled")
 STOCK_STATUS_OPTIONS = ["Còn nhiều", "Còn hàng", "Còn ít", "Hết hàng", "Sắp nhập"]
 QUALITY_OPTIONS = ["Phổ thông", "Trung cấp", "Cao cấp"]
 

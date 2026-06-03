@@ -261,6 +261,7 @@ export function ProductEditor({ code }: { code: string }) {
         <EditArea label="Câu tư vấn cho người bán" k="cago_staff_advice" data={data} set={set} />
         <EditArea label="Khi nào cần gọi chủ" k="cago_call_owner_when" data={data} set={set} />
         <EditArea label="Lưu ý an toàn" k="cago_safety_notes" data={data} set={set} />
+        <EditCheck label="⭐ Khuyên dùng — trợ lý ưu tiên gợi ý loại này khi khách hỏi 'loại nào tốt nhất', và hiện ⭐ trên thẻ" k="cago_recommended" data={data} set={set} />
         <EditCheck label="Là hóa chất/thuốc" k="cago_is_chemical" data={data} set={set} />
         <EditCheck label="Hiển thị trên kiosk" k="cago_is_public_visible" data={data} set={set} />
         </Section>
