@@ -1,116 +1,114 @@
-# 37 — Kiosk Store Map & Wayfinding (sơ đồ chỉ đường)
+# 37 — Kiosk Store Map & Wayfinding
 
-Mô hình "kiosk chỉ đường trung tâm thương mại" thu nhỏ cho cửa hàng vật tư nông nghiệp
-Minh Tuyết: màn hình **cố định** → "📍 Bạn đang ở đây" → khu đích **nhấp nháy** → **tuyến
-đường gấp khúc chạy dọc lối đi chính** + một dòng chỉ dẫn bằng chữ.
+A scaled-down "mall directory" for the Minh Tuyết agri shop: a **fixed** screen → "📍 You are here"
+→ the destination zone **blinks** → a **dog-leg route along the main aisle** + a one-line text hint.
 
-## Quyết định đã chốt (owner, 2026-06-02)
-- **Gắn vị trí theo DANH MỤC** (Item Group), không theo từng sản phẩm. Chủ đặt ~8 khối
-  danh mục; mọi sản phẩm thừa hưởng vị trí danh mục của nó. (Phase 2 mới thêm ghi đè/SP.)
-- **Chỉ đường = đường gấp khúc theo lối đi**: chủ vạch 1 trục lối đi (polyline); tuyến =
-  kiosk → vào lối đi → đi dọc lối đi → ra khu đích.
-- **Soạn sơ đồ = kéo–thả khối** trên canvas trống (chưa cần ảnh nền — Phase 2).
-- **Tùy chọn (progressive enhancement)**: chưa vẽ map → kiosk vẫn hiện `cago_shelf_location`
-  dạng chữ như hiện nay; vẽ rồi → hiện nút "📍 Xem vị trí".
+## Decisions (owner, 2026-06-02)
+- **Place by CATEGORY** (Item Group), not per product. The owner lays out ~8 category blocks; every
+  product inherits its category's location. (Per-product overrides are Phase 2.)
+- **Wayfinding = a dog-leg route along the aisle**: the owner draws one aisle polyline; the route =
+  kiosk → enter the aisle → travel along it → exit at the destination zone.
+- **Map editing = drag-and-drop blocks** on a blank canvas (no background image yet — Phase 2).
+- **Progressive enhancement**: no map drawn → the kiosk still shows `cago_shelf_location` as text;
+  once drawn → a "📍 Xem vị trí" (View location) button appears.
 
-## Phát hiện then chốt
-Kiosk đứng cố định ⇒ điểm xuất phát luôn = vị trí kiosk ⇒ **KHÔNG cần định vị trong nhà**
-(beacon/wifi). Bài toán rút về: vẽ tuyến từ 1 điểm cố định tới khu chứa danh mục.
+## Key insight
+The kiosk is stationary ⇒ the start point is always the kiosk ⇒ **no indoor positioning needed**
+(no beacons/wifi). The problem reduces to: draw a route from one fixed point to a category's zone.
 
-## Hai điểm xuất phát (kiosk cố định vs điện thoại khách) — bổ sung 2026-06-02
-Khách có thể mở bằng **điện thoại** (không đứng ở quầy). Nên map lưu **2 điểm**:
-- `kiosk_x/kiosk_y` — "📍 Bạn đang ở đây" (khi chạy trên màn hình kiosk cố định tại quầy).
-- `entrance_x/entrance_y` — "🚪 Từ cửa vào" (khi chạy trên điện thoại khách).
-Thiết bị tự chọn: cờ `localStorage["cago_fixed_kiosk"]="1"` (đặt 1 lần trên tablet kiosk qua
-nút trong trang sơ đồ). Có cờ → xuất phát từ kiosk; không có → từ cửa vào. `computeRoute` nhận
-tham số `start`; nhãn điểm đầu đổi theo ("Bạn đang ở đây" / "Từ cửa vào").
+## Two start points (fixed kiosk vs customer phone) — added 2026-06-02
+Customers may open it on a **phone** (not standing at the counter), so the map stores **two points**:
+- `kiosk_x/kiosk_y` — "📍 You are here" (on the fixed in-store kiosk screen).
+- `entrance_x/entrance_y` — "🚪 From the entrance" (on a customer phone).
+The device chooses via `localStorage["cago_fixed_kiosk"]="1"` (set once on the kiosk tablet via a
+button on the map page). Flag set → start at the kiosk; not set → from the entrance. `computeRoute`
+takes a `start` param; the start label changes accordingly.
 
-## Hệ toạ độ
-Chuẩn hoá **0–100** cho cả 2 trục (độc lập độ phân giải). `Cago Store Map.width/height`
-giữ tỉ lệ khung cửa hàng (vd 100×70) để SVG `viewBox="0 0 width height"`.
+## Coordinate system
+Normalised **0–100** on both axes (resolution-independent). `Cago Store Map.width/height` keep the
+shop's aspect ratio (e.g. 100×70) for the SVG `viewBox="0 0 width height"`.
 
-## Mô hình dữ liệu (Frappe)
+## Data model (Frappe)
 - **Cago Store Map** (Single):
-  - `is_published` Check — bật/tắt hiển thị trên kiosk.
-  - `width` Float (mặc định 100), `height` Float (mặc định 70).
-  - `kiosk_x`, `kiosk_y` Float — ghim "Bạn ở đây".
+  - `is_published` Check — show/hide on the kiosk.
+  - `width` Float (default 100), `height` Float (default 70).
+  - `kiosk_x`, `kiosk_y` Float — the "you are here" pin.
   - `zones` Table → **Cago Map Zone**.
   - `aisle` Table → **Cago Map Aisle Point**.
-- **Cago Map Zone** (child):
-  - `label` Data (VN, vd "Cám chăn nuôi"), `item_group` Link Item Group,
-  - `x`,`y`,`w`,`h` Float (0–100), `color` Data (hex), `icon` Data (emoji, tuỳ chọn).
-- **Cago Map Aisle Point** (child): `x`,`y` Float (thứ tự theo idx của bảng con).
+- **Cago Map Zone** (child): `label` Data (VN, e.g. "Cám chăn nuôi"), `item_group` Link Item Group,
+  `x`,`y`,`w`,`h` Float (0–100), `color` Data (hex), `icon` Data (emoji, optional).
+- **Cago Map Aisle Point** (child): `x`,`y` Float (ordered by child-table index).
 
-Khớp sản phẩm ↔ khu: DTO sản phẩm trả `category = item_group`. Tìm zone có
-`zone.item_group == product.category` (lấy khu đầu tiên khớp).
+Product ↔ zone matching: the product DTO returns `category = item_group`. Find the zone where
+`zone.item_group == product.category` (first match).
 
 ## API (`cago/api/storemap.py`)
-- `get_store_map()` — `allow_guest=1`. Trả `{published, width, height, kiosk:{x,y},
-  aisle:[{x,y}], zones:[{label,item_group,x,y,w,h,color,icon}]}`. **Công khai, không field
-  nhạy cảm** (chỉ là bố cục + tên danh mục). Dùng cho cả kiosk và editor của chủ.
-- `save_store_map(data)` — `ensure_owner()`. Upsert Single + ghi lại child tables.
+- `get_store_map()` — `allow_guest=1`. Returns `{published, width, height, kiosk:{x,y}, aisle:[{x,y}],
+  zones:[{label,item_group,x,y,w,h,color,icon}]}`. **Public, no sensitive fields** (layout + category
+  names only). Used by both the kiosk and the owner editor.
+- `save_store_map(data)` — `ensure_owner()`. Upserts the Single + rewrites the child tables.
 
-Tuyến đường & chỉ dẫn chữ tính **phía client** (kiosk đã có map + category của SP) ⇒ một lần
-`get_store_map` phục vụ tất cả, chạy offline tốt.
+The route + text hint are computed **client-side** (the kiosk already has the map + the product's
+category) ⇒ one `get_store_map` serves everything and works offline.
 
-## Định tuyến (client — `web/src/lib/storemap.ts`)
+## Routing (client — `web/src/lib/storemap.ts`)
 `computeRoute(map, zone)`:
-1. `P` = kiosk; `Z` = tâm khu đích.
-2. Nếu có `aisle` (≥2 điểm): chiếu `P`→điểm gần nhất `A` trên polyline; chiếu `Z`→`B`.
-   Tuyến = `[P, A, …đoạn polyline A→B…, B, Z]`.
-3. Nếu không có lối đi: tuyến gấp khúc đơn giản `[P, (Z.x, P.y), Z]` (đi ngang rồi vào khu)
-   — hoặc đường thẳng `[P, Z]` kèm nhãn "sơ đồ tham khảo".
-`routeHint(map, zone)` → câu tiếng Việt từ hình học: trái/phải/đi thẳng/phía sau +
-khoảng cách (gần/giữa/cuối) + nhãn khu. Vd: "Bên phải, đi tới cuối lối đi — kệ Cám 🐔".
+1. `P` = kiosk; `Z` = destination zone centre.
+2. With an `aisle` (≥2 points): project `P`→nearest point `A` on the polyline; project `Z`→`B`.
+   Route = `[P, A, …polyline A→B…, B, Z]`.
+3. No aisle: a simple dog-leg `[P, (Z.x, P.y), Z]` (go across, then into the zone) — or a straight
+   `[P, Z]` labelled "reference map".
+`routeHint(map, zone)` → a Vietnamese sentence from the geometry: left/right/straight/behind +
+distance (near/mid/far) + zone label. E.g. "Bên phải, đi tới cuối lối đi — kệ Cám 🐔".
 
-## UX chủ — `/owner/map` (`StoreMap` editor)
-Canvas SVG khung cửa hàng. Thanh công cụ:
-- **➕ Thêm khu** → chọn Item Group → khối chữ nhật xuất hiện, kéo để di chuyển, kéo góc để
-  chỉnh kích thước; chạm khối → đổi nhãn/màu/icon/xoá.
-- **📍 Đặt "Bạn ở đây"** → kéo ghim kiosk.
-- **🛤 Vẽ lối đi** → chạm để thêm điểm polyline; kéo điểm; xoá.
-- **💾 Lưu** → `save_store_map`. Pointer-events tự xử lý, không thư viện nặng.
-Vào từ tile mới ở `OwnerHome`.
+## Owner UX — `/owner/map` (`StoreMap` editor)
+SVG canvas of the shop. Toolbar:
+- **➕ Add zone** → pick an Item Group → a rectangle appears; drag to move, drag a corner to resize;
+  tap a block → change label/colour/icon/delete.
+- **📍 Set "You are here"** → drag the kiosk pin.
+- **🛤 Draw aisle** → tap to add polyline points; drag points; delete.
+- **💾 Save** → `save_store_map`. Pointer-events only, no heavy library.
+Entered from a tile on the owner home.
 
-## UX khách — kiosk
-- Route mới `/(kiosk)/map`: hiện cả sơ đồ; chạm 1 khu → mở danh sách SP của danh mục đó
-  (tái dùng ProductList lọc theo category).
-- Trang chi tiết SP: nút **"📍 Xem vị trí"** (chỉ hiện khi map published & danh mục có khu)
-  → mở sơ đồ: khu đích nhấp nháy, ghim "Bạn ở đây", tuyến (nét đứt + chấm chạy động), 1 dòng
-  chỉ dẫn chữ. Không có khu khớp → fallback hiện `shelf_location` như hiện tại.
+## Customer UX — kiosk
+- Route `/(kiosk)/map`: shows the whole map; tap a zone → opens that category's product list
+  (reuses ProductList filtered by category).
+- Product detail page: a **"📍 Xem vị trí"** button (only when the map is published & the category has
+  a zone) → opens the map with the destination blinking, the "you are here" pin, the route (dashed +
+  animated dot), and a one-line text hint. No matching zone → fall back to showing `shelf_location`.
 
 ## Offline / PWA
-Cache `get_store_map` + thêm `/map` vào danh sách cache của service worker.
+Cache `get_store_map` and add `/map` to the service-worker cache list.
 
-## Phân kỳ
-- **Phase 1 (MVP):** 3 DocType + API get/save + editor kéo–thả + view kiosk + seed 1 map.
-- **Phase 2 (2026-06-02):** đa tầng + UX editor (16 màu + lưới icon) + điều hướng (bản này).
-- **Sau này:** ghi đè vị trí theo từng SP, ảnh nền sơ đồ vẽ tay, đồ thị waypoint nhiều nhánh.
+## Phasing
+- **Phase 1 (MVP):** 3 DocTypes + get/save API + drag-and-drop editor + kiosk view + seed one map.
+- **Phase 2 (2026-06-02):** multi-floor + editor UX (16 colours + icon grid) + navigation (this version).
+- **Later:** per-product location overrides, hand-drawn background image, multi-branch waypoint graph.
 
-## Phase 2 — Đa tầng + UX (đã làm)
-Cửa hàng thật **2 tầng** (Tầng 1 + Tầng hầm), mỗi tầng có **dãy** 2 bên một **lối đi giữa**,
-**cầu thang** nối tầng, **cửa** ở Tầng 1.
-- **`Cago Map Floor`** (con): `label`, `level` (số lớn = tầng trên), `stairs_x/_y`. Zone + Aisle
-  thêm field `floor`. Store Map thêm `floors` + `kiosk_floor` + `entrance_floor`. Dùng chung canvas.
-- **`planRoute` xuyên tầng**: cùng tầng → start→lối đi→khu. Khác tầng → start→🪜 (tầng xuất phát),
-  rồi 🪜→khu (tầng đích) + câu "Đi tới cầu thang, **xuống/lên** {tầng}…" (suy từ `level`).
-- **Editor**: tab tầng, thêm/xoá/đổi tên + cao độ, 🪜 kéo được mỗi tầng, nút đặt kiosk/cửa ở tầng;
-  **16 màu** + **lưới chọn icon emoji** (bấm, không gõ); khoá kéo khi vẽ lối đi; key ổn định;
-  chặn ghi điểm (0,0) khi CTM null; giữ khu dù xoá nhãn (placeholder).
-- **Kiosk**: tab tầng (đích gắn 🎯), chỉ vẽ tầng đang xem; báo "khu chưa đánh dấu"; seed demo 2 tầng.
+## Phase 2 — Multi-floor + UX (done)
+The real shop has **2 floors** (ground + basement), each with **shelving on both sides of a central
+aisle**, **stairs** connecting floors, and an **entrance** on the ground floor.
+- **`Cago Map Floor`** (child): `label`, `level` (higher = upper floor), `stairs_x/_y`. Zone + Aisle
+  gain a `floor` field. Store Map gains `floors` + `kiosk_floor` + `entrance_floor`. One shared canvas.
+- **Cross-floor `planRoute`**: same floor → start→aisle→zone. Different floor → start→🪜 (start floor),
+  then 🪜→zone (destination floor) + "Go to the stairs, **down/up** to {floor}…" (derived from `level`).
+- **Editor**: floor tabs, add/remove/rename + level, draggable 🪜 per floor, set kiosk/entrance per
+  floor; **16 colours** + **emoji icon grid** (tap, no typing); lock dragging while drawing the aisle;
+  stable keys; block writing a (0,0) point when CTM is null; keep a zone even if its label is cleared.
+- **Kiosk**: floor tabs (destination marked 🎯), draw only the viewed floor; "zone not marked yet"
+  message; seed a 2-floor demo.
 
-## Điều hướng kiosk — "Back vs Home" (component `KioskNavButtons`)
-Hai ý định tách bạch, **luôn hiện cùng lúc** mọi màn:
-- **‹ Quay lại**: lùi đúng màn trước (history-aware `useKioskNav.goBack`, cờ `cago_nav`; fallback khi
-  vào sâu trực tiếp). Sửa edge-case: map → danh mục → Quay lại → **về map** (trước phải về trang chủ).
-- **🏠 Trang chủ**: về đầu 1 chạm (khách lạc/mới). Chip đổi danh mục dùng `router.replace` (không
-  chất đống history). Áp dụng: ProductList, ProductDetail, Map, Cart, MyDebt.
+## Kiosk navigation — "Back vs Home" (`KioskNavButtons`)
+Two distinct intents, **always shown together** on every screen:
+- **‹ Quay lại (Back)**: pops the previous screen (history-aware `useKioskNav.goBack`, `cago_nav`
+  flag; fallback on a deep entry). Fixed edge case: map → category → Back → **returns to the map**.
+- **🏠 Trang chủ (Home)**: one-tap home (for a lost/new customer). Category-switch chips use
+  `router.replace` (no history pile-up). Applies to ProductList, ProductDetail, Map, Cart, MyDebt.
 
-## Lưới "Cần giúp đỡ?" — chống thẻ lẻ
-Cột theo số thẻ: ≤3 → 1 hàng (cols=count, vd 3→hàng 3); 4 → 2×2; ≥5 → mỗi hàng 3 (5→3+2). Hết cảnh
-3 thẻ rớt 1 cái xuống dưới.
+## "Need help?" grid — no orphan card
+Columns by card count: ≤3 → one row (cols=count, e.g. 3→3); 4 → 2×2; ≥5 → rows of 3 (5→3+2).
 
-## Rủi ro & giảm thiểu
-- Chủ không duy trì → mức danh mục (ổn định, ~8 khối) + tùy chọn + sửa nhanh.
-- Sai vài mét → nhãn "sơ đồ tham khảo".
-- Không bao giờ lộ giá vốn/tồn/nhạy cảm: DTO map chỉ có bố cục + tên danh mục.
+## Risks & mitigations
+- Owner won't maintain it → category level (stable, ~8 blocks) + optional + quick edit.
+- Off by a few metres → "reference map" label.
+- Never leaks cost/stock/sensitive data: the map DTO has layout + category names only.
