@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
 import { BackBar, goBackSmart, ProductPicker, money } from "./OwnerShared";
+import { groupVnd } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 
 interface Stock {
@@ -122,7 +123,7 @@ export function ReceiveStock() {
         <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-emerald-300 p-3.5 text-2xl font-extrabold" />
 
         <label className="mt-3 block font-bold text-slate-700">Giá vốn / {stock?.uom} <span className="font-normal text-slate-400">(nên nhập để tính lãi)</span></label>
-        <input inputMode="numeric" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-amber-300 p-3.5 text-xl font-bold text-right" />
+        <input inputMode="numeric" value={cost} onChange={(e) => setCost(groupVnd(e.target.value))} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-amber-300 p-3.5 text-xl font-bold text-right" />
 
         {stock?.has_batch && (
           <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">

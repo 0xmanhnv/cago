@@ -71,11 +71,14 @@ STAFF_PAGE = 30
 
 
 @frappe.whitelist()
-def search_products(query=None, category=None, start=0):
+def search_products(query=None, category=None, start=0, recommended_only=0):
 	ensure_internal()
 	from frappe.utils import cint
 
-	return dto.list_dtos(query, audience="staff", public_only=False, category=category, limit=STAFF_PAGE, start=cint(start))
+	return dto.list_dtos(
+		query, audience="staff", public_only=False, category=category, limit=STAFF_PAGE,
+		start=cint(start), recommended_only=bool(cint(recommended_only)),
+	)
 
 
 @frappe.whitelist()

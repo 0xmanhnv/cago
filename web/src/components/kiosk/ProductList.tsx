@@ -27,6 +27,7 @@ export function ProductList() {
   const q = sp.get("q") || "";
   const sort = (sp.get("sort") as Sort) || "default";
   const stockOnly = sp.get("stock") === "1";
+  const recoOnly = sp.get("reco") === "1"; // ⭐ show only "khuyên dùng"
 
   const [products, setProducts] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,14 +130,15 @@ export function ProductList() {
   const view = useMemo(() => {
     let arr = products;
     if (stockOnly) arr = arr.filter(inStock);
+    if (recoOnly) arr = arr.filter((p) => p.recommended);
     // Price-less items ("Liên hệ") always sort last, in BOTH directions.
     if (sort === "price_asc") arr = [...arr].sort((a, b) => (priceNum(a) ?? Infinity) - (priceNum(b) ?? Infinity));
     else if (sort === "price_desc") arr = [...arr].sort((a, b) => (priceNum(b) ?? -Infinity) - (priceNum(a) ?? -Infinity));
     return arr;
-  }, [products, sort, stockOnly]);
+  }, [products, sort, stockOnly, recoOnly]);
 
   // Reset the visible window whenever the result set changes (new category/search/filter/sort).
-  useEffect(() => setShown(30), [category, q, sort, stockOnly]);
+  useEffect(() => setShown(30), [category, q, sort, stockOnly, recoOnly]);
 
   // Auto load-more: when the bottom sentinel scrolls into view and there's more, reveal the next page.
   const visible = view.slice(0, shown);
@@ -200,6 +202,9 @@ export function ProductList() {
           <button onClick={() => setParams({ stock: stockOnly ? undefined : "1" })} className={chip(stockOnly)}>
             ✅ Còn hàng
           </button>
+          <button onClick={() => setParams({ reco: recoOnly ? undefined : "1" })} className={chip(recoOnly)}>
+            ⭐ Khuyên dùng
+          </button>
           <button
             onClick={() => setParams({ sort: sort === "price_asc" ? undefined : "price_asc" })}
             className={chip(sort === "price_asc")}
@@ -241,7 +246,7 @@ export function ProductList() {
         <div className="py-8 text-center text-slate-500">Đang tải...</div>
       ) : view.length === 0 ? (
         <div className="py-8 text-center text-slate-500">
-          {q.trim() || stockOnly ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm."}
+          {q.trim() || stockOnly || recoOnly ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm."}
         </div>
       ) : viewMode === "list" ? (
         <div className="flex flex-col gap-2.5">

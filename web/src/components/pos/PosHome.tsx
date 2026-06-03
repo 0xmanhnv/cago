@@ -45,6 +45,7 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   price: { label: "🔎 Tra giá / sửa giá", color: "bg-blue-600", href: "/pos/price", cap: "products" },
   new: { label: "➕ Thêm sản phẩm", color: "bg-teal-600", href: "/pos/products/new", cap: "products" },
   edit: { label: "✏️ Sửa sản phẩm", color: "bg-amber-500", href: "/pos/edit", cap: "products" },
+  recommended: { label: "⭐ Hàng khuyên dùng", color: "bg-amber-500", href: "/pos/recommended", cap: "products" },
   receive: { label: "📥 Nhập hàng", color: "bg-teal-700", href: "/pos/receive", cap: "stock" },
   bulk: { label: "⚡ Nhập hàng loạt", color: "bg-teal-700", href: "/pos/bulk", cap: "stock" },
   receivehist: { label: "📜 Lịch sử nhập", color: "bg-teal-600", href: "/pos/receive-history", cap: "stock" },
@@ -80,7 +81,7 @@ const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : use
 
 const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "exchange", "orders", "assistant", "coupons", "qr"] },
-  { title: "📦 Hàng hoá & kho", keys: ["alerts", "price", "new", "edit", "labels", "receive", "bulk", "receivehist", "lowstock", "reorder", "expiry", "categories", "map"] },
+  { title: "📦 Hàng hoá & kho", keys: ["alerts", "price", "new", "edit", "recommended", "labels", "receive", "bulk", "receivehist", "lowstock", "reorder", "expiry", "categories", "map"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["recordpay", "recorddebt", "debt", "verify", "supplier", "cashbook"] },
   { title: "📊 Báo cáo & quản lý", keys: ["reports", "unsafe", "aisettings", "staffadmin", "help"] },
 ];

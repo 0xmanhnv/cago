@@ -347,7 +347,7 @@ def _rate_for(pmap, stock_uom):
 	return pmap.get(stock_uom) or pmap.get("") or 0
 
 
-def list_dtos(query, audience="staff", public_only=False, category=None, limit=24, start=0):
+def list_dtos(query, audience="staff", public_only=False, category=None, limit=24, start=0, recommended_only=False):
 	"""Lightweight list/search results built with 2 queries total (items + prices).
 
 	List cards don't need alternatives or live stock qty, so we skip the per-item
@@ -356,6 +356,8 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 	base = {"disabled": 0}
 	if public_only:
 		base["cago_is_public_visible"] = 1
+	if recommended_only:
+		base["cago_recommended"] = 1
 	if category:
 		# The URL carries a slug (e.g. "cam-chan-nuoi"); resolve it back to the group name.
 		# Accepts a real group name too (back-compat). Unknown → keep as-is (yields no match).

@@ -20,6 +20,8 @@ export function StaffSearch() {
   const [viewMode, setViewMode] = useState<"list" | "card">("list"); // dense list by default (fast lookup)
   const [cats, setCats] = useState<Category[]>([]);
   const [category, setCategory] = useState(""); // active category filter ("" = all)
+  const [recoOnly, setRecoOnly] = useState(false); // ⭐ show only "khuyên dùng"
+  const recoRef = useRef(false); // current value for the async load callbacks (avoids stale closure)
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const seqRef = useRef(0); // ignore out-of-order search responses (newest wins)
@@ -38,7 +40,7 @@ export function StaffSearch() {
     const seq = ++seqRef.current;
     setLoading(true);
     try {
-      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, category: cat || null, start: 0 }, { method: "GET" })) || [];
+      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query, category: cat || null, start: 0, recommended_only: recoRef.current ? 1 : 0 }, { method: "GET" })) || [];
       if (seq !== seqRef.current) return;
       setList(r);
       setHasMore(r.length >= PAGE);
@@ -51,7 +53,7 @@ export function StaffSearch() {
     const seq = seqRef.current;
     setLoadingMore(true);
     try {
-      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q.trim(), category: category || null, start: list.length }, { method: "GET" })) || [];
+      const r = (await frappeCall<ProductCard[]>("cago.api.staff.search_products", { query: q.trim(), category: category || null, start: list.length, recommended_only: recoRef.current ? 1 : 0 }, { method: "GET" })) || [];
       if (seq !== seqRef.current) return;
       setList((prev) => [...prev, ...r]);
       setHasMore(r.length >= PAGE);
@@ -62,6 +64,12 @@ export function StaffSearch() {
   const pickCategory = (c: string) => {
     setCategory(c);
     void run(q.trim(), c);
+  };
+  const toggleReco = () => {
+    const v = !recoOnly;
+    setRecoOnly(v);
+    recoRef.current = v;
+    void run(q.trim());
   };
   useEffect(() => {
     void run("");
@@ -122,6 +130,15 @@ export function StaffSearch() {
         }}
         className="mb-2.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm"
       />
+      {/* ⭐ "recommended only" filter — show just the items the owner flagged as khuyên dùng. */}
+      <div className="mb-2.5">
+        <button
+          onClick={toggleReco}
+          className={`rounded-full border px-3.5 py-1.5 text-sm font-bold ${recoOnly ? "border-amber-400 bg-amber-100 text-amber-800" : "border-slate-300 bg-white text-slate-600"}`}
+        >
+          ⭐ Chỉ hàng khuyên dùng{recoOnly ? " ✓" : ""}
+        </button>
+      </div>
       {/* Category quick-filter — browse a whole group without typing (same control as the sell screen). */}
       {cats.length > 0 && (
         <div className="mb-3">

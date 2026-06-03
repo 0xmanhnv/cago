@@ -48,10 +48,26 @@ def price_history(item_code, limit=20):
 
 
 @frappe.whitelist()
-def search_products(query=None):
+def search_products(query=None, recommended_only=0):
 	"""Owner product search -> list of owner DTOs."""
 	ensure_cap("products")
-	return dto.list_dtos(query, audience="owner", public_only=False)
+	from frappe.utils import cint
+
+	return dto.list_dtos(query, audience="owner", public_only=False, recommended_only=bool(cint(recommended_only)))
+
+
+@frappe.whitelist()
+def set_recommended(item_code, on):
+	"""Toggle the ⭐ 'khuyên dùng' flag for one item (used by the bulk manage screen)."""
+	ensure_cap("products")
+	from frappe.utils import cint
+
+	if not frappe.db.exists("Item", item_code):
+		frappe.throw(_("Không tìm thấy sản phẩm."))
+	val = 1 if cint(on) else 0
+	frappe.db.set_value("Item", item_code, "cago_recommended", val)
+	frappe.db.commit()
+	return {"item_code": item_code, "recommended": bool(val)}
 
 
 @frappe.whitelist()

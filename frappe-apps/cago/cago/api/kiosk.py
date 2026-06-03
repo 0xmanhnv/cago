@@ -101,9 +101,14 @@ def category_tree(public_only=True):
 
 
 @frappe.whitelist(allow_guest=True)
-def list_products(category=None, query=None):
-	"""Public product list, optionally filtered by category and/or search term."""
-	return dto.list_dtos(query, audience="public", public_only=True, category=category, limit=60)
+def list_products(category=None, query=None, recommended_only=0):
+	"""Public product list, optionally filtered by category, search term and/or 'recommended only'."""
+	from frappe.utils import cint
+
+	return dto.list_dtos(
+		query, audience="public", public_only=True, category=category, limit=60,
+		recommended_only=bool(cint(recommended_only)),
+	)
 
 
 @frappe.whitelist(allow_guest=True)
