@@ -1,5 +1,9 @@
 # 16 — UI/UX Design System
 
+> ℹ️ **Partly dated.** The owner home is now grouped into 6 sections and the POS is Cago-native
+> `/pos/sell` (not POS Awesome). The principles below still hold. Vietnamese strings in this doc are
+> intentional UI labels/terms (and the mandatory safety warning) — they stay in Vietnamese by design.
+
 ## 1. Design target
 
 Primary users:
@@ -62,10 +66,11 @@ CHỦ CỬA HÀNG
 ```text
 NHÂN VIÊN BÁN HÀNG
 
+[ Bán hàng ]        (Cago-native /pos/sell)
 [ Tra sản phẩm ]
-[ Mở POS Awesome ]
-[ Mở POS gốc ]
-[ Danh sách khách chọn ]
+[ Trả / Đổi hàng ]
+[ Khách đã chọn ]
+[ Hỏi trợ lý ]
 ```
 
 ## 6. Kiosk home
