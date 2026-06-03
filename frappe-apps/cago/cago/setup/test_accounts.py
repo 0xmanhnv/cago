@@ -5,7 +5,7 @@
     bench --site <site> execute cago.setup.test_accounts.ensure_test_accounts
 
 Idempotent. Password for all (except Administrator) = Test@12345. Everyone sells on the
-Cago-native /pos/sell (POS Awesome was removed).
+Cago-native /pos/sell.
 """
 
 import frappe

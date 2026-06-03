@@ -5,7 +5,7 @@
 Staff retrieve a customer's kiosk basket by code and create a draft invoice pre-filled
 with the items (no re-typing). The invoice is left as a DRAFT — staff opens it in ERPNext
 to pick the customer/payment and submit, so no final sale happens without staff confirmation
-(docs/04). Native-POS-friendly; no dependency on POS Awesome.
+(docs/04). No dependency on any external POS app.
 """
 
 import frappe

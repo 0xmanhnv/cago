@@ -21,8 +21,8 @@ bench --site agrimate.local install-app erpnext
 ```
 
 Native POS (mandatory fallback) is part of ERPNext — configure a **POS Profile**
-in the Desk once products exist. POS Awesome is NOT installed in M0/M1
-(see `docs/20_POS_AWESOME_EVALUATION_NOTES.md`).
+in the Desk once products exist. No external POS app is installed — the Cago-native
+/pos/sell is the POS.
 
 ## Milestone 1 — Install the app & load data
 

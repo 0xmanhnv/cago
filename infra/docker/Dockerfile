@@ -26,7 +26,7 @@ RUN ./env/bin/pip install --no-cache-dir --upgrade pip \
 
 # --------------------------------------------------------------------------- #
 # Cago's static assets (e.g. public/css) served by the frontend nginx at /assets/cago/*.
-# cago ships no JS bundle, so just symlink its public dir. (POS Awesome was removed — the
-# Cago-native /pos/sell is the only POS; see docs.)
+# cago ships no JS bundle, so just symlink its public dir. (The Cago-native /pos/sell is the
+# only POS.)
 RUN ln -sfn /home/frappe/frappe-bench/apps/cago/cago/public \
     /home/frappe/frappe-bench/assets/cago

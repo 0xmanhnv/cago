@@ -1,5 +1,7 @@
 # 06 — ERPNext / Frappe Customization Plan
 
+> ℹ️ **Thực tế hiện tại:** còn nhiều custom field mới chưa liệt kê ở đây (lô/FEFO, ca/cashier, loyalty, đa đơn vị, `cago_recommended`…). Nguồn đúng: code `cago/setup/custom_fields.py` + fixture `custom_field.json`.
+
 ## 1. Custom app
 
 Create Frappe app:

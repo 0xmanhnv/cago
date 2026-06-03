@@ -39,6 +39,11 @@ Trạng thái: ✅ hiện hành · ⚠️ còn nội dung cũ (đọc kèm bản
 | [07_DATA_MODEL.md](07_DATA_MODEL.md) — Mô hình dữ liệu / DTO | ⚠️ DTO cũ, thiếu trường mới |
 | [05_PYTHON_SERVICE_STRATEGY.md](05_PYTHON_SERVICE_STRATEGY.md) — Dịch vụ Python (không dùng Go) | ✅ |
 
+### API & phát triển
+| [39_API_REFERENCE.md](39_API_REFERENCE.md) — Tham chiếu API `cago.api.*` (sinh từ code) | ✅ |
+| [40_FRONTEND_DEV_GUIDE.md](40_FRONTEND_DEV_GUIDE.md) — Hướng dẫn dev frontend (`web/`) | ✅ |
+| [41_DATA_IMPORT.md](41_DATA_IMPORT.md) — Nhập dữ liệu ban đầu (Excel/CSV) | ✅ |
+
 ### Frontend / UI
 | [16_UI_UX_DESIGN_SYSTEM.md](16_UI_UX_DESIGN_SYSTEM.md) — Hệ thiết kế UI/UX | ⚠️ màn chủ đã gom 6 nhóm |
 | [08_OWNER_STAFF_UI_SPEC.md](08_OWNER_STAFF_UI_SPEC.md) — Spec UI chủ/nhân viên | 🗄 spec MVP cũ; xem 27 + 36 |
@@ -77,21 +82,16 @@ Trạng thái: ✅ hiện hành · ⚠️ còn nội dung cũ (đọc kèm bản
 
 ## 🗄 Lưu trữ (đã bị thay thế — chỉ để tra lịch sử)
 
-> **POS Awesome đã được đánh giá rồi GỠ HẲN.** POS hiện tại là **Cago-native `/pos/sell`** (xem
-> [36](36_STAFF_MOBILE_POS_PLAN.md)). Các tài liệu dưới đây phản ánh giai đoạn còn cân nhắc POS Awesome.
+> **POS Awesome đã được GỠ HẲN** (kể cả các tài liệu đánh giá 20/21/28/29/34/35 — đã xoá). POS hiện
+> tại là **Cago-native `/pos/sell`** (xem [36](36_STAFF_MOBILE_POS_PLAN.md)).
 
-| [20_POS_AWESOME_EVALUATION_NOTES.md](20_POS_AWESOME_EVALUATION_NOTES.md) | 🗄 |
-| [21_POS_AWESOME_EVALUATION_REPORT.md](21_POS_AWESOME_EVALUATION_REPORT.md) | 🗄 |
-| [28_POSAWESOME_V16_PORTING_STRATEGY.md](28_POSAWESOME_V16_PORTING_STRATEGY.md) | 🗄 |
-| [29_POS_AWESOME_V16_PORT_SPIKE.md](29_POS_AWESOME_V16_PORT_SPIKE.md) | 🗄 |
-| [34_POSAWESOME_V16_EVALUATION_RESULT.md](34_POSAWESOME_V16_EVALUATION_RESULT.md) | 🗄 |
-| [35_POSAWESOME_VI_LOCALIZATION_DESIGN.md](35_POSAWESOME_VI_LOCALIZATION_DESIGN.md) | 🗄 |
 | [MILESTONE_0_1_SETUP.md](MILESTONE_0_1_SETUP.md) · [MILESTONE_0_1_TEST.md](MILESTONE_0_1_TEST.md) · [MILESTONE_3_6_UI.md](MILESTONE_3_6_UI.md) | 🗄 nhật ký build cũ (UI mô tả Frappe-native, nay Next.js) |
 
 ---
 
 ## Việc nên cập nhật tiếp (đề xuất, chưa làm)
-- Gộp trường mới vào **06/07** (lô, ca/cashier, loyalty, đa đơn vị, `cago_recommended`).
-- Cập nhật **15/17** sang thực tế Next.js + thư mục `web/`.
-- Bỏ nhãn "design" ở **10/25** (chatbot đã build) → đổi thành "đã triển khai".
-- (Khoảng trống) Bổ sung: **tham chiếu API** (`cago.api.*`), **hướng dẫn dev frontend** (`web/`), **nhập dữ liệu từ Excel/POS cũ**.
+- Viết lại chi tiết **06/07** cho khớp (lô, ca/cashier, loyalty, đa đơn vị, `cago_recommended`) — hiện đã gắn banner "thực tế" + có [39](39_API_REFERENCE.md)/[07] đối chiếu.
+- Viết lại chi tiết **15/17** sang Next.js + `web/` — hiện đã gắn banner trỏ [27](27_FRONTEND_MIGRATION_NEXTJS.md)/[40](40_FRONTEND_DEV_GUIDE.md).
+
+> Đã bổ sung các khoảng trống: API reference (39), Frontend dev guide (40), Data import (41).
+> POS Awesome đã được **gỡ sạch** khỏi code + docs.

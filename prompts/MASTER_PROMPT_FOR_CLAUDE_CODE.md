@@ -8,10 +8,10 @@ Important architecture:
 
 - Core backend: ERPNext/Frappe.
 - Core custom app: `cago`.
-- POS: evaluate POS Awesome V15 as preferred POS UI, but keep ERPNext native POS as mandatory fallback.
+- POS: Cago-native `/pos/sell` (POS Awesome was evaluated and removed).
 - Auxiliary services: Python only, no Go.
 - Do not modify ERPNext core.
-- Do not put core business logic only in POS Awesome.
+- Do not put core business logic only in POS-specific code.
 
 Your first output must include:
 
@@ -19,7 +19,7 @@ Your first output must include:
 2. Proposed repo structure.
 3. Proposed `cago` Frappe app structure.
 4. Proposed Python services structure if needed.
-5. POS Awesome V15 evaluation plan.
+5. (Done) POS = Cago-native /pos/sell.
 6. Milestone 1 implementation plan.
 7. Test plan.
 8. Risks and assumptions.

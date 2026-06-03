@@ -1,5 +1,7 @@
 # 04 — POS Strategy
 
+> 🗄 **Lỗi thời một phần.** Quyết định cuối: POS = **Cago-native `/pos/sell`** (xem [36](36_STAFF_MOBILE_POS_PLAN.md)); POS Awesome đã **gỡ hẳn**. Phần đánh giá POS Awesome bên dưới chỉ là lịch sử.
+
 ## 1. Decision
 
 Use a two-layer POS strategy:
@@ -111,5 +113,4 @@ bench (live site untouched). Result: **CONDITIONAL-GO** — usable directly as a
 owner-scoped* enhanced POS; native POS + Cago `/staff/sell` stay the primary paths; no fork
 needed for that scope. Accounting/stock post through native ERPNext (the POS Invoice override
 only handles shift validation). One issue: the item API exposes `valuation_rate` with no role
-gate → gate POS Awesome to the owner, or fork-patch if staff must use it. Full report, install
-runbook, and rollback: **docs/34_POSAWESOME_V16_EVALUATION_RESULT.md**.
+gate → gate POS Awesome to the owner, or fork-patch if staff must use it. POS hiện tại: **docs/36_STAFF_MOBILE_POS_PLAN.md**; vận hành & triển khai: **docs/38_GO_LIVE_RUNBOOK.md**.

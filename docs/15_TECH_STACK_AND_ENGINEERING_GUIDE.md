@@ -1,5 +1,7 @@
 # 15 — Tech Stack and Engineering Guide
 
+> ℹ️ **Thực tế hiện tại:** frontend đã migrate sang **Next.js (`web/`)** — bỏ qua chỗ ghi "Phase 2 mới dùng Next.js". Xem [27](27_FRONTEND_MIGRATION_NEXTJS.md) + [40](40_FRONTEND_DEV_GUIDE.md).
+
 ## 1. Official stack for MVP
 
 ### Core

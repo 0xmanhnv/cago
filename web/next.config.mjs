@@ -11,7 +11,7 @@ const FRAPPE = process.env.FRAPPE_INTERNAL_URL || "http://frontend:8080";
 const nextConfig = {
   reactStrictMode: true,
   // Next OWNS its own routes (/, /login, /pos/*, /products/*, /cart, /assistant, /my-debt, ...).
-  // We proxy the KNOWN Frappe top-level prefixes (Desk + POS Awesome at /app, the REST API, print
+  // We proxy the KNOWN Frappe top-level prefixes (Desk at /app, the REST API, print
   // views, uploads, assets, websocket). Anything else that Next doesn't have a route for now falls
   // through to Next's own branded 404 (app/not-found.tsx) instead of Frappe's plain page — so a
   // typo'd URL shows the friendly error screen. (Decoupled app: no Frappe website pages at root.)

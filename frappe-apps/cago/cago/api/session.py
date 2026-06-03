@@ -4,7 +4,7 @@
 
 A single call the SPA makes on load (and after login) to learn who the user is,
 their roles, a CSRF token for write requests, and the small pieces of branding the
-old server-rendered pages used to inject (persona, brand, POS Awesome availability).
+old server-rendered pages used to inject (persona, brand).
 
 The role list is for UI gating only — every owner/staff API still enforces its own
 server-side guard (see utils/permissions.py), so a forged client role grants nothing.

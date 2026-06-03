@@ -1,5 +1,7 @@
 # 17 — Repository Structure
 
+> ℹ️ **Thực tế hiện tại:** repo có thêm thư mục **`web/`** (app Next.js, public entry). Cấu trúc frontend xem [40](40_FRONTEND_DEV_GUIDE.md).
+
 ## 1. Recommended repo
 
 ```text
