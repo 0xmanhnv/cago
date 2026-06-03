@@ -19,6 +19,40 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Press feedback EVERYWHERE: rural / low-tech users need to feel a tap registered. Every button,
+   link and role=button springs in slightly + dims on press (and no blue iOS tap-highlight box).
+   Applied in the base layer so component utility classes can still override per-element. */
+@layer base {
+  button,
+  a,
+  [role="button"],
+  label,
+  summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled),
+  a[href],
+  [role="button"] {
+    transition: transform 0.09s ease, filter 0.09s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+  button:not(:disabled):active,
+  a[href]:active,
+  [role="button"]:active {
+    transform: scale(0.97);
+    filter: brightness(0.94);
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button:active,
+    a[href]:active,
+    [role="button"]:active {
+      transform: none;
+    }
+  }
+}
+
 /* Soft sunny-field gradient: pale sky → fresh leaf, fixed so it doesn't scroll. */
 body {
   font-size: 17px;

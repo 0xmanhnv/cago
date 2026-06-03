@@ -93,6 +93,27 @@ def _cashier_cash_sales(user, since, until=None):
 	)
 
 
+def _cashier_movements(user, since, until=None):
+	"""Net cash from mid-shift movements: Nộp quỹ (+) / Rút quỹ (−) / Chi vặt (−). Returns (net, list)."""
+	filters = {"cashier": user, "posted": [">=", since]}
+	rows = frappe.get_all(
+		"Cago Cash Movement",
+		filters=filters,
+		fields=["kind", "amount", "reason", "posted"],
+		order_by="posted asc",
+	)
+	net = 0.0
+	out = []
+	for r in rows:
+		if until and str(r.posted) > str(until):
+			continue
+		amt = flt(r.amount)
+		sign = 1 if r.kind == "Nộp quỹ" else -1
+		net += sign * amt
+		out.append({"kind": r.kind, "amount": amt, "amount_text": dto.format_price(amt), "reason": r.reason or "", "sign": sign})
+	return net, out
+
+
 def _shift_dto(doc):
 	from cago.utils.permissions import is_owner
 
@@ -100,7 +121,8 @@ def _shift_dto(doc):
 	# For an open shift, compute the live running figure; for a closed shift, use what was stored.
 	if doc.status == "Open":
 		cash_sales = _cashier_cash_sales(doc.cashier, doc.opened_at)
-	expected = flt(doc.opening_cash) + cash_sales - flt(doc.payouts)
+	mv_net, mv_list = _cashier_movements(doc.cashier, doc.opened_at, None if doc.status == "Open" else doc.closed_at)
+	expected = flt(doc.opening_cash) + cash_sales - flt(doc.payouts) + mv_net
 	# Blind close: this cashier must count the drawer without seeing what it SHOULD be (anti-fraud).
 	# The variance is still computed + stored on the doc; only the owner sees it (Sổ quỹ).
 	blind = (
@@ -131,6 +153,8 @@ def _shift_dto(doc):
 			"diff_text": dto.format_price(abs(flt(doc.difference))),
 			"match": abs(flt(doc.difference)) < 1 if doc.status == "Closed" else None,
 			"over": flt(doc.difference) > 0,
+			"movements": mv_list,
+			"movements_net": mv_net,
 		}
 	)
 	return out
@@ -168,6 +192,35 @@ def open_shift(opening_cash=0):
 
 
 @frappe.whitelist()
+def add_cash_movement(kind, amount, reason=None):
+	"""Record cash in/out/petty-expense during the open shift (nộp quỹ / rút quỹ / chi vặt). Folds into
+	the shift's expected drawer so the close reconciles correctly. Requires an open shift."""
+	ensure_cap("sell")
+	user = frappe.session.user
+	name = _open_shift_name(user)
+	if not name:
+		frappe.throw(_("Bạn chưa mở ca. Hãy mở ca trước."))
+	if kind not in ("Nộp quỹ", "Rút quỹ", "Chi vặt"):
+		frappe.throw(_("Loại giao dịch quỹ không hợp lệ."))
+	amt = flt(amount)
+	if amt <= 0:
+		frappe.throw(_("Số tiền phải lớn hơn 0."))
+	frappe.get_doc(
+		{
+			"doctype": "Cago Cash Movement",
+			"cashier": user,
+			"shift": name,
+			"kind": kind,
+			"amount": amt,
+			"reason": reason,
+			"posted": now_datetime(),
+		}
+	).insert(ignore_permissions=True)
+	frappe.db.commit()
+	return {"open": True, **_shift_dto(frappe.get_doc("Cago Till Shift", name))}
+
+
+@frappe.whitelist()
 def close_shift(counted_cash, payouts=0, note=None):
 	"""Close the current cashier's shift: store cash sales + reconciliation (expected vs counted)."""
 	ensure_cap("sell")
@@ -179,7 +232,8 @@ def close_shift(counted_cash, payouts=0, note=None):
 	# syncs after this moment can't be (double-)counted in this now-closed shift.
 	doc.closed_at = now_datetime()
 	cash_sales = _cashier_cash_sales(doc.cashier, doc.opened_at, doc.closed_at)
-	expected = flt(doc.opening_cash) + cash_sales - flt(payouts)
+	mv_net, _ = _cashier_movements(doc.cashier, doc.opened_at, doc.closed_at)
+	expected = flt(doc.opening_cash) + cash_sales - flt(payouts) + mv_net
 	counted = flt(counted_cash)
 	doc.cash_sales = cash_sales
 	doc.payouts = flt(payouts)

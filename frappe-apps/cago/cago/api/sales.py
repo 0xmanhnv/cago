@@ -690,6 +690,28 @@ def exchange_sale(invoice, return_lines, new_items, payment_mode="cash", custome
 	}
 
 
+def _delivery_item():
+	"""The non-stock service item used for a delivery-fee line (phí giao hàng). Created on first use
+	so the shop never has to set it up; not stock-tracked, sold at the entered fee."""
+	code = "CAGO-DELIVERY"
+	if not frappe.db.exists("Item", code):
+		grp = frappe.db.get_value("Item Group", {"is_group": 1}, "name") or "All Item Groups"
+		with as_user("Administrator"):
+			frappe.get_doc(
+				{
+					"doctype": "Item",
+					"item_code": code,
+					"item_name": "Phí giao hàng",
+					"cago_display_name": "Phí giao hàng",
+					"item_group": grp,
+					"stock_uom": "Nos",
+					"is_stock_item": 0,
+					"is_sales_item": 1,
+				}
+			).insert(ignore_permissions=True)
+	return code
+
+
 def _pos_profile(company):
 	return frappe.db.get_value("POS Profile", {"company": company, "disabled": 0}, "name") or frappe.db.get_value(
 		"POS Profile", {"company": company}, "name"
@@ -717,7 +739,7 @@ def _mode_of_payment(company, payment_mode):
 
 
 @frappe.whitelist()
-def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None, redeem_points=0, client_uuid=None, posted_at=None):
+def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None, redeem_points=0, client_uuid=None, posted_at=None, delivery_charge=0):
 	"""Cago-native checkout: a stock-reducing Sales Invoice (cash/bank/credit/split) for staff.
 
 	ERPNext is the engine (submitted Sales Invoice, update_stock → stock + GL + loyalty).
@@ -878,6 +900,21 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		disc = min(subtotal_all, disc + redeem_pts * redeem_value())
 	else:
 		redeem_pts = 0
+
+	# Delivery fee (phí giao hàng tận nơi — cám/phân bao nặng): a flat add-on line, added AFTER the
+	# discount/giá-sàn/redeem logic so it is never discounted or floor-checked. Non-stock service item.
+	deliv = flt(delivery_charge)
+	if deliv > 0:
+		rows.append(
+			{
+				"item_code": _delivery_item(),
+				"qty": 1,
+				"uom": "Nos",
+				"rate": deliv,
+				"price_list_rate": deliv,
+				"allow_zero_valuation_rate": 1,
+			}
+		)
 
 	if payments:
 		# Split / partial: one or more cash/bank methods; any shortfall becomes the customer's

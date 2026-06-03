@@ -45,17 +45,27 @@ export function Reorder() {
   const setQty = (code: string, qty: string) => setPick((p) => ({ ...p, [code]: { on: p[code]?.on ?? true, qty } }));
   const chosenIn = (items: Suggest[]) => items.filter((it) => pick[it.item_code]?.on);
 
+  const qtyOf = (code: string) => parseFloat((pick[code]?.qty || "").replace(",", ".")) || 0;
+
   const buildList = (supplier: string, items: Suggest[]) => {
     const chosen = chosenIn(items);
     if (!chosen.length) {
       toast.error("Chọn ít nhất một mặt hàng (tích ô bên trái).");
       return;
     }
-    const lines = [`ĐƠN NHẬP HÀNG — ${supplier}`, "—".repeat(12)];
-    for (const it of chosen) {
-      const q = (pick[it.item_code]?.qty || "").trim();
-      lines.push(`• ${it.display_name}: ${q || "?"} ${it.uom} (còn ${it.on_hand_text})`);
+    // A ticked item MUST have a quantity > 0 — never let a "?"/0 line into the order.
+    const missing = chosen.filter((it) => qtyOf(it.item_code) <= 0);
+    if (missing.length) {
+      toast.error(`Nhập số lượng (> 0) cho: ${missing.map((it) => it.display_name).join(", ")}`);
+      return;
     }
+    const lines = [`ĐƠN ĐẶT HÀNG — ${supplier}`, "—".repeat(12)];
+    for (const it of chosen) {
+      lines.push(`• ${it.display_name}: ${qtyOf(it.item_code)} ${it.uom} (còn ${it.on_hand_text})`);
+    }
+    lines.push("—".repeat(12));
+    lines.push("→ Gửi danh sách này cho nhà cung cấp.");
+    lines.push("→ Khi hàng về: vào 📥 Nhập hàng để ghi số lượng + giá nhập (lúc đó tồn kho mới cập nhật).");
     setDraft(lines.join("\n"));
   };
 
@@ -68,9 +78,11 @@ export function Reorder() {
         </div>
       ) : (
         <>
-          <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            Tích chọn mặt hàng cần nhập + sửa số lượng, rồi bấm <b>Tạo đơn nhập</b>. Chỉ những mặt đã tích mới vào đơn.
-          </p>
+          <div className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Tích chọn mặt hàng cần nhập + sửa số lượng, rồi bấm <b>Tạo đơn nhập</b> để gửi NCC. Khi hàng về, vào
+            <button onClick={() => router.push("/pos/receive")} className="mx-1 rounded-md bg-teal-600 px-2 py-0.5 font-bold text-white">📥 Nhập hàng</button>
+            ghi số lượng + giá nhập thật.
+          </div>
           {Object.entries(groups).map(([supplier, items]) => {
             const n = chosenIn(items).length;
             const allOn = n === items.length;
