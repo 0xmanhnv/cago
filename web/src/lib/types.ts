@@ -16,6 +16,7 @@ export interface ProductCard {
   is_chemical?: boolean;
   stock_auto?: boolean; // true = on-hand is tracked (so 0 means really out of stock)
   actual_stock_qty?: number | null; // real on-hand in stock units (null when not tracked)
+  allow_oversell?: boolean; // item may be sold beyond stock (default false → blocked at the till)
 }
 
 export interface Product {

@@ -391,12 +391,13 @@ class TestQuickSale(FrappeTestCase):
 			frappe.db.set_value("Item", ITEM, "cago_min_price", old_floor or 0)
 			frappe.db.set_value("Company", company, "cago_allow_price_edit", 0)
 
-	def test_oversell_is_allowed_with_negative_stock(self):
-		"""Rural shops' system stock lags reality, so selling past on-hand is permitted
-		(allow_negative_stock; the POS warns the staff up-front). The sale must go through
-		and stock may go negative — it must NOT fail at payment time."""
+	def test_oversell_allowed_only_when_item_opts_in(self):
+		"""Negative stock is now PER ITEM, default OFF. An auto-tracked item that has opted in
+		(cago_allow_oversell) may be sold past on-hand and go negative without failing at payment;
+		the default-block path is covered in test_features."""
 		from cago.api import purchasing, sales
 
+		frappe.db.set_value("Item", ITEM, {"cago_stock_auto": 1, "cago_allow_oversell": 1})
 		purchasing.receive_stock(ITEM, 10)
 		on_hand = flt_qty(ITEM)
 		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": on_hand + 100}]), "cash")

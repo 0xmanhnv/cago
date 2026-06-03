@@ -26,6 +26,7 @@ const EDIT_FIELDS = [
   "selling_price",
   "cago_stock_status_manual",
   "cago_stock_auto",
+  "cago_allow_oversell",
   "cago_reorder_level",
   "cago_min_price",
   "cago_shelf_location",
@@ -229,6 +230,7 @@ export function ProductEditor({ code }: { code: string }) {
         <EditField label="Giá bán (đồng)" k="selling_price" type="number" data={data} set={set} />
         <EditSelect label="Tồn kho hiển thị (khi không tự tính)" k="cago_stock_status_manual" opts={e.stock_status_options || []} data={data} set={set} />
         <EditCheck label="Tự tính tồn theo số thật (đã nhập hàng)" k="cago_stock_auto" data={data} set={set} />
+        <EditCheck label="Cho bán quá tồn (bán âm) — mặc định tắt; chỉ bật khi cần" k="cago_allow_oversell" data={data} set={set} />
         <EditField label="Mức đặt lại — 'còn ít' khi tồn ≤ (theo đơn vị tồn)" k="cago_reorder_level" type="number" data={data} set={set} />
         <EditField label="Giá bán tối thiểu (sàn) — chặn bán dưới giá vốn (để trống = không chặn)" k="cago_min_price" type="number" data={data} set={set} />
         <label className="mt-3 block">

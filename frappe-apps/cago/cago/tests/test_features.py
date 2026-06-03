@@ -60,6 +60,23 @@ class TestFeatures(FrappeTestCase):
 
 		self.assertIsInstance(reports.unsafe_questions(days=7), list)
 
+	def test_oversell_blocked_by_default_then_allowed_per_item(self):
+		from frappe.utils import flt
+
+		from cago.api import purchasing, sales
+		from cago.utils import dto
+
+		purchasing.receive_stock(ITEM, 5)
+		frappe.db.set_value("Item", ITEM, {"cago_stock_auto": 1, "cago_allow_oversell": 0})
+		avail = flt(dto.get_actual_qty(ITEM))
+		# Auto item, oversell not allowed → selling beyond on-hand is blocked.
+		with self.assertRaises(frappe.ValidationError):
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": avail + 5}]), "cash")
+		# Opt the item into overselling → the same sale now goes through.
+		frappe.db.set_value("Item", ITEM, "cago_allow_oversell", 1)
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": avail + 5}]), "cash")
+		self.assertTrue(r["invoice"])
+
 	def test_daily_digest_text_is_safe(self):
 		from cago.api import alerts
 

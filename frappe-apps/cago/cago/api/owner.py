@@ -253,9 +253,10 @@ EDITABLE_FIELDS = (
 	"cago_safety_notes",
 	"cago_is_chemical",
 	"cago_is_public_visible",
+	"cago_allow_oversell",  # cho bán quá tồn (mặc định tắt) — per-item negative-stock opt-in
 	"disabled",  # "Ngừng bán" — discontinued items vanish from sell/kiosk/alerts/reorder but keep history
 )
-_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto", "disabled")
+_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto", "cago_allow_oversell", "disabled")
 STOCK_STATUS_OPTIONS = ["Còn nhiều", "Còn hàng", "Còn ít", "Hết hàng", "Sắp nhập"]
 QUALITY_OPTIONS = ["Phổ thông", "Trung cấp", "Cao cấp"]
 
@@ -392,6 +393,7 @@ def create_product(data):
 	item.stock_uom = unit
 	item.is_stock_item = 1
 	item.is_sales_item = 1
+	item.cago_stock_auto = 1  # default: tự tính tồn theo số thật (owner can turn off per item)
 	for field in EDITABLE_FIELDS:
 		if field in data and field != "item_name":
 			val = data[field]

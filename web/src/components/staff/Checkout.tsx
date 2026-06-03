@@ -409,7 +409,14 @@ export function Checkout() {
     // Warn up-front instead of failing at payment: out-of-stock is sellable (back-order) but
     // the staff must confirm so it's never a surprise. Negative stock is allowed server-side.
     // (Barcode scans pass no card → no warning, since scanning implies the item is in hand.)
-    if (card && cardOOS(card) && !(await ask(`"${card.display_name}" đang hết hàng trên hệ thống. Vẫn bán (bán âm tồn)?`, { danger: true, confirmLabel: "Vẫn bán" }))) return;
+    if (card && cardOOS(card)) {
+      // Per-item policy: only items flagged allow_oversell may be sold negative; others are blocked.
+      if (!card.allow_oversell) {
+        toast.error(`"${card.display_name}" đang hết hàng — mặt hàng này không bán quá tồn. Hãy Nhập hàng trước.`);
+        return;
+      }
+      if (!(await ask(`"${card.display_name}" đang hết hàng trên hệ thống. Vẫn bán (bán âm tồn)?`, { danger: true, confirmLabel: "Vẫn bán" }))) return;
+    }
     const m = await ensureMeta(code);
     // Block items with no price ("Liên hệ"): otherwise the line is 0đ and the sale completes free.
     // Allow if ANY sale unit is priced (multi-unit items may price by Yến/Tạ, not the base UOM).

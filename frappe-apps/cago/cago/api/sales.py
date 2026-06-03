@@ -91,12 +91,19 @@ def _conversion_factor(item_code, uom, stock_uom):
 
 
 def _check_stock(code, qty, uom, stock_uom, warehouse=None):
-	"""Friendly Vietnamese stock check (ERPNext's own error is raw HTML in English)."""
-	if frappe.db.get_single_value("Stock Settings", "allow_negative_stock"):
+	"""Block selling beyond on-hand — per item, default ON.
+
+	Policy (owner decision): negative stock is allowed PER ITEM, default OFF.
+	- Manual-status items (cago_stock_auto = 0): on-hand isn't system-tracked → never blocked here.
+	- Auto-tracked items WITHOUT cago_allow_oversell: blocked when the cart exceeds real on-hand.
+	- Auto-tracked items WITH cago_allow_oversell: allowed to go negative (owner opted in).
+	The global Stock Settings.allow_negative_stock stays ON so opted-in / offline / manual sales still
+	submit; this is the gate that enforces the default-no-oversell rule at the till.
+	"""
+	flags = frappe.db.get_value("Item", code, ["cago_stock_auto", "cago_allow_oversell"], as_dict=True) or {}
+	if not flags.get("cago_stock_auto") or flags.get("cago_allow_oversell"):
 		return
 	# Check the warehouse the sale actually draws from (a pre-flight; ERPNext re-validates on submit).
-	# Using the all-warehouse total here would pass an item that's only stocked elsewhere, then fail
-	# with the raw English error at submit. Fall back to the total when no warehouse is given.
 	if warehouse:
 		on_hand = flt(frappe.db.get_value("Bin", {"item_code": code, "warehouse": warehouse}, "actual_qty"))
 	else:
@@ -105,7 +112,7 @@ def _check_stock(code, qty, uom, stock_uom, warehouse=None):
 	if need > on_hand + 1e-6:
 		name = frappe.db.get_value("Item", code, "cago_display_name") or frappe.db.get_value("Item", code, "item_name") or code
 		frappe.throw(
-			_("Không đủ tồn: {0} chỉ còn {1} {2}.").format(name, _trim(on_hand), stock_uom),
+			_("Không đủ tồn: {0} chỉ còn {1} {2}. Mặt hàng này không cho bán quá tồn — hãy Nhập hàng trước (hoặc bật 'Cho bán quá tồn' nếu cần).").format(name, _trim(on_hand), stock_uom),
 			frappe.ValidationError,
 		)
 
@@ -812,7 +819,10 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			continue
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
-		_check_stock(code, qty, uom, stock_uom, wh)
+		# Enforce the no-oversell policy only for ONLINE live sales. An offline-queued sale (client_uuid)
+		# was already physically handed over; blocking it at sync would lose a real sale.
+		if client_uuid is None:
+			_check_stock(code, qty, uom, stock_uom, wh)
 		rate = _rate_for_uom(code, uom, stock_uom, pl)
 		# A 0/empty rate means "no override" (use the catalogue price), not "sell for free".
 		overridden = allow_price_edit and it and (it.get("rate") not in (None, "")) and flt(it.get("rate")) > 0

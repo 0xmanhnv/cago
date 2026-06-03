@@ -94,12 +94,19 @@ def ensure_stock_fields():
 					"insert_after": "cago_reorder_level",
 					"description": "Chặn lỡ tay đặt giá thấp hơn giá vốn. Để trống = không chặn. Theo đơn vị tồn (vd /Bao); giá lẻ được quy đổi.",
 				},
+				{
+					"fieldname": "cago_allow_oversell",
+					"label": "Cho bán quá tồn (bán âm)",
+					"fieldtype": "Check",
+					"insert_after": "cago_min_price",
+					"description": "Mặc định TẮT: hàng tự-tính-tồn không bán quá số tồn thật. Bật cho mặt hàng được phép bán dù chưa kịp ghi nhập (tồn xuống âm).",
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Item stock fields ensured: cago_stock_auto, cago_reorder_level, cago_min_price")
+	print("Item stock fields ensured: cago_stock_auto, cago_reorder_level, cago_min_price, cago_allow_oversell")
 
 
 def ensure_customer_fields():

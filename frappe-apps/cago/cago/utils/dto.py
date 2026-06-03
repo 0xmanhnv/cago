@@ -306,6 +306,7 @@ LIST_FIELDS = [
 	"cago_package_color",
 	"cago_stock_status_manual",
 	"cago_stock_auto",
+	"cago_allow_oversell",
 	"cago_reorder_level",
 	"cago_shelf_location",
 	"cago_is_chemical",
@@ -436,6 +437,9 @@ def _list_dto(r, rate, audience, cat_meta=None, qty_map=None):
 				# item auto-tracks stock; manual-status items report stock_auto=False (don't enforce).
 				"stock_auto": bool(r.cago_stock_auto),
 				"actual_stock_qty": (qty_map or {}).get(r.name, 0) if r.get("cago_stock_auto") else None,
+				# Whether this item may be sold beyond stock (default off) — the till uses it to decide
+				# between a "Vẫn bán?" confirm (allowed) and a hard block (not allowed).
+				"allow_oversell": bool(r.get("cago_allow_oversell")),
 			}
 		)
 	return out
@@ -562,6 +566,7 @@ def staff_dto(item):
 		"stock_status": stock_status_for(item, qty),
 		"actual_stock_qty": qty,
 		"stock_auto": bool(_get(item, "cago_stock_auto")),
+		"allow_oversell": bool(_get(item, "cago_allow_oversell")),
 		"shelf_location": item.cago_shelf_location,
 		"public_description": item.cago_public_description,
 		"staff_advice": item.cago_staff_advice,
