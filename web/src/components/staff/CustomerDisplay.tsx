@@ -39,7 +39,9 @@ export function CustomerDisplay() {
   const cart = msg && msg.type === "cart" ? msg : null;
 
   return (
-    <div className="flex min-h-[88vh] flex-col bg-gradient-to-br from-brand to-brand-dark p-6 text-white">
+    // Fixed full-bleed: escape the /pos layout's centered max-width box so the customer screen
+    // fills the whole display, not a card in the middle.
+    <div className="fixed inset-0 z-50 flex flex-col overflow-auto bg-gradient-to-br from-brand to-brand-dark p-6 text-white">
       <div className="mb-4 flex items-center gap-3">
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-harvest/25 text-2xl ring-2 ring-harvest/60">🌾</span>
         <div className="text-2xl font-extrabold">{brand}</div>
