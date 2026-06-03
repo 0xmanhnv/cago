@@ -85,11 +85,11 @@ services:
         --install-app cago
         --set-default
         "$$SITE_NAME";
-        bench --site "$$SITE_NAME" execute cago.setup.company.ensure_company;
+        bench --site "$$SITE_NAME" execute cago.setup.seed.seed_baseline;
         if [ "$$LOAD_SAMPLE_DATA" = "1" ]; then
           bench --site "$$SITE_NAME" execute cago.setup.sample_data.import_sample_products;
         else
-          echo "LOAD_SAMPLE_DATA != 1 — starting with an EMPTY catalog (production). Import real products via docs/user/NHAP_DU_LIEU_CSV.md";
+          echo "LOAD_SAMPLE_DATA != 1 — EMPTY catalog (production). Baseline (company/price/categories) is already seeded; import real products via docs/user/NHAP_DU_LIEU_CSV.md";
         fi
     environment:
       SITE_NAME: ${SITE_NAME:-agrimate.localhost}

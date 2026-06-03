@@ -55,4 +55,22 @@ agrimate/
 - **Backend đổi (kể cả test) → phải `docker compose build backend`** (override dev không tự nạp). Recreate backend → restart `frontend` + `web` (nginx giữ IP upstream cũ → 502).
 - DTO lọc theo vai trò trong `utils/dto.py` (staff không thấy giá vốn/lãi) — có `setup/audit.py` kiểm.
 
+## Dữ liệu setup — 3 lớp tách bạch
+Nguồn chuẩn: docstring `cago/setup/seed.py`.
+
+1. **Migration (cấu trúc)** — chạy khi `bench migrate`/install:
+   - Custom fields: `hooks.after_migrate` → `cago.setup.custom_fields.setup_all_fields`.
+   - DocTypes + roles: `hooks.fixtures` (`fixtures/custom_field.json`…).
+   - Vá dữ liệu: `patches.txt` (cap-roles, gán job-role mặc định…).
+   → Thay **HÌNH DẠNG** DB, không phải bản ghi nghiệp vụ.
+
+2. **Seed BẮT BUỘC** — `cago.setup.seed.seed_baseline` (idempotent), chạy khi tạo site cho **cả dev lẫn production**:
+   Company + tài khoản + POS Profile + mode thanh toán · price list (Standard Selling, Giá sỉ) · cây nhóm hàng + icon/màu · Cago Job Roles mặc định. → Những thứ **không có thì app không chạy được**.
+
+3. **Seed TUỲ CHỌN / demo** — `cago.setup.sample_data.import_sample_products` (54 sản phẩm + lô/tồn demo), gác sau `LOAD_SAMPLE_DATA`. Production khởi tạo **rỗng**, nạp catalog thật bằng CSV (`import_catalog`). KHÔNG bao giờ bắt buộc.
+
+> `create-site` (compose): new-site → **seed_baseline (luôn)** → demo (chỉ khi `LOAD_SAMPLE_DATA=1`).
+
+---
+
 Xem thêm: [27](27_FRONTEND_MIGRATION_NEXTJS.md) (vì sao Next.js), [39](39_API_REFERENCE.md) (API), [40](40_FRONTEND_DEV_GUIDE.md) (dev `web/`), [38](38_GO_LIVE_RUNBOOK.md) (deploy).
