@@ -7,7 +7,7 @@ import { BackBar, goBackSmart } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 import { copyText, groupVnd, parseVnd } from "@/lib/utils";
 
-export function OwnerSettings() {
+export function Settings() {
   const router = useRouter();
   const [b, setB] = useState({ bank_bin: "", account: "", account_name: "" });
   const [debtVisible, setDebtVisible] = useState(false);

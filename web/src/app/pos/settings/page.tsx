@@ -1,2 +1,2 @@
-import { OwnerSettings } from "@/components/owner/OwnerSettings";
-export default function Page() { return <OwnerSettings />; }
+import { Settings } from "@/components/owner/Settings";
+export default function Page() { return <Settings />; }
