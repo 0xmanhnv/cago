@@ -236,22 +236,6 @@ services:
     volumes:
       - redis-queue-data:/data
 
-  # Optional Python chatbot (docs/10). Opt-in: `docker compose --profile chatbot up -d`.
-  chatbot:
-    build:
-      context: ../../services/cago_chatbot_service
-      dockerfile: Dockerfile
-    image: cago/chatbot:v1
-    restart: unless-stopped
-    profiles: ["chatbot"]
-    environment:
-      ERPNEXT_URL: http://frontend:8080
-    ports:
-      - "${CHATBOT_PUBLISH_PORT:-8100}:8100"
-    depends_on:
-      frontend:
-        condition: service_started
-
   # Optional daily backup (DB + files). Opt-in: `docker compose --profile backup up -d`.
   # Writes straight to /offsite (mapped to ./backups/offsite — repoint this to a USB/NAS/Drive-synced
   # dir for true off-machine safety) and prunes anything older than BACKUP_KEEP_DAYS.

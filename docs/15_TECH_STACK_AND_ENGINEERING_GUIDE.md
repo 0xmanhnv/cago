@@ -128,8 +128,9 @@ No Go.
 
 ### Chatbot phase skills
 
-- Python FastAPI
-- RAG/retrieval
+- In-Frappe `cago/chatbot/*` (no standalone service)
+- LLM tool-calling (function calling) over role-safe DTOs
+- Deterministic store-facts (keyword + DB) fallback
 - Vietnamese text normalization
 - Prompt engineering
 - LLM safety guardrails

@@ -39,8 +39,6 @@ agrimate/
 │       ├── tests/                #   FrappeTestCase suite (134 tests)
 │       └── hooks.py              #   after_migrate → setup_all_fields, etc.
 │
-├── services/cago_chatbot_service/ # optional standalone Python helper service
-│
 └── infra/docker/                 # ❖ DEPLOY — Docker Compose
     ├── compose.yaml              #   backend(gunicorn), websocket, scheduler, queue-short/long,
     │                             #   frontend(Frappe nginx, internal), web(Next.js, public), db, redis,
