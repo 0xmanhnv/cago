@@ -45,6 +45,7 @@ export function Assistant({
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [showChips, setShowChips] = useState(false); // suggestions collapsed by default (Grab-style)
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [phoneVal, setPhoneVal] = useState(phone);
   const [phoneErr, setPhoneErr] = useState(false);
@@ -272,22 +273,40 @@ export function Assistant({
         )}
       </div>
 
-      {/* chips — the right-edge fade hints there are more suggestions to scroll to. */}
-      <div className="relative border-t border-brand-light bg-[#f0fdf4]">
-        <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 py-2">
-          {pickChips(boot?.kiosk_chips, focusItem, focusCat).map((c) => (
+      {/* Suggestions — collapsed by default (Grab-style "Đề xuất thông minh"): a slim toggle bar the
+          customer taps to reveal the chip strip, so it doesn't crowd the chat. */}
+      {(() => {
+        const chips = pickChips(boot?.kiosk_chips, focusItem, focusCat);
+        if (!chips.length) return null;
+        return (
+          <div className="border-t border-brand-light bg-[#f0fdf4]">
             <button
-              key={c}
-              disabled={sending}
-              onClick={() => ask(c)}
-              className="flex-none whitespace-nowrap rounded-full border border-emerald-300 bg-brand-light px-3.5 py-2 text-sm font-bold text-brand-dark disabled:opacity-50"
+              onClick={() => setShowChips((v) => !v)}
+              className="flex w-full items-center justify-between px-3 py-2 text-sm font-bold text-brand-dark"
             >
-              {c}
+              <span>✨ Gợi ý câu hỏi</span>
+              <span className={`transition-transform duration-200 ${showChips ? "rotate-180" : ""}`}>⌄</span>
             </button>
-          ))}
-        </div>
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#f0fdf4] to-transparent" />
-      </div>
+            {showChips && (
+              <div className="relative">
+                <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-2">
+                  {chips.map((c) => (
+                    <button
+                      key={c}
+                      disabled={sending}
+                      onClick={() => { setShowChips(false); ask(c); }}
+                      className="flex-none whitespace-nowrap rounded-full border border-emerald-300 bg-brand-light px-3.5 py-2 text-sm font-bold text-brand-dark disabled:opacity-50"
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#f0fdf4] to-transparent" />
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* composer */}
       <div className="flex gap-2 border-t border-brand-light bg-white px-3 py-2.5">
