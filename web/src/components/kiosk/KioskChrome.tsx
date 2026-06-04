@@ -7,6 +7,7 @@ import { useKioskNav } from "@/lib/kioskNav";
 import { useKioskLockdown } from "@/lib/useKioskLockdown";
 import { FloatingFab } from "./FloatingFab";
 import { Assistant } from "./Assistant";
+import { CallStaff } from "./CallStaff";
 import { applyKioskUrlFlag } from "./StoreMapView";
 
 export function KioskChrome({ children }: { children: React.ReactNode }) {
@@ -115,21 +116,6 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
           onCallStaff={kiosk.openCallStaff}
         />
       )}
-    </div>
-  );
-}
-
-function CallStaff({ onDone }: { onDone: () => void }) {
-  return (
-    <div className="animate-fade-in fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-5">
-      <div className="animate-pop-in w-full max-w-md rounded-2xl bg-white p-6 text-center">
-        <div className="text-6xl">🔔</div>
-        <h2 className="mt-2 text-2xl font-bold text-red-600">Đã gọi người bán!</h2>
-        <p className="text-lg">Bác chờ một chút, người bán sẽ tới giúp bác ngay ạ.</p>
-        <button onClick={onDone} className="mt-4 min-h-touch w-full rounded-xl bg-brand py-3.5 text-xl font-extrabold text-white">
-          Đã hiểu
-        </button>
-      </div>
     </div>
   );
 }

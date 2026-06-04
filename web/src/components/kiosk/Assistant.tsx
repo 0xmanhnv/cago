@@ -41,7 +41,7 @@ export function Assistant({
   onBack: () => void; // "‹ Quay lại" → the page the customer opened the assistant from
   onOpenProduct: (code: string) => void;
   onOpenCategory: (category: string) => void; // tap a category in the "we sell X" reply
-  onCallStaff: () => void;
+  onCallStaff: (prefill?: { reason?: string; question?: string }) => void;
 }) {
   const { boot } = useSession();
   const persona = boot?.persona;
@@ -230,7 +230,14 @@ export function Assistant({
               ))}
               {m.needStaff && (
                 <div className="mt-2.5 flex flex-col gap-2">
-                  <button onClick={onCallStaff} className="w-full rounded-xl bg-red-600 px-4 py-3 font-extrabold text-white">
+                  <button
+                    onClick={() => {
+                      // Carry the last thing the customer asked so staff arrive knowing the question.
+                      const lastQ = [...history].reverse().find((h) => h.who === "user")?.text;
+                      onCallStaff({ reason: "Trợ lý chưa trả lời được", question: lastQ });
+                    }}
+                    className="w-full rounded-xl bg-red-600 px-4 py-3 font-extrabold text-white"
+                  >
                     📞 Gọi người bán
                   </button>
                   {!phone && (

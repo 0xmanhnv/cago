@@ -10,6 +10,7 @@ import { ProductInfo } from "@/components/staff/StaffProductDetail";
 import { confirmDialog } from "@/components/ui/dialog";
 import { ConfirmDebt, type DebtProof } from "@/components/pos/ConfirmDebt";
 import { toast } from "@/components/ui/toast";
+import { uomLabel } from "@/lib/uom";
 import { Spinner } from "@/components/ui/Loading";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import type { ProductCard, Product, Category } from "@/lib/types";
@@ -137,7 +138,7 @@ async function printReceipt(invoice: string, size: PaperSize = loadPaper()) {
   const rows = r.lines
     .map(
       (l) =>
-        `<div class="it"><div>${esc(l.name)}</div><div class="r">${trim(l.qty)} ${esc(l.uom)} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`,
+        `<div class="it"><div>${esc(l.name)}</div><div class="r">${trim(l.qty)} ${esc(uomLabel(l.uom))} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`,
     )
     .join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(r.invoice)}</title>
@@ -175,7 +176,7 @@ function printProvisional(
   const w = window.open("", "_blank", "width=380,height=640");
   const p = PAPER[size];
   const rows = lines
-    .map((l) => `<div class="it"><div>${esc(l.name)}</div><div class="r">${trim(l.qty)} ${esc(l.uom)} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`)
+    .map((l) => `<div class="it"><div>${esc(l.name)}</div><div class="r">${trim(l.qty)} ${esc(uomLabel(l.uom))} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`)
     .join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(localCode)}</title>
   <style>@page{size:${p.page};margin:${size === "a5" ? "8mm" : "2mm"}}body{width:${p.width};font-family:monospace;font-size:${p.base};color:#000}
@@ -494,7 +495,7 @@ export function Checkout() {
   };
   // Vietnamese label for a stored unit code (kg10 → "Yến"); falls back to the code itself.
   const labelOf = (code: string, uom: string) =>
-    meta[code]?.sale_units.find((s) => s.uom === uom)?.label || uom;
+    meta[code]?.sale_units.find((s) => s.uom === uom)?.label || uomLabel(uom);
   // Display name for a cart line — works even if the item isn't in the current search view.
   const nameOf = (code: string) => meta[code]?.name || list.find((p) => p.item_code === code)?.display_name || code;
   // Price actually charged for a line: manual override (if owner allows + set) else price-list rate.
@@ -917,7 +918,7 @@ export function Checkout() {
               {result.lines.map((l, i) => (
                 <div key={i} className="flex justify-between gap-2 py-0.5 text-sm">
                   <span className="min-w-0 truncate text-slate-600">
-                    {l.name} <span className="text-slate-400">× {l.qty} {l.uom}</span>
+                    {l.name} <span className="text-slate-400">× {l.qty} {uomLabel(l.uom)}</span>
                   </span>
                   <span className="shrink-0 font-bold text-slate-700">{l.amount_text}</span>
                 </div>
@@ -1182,7 +1183,7 @@ export function Checkout() {
                         <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</button>
                         <div className="text-sm font-bold text-brand">{p.price_text}</div>
                         <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                          {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${m.stock_uom}` : null) || p.stock_status}
+                          {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${uomLabel(m.stock_uom)}` : null) || p.stock_status}
                         </div>
                       </div>
                     </div>
@@ -1206,7 +1207,7 @@ export function Checkout() {
                       <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.display_name}</button>
                       <div className="text-sm font-bold text-brand">{p.price_text}</div>
                       <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                        {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${m.stock_uom}` : null) || p.stock_status}
+                        {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${uomLabel(m.stock_uom)}` : null) || p.stock_status}
                       </div>
                     </div>
                     {!line && (

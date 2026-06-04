@@ -1,5 +1,6 @@
 "use client";
 
+import { uomLabel } from "@/lib/uom";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
@@ -261,7 +262,7 @@ export function StaffReturns() {
                         <span className="min-w-0 font-bold leading-tight">{l.name}</span>
                         <span className="shrink-0 text-sm text-slate-500">{l.rate_text}</span>
                       </div>
-                      <div className="text-xs text-slate-400">Còn trả được: {l.remaining} {l.uom}</div>
+                      <div className="text-xs text-slate-400">Còn trả được: {l.remaining} {uomLabel(l.uom)}</div>
                       <div className="mt-1.5 flex items-center gap-2">
                         <button onClick={() => set(cur - 1)} className="h-10 w-10 shrink-0 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
                         <input
@@ -271,7 +272,7 @@ export function StaffReturns() {
                           className="h-10 w-20 shrink-0 rounded-lg border-2 border-emerald-300 text-center text-lg font-extrabold"
                         />
                         <button onClick={() => set(cur + 1)} className="h-10 w-10 shrink-0 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
-                        <span className="text-slate-500">{l.uom}</span>
+                        <span className="text-slate-500">{uomLabel(l.uom)}</span>
                         <span className="ml-auto font-bold text-brand">{money(Math.max(0, Math.min(l.remaining, cur)) * l.rate)}</span>
                       </div>
                     </div>

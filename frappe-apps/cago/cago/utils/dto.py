@@ -469,7 +469,7 @@ def _list_dto(r, rate, audience, cat_meta=None, qty_map=None, bs_set=None):
 		out.update(
 			{
 				"category": r.item_group,
-				"unit": r.stock_uom,
+				"unit": uom_label(r.stock_uom),  # display-only (kiosk wanted-list sends no uom) → safe to label
 				"public_description": r.cago_public_description,
 				"use_cases": r.cago_use_cases,
 				"package_color": r.cago_package_color,
@@ -583,7 +583,7 @@ def public_dto(item):
 		"image": item.image,
 		"images": image_list(item),
 		"price_text": format_price(rate, item.stock_uom),
-		"unit": item.stock_uom,
+		"unit": uom_label(item.stock_uom),  # display-only on the kiosk → safe to label (no uom in wanted-list)
 		"public_description": item.cago_public_description,
 		"use_cases": item.cago_use_cases,
 		"label_instructions": _get(item, "cago_label_instructions"),

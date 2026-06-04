@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { confirmDialog } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { frappeCall, uploadFile } from "@/lib/api";
+import { uomLabel } from "@/lib/uom";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import type { Batch } from "@/lib/types";
 import { BackBar, goBackSmart, DraftModal } from "./OwnerShared";
@@ -374,13 +375,13 @@ function StockSection({ code }: { code: string }) {
       toast.error("Nhập số đếm thực tế (≥ 0).");
       return;
     }
-    if (!(await confirmDialog(`Đặt tồn thực tế = ${n} ${stock?.uom || ""}? (dùng khi kiểm kê, lệch do hao hụt/vỡ)`, { confirmLabel: "Đặt tồn" }))) return;
+    if (!(await confirmDialog(`Đặt tồn thực tế = ${n} ${uomLabel(stock?.uom)}? (dùng khi kiểm kê, lệch do hao hụt/vỡ)`, { confirmLabel: "Đặt tồn" }))) return;
     setBusy(true);
     try {
       const r = await frappeCall<{ before: number; qty: number }>("cago.api.purchasing.adjust_stock", { item_code: code, counted_qty: n });
       setStock((s) => (s ? { ...s, qty: r.qty } : s));
       setCounted("");
-      toast.success(`Đã kiểm kê: ${r.before} → ${r.qty} ${stock?.uom ?? ""}.`);
+      toast.success(`Đã kiểm kê: ${r.before} → ${r.qty} ${uomLabel(stock?.uom)}.`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lỗi kiểm kê.");
     } finally {
@@ -392,10 +393,10 @@ function StockSection({ code }: { code: string }) {
     <div className="mt-5 border-t border-slate-200 pt-3">
       <div className="text-lg font-extrabold">Tồn kho &amp; nhập hàng</div>
       <div className="mt-1 text-slate-600">
-        Tồn thật hiện tại: <b className="text-brand-dark">{stock ? `${stock.qty} ${stock.uom}` : "…"}</b>
+        Tồn thật hiện tại: <b className="text-brand-dark">{stock ? `${stock.qty} ${uomLabel(stock.uom)}` : "…"}</b>
       </div>
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" placeholder={`Số lượng nhập (${stock?.uom || ""})`} className="rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" placeholder={`Số lượng nhập (${uomLabel(stock?.uom)})`} className="rounded-lg border-2 border-emerald-300 p-2.5" />
         <input value={cost} onChange={(e) => setCost(groupVnd(e.target.value))} inputMode="numeric" placeholder="Giá nhập / đơn vị (tùy chọn)" className="rounded-lg border-2 border-emerald-300 p-2.5" />
       </div>
       {stock?.has_batch && (
@@ -416,7 +417,7 @@ function StockSection({ code }: { code: string }) {
       <div className="mt-3 rounded-lg bg-slate-50 p-2.5">
         <div className="font-bold text-slate-700">Kiểm kê (sửa tồn về số đếm thực tế)</div>
         <div className="mt-1 flex gap-2">
-          <input value={counted} onChange={(e) => setCounted(e.target.value)} inputMode="decimal" placeholder={`Đếm được (${stock?.uom || ""})`} className="flex-1 rounded-lg border-2 border-amber-300 p-2.5" />
+          <input value={counted} onChange={(e) => setCounted(e.target.value)} inputMode="decimal" placeholder={`Đếm được (${uomLabel(stock?.uom)})`} className="flex-1 rounded-lg border-2 border-amber-300 p-2.5" />
           <button onClick={adjust} disabled={busy} className="rounded-lg bg-amber-500 px-4 font-extrabold text-white disabled:opacity-50">
             Cập nhật
           </button>
@@ -500,16 +501,16 @@ function UnitsSection({ code }: { code: string }) {
   const preview =
     uom.trim() && pn > 0 && pPrice > 0
       ? wsel
-        ? `1 ${wsel.label} = ${wsel.n} ${d.stock_uom} · ${groupVnd(String(pPrice))}đ/${wsel.label}`
+        ? `1 ${wsel.label} = ${wsel.n} ${uomLabel(d.stock_uom)} · ${groupVnd(String(pPrice))}đ/${wsel.label}`
         : dir === "perStock"
-          ? `1 ${d.stock_uom} = ${pn} ${uom} · ${groupVnd(String(pPrice))}đ/${uom}`
-          : `1 ${uom} = ${pn} ${d.stock_uom} · ${groupVnd(String(pPrice))}đ/${uom}`
+          ? `1 ${uomLabel(d.stock_uom)} = ${pn} ${uom} · ${groupVnd(String(pPrice))}đ/${uom}`
+          : `1 ${uom} = ${pn} ${uomLabel(d.stock_uom)} · ${groupVnd(String(pPrice))}đ/${uom}`
       : null;
 
   return (
     <div>
       <p className="text-sm text-slate-500">
-        Tồn kho theo <b>{d.stock_uom}</b>. Thêm cách bán theo đơn vị khác (kg, lạng, yến…) với giá riêng — hệ thống tự quy đổi tồn khi bán.
+        Tồn kho theo <b>{uomLabel(d.stock_uom)}</b>. Thêm cách bán theo đơn vị khác (kg, lạng, yến…) với giá riêng — hệ thống tự quy đổi tồn khi bán.
       </p>
       {d.units.map((u) => (
         <div key={u.uom} className="mt-1.5 flex items-center justify-between rounded-lg border border-slate-200 px-2.5 py-2">
@@ -519,10 +520,10 @@ function UnitsSection({ code }: { code: string }) {
               "(tồn kho)"
             ) : (u.conversion_factor ?? 0) > 1 ? (
               // Bigger unit (yến/tạ/tấn): 1 Yến = 10 Kg
-              <span className="text-slate-500">· 1 {u.label || u.uom} = {u.conversion_factor} {d.stock_uom}</span>
+              <span className="text-slate-500">· 1 {u.label || u.uom} = {u.conversion_factor} {uomLabel(d.stock_uom)}</span>
             ) : u.units_per_stock ? (
               // Smaller retail unit: 1 Bao = 25 Kg
-              <span className="text-slate-500">· 1 {d.stock_uom} = {u.units_per_stock} {u.label || u.uom}</span>
+              <span className="text-slate-500">· 1 {uomLabel(d.stock_uom)} = {u.units_per_stock} {u.label || u.uom}</span>
             ) : (
               ""
             )}
@@ -548,8 +549,8 @@ function UnitsSection({ code }: { code: string }) {
       <div className="mt-2 text-sm font-bold text-slate-600">Bán theo cân (đơn vị lớn) — chỉ cần nhập giá:</div>
       <div className="mt-1 flex flex-wrap gap-2">
         {WEIGHT.map((w) => (
-          <button key={w.code} onClick={() => pickWeight(w)} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-800" title={`1 ${w.label} = ${w.n} ${d.stock_uom}`}>
-            {w.label} <span className="font-normal">(={w.n} {d.stock_uom})</span>
+          <button key={w.code} onClick={() => pickWeight(w)} className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-bold text-amber-800" title={`1 ${w.label} = ${w.n} ${uomLabel(d.stock_uom)}`}>
+            {w.label} <span className="font-normal">(={w.n} {uomLabel(d.stock_uom)})</span>
           </button>
         ))}
       </div>
@@ -557,7 +558,7 @@ function UnitsSection({ code }: { code: string }) {
         // A bigger weight unit (Yến/Tạ/Tấn) was picked — code is fixed, owner only enters the price.
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-bold text-amber-800">
-            {weightOf(uom)!.label} = {weightOf(uom)!.n} {d.stock_uom}
+            {weightOf(uom)!.label} = {weightOf(uom)!.n} {uomLabel(d.stock_uom)}
             <button onClick={() => { setUom(""); setUps(""); setDir("perStock"); }} className="text-amber-700" aria-label="Bỏ chọn">✕</button>
           </span>
           <input value={price} onChange={(e) => setPrice(groupVnd(e.target.value))} inputMode="numeric" placeholder={`Giá / ${weightOf(uom)!.label} (đồng)`} className="min-w-0 flex-1 rounded-lg border-2 border-emerald-300 p-2.5" />
@@ -566,7 +567,7 @@ function UnitsSection({ code }: { code: string }) {
         <>
           {/* Direction — concrete wording + examples so the owner picks correctly; the live preview
               below confirms the result before saving. */}
-          <div className="mt-2 text-sm text-slate-600">Đơn vị này so với <b>{d.stock_uom}</b>:</div>
+          <div className="mt-2 text-sm text-slate-600">Đơn vị này so với <b>{uomLabel(d.stock_uom)}</b>:</div>
           <div className="mt-1 inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm font-bold">
             <button onClick={() => setDir("perStock")} className={dir === "perStock" ? "bg-brand px-3 py-1.5 text-white" : "bg-white px-3 py-1.5 text-slate-600"}>
               Nhỏ hơn (Kg, Lạng…)
@@ -581,7 +582,7 @@ function UnitsSection({ code }: { code: string }) {
               value={ups}
               onChange={(e) => setUps(e.target.value)}
               inputMode="numeric"
-              placeholder={dir === "perStock" ? `1 ${d.stock_uom} = ? ${uom || "đơn vị"}` : `1 ${uom || "đơn vị"} = ? ${d.stock_uom}`}
+              placeholder={dir === "perStock" ? `1 ${uomLabel(d.stock_uom)} = ? ${uom || "đơn vị"}` : `1 ${uom || "đơn vị"} = ? ${uomLabel(d.stock_uom)}`}
               className="rounded-lg border-2 border-emerald-300 p-2.5"
             />
             <input value={price} onChange={(e) => setPrice(groupVnd(e.target.value))} inputMode="numeric" placeholder="Giá / đơn vị (đồng)" className="rounded-lg border-2 border-emerald-300 p-2.5" />

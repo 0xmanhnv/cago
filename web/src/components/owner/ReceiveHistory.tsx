@@ -1,5 +1,6 @@
 "use client";
 
+import { uomLabel } from "@/lib/uom";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
@@ -99,7 +100,7 @@ export function ReceiveHistory() {
                       {r.lines.map((l, i) => (
                         <div key={i} className="flex justify-between gap-2 py-1 text-sm">
                           <span>
-                            <b>{l.name}</b> <span className="text-slate-500">· {l.qty} {l.uom}</span>
+                            <b>{l.name}</b> <span className="text-slate-500">· {l.qty} {uomLabel(l.uom)}</span>
                           </span>
                           <b className="text-slate-700">{l.amount_text}</b>
                         </div>

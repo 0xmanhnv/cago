@@ -3,6 +3,7 @@
 // "Đơn chờ đồng bộ" — the offline sale queue. Staff see what's still waiting to reach the server,
 // can force a sync, reprint a provisional receipt, or retry a sale the server rejected.
 
+import { uomLabel } from "@/lib/uom";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
@@ -18,7 +19,7 @@ const esc = (s: string) => (s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "
 function printProvisional(store: string, sale: QueuedSale) {
   const w = window.open("", "_blank", "width=380,height=640");
   const rows = sale.display.lines
-    .map((l) => `<div class="it"><div>${esc(l.name)}</div><div class="r">${l.qty} ${esc(l.uom)} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`)
+    .map((l) => `<div class="it"><div>${esc(l.name)}</div><div class="r">${l.qty} ${esc(uomLabel(l.uom))} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`)
     .join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(sale.local_code)}</title>
   <style>@page{size:58mm auto;margin:2mm}body{width:54mm;font-family:monospace;font-size:11px;color:#000}

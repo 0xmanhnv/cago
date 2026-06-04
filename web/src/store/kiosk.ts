@@ -57,9 +57,11 @@ interface KioskState {
   ensureFreshSession: () => void;
   newSession: () => void;
 
-  // transient "call seller" overlay (shown over any route)
+  // transient "call seller" overlay (shown over any route). `prefill` lets the assistant pass
+  // context (the unanswered question) when the customer taps "Gọi người bán" from the chat.
   callStaffOpen: boolean;
-  openCallStaff: () => void;
+  callStaffPrefill: { reason?: string; question?: string } | null;
+  openCallStaff: (prefill?: { reason?: string; question?: string }) => void;
   closeCallStaff: () => void;
 
   // assistant chat overlay (shown over any route — a floating window on PC, full-screen on mobile)
@@ -185,8 +187,9 @@ export const useKiosk = create<KioskState>((set, get) => {
     },
 
     callStaffOpen: false,
-    openCallStaff: () => set({ callStaffOpen: true }),
-    closeCallStaff: () => set({ callStaffOpen: false }),
+    callStaffPrefill: null,
+    openCallStaff: (prefill) => set({ callStaffOpen: true, callStaffPrefill: prefill ?? null }),
+    closeCallStaff: () => set({ callStaffOpen: false, callStaffPrefill: null }),
 
     assistantOpen: false,
     openAssistant: () => set({ assistantOpen: true }),

@@ -1,5 +1,6 @@
 "use client";
 
+import { uomLabel } from "@/lib/uom";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
@@ -86,7 +87,7 @@ export function ReceiveStock() {
       toast.error("Chọn lô (hoặc thêm lô mới) trước khi nhập.");
       return;
     }
-    if (!(await confirmDialog(`Nhập ${q} ${stock?.uom || ""}${cost ? ` · giá vốn ${money(num(cost))}/${stock?.uom || ""}` : ""}?`, { confirmLabel: "Nhập kho" }))) return;
+    if (!(await confirmDialog(`Nhập ${q} ${uomLabel(stock?.uom)}${cost ? ` · giá vốn ${money(num(cost))}/${uomLabel(stock?.uom)}` : ""}?`, { confirmLabel: "Nhập kho" }))) return;
     setBusy(true);
     try {
       const r = await frappeCall<{ qty: number }>("cago.api.purchasing.receive_stock", {
@@ -98,7 +99,7 @@ export function ReceiveStock() {
       setStock((s) => (s ? { ...s, qty: r.qty } : s));
       setQty("");
       setCost("");
-      toast.success(`Đã nhập kho. Tồn mới: ${r.qty} ${stock?.uom ?? ""}.`);
+      toast.success(`Đã nhập kho. Tồn mới: ${r.qty} ${uomLabel(stock?.uom)}.`);
     } catch (e) {
       toast.error(`Lỗi: ${e instanceof Error ? e.message : "không nhập được."}`);
     } finally {
@@ -123,13 +124,13 @@ export function ReceiveStock() {
       <div className="mt-card p-4">
         <div className="text-xl font-extrabold text-brand-dark">{prod?.display_name || code}</div>
         <div className="text-slate-500">
-          Giá bán: <b className="text-brand">{prod?.price_text}</b> · Tồn hiện tại: <b>{stock?.qty ?? "…"} {stock?.uom}</b>
+          Giá bán: <b className="text-brand">{prod?.price_text}</b> · Tồn hiện tại: <b>{stock?.qty ?? "…"} {uomLabel(stock?.uom)}</b>
         </div>
 
-        <label className="mt-4 block font-bold text-slate-700">Số lượng nhập ({stock?.uom})</label>
+        <label className="mt-4 block font-bold text-slate-700">Số lượng nhập ({uomLabel(stock?.uom)})</label>
         <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-emerald-300 p-3.5 text-2xl font-extrabold" />
 
-        <label className="mt-3 block font-bold text-slate-700">Giá vốn / {stock?.uom} <span className="font-normal text-slate-400">(nên nhập để tính lãi)</span></label>
+        <label className="mt-3 block font-bold text-slate-700">Giá vốn / {uomLabel(stock?.uom)} <span className="font-normal text-slate-400">(nên nhập để tính lãi)</span></label>
         <input inputMode="numeric" value={cost} onChange={(e) => setCost(groupVnd(e.target.value))} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-amber-300 p-3.5 text-xl font-bold text-right" />
 
         {stock?.has_batch && (

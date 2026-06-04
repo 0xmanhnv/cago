@@ -6,6 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { toast } from "@/components/ui/toast";
 import { BackBar, goBackSmart, DraftModal } from "./OwnerShared";
+import { uomLabel } from "@/lib/uom";
 
 import { PageLoading } from "@/components/ui/Loading";
 interface Suggest {
@@ -68,7 +69,7 @@ export function Reorder() {
     const head = ["ĐƠN ĐẶT HÀNG", `Cửa hàng: ${shop}`];
     if (supplier && supplier !== "Chưa rõ NCC") head.push(`Kính gửi: ${supplier}`);
     const lines = [...head, "————————————"];
-    for (const it of chosen) lines.push(`• ${it.display_name}: ${qtyOf(it.item_code)} ${it.uom}`);
+    for (const it of chosen) lines.push(`• ${it.display_name}: ${qtyOf(it.item_code)} ${uomLabel(it.uom)}`);
     setDraft(lines.join("\n"));
   };
 
@@ -131,7 +132,7 @@ export function Reorder() {
                           placeholder="SL"
                           className="h-10 w-16 rounded-lg border-2 border-emerald-300 text-center text-lg font-extrabold"
                         />
-                        <span className="w-10 text-sm text-slate-500">{it.uom}</span>
+                        <span className="w-10 text-sm text-slate-500">{uomLabel(it.uom)}</span>
                       </div>
                     </div>
                   );

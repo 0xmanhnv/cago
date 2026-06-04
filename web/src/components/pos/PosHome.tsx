@@ -43,6 +43,7 @@ const ACTIONS: Record<string, ActionDef> = {
   returns: { label: "↩️ Trả / Đổi hàng", color: "bg-rose-600", href: "/pos/returns", cap: "returns" },
   exchange: { label: "🔁 Đổi hàng", color: "bg-rose-500", href: "/pos/exchange", cap: "returns" },
   orders: { label: "📋 Khách đã chọn", color: "bg-teal-600", href: "/pos/orders", cap: null },
+  support: { label: "🛎️ Khách cần hỗ trợ", color: "bg-rose-600", href: "/pos/support", cap: "sell" },
   assistant: { label: "🤖 Hỏi trợ lý", color: "bg-violet-600", href: "/pos/assistant", cap: null },
   help: { label: "📖 Hướng dẫn", color: "bg-sky-600", href: "/pos/help", cap: null },
   coupons: { label: "🎟 Mã giảm giá", color: "bg-violet-600", href: "/pos/coupons", cap: "settings" },
@@ -96,7 +97,7 @@ const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : use
 // covers low-stock) are dropped from the home catalog but their routes + ACTIONS stay (so pinned
 // favourites and deep links still resolve).
 const GROUPS: { title: string; keys: string[] }[] = [
-  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "orders", "assistant"] },
+  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "orders", "support", "assistant"] },
   { title: "📦 Sản phẩm", keys: ["product", "recommended", "labels", "health"] },
   { title: "🏬 Kho & nhập hàng", keys: ["alerts", "receive", "reorder", "expiry", "receivehist"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },

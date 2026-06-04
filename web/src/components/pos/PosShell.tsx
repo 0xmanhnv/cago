@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CapabilityGuard } from "@/components/CapabilityGuard";
+import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { isInternal, type Cap } from "@/lib/caps";
+import { isInternal, hasCap, type Cap } from "@/lib/caps";
 import { usePosKioskAutoLock } from "@/lib/usePosKioskLogout";
 import { PinLock } from "./PinLock";
 
@@ -22,7 +24,7 @@ function capFor(path: string): { cap?: Cap; owner?: boolean } {
   )
     return { cap: "products" };
   if (path.startsWith("/pos/products/")) return {}; // detail view = any internal
-  if (path.startsWith("/pos/sell")) return { cap: "sell" };
+  if (path.startsWith("/pos/sell") || path.startsWith("/pos/support")) return { cap: "sell" };
   if (path.startsWith("/pos/returns")) return { cap: "returns" };
   if (path.startsWith("/pos/record-payment") || path.startsWith("/pos/record-debt")) return { cap: "debt" }; // write
   if (path.startsWith("/pos/verify") || path.startsWith("/pos/debt")) return { cap: "debt_view" }; // read
@@ -74,6 +76,39 @@ export function PosShell({ children }: { children: React.ReactNode }) {
       <div key={path} className="animate-fade-in">
         {children}
       </div>
+      {/* Live "khách cần hỗ trợ" badge — visible anywhere in /pos (except the queue itself) to anyone
+          who can sell, so staff see a call no matter which screen they're on. */}
+      {signedIn && hasCap(boot, "sell") && !path.startsWith("/pos/support") && <SupportBadge />}
     </CapabilityGuard>
+  );
+}
+
+function SupportBadge() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const n = await frappeCall<number>("cago.api.support.pending_count", {});
+        if (alive) setCount(Number(n) || 0);
+      } catch {
+        /* ignore — retry next tick */
+      }
+    };
+    tick();
+    const t = setInterval(tick, 5000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  if (!count) return null;
+  return (
+    <Link
+      href="/pos/support"
+      className="animate-pop-in fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-red-600 px-5 py-3.5 text-base font-extrabold text-white shadow-2xl"
+    >
+      🛎️ {count} khách cần hỗ trợ
+    </Link>
   );
 }
