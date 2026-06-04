@@ -2,6 +2,13 @@
 
 You are Claude Code working on an ERPNext v16/Frappe customization project for a rural Vietnamese agricultural supplies store.
 
+## Conventions — READ FIRST
+
+Before changing UI, RBAC, DocTypes, or deploying, read **docs/29_CONVENTIONS.md** (hard-won rules:
+two design sets kiosk/POS, shared BackBar header, mobile list/card/grouping patterns, UOM
+display-vs-payload, Admin⊇Owner⊇Staff tiers + every-API-guarded, controller-class-name gotcha,
+build-backend-before-test, restart frontend+web after backend). docs/28 = the full permission matrix.
+
 ## Architecture decision
 
 Use:
