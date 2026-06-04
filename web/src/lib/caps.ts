@@ -14,7 +14,7 @@ export const CAP_LABELS: Record<Cap, string> = {
   products: "Sản phẩm & giá",
   reports: "Báo cáo",
   cash: "Sổ quỹ / chốt ca",
-  supplier: "Công nợ NCC",
+  supplier: "Nhà cung cấp",
   settings: "Cài đặt cửa hàng",
 };
 

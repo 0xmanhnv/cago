@@ -66,7 +66,7 @@ const ACTIONS: Record<string, ActionDef> = {
   recorddebt: { label: "📝 Ghi nợ (chỉ tiền)", color: "bg-red-500", href: "/pos/record-debt", cap: "debt" },
   debt: { label: "📒 Công nợ khách", color: "bg-violet-600", href: "/pos/debt", cap: "debt_view" },
   verify: { label: "🙋 Xem nợ khách", color: "bg-amber-500", href: "/pos/verify", cap: "debt_view" },
-  supplier: { label: "🚚 Công nợ NCC", color: "bg-violet-500", href: "/pos/supplier-debt", cap: "supplier" },
+  supplier: { label: "🚚 Nhà cung cấp", color: "bg-violet-500", href: "/pos/supplier-debt", cap: "supplier" },
   cashbook: { label: "🧮 Chốt ca / Sổ quỹ", color: "bg-blue-700", href: "/pos/cashbook", cap: "cash" },
   reports: { label: "📊 Báo cáo", color: "bg-blue-600", href: "/pos/reports", cap: "reports" },
   unsafe: { label: "⚠️ Câu hỏi cần lưu ý", color: "bg-amber-600", href: "/pos/unsafe", cap: "reports" },

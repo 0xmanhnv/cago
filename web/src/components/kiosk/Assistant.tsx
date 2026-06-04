@@ -8,11 +8,26 @@ import { useKiosk } from "@/store/kiosk";
 import { catIcon, mdLight, normalizePhone, validPhone } from "@/lib/kioskUi";
 import type { ChatResponse, KioskChips } from "@/lib/types";
 
-function pickChips(chips: KioskChips | undefined, focusItem: string, focusCat: string) {
+// Extra category chips by the KIND of category the customer is browsing (slug-matched), so the
+// suggestions fit cám vs phân vs thuốc vs giống instead of being generic.
+function categoryKindChips(focusCat: string): string[] {
+  const s = (focusCat || "").toLowerCase();
+  if (s.includes("cam") || s.includes("cám")) return ["Cho con gì ăn?", "Bao nhiêu kg một bao?"];
+  if (s.includes("phan") || s.includes("phân")) return ["Bón cho cây gì?", "Loại nào tốt cho lúa?"];
+  if (s.includes("thuoc") || s.includes("thuốc")) return ["Trị bệnh/sâu gì?", "Dùng an toàn thế nào?"];
+  if (s.includes("giong") || s.includes("giống") || s.includes("hat") || s.includes("hạt")) return ["Trồng mùa nào?", "Gieo/ươm thế nào?"];
+  return [];
+}
+
+function pickChips(chips: KioskChips | undefined, focusItem: string, focusCat: string, opts?: { storeMap?: boolean }): string[] {
   if (!chips) return [];
-  if (focusItem) return chips.product;
-  if (focusCat) return chips.category;
-  return chips.general;
+  const dedup = (arr: string[]) => Array.from(new Set(arr.filter(Boolean))).slice(0, 8);
+  if (focusItem) {
+    // A product is on screen → questions about it, + "where is it" when the shop has a map.
+    return dedup([...(chips.product || []), ...(opts?.storeMap ? ["📍 Ở đâu trong cửa hàng?"] : [])]);
+  }
+  if (focusCat) return dedup([...(chips.category || []), ...categoryKindChips(focusCat)]);
+  return dedup(chips.general || []);
 }
 
 export function Assistant({
@@ -286,7 +301,7 @@ export function Assistant({
       {/* Suggestions — collapsed by default (Grab-style "Đề xuất thông minh"): a slim toggle bar the
           customer taps to reveal the chip strip, so it doesn't crowd the chat. */}
       {(() => {
-        const chips = pickChips(boot?.kiosk_chips, focusItem, focusCat);
+        const chips = pickChips(boot?.kiosk_chips, focusItem, focusCat, { storeMap: boot?.store_map });
         if (!chips.length) return null;
         return (
           <div className="border-t border-brand-light bg-[#f0fdf4]">

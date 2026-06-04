@@ -10,7 +10,7 @@ import type { ProductCard } from "@/lib/types";
 
 type Sup = { supplier: string; supplier_name: string; mobile?: string; note?: string; debt?: number; debt_text?: string; outstanding_text?: string; disabled?: boolean };
 
-export function SupplierDebt() {
+export function Suppliers() {
   const router = useRouter();
   const [sel, setSel] = useState<{ id: string; name: string } | null>(null);
   if (!sel) return <SupplierList onBack={() => goBackSmart(router)} onPick={(s) => setSel(s)} />;
@@ -66,7 +66,7 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
 
   return (
     <div>
-      <BackBar onBack={onBack} title="CÔNG NỢ NHÀ CUNG CẤP" />
+      <BackBar onBack={onBack} title="NHÀ CUNG CẤP" />
       <input
         onChange={(e) => {
           clearTimeout(tRef.current);

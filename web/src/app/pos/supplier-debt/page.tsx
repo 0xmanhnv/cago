@@ -1,2 +1,2 @@
-import { SupplierDebt } from "@/components/owner/SupplierDebt";
-export default function Page() { return <SupplierDebt />; }
+import { Suppliers } from "@/components/owner/Suppliers";
+export default function Page() { return <Suppliers />; }
