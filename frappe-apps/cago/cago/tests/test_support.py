@@ -47,6 +47,26 @@ class TestSupportRequests(FrappeTestCase):
 		out = support.request_status("SUP-DOES-NOT-EXIST")
 		self.assertEqual(out["status"], "cancelled")
 
+	def test_same_session_dedupes_to_one_open_request(self):
+		a = support.create_request(reason="Tư vấn sản phẩm", session_id="dup1")
+		b = support.create_request(reason="Hỏi giá / thanh toán", note="đổi ý", session_id="dup1")
+		self.assertEqual(a["name"], b["name"])  # reused, not piled up
+		self.assertEqual(b["reason"], "Hỏi giá / thanh toán")  # latest need wins
+		self.assertEqual(frappe.db.count("Cago Support Request", {"session_id": "dup1", "status": "pending"}), 1)
+
+	def test_resolve_all_closes_open(self):
+		support.create_request(reason="Khác", session_id="ra1")
+		support.create_request(reason="Khác", session_id="ra2")
+		out = support.resolve_all()
+		self.assertGreaterEqual(out["resolved"], 2)
+		self.assertEqual(frappe.db.count("Cago Support Request", {"status": ["in", ["pending", "accepted"]]}), 0)
+
+	def test_mark_seen_clears_unread(self):
+		support.create_request(reason="Khác", session_id="u1")
+		self.assertGreaterEqual(support.unread_count(), 1)
+		support.mark_seen()
+		self.assertEqual(support.unread_count(), 0)  # nothing newer than "seen"
+
 	def test_expire_stale_marks_expired(self):
 		from frappe.utils import add_to_date, now_datetime
 

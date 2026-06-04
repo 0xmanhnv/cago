@@ -92,7 +92,8 @@ function SupportBadge() {
     let alive = true;
     const tick = async () => {
       try {
-        const n = await frappeCall<number>("cago.api.support.pending_count", {});
+        // "New/unread" count (notify-style): clears once staff opens the queue, reappears on a new call.
+        const n = await frappeCall<number>("cago.api.support.unread_count", {});
         if (alive) setCount(Number(n) || 0);
       } catch {
         /* ignore — retry next tick */

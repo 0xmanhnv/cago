@@ -16,6 +16,8 @@
   "section_detail",
   "question",
   "note",
+  "customer_name",
+  "customer_phone",
   "session_id",
   "section_handling",
   "assigned_to",
@@ -90,6 +92,16 @@
    "fieldname": "note",
    "fieldtype": "Small Text",
    "label": "Ghi chú"
+  },
+  {
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Tên khách (nếu có)"
+  },
+  {
+   "fieldname": "customer_phone",
+   "fieldtype": "Data",
+   "label": "SĐT khách (nếu có)"
   },
   {
    "fieldname": "session_id",

@@ -68,29 +68,44 @@ def _broadcast(doc, event="cago_support"):
 
 
 @frappe.whitelist(allow_guest=True)
-def create_request(reason, note=None, kiosk_label=None, focus_item=None, focus_name=None, question=None, session_id=None):
-	"""Kiosk creates a support request. No login / phone required — speed matters in-store."""
+def create_request(reason, note=None, kiosk_label=None, focus_item=None, focus_name=None,
+		question=None, session_id=None, customer_name=None, customer_phone=None):
+	"""Kiosk creates a support request. No login required — speed matters in-store; name/phone are
+	OPTIONAL. One OPEN request per session: a customer re-tapping (or changing their need) UPDATES
+	their existing pending/accepted request instead of piling up a new one — so the staff queue isn't
+	spammed by one person. Distinct customers each get their own."""
 	from cago.utils.ratelimit import rate_guard
 
-	rate_guard("support", limit=10, seconds=60)
+	rate_guard("support", limit=20, seconds=60)
 	reason = (reason or "").strip()[:140] or "Khác"
 	if focus_item and not frappe.db.exists("Item", focus_item):
 		focus_item = None
-	doc = frappe.new_doc(_DT)
-	doc.status = "pending"
+	session_id = (session_id or "")[:120] or None
+
+	# Reuse this session's still-open request (dedupe), else create a new one.
+	existing = None
+	if session_id:
+		existing = frappe.db.get_value(_DT, {"session_id": session_id, "status": ["in", ["pending", "accepted"]]}, "name")
+	doc = frappe.get_doc(_DT, existing) if existing else frappe.new_doc(_DT)
+	is_new = not existing
+	if is_new:
+		doc.status = "pending"
+		doc.session_id = session_id
 	doc.reason = reason
 	doc.note = (note or "").strip()[:500] or None
 	doc.kiosk_label = (kiosk_label or "Kiosk").strip()[:80]
-	doc.session_id = (session_id or "")[:120] or None
 	doc.question = (question or "").strip()[:1000] or None
+	doc.customer_name = (customer_name or "").strip()[:80] or None
+	doc.customer_phone = (customer_phone or "").strip()[:20] or None
 	if focus_item:
 		doc.focus_item = focus_item
 		doc.focus_item_name = focus_name or frappe.db.get_value("Item", focus_item, "item_name")
 		doc.location_text = _location_for(focus_item)
-	doc.insert(ignore_permissions=True)
+	doc.save(ignore_permissions=True) if existing else doc.insert(ignore_permissions=True)
 	frappe.db.commit()
-	_broadcast(doc, "cago_support_new")
-	_notify_staff(doc)
+	if is_new:
+		_broadcast(doc, "cago_support_new")
+		_notify_staff(doc)
 	return _public_view(doc)
 
 
@@ -99,7 +114,10 @@ def _notify_staff(doc):
 	try:
 		from cago.api import notify
 
-		bits = [f"🔔 Khách cần hỗ trợ ({doc.kiosk_label})", f"❓ {doc.reason}"]
+		who = doc.customer_name or "Khách"
+		if doc.customer_phone:
+			who += f" · {doc.customer_phone}"
+		bits = [f"🔔 {who} cần hỗ trợ ({doc.kiosk_label})", f"❓ {doc.reason}"]
 		if doc.focus_item_name:
 			where = f" — {doc.location_text}" if doc.location_text else ""
 			bits.append(f"🛒 Đang xem: {doc.focus_item_name}{where}")
@@ -139,7 +157,8 @@ def cancel_request(name, session_id=None):
 
 @frappe.whitelist()
 def list_requests(include_done=0):
-	"""Staff queue: open requests (pending+accepted) newest first; optionally recent resolved."""
+	"""Staff queue: open requests (pending+accepted) newest first; optionally recent resolved.
+	Carries who/where/when so staff can help fast. Viewing the queue marks it seen (clears the badge)."""
 	ensure_cap("sell")
 	from frappe.utils import cint
 
@@ -148,18 +167,59 @@ def list_requests(include_done=0):
 		_DT,
 		filters={"status": ["in", statuses]},
 		fields=["name", "status", "reason", "kiosk_label", "focus_item_name", "location_text",
-			"question", "note", "assigned_name", "creation", "accepted_at"],
+			"question", "note", "customer_name", "customer_phone", "assigned_name", "creation", "accepted_at"],
 		order_by="creation desc",
 		limit=60,
 	)
 	return rows
 
 
+def _seen_at():
+	return frappe.db.get_value("User", frappe.session.user, "cago_support_seen_at")
+
+
+@frappe.whitelist()
+def mark_seen():
+	"""Mark the queue as read for THIS user → the 'new' badge clears until the next call arrives."""
+	ensure_cap("sell")
+	frappe.db.set_value("User", frappe.session.user, "cago_support_seen_at", now_datetime(), update_modified=False)
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def unread_count():
+	"""Badge count — NEW pending requests this user hasn't seen yet (notify-style: clears on view,
+	reappears only when a newer call comes in). Falls back to all pending if never viewed."""
+	ensure_cap("sell")
+	seen = _seen_at()
+	filters = {"status": "pending"}
+	if seen:
+		filters["creation"] = [">", seen]
+	return frappe.db.count(_DT, filters)
+
+
+# Back-compat: some clients may still poll pending_count.
 @frappe.whitelist()
 def pending_count():
-	"""Lightweight badge count for the /pos header poll."""
 	ensure_cap("sell")
 	return frappe.db.count(_DT, {"status": "pending"})
+
+
+@frappe.whitelist()
+def resolve_all():
+	"""Bulk-clear: mark every OPEN (pending+accepted) request resolved. For end-of-rush cleanup when
+	staff has physically helped everyone. Confirmed on the client. Returns how many were closed."""
+	ensure_cap("sell")
+	names = frappe.get_all(_DT, filters={"status": ["in", ["pending", "accepted"]]}, pluck="name")
+	for name in names:
+		doc = frappe.get_doc(_DT, name)
+		doc.status = "resolved"
+		doc.resolved_at = now_datetime()
+		doc.save(ignore_permissions=True)
+		_broadcast(doc)
+	frappe.db.commit()
+	return {"resolved": len(names)}
 
 
 @frappe.whitelist()

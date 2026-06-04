@@ -19,6 +19,7 @@ export function CallStaff({ onDone }: { onDone: () => void }) {
   const { focusItem, focusName, sessionId, callStaffPrefill } = useKiosk();
   const [reason, setReason] = useState(callStaffPrefill?.reason || "");
   const [note, setNote] = useState("");
+  const [name, setName] = useState("");
   const [sending, setSending] = useState(false);
   const [req, setReq] = useState<Req | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -35,6 +36,7 @@ export function CallStaff({ onDone }: { onDone: () => void }) {
         focus_name: focusName || null,
         question: callStaffPrefill?.question || null,
         session_id: sessionId || null,
+        customer_name: name || null,
       });
       setReq(r);
     } catch {
@@ -102,11 +104,18 @@ export function CallStaff({ onDone }: { onDone: () => void }) {
                 </button>
               ))}
             </div>
-            <input
+            <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Ghi chú thêm (không bắt buộc)…"
+              rows={2}
+              placeholder="Mô tả cần hỗ trợ gì (không bắt buộc)… vd: cần lấy bao cám gà ở kệ trong"
               className="mt-3 w-full rounded-xl border-2 border-emerald-200 p-3 text-base"
+            />
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Tên của bác (không bắt buộc)"
+              className="mt-2 w-full rounded-xl border-2 border-emerald-200 p-3 text-base"
             />
             <button onClick={onDone} className="mt-3 w-full rounded-xl bg-slate-100 py-3 font-bold text-slate-600">
               Thôi, đóng lại

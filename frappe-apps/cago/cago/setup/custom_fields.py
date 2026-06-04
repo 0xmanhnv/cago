@@ -281,6 +281,9 @@ def ensure_user_fields():
 				{"fieldname": "cago_job_roles", "label": "Cago Job Roles", "fieldtype": "Table", "options": "Cago User Job Role", "hidden": 1, "no_copy": 1},
 				# Hashed 4-digit quick-unlock PIN for the shared kiosk+POS device (server-side lock).
 				{"fieldname": "cago_pos_pin", "label": "Cago POS PIN", "fieldtype": "Data", "hidden": 1, "no_copy": 1, "read_only": 1},
+				# When this user last viewed the support queue → drives the "new/unread" badge (notify-
+				# style): the badge counts only requests created after this, and clears on view.
+				{"fieldname": "cago_support_seen_at", "label": "Cago Support Seen At", "fieldtype": "Datetime", "hidden": 1, "no_copy": 1},
 			]
 		},
 		ignore_validate=True,
