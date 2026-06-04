@@ -34,8 +34,10 @@ interface Onboarding {
 type Need = Cap | null | "owner";
 
 // One registry of every back-office action. Tiles render only when the user holds the capability;
-// groups/favorites reference these by key. Hrefs all live under the unified /pos app.
-const ACTIONS: Record<string, { label: string; color: string; href: string; cap: Need }> = {
+// groups/favorites reference these by key. Most navigate (`href`); a few run a local handler
+// (`action`) instead. `kioskOnly` = only on a shared kiosk+POS device (cago_fixed_kiosk).
+type ActionDef = { label: string; color: string; cap: Need; href?: string; action?: "cfd" | "handover" | "setpin"; kioskOnly?: boolean };
+const ACTIONS: Record<string, ActionDef> = {
   sell: { label: "🛒 Bán hàng", color: "bg-brand", href: "/pos/sell", cap: "sell" },
   search: { label: "🔎 Tra sản phẩm", color: "bg-blue-600", href: "/pos/search", cap: null },
   returns: { label: "↩️ Trả / Đổi hàng", color: "bg-rose-600", href: "/pos/returns", cap: "returns" },
@@ -72,6 +74,9 @@ const ACTIONS: Record<string, { label: string; color: string; href: string; cap:
   aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "owner" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
   backup: { label: "💾 Sao lưu dữ liệu", color: "bg-slate-600", href: "/pos/backup", cap: "owner" },
+  cfd: { label: "🖥 Màn hình phụ cho khách", color: "bg-slate-700", cap: "sell", action: "cfd" },
+  handover: { label: "🧑‍🌾 Màn hình khách", color: "bg-emerald-600", cap: null, action: "handover", kioskOnly: true },
+  setpin: { label: "🔒 Đổi mã PIN", color: "bg-violet-600", cap: null, action: "setpin", kioskOnly: true },
 };
 // A pinned home tile: which action + how wide (1 = half, 2 = full row on the 2-col grid).
 type Fav = { k: string; w: 1 | 2 };
@@ -96,6 +101,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
   { title: "📊 Báo cáo", keys: ["reports", "unsafe"] },
   { title: "⚙️ Cài đặt cửa hàng", keys: ["categories", "map", "coupons", "qr", "aisettings", "staffadmin", "backup", "help"] },
+  { title: "🖥 Màn hình & thiết bị", keys: ["cfd", "handover", "setpin"] },
 ];
 
 export function PosHome() {
@@ -120,13 +126,26 @@ export function PosHome() {
   const justLong = useRef(false);
   editRef.current = editMode;
 
-  // Whether THIS user may use an action (owner sees all; null = any internal).
+  // Whether THIS user may use an action (owner sees all; null = any internal). kioskOnly actions
+  // only show on a shared kiosk+POS device.
   const can = (k: string) => {
     const a = ACTIONS[k];
     if (!a) return false;
+    if (a.kioskOnly && !kioskDevice) return false;
     if (a.cap === null) return isInternal(boot);
     if (a.cap === "owner") return owner;
     return hasCap(boot, a.cap);
+  };
+
+  // Run an action: navigate (href) or fire a local handler. Used by both pinned favorites and the
+  // grouped menu so the device/screen actions can be pinned to ⭐ Hay dùng like any other.
+  const runAction = (k: string) => {
+    const a = ACTIONS[k];
+    if (!a) return;
+    if (a.action === "cfd") { window.open(`/display${cfdToken ? `?k=${cfdToken}` : ""}`, "_blank", "noopener"); return; }
+    if (a.action === "handover") { handover(); return; }
+    if (a.action === "setpin") { setShowSetPin(true); return; }
+    if (a.href) router.push(a.href);
   };
 
   const pressStart = () => {
@@ -141,7 +160,7 @@ export function PosHome() {
   const tapTile = (k: string) => {
     if (justLong.current) { justLong.current = false; return; }
     if (editRef.current) { togglePin(k); return; }
-    router.push(ACTIONS[k].href);
+    runAction(k);
   };
   useEffect(() => () => clearTimeout(lp.current), []);
 
@@ -152,8 +171,16 @@ export function PosHome() {
     setHasPin(hasPosPin());
   }, [showSetPin]);
 
-  // Hand the screen to a customer — the chooser offers both: lock behind the PIN (session kept) or
-  // log out fully. If there's no PIN yet, "lock" first opens the set-PIN dialog, then locks.
+  // Hand the screen to a customer. If a PIN is already set → lock and go straight to the kiosk (no
+  // prompt). If not, open the chooser so the owner can set a PIN+lock or log out fully.
+  const handover = () => {
+    if (hasPosPin()) {
+      setPosLocked(true);
+      window.location.href = "/";
+    } else {
+      setShowHandover(true);
+    }
+  };
   const lockWithPin = () => {
     if (hasPosPin()) {
       setPosLocked(true);
@@ -384,7 +411,7 @@ export function PosHome() {
             return (
               <button
                 key={f.k}
-                onClick={() => router.push(a.href)}
+                onClick={() => runAction(f.k)}
                 onPointerDown={pressStart}
                 onPointerUp={pressCancel}
                 onPointerMove={pressCancel}
@@ -431,20 +458,8 @@ export function PosHome() {
         </div>
       </div>
 
-      {hasCap(boot, "sell") && (
-        <a href={`/display${cfdToken ? `?k=${cfdToken}` : ""}`} target="_blank" rel="noopener" className="mt-tile mb-3.5 min-h-[64px] w-full bg-slate-700 text-lg">🖥 Mở màn hình phụ cho khách (cửa sổ mới)</a>
-      )}
-
-      {/* Shared kiosk+POS touchscreen only: hand the screen back to the customer kiosk, and
-          set a quick PIN so coming back to sell doesn't need the full password again. */}
-      {kioskDevice && (
-        <div className="mb-3.5 grid grid-cols-2 gap-3.5">
-          <button onClick={() => setShowHandover(true)} className="mt-tile min-h-[64px] bg-emerald-600 text-lg">🧑‍🌾 Màn hình khách</button>
-          <button onClick={() => setShowSetPin(true)} className="mt-tile min-h-[64px] bg-violet-600 text-lg">
-            {hasPin ? "🔒 Đổi mã PIN" : "🔒 Đặt mã PIN bán nhanh"}
-          </button>
-        </div>
-      )}
+      {/* 🖥 Màn hình phụ / 🧑‍🌾 Màn hình khách / 🔒 Đổi mã PIN are now first-class actions in the
+          "Màn hình & thiết bị" group above, so they can be pinned to ⭐ Hay dùng like any other. */}
 
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
         {owner && (
