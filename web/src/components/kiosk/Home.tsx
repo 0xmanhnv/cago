@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav, resetKioskDepth } from "@/lib/kioskNav";
 import { useSession } from "@/lib/session";
+import { isInternal } from "@/lib/caps";
 import { catColor, catIcon } from "@/lib/kioskUi";
 import { CatThumb } from "./CatThumb";
 import type { Category, ProductCard } from "@/lib/types";
@@ -17,6 +18,13 @@ export function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [best, setBest] = useState<ProductCard[]>([]);
   const [search, setSearch] = useState("");
+  // Hidden staff login: long-press the brand logo to reach /login. Needed because on a locked
+  // kiosk device a guest (start of day / after logout) can't type the URL — and the visible
+  // "Nhân viên" link only shows once signed in. Invisible to customers.
+  const lp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const startPress = () => { lp.current = setTimeout(() => { window.location.href = "/login"; }, 700); };
+  const endPress = () => clearTimeout(lp.current);
+  useEffect(() => () => clearTimeout(lp.current), []);
 
   useEffect(() => {
     resetKioskDepth(); // back at home → reset nav depth (heals any drift from gesture-back)
@@ -33,7 +41,13 @@ export function Home() {
   return (
     <div>
       {/* Brand banner — compact: logo + name on one row, slogan beneath; keeps the fold for products */}
-      <div className="animate-rise-in relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-dark px-5 py-4 text-white shadow-card">
+      <div
+        onPointerDown={startPress}
+        onPointerUp={endPress}
+        onPointerLeave={endPress}
+        onPointerCancel={endPress}
+        className="animate-rise-in relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-dark px-5 py-4 text-white shadow-card"
+      >
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-harvest via-amber-300 to-harvest" />
         <div className="flex items-center gap-3">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-harvest/20 text-2xl leading-none ring-2 ring-harvest/60">

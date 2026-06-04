@@ -14,11 +14,11 @@ export function PinLock({ brand = "Minh Tuyết", onUnlock }: { brand?: string; 
   const [pin, setPin] = useState("");
   const [shake, setShake] = useState(false);
 
-  const press = async (d: string) => {
+  const press = (d: string) => {
     const next = (pin + d).slice(0, 4);
     setPin(next);
     if (next.length < 4) return;
-    if (await verifyPosPin(next)) {
+    if (verifyPosPin(next)) {
       setPosLocked(false);
       onUnlock();
     } else {

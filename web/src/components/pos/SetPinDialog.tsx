@@ -17,7 +17,7 @@ export function SetPinDialog({ onClose }: { onClose: () => void }) {
   const [done, setDone] = useState<"set" | "cleared" | null>(null);
   const had = hasPosPin();
 
-  const press = async (d: string) => {
+  const press = (d: string) => {
     const next = (pin + d).slice(0, 4);
     setPin(next);
     if (next.length < 4) return;
@@ -26,7 +26,7 @@ export function SetPinDialog({ onClose }: { onClose: () => void }) {
       setPin("");
       setStep("confirm");
     } else if (next === first) {
-      await setPosPin(next);
+      setPosPin(next);
       setDone("set");
       setTimeout(onClose, 900);
     } else {
