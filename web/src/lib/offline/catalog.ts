@@ -75,8 +75,11 @@ export async function searchCatalogLocal(
   try {
     const all = await (await db()).getAll("catalog");
     const q = (query || "").trim();
+    // A parent category aggregates its own products + its children's (mirror of the online
+    // list_dtos). Match a row when its leaf category IS the picked one, or its loại cha is.
+    const inCategory = (r: CatalogRow) => !category || r.category === category || r.category_parent === category;
     const filtered = all
-      .filter((r) => (category ? r.category === category : true))
+      .filter(inCategory)
       .filter((r) => matches(r, q))
       .sort((a, b) => a.display_name.localeCompare(b.display_name, "vi"));
     return filtered.slice(start, start + pageSize);

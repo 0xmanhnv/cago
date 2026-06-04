@@ -117,6 +117,9 @@ def catalog_snapshot():
 	pmap = dto._price_map(codes)
 	qty_map = dto.bin_qty_map([r.name for r in rows if r.cago_stock_auto])
 	cat_map = dto.category_meta_map([r.item_group for r in rows])
+	# Each category's loại cha, so the OFFLINE filter can aggregate a parent's products like the
+	# online list_dtos does (match parent → its own + children's items).
+	parent_map = {g.name: g.cago_parent for g in frappe.get_all("Item Group", fields=["name", "cago_parent"])}
 	bc_map = {}
 	for b in frappe.get_all("Item Barcode", filters={"parent": ["in", codes]}, fields=["parent", "barcode"]):
 		bc_map.setdefault(b.parent, []).append(b.barcode)
@@ -132,6 +135,7 @@ def catalog_snapshot():
 				"display_name": r.cago_display_name or r.item_name,
 				"image": r.image,
 				"category": r.item_group,
+				"category_parent": parent_map.get(r.item_group) or None,
 				"category_icon": cat["icon"],
 				"category_color": cat["color"],
 				"price_text": dto.format_price(rate, r.stock_uom),

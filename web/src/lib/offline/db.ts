@@ -12,6 +12,7 @@ export interface CatalogRow {
   display_name: string;
   image?: string | null;
   category?: string;
+  category_parent?: string | null; // loại cha — so the offline parent-category filter aggregates children
   category_icon?: string;
   category_color?: string;
   price_text: string;
