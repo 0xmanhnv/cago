@@ -27,6 +27,7 @@ export function Reorder() {
   const shop = boot?.brand || "Minh Tuyết";
   const [rows, setRows] = useState<Suggest[] | null>(null);
   const [pick, setPick] = useState<Record<string, Pick>>({});
+  const [closed, setClosed] = useState<Set<string>>(new Set()); // collapsed suppliers (expanded by default)
   const [draft, setDraft] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,21 +92,30 @@ export function Reorder() {
           {Object.entries(groups).map(([supplier, items]) => {
             const n = chosenIn(items).length;
             const allOn = n === items.length;
+            const open = !closed.has(supplier);
             return (
               <div key={supplier} className="mb-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <button onClick={() => items.forEach((it) => setOn(it.item_code, !allOn))} className="text-left font-extrabold text-brand-dark">
-                    🚚 {supplier} <span className="ml-1 text-sm font-normal text-slate-400">({allOn ? "bỏ chọn" : "chọn"} tất cả)</span>
+                  {/* Title = collapse toggle (so you can hide a supplier you've handled and jump to the
+                      next); select-all + create-order are separate controls. */}
+                  <button onClick={() => setClosed((p) => { const s = new Set(p); s.has(supplier) ? s.delete(supplier) : s.add(supplier); return s; })} className="flex min-w-0 items-center gap-2 text-left font-extrabold text-brand-dark">
+                    <span className={`transition-transform ${open ? "rotate-90" : ""}`}>▸</span>
+                    <span className="truncate">🚚 {supplier} <span className="text-sm font-normal text-slate-400">· {items.length} mặt hàng{n ? ` · chọn ${n}` : ""}</span></span>
                   </button>
                   <button
                     onClick={() => buildList(supplier, items)}
                     disabled={!n}
                     className="shrink-0 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
                   >
-                    📋 Tạo đơn nhập{n ? ` (${n})` : ""}
+                    📋 Tạo đơn{n ? ` (${n})` : ""}
                   </button>
                 </div>
-                {items.map((it) => {
+                {open && (
+                  <button onClick={() => items.forEach((it) => setOn(it.item_code, !allOn))} className="mb-1 text-sm font-bold text-brand">
+                    {allOn ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                  </button>
+                )}
+                {open && items.map((it) => {
                   const p = pick[it.item_code] || { on: false, qty: "" };
                   return (
                     <div key={it.item_code} className="flex items-center gap-3 border-b border-slate-100 py-2.5 last:border-0">
