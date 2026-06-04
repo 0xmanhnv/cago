@@ -217,7 +217,7 @@ export function StoreMap() {
   };
 
   const onCanvasClick = (e: React.PointerEvent) => {
-    if (!aisleMode) return;
+    if (!aisleMode || eraseMode) return; // in erase mode, tapping empty canvas must NOT add a point
     const p = toSvg(e);
     if (!p) return;
     pushHistory();
