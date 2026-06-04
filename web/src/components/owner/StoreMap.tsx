@@ -260,16 +260,15 @@ export function StoreMap() {
         <button onClick={addFloor} className="rounded-lg border-2 border-dashed border-slate-300 px-3 py-2 font-bold text-slate-500">➕ Tầng</button>
       </div>
 
+      {/* One compact tool row so the MAP (the main thing) gets the screen, not the toolbar.
+          Setup-y controls (publish / place kiosk+door) moved BELOW the canvas. */}
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <button onClick={addZone} className="rounded-lg bg-brand px-3 py-2 font-bold text-white">➕ Thêm khu</button>
-        <button onClick={undo} disabled={histLen === 0} className="rounded-lg bg-slate-200 px-3 py-2 font-bold text-slate-700 disabled:opacity-40" title="Hoàn tác thay đổi gần nhất">
-          ↶ Hoàn tác{histLen ? ` (${histLen})` : ""}
-        </button>
         <button
           onClick={() => { setAisleMode((v) => !v); setNewStroke(false); }}
           className={`rounded-lg px-3 py-2 font-bold ${aisleMode ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-700"}`}
         >
-          🛤 {aisleMode ? "Đang vẽ lối đi (chạm để thêm điểm)" : "Vẽ lối đi"}
+          🛤 {aisleMode ? "Đang vẽ" : "Vẽ lối đi"}
         </button>
         {aisleMode && (
           <button
@@ -280,12 +279,11 @@ export function StoreMap() {
             ↳ Đoạn mới
           </button>
         )}
-        <button
-          onClick={() => setSnap((v) => !v)}
-          className={`rounded-lg px-3 py-2 font-bold ${snap ? "bg-violet-600 text-white" : "bg-slate-200 text-slate-700"}`}
-          title="Bắt dính vào lưới để căn thẳng hàng dễ"
-        >
+        <button onClick={() => setSnap((v) => !v)} className={`rounded-lg px-3 py-2 font-bold ${snap ? "bg-violet-600 text-white" : "bg-slate-200 text-slate-700"}`} title="Bắt dính vào lưới để căn thẳng hàng dễ">
           🧲 Bắt lưới
+        </button>
+        <button onClick={undo} disabled={histLen === 0} className="rounded-lg bg-slate-200 px-3 py-2 font-bold text-slate-700 disabled:opacity-40" title="Hoàn tác thay đổi gần nhất">
+          ↶ Hoàn tác{histLen ? ` (${histLen})` : ""}
         </button>
         {aislePts.length > 0 && (
           <button
@@ -294,24 +292,10 @@ export function StoreMap() {
             }}
             className="rounded-lg bg-slate-200 px-3 py-2 font-bold text-slate-700"
           >
-            Xoá lối đi tầng này
+            🧹 Xoá lối
           </button>
         )}
-        <label className="ml-auto flex items-center gap-2 font-bold text-slate-700">
-          <input type="checkbox" checked={map.published} onChange={(e) => upd({ published: e.target.checked })} className="h-5 w-5" />
-          Hiển thị trên kiosk
-        </label>
       </div>
-
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
-        <button onClick={() => { pushHistory(); upd({ kiosk: { floor, x: 50, y: map.height - 8 } }); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">📍 Đặt kiosk ở {floor}</button>
-        <button onClick={() => { pushHistory(); upd({ entrance: { floor, x: 50, y: map.height - 4 } }); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">🚪 Đặt cửa ở {floor}</button>
-        <span className="text-slate-400">📍 kiosk: {map.kiosk.floor || "—"} · 🚪 cửa: {map.entrance.floor || "—"}</span>
-      </div>
-
-      <p className="mb-2 text-sm text-slate-500">
-        Kéo khối để di chuyển, kéo góc ↘ để chỉnh kích thước. Kéo 🪜 (cầu thang) cho khớp vị trí thật trên mỗi tầng.
-      </p>
 
       <svg
         ref={svgRef}
@@ -406,6 +390,21 @@ export function StoreMap() {
           </g>
         )}
       </svg>
+
+      <p className="mt-2 text-sm text-slate-500">
+        Kéo khối để di chuyển · kéo góc ↘ chỉnh kích thước · kéo 🪜 (cầu thang) cho khớp vị trí thật.
+      </p>
+
+      {/* below the canvas: place kiosk/door + publish toggle (setup, not primary) */}
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+        <button onClick={() => { pushHistory(); upd({ kiosk: { floor, x: 50, y: map.height - 8 } }); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">📍 Đặt kiosk ở {floor}</button>
+        <button onClick={() => { pushHistory(); upd({ entrance: { floor, x: 50, y: map.height - 4 } }); }} className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-bold text-slate-700">🚪 Đặt cửa ở {floor}</button>
+        <span className="text-slate-400">📍 {map.kiosk.floor || "—"} · 🚪 {map.entrance.floor || "—"}</span>
+        <label className="ml-auto flex items-center gap-2 font-bold text-slate-700">
+          <input type="checkbox" checked={map.published} onChange={(e) => upd({ published: e.target.checked })} className="h-5 w-5" />
+          Hiển thị trên kiosk
+        </label>
+      </div>
 
       {/* floor settings */}
       {floorObj && (
