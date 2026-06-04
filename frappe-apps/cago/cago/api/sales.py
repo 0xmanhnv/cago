@@ -760,7 +760,7 @@ def _mode_of_payment(company, payment_mode):
 
 
 @frappe.whitelist()
-def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None, redeem_points=0, client_uuid=None, posted_at=None, delivery_charge=0):
+def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None, redeem_points=0, client_uuid=None, posted_at=None, delivery_charge=0, debt_signature=None, debt_photo=None, debt_witness=None):
 	"""Cago-native checkout: a stock-reducing Sales Invoice (cash/bank/credit/split) for staff.
 
 	ERPNext is the engine (submitted Sales Invoice, update_stock → stock + GL + loyalty).
@@ -1005,9 +1005,13 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				si.append("payments", pr)
 			si.save(ignore_permissions=True)
 			si.submit()
+		out = flt(si.outstanding_amount)
+		if out > 0:  # split with a shortfall → part is debt: keep the acknowledgement against it
+			from cago.debt_proof import save_proof
+
+			save_proof(cust, "debt", out, "Sales Invoice", si.name, debt_signature, debt_photo, debt_witness, cashier=cashier)
 		frappe.db.commit()
 		total = flt(si.grand_total)
-		out = flt(si.outstanding_amount)
 		change = flt(getattr(si, "change_amount", 0)) or max(0.0, paid - total)
 		return {
 			"invoice": si.name,
@@ -1063,6 +1067,9 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				return _dup
 			raise
 		record_action("Debt Add", ref_doctype="Sales Invoice", ref_name=si.name, new_value=flt(si.grand_total))
+		from cago.debt_proof import save_proof
+
+		save_proof(cust, "debt", flt(si.grand_total), "Sales Invoice", si.name, debt_signature, debt_photo, debt_witness, cashier=cashier)
 		frappe.db.commit()
 		total = flt(si.grand_total)
 		bal = _customer_outstanding(cust)

@@ -8,6 +8,7 @@ import { CategoryNav } from "@/components/ui/CategoryNav";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { ProductInfo } from "@/components/staff/StaffProductDetail";
 import { confirmDialog } from "@/components/ui/dialog";
+import { ConfirmDebt, type DebtProof } from "@/components/pos/ConfirmDebt";
 import { toast } from "@/components/ui/toast";
 import { Spinner } from "@/components/ui/Loading";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
@@ -264,6 +265,20 @@ export function Checkout() {
   const [discOpen, setDiscOpen] = useState(false); // collapsible discount/coupon section in the pay panel
   // App-wide styled confirm/alert (see components/ui/dialog).
   const ask = confirmDialog;
+  // Debt-acknowledgement capture for a credit sale (mua chịu) — promise-based so checkout() reads
+  // linearly. The modal resolves with the proof, null (skipped), or false (cancelled).
+  const [proofCtx, setProofCtx] = useState<number | null>(null);
+  const proofResolver = useRef<((p: DebtProof | null | false) => void) | null>(null);
+  const captureDebtProof = (amount: number) =>
+    new Promise<DebtProof | null | false>((resolve) => {
+      proofResolver.current = resolve;
+      setProofCtx(amount);
+    });
+  const resolveProof = (p: DebtProof | null | false) => {
+    setProofCtx(null);
+    proofResolver.current?.(p);
+    proofResolver.current = null;
+  };
   const [autoPrint, setAutoPrint] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
   const [splitCash, setSplitCash] = useState("");
@@ -777,6 +792,16 @@ export function Checkout() {
     if (!guardShift(() => checkout(payment_mode))) return;
     const who = cust ? ` cho ${cust.customer_name}` : "";
     if (!(await ask(`${MODE_VI[payment_mode]} ${cartCodes.length} mặt hàng · ${money(payTotal)}${who}?`, { confirmLabel: MODE_VI[payment_mode] }))) return;
+    // Bán chịu (credit) → capture the customer's debt acknowledgement (ký/ảnh/người chứng) when the
+    // owner's policy is on. Online only (the proof image uploads to the server); offline credit sales
+    // queue without it.
+    let debtProof: DebtProof | null = null;
+    const dpol = boot?.debt_proof?.debt;
+    if (payment_mode === "credit" && online && dpol && dpol.mode !== "off") {
+      const r = await captureDebtProof(payTotal);
+      if (r === false) return; // cancelled
+      debtProof = r;
+    }
     setBusy(true);
     // One idempotency key for this attempt: sent on the online call AND reused if it falls back to
     // the queue, so a sale the server already booked (response lost) is never double-booked.
@@ -788,7 +813,13 @@ export function Checkout() {
         await queueOffline(payment_mode, args, display, outstanding, cuid);
         return;
       }
-      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args, client_uuid: cuid });
+      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", {
+        ...args,
+        client_uuid: cuid,
+        debt_signature: debtProof?.signature || undefined,
+        debt_photo: debtProof?.photo || undefined,
+        debt_witness: debtProof?.witness || undefined,
+      });
       setResult(r);
       setOfflineSale(null);
       setShiftRefresh((n) => n + 1);
@@ -1543,6 +1574,17 @@ export function Checkout() {
             </div>
           </div>
         </>
+      )}
+
+      {proofCtx !== null && boot?.debt_proof?.debt && (
+        <ConfirmDebt
+          amount={proofCtx}
+          kind="debt"
+          customerName={cust?.customer_name}
+          policy={boot.debt_proof.debt}
+          onDone={(p) => resolveProof(p)}
+          onCancel={() => resolveProof(false)}
+        />
       )}
     </div>
   );
