@@ -25,6 +25,10 @@ home_page = "login"
 after_migrate = ["cago.setup.custom_fields.setup_all_fields"]
 after_install = ["cago.setup.custom_fields.setup_all_fields"]
 
+# A fresh login clears any pending POS PIN lock for the new session (escape hatch: forgot the PIN →
+# just log in again, never stuck on the PIN screen).
+on_login = "cago.api.session.clear_lock_on_login"
+
 # ---------------------------------------------------------------------------
 # Scheduled jobs — the Docker scheduler has no OS backup cron, so take a daily
 # site backup (DB + files) and keep the last 7 days. Offsite copy is manual.

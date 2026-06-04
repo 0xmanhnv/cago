@@ -169,7 +169,6 @@ export function PosHome() {
   useEffect(() => {
     setKioskDevice(isFixedKiosk());
   }, []);
-  const hasPin = !!boot?.has_pos_pin;
 
   // Hand the screen to a customer. If a PIN is already set → lock (server) and go straight to the
   // kiosk (no prompt). If not, open the chooser so the owner can set a PIN+lock or log out fully.
@@ -496,8 +495,10 @@ export function PosHome() {
             <div className="mt-2 text-xl font-extrabold text-brand-dark">Giao máy cho khách</div>
             <div className="mt-1 text-sm text-slate-500">Chọn cách bảo vệ trước khi đưa máy cho khách xem.</div>
             <div className="mt-5 flex flex-col gap-3">
+              {/* The chooser only opens when the current cashier has no PIN yet. Any staff/owner can
+                  set their OWN PIN, then it's a one-tap lock next time. */}
               <button onClick={lockWithPin} className="rounded-2xl bg-emerald-600 p-3.5 text-left text-white">
-                <div className="text-lg font-extrabold">🔒 {hasPin ? "Khoá bằng mã PIN" : "Đặt mã PIN & khoá"}</div>
+                <div className="text-lg font-extrabold">🔒 Đặt mã PIN & khoá</div>
                 <div className="text-xs font-medium text-white/85">Giữ phiên — quay lại bán chỉ cần nhập mã PIN.</div>
               </button>
               <button onClick={logoutHandover} className="rounded-2xl bg-red-600 p-3.5 text-left text-white">

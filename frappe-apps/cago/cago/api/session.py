@@ -81,10 +81,16 @@ def _staff_can_collect_debt():
 # --------------------------------------------------------------------------- #
 # POS quick-PIN lock (shared kiosk+POS device)
 #
-# The lock state lives in the SERVER SESSION (a cache flag keyed by the session id), so a customer
-# can't bypass it by editing the URL, reloading, or clearing localStorage — unlike a client-only
-# flag. The PIN itself is stored hashed on the User. This is still defence-in-depth on top of the
-# OS-level kiosk lockdown (the real boundary); it just makes the web layer non-trivial to bypass.
+# The LOCK STATE lives in the server session (a cache flag keyed by the session id), so a customer
+# can't bypass it by editing the URL / reloading / clearing localStorage. The PIN is PER-USER (each
+# cashier — owner OR staff — sets their own quick-unlock PIN), so any staff who uses this shared
+# machine can lock their session when stepping away; switching cashier is a full login.
+# Defence-in-depth on top of the OS-level kiosk lockdown (the real boundary).
+#
+# Invariants that avoid the "stuck on an unenterable PIN" trap:
+#   - the POS is NEVER locked unless the CURRENT user has a PIN (pos_lock no-ops without one), and
+#     _is_pos_locked re-checks that — so an old/edge lock can't strand a user with no PIN;
+#   - a fresh login clears the lock (on_login hook) — forgot the PIN? just log in again.
 # --------------------------------------------------------------------------- #
 import hashlib  # noqa: E402
 
@@ -95,28 +101,51 @@ def _pin_hash(pin):
 	return hashlib.sha256(("cago-pos-pin:" + (pin or "")).encode("utf-8")).hexdigest()
 
 
+def _stored_pin():
+	"""The CURRENT user's quick-unlock PIN hash (each user has their own)."""
+	if frappe.session.user == "Guest":
+		return None
+	return frappe.db.get_value("User", frappe.session.user, "cago_pos_pin") or None
+
+
 def _lock_key():
-	return f"cago_pos_locked::{getattr(frappe.session, 'sid', '') or frappe.session.user}"
+	"""Strictly per-session (sid) so a lock on one device never affects the user's other devices.
+	No session id → no lock key (we can't, and shouldn't, lock)."""
+	sid = getattr(frappe.session, "sid", None)
+	return f"cago_pos_locked::{sid}" if sid and sid != "Guest" else None
 
 
 def _set_pos_locked(on):
+	key = _lock_key()
+	if not key:
+		return
 	if on:
-		frappe.cache().set_value(_lock_key(), "1", expires_in_sec=86400)
+		frappe.cache().set_value(key, "1", expires_in_sec=86400)
 	else:
-		frappe.cache().delete_value(_lock_key())
+		frappe.cache().delete_value(key)
 
 
 def _is_pos_locked():
-	return frappe.session.user != "Guest" and bool(frappe.cache().get_value(_lock_key()))
+	key = _lock_key()
+	# Only ever locked when a PIN exists — guards against an old/edge lock with no way to unlock.
+	return bool(key and frappe.session.user != "Guest" and _stored_pin() and frappe.cache().get_value(key))
 
 
 def _has_pos_pin():
-	return bool(frappe.session.user != "Guest" and frappe.db.get_value("User", frappe.session.user, "cago_pos_pin"))
+	return bool(frappe.session.user != "Guest" and _stored_pin())
+
+
+def clear_lock_on_login(login_manager=None):
+	"""on_login hook: a fresh login supersedes any pending PIN lock for this session (escape hatch)."""
+	try:
+		_set_pos_locked(False)
+	except Exception:
+		pass
 
 
 @frappe.whitelist()
 def set_pos_pin(pin):
-	"""Set this user's 4-digit quick-unlock PIN (stored hashed). Used on a shared kiosk+POS device."""
+	"""Set the CURRENT user's own 4-digit quick-unlock PIN (hashed). Any staff/owner can set theirs."""
 	ensure_internal()
 	pin = (pin or "").strip()
 	if not (pin.isdigit() and len(pin) == 4):
@@ -135,22 +164,25 @@ def clear_pos_pin():
 
 @frappe.whitelist()
 def pos_lock():
-	"""Lock this device's POS behind the PIN (server-session flag — survives URL edits / reload)."""
+	"""Lock this device's POS behind the shop PIN. NO-OP when no PIN is set (never trap a user behind
+	a PIN screen that nothing can open). Returns whether it actually locked."""
 	ensure_internal()
+	if not _stored_pin():
+		return {"locked": False}
 	_set_pos_locked(True)
-	return {"ok": True}
+	return {"locked": True}
 
 
 @frappe.whitelist()
 def pos_unlock(pin):
-	"""Verify the PIN (server-side, rate-limited) and clear the lock. Wrong PIN throws."""
+	"""Verify the shop PIN (server-side, rate-limited) and clear the lock. Wrong PIN throws."""
 	ensure_internal()
 	fails_key = f"cago_pos_pinfail::{getattr(frappe.session, 'sid', '') or frappe.session.user}"
 	from frappe.utils import cint
 
 	if cint(frappe.cache().get_value(fails_key)) >= 5:
 		frappe.throw("Nhập sai nhiều lần. Thử lại sau ít phút.")
-	stored = frappe.db.get_value("User", frappe.session.user, "cago_pos_pin")
+	stored = _stored_pin()
 	if not stored or _pin_hash((pin or "").strip()) != stored:
 		frappe.cache().set_value(fails_key, cint(frappe.cache().get_value(fails_key)) + 1, expires_in_sec=300)
 		frappe.throw("Mã PIN không đúng.")

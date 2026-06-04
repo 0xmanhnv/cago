@@ -54,7 +54,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   // flash (boot is already awaited before children render).
   const locked = signedIn && !!boot?.pos_locked;
   // Idle on a shared kiosk device → lock server-side, then refresh the bootstrap so the gate shows.
-  usePosKioskAutoLock(signedIn, reload);
+  // Only arm when a shop PIN exists — never auto-lock into a PIN screen nothing can open.
+  usePosKioskAutoLock(signedIn && !!boot?.has_pos_pin, reload);
 
   // Record that the user has navigated within the app this session, so BackBar's smart-back knows
   // there's real in-app history to step back through (vs a cold/refresh load → fall back to home).
