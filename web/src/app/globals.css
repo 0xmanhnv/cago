@@ -109,6 +109,18 @@ body {
   @media (prefers-reduced-motion: reduce) {
     .animate-jiggle { animation: none; }
   }
+  /* Wrong-PIN feedback: a short horizontal shake on the dots. */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-7px); }
+    40%, 80% { transform: translateX(7px); }
+  }
+  .animate-shake {
+    animation: shake 0.4s ease-in-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-shake { animation: none; }
+  }
   /* Toast: slide up from the bottom edge + fade in. */
   @keyframes toast-in {
     from { opacity: 0; transform: translateY(14px) scale(0.97); }

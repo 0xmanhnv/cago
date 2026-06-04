@@ -72,3 +72,25 @@ Then the kiosk:
 Finally, serve over **HTTPS** ([38](38_GO_LIVE_RUNBOOK.md)) so camera/clipboard work and there's no "Not Secure" bar.
 
 > Idle timeout lives in `web/src/lib/useKioskLockdown.ts` (`idleMs`, default 90s) — adjust if needed.
+
+## One device, two roles: customer kiosk + staff POS
+
+A small shop often has **one touchscreen** that should be a customer kiosk most of the time and the
+staff POS when selling. Both are the **same web app on the same origin** (kiosk at `/`, POS at
+`/pos`), so switching is just navigating **inside the already-locked browser** — no OS unlock, no
+new tab. The security boundary is already there: every `/pos` route requires login
+(`CapabilityGuard` → `/login`), so a customer who taps toward it can't sell.
+
+**Quick PIN (so the owner doesn't retype the password all day):**
+- Full **login once per shift**. On the kiosk device the POS home shows **🔒 Đặt mã PIN bán nhanh**
+  (4 digits, stored hashed on the device).
+- Hand the screen to a customer → **🧑‍🌾 Màn hình khách**: with a PIN it **locks** (session kept) and
+  returns to the kiosk; without a PIN it logs out fully.
+- Come back to sell → tap the discreet **🔑 Nhân viên · Bán hàng** link on the kiosk home → enter the
+  PIN (`PinLock`) → POS, no password retype. Wrong-PIN shakes; "Đăng xuất" ends the shift.
+- **Idle safety net:** on the kiosk device, POS left idle ~3 min auto-**locks** to the PIN (or logs
+  out if no PIN) — so a forgotten session can't be used by the next customer
+  (`usePosKioskAutoLock`).
+
+> The PIN is a UI lock on an OS-locked in-shop device — the real boundary stays the OS lockdown +
+> the login session. Files: `web/src/lib/posLock.ts`, `components/pos/{PinLock,SetPinDialog,Keypad}.tsx`.

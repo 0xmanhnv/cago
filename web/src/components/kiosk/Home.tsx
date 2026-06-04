@@ -132,6 +132,15 @@ export function Home() {
         const cols = n <= 1 ? "grid-cols-1" : n === 2 || n === 4 ? "grid-cols-2" : "grid-cols-3";
         return <div className={`grid ${cols} gap-4`}>{cards}</div>;
       })()}
+
+      {/* Discreet staff entry — for the owner/staff on a shared kiosk+POS device. A customer who
+          taps it hits the login wall (or the PIN lock if a shift session is open), so it's safe to
+          show. Kept small + muted so it doesn't distract shoppers. */}
+      <div className="mt-8 text-center">
+        <a href="/pos" className="text-sm font-bold text-slate-400 underline-offset-2 hover:underline">
+          🔑 Nhân viên · Bán hàng
+        </a>
+      </div>
     </div>
   );
 }

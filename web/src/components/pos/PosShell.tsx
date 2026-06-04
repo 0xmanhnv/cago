@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { CapabilityGuard } from "@/components/CapabilityGuard";
-import type { Cap } from "@/lib/caps";
+import { useSession } from "@/lib/session";
+import { isInternal, type Cap } from "@/lib/caps";
+import { isFixedKiosk } from "@/components/kiosk/StoreMapView";
+import { hasPosPin, isPosLocked } from "@/lib/posLock";
+import { usePosKioskAutoLock } from "@/lib/usePosKioskLogout";
+import { PinLock } from "./PinLock";
 
 // Which capability the current /pos route needs. Central so we don't sprinkle guards across ~28
 // pages. Most-specific paths first. Routes that are shared lookups (home, search, orders,
@@ -44,6 +49,16 @@ function capFor(path: string): { cap?: Cap; owner?: boolean } {
 export function PosShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
   const { cap, owner } = capFor(path);
+  const { boot } = useSession();
+  const signedIn = isInternal(boot);
+  // Shared kiosk device only: gate the POS behind a quick PIN (full login kept). `locked` is
+  // client-only (reads localStorage), so it starts false on the server → hydration-safe.
+  const [locked, setLocked] = useState(false);
+  useEffect(() => {
+    setLocked(isFixedKiosk() && hasPosPin() && isPosLocked());
+  }, [path]);
+  usePosKioskAutoLock(signedIn, useCallback(() => setLocked(true), []));
+
   // Record that the user has navigated within the app this session, so BackBar's smart-back knows
   // there's real in-app history to step back through (vs a cold/refresh load → fall back to home).
   const prev = useRef<string | null>(null);
@@ -53,6 +68,8 @@ export function PosShell({ children }: { children: React.ReactNode }) {
     }
     prev.current = path;
   }, [path]);
+
+  if (signedIn && locked) return <PinLock brand={boot?.brand} onUnlock={() => setLocked(false)} />;
   return (
     <CapabilityGuard cap={cap} owner={owner}>
       {children}

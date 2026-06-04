@@ -10,6 +10,9 @@ import { useSession } from "@/lib/session";
 import { hasCap, isInternal, isOwner, type Cap } from "@/lib/caps";
 import { BrandHeader } from "@/components/ui/BrandHeader";
 import { confirmDialog } from "@/components/ui/dialog";
+import { isFixedKiosk } from "@/components/kiosk/StoreMapView";
+import { hasPosPin, setPosLocked } from "@/lib/posLock";
+import { SetPinDialog } from "./SetPinDialog";
 
 interface Digest {
   out_of_stock: number;
@@ -107,6 +110,9 @@ export function PosHome() {
   const [favLoaded, setFavLoaded] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [kioskDevice, setKioskDevice] = useState(false); // shared kiosk+POS touchscreen (cago_fixed_kiosk)
+  const [hasPin, setHasPin] = useState(false);
+  const [showSetPin, setShowSetPin] = useState(false);
   const editRef = useRef(false);
   const lp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const justLong = useRef(false);
@@ -136,6 +142,29 @@ export function PosHome() {
     router.push(ACTIONS[k].href);
   };
   useEffect(() => () => clearTimeout(lp.current), []);
+
+  // Detect a shared kiosk+POS device (client-only → hydration-safe) to offer the hand-over button
+  // + quick-sell PIN. Re-read the PIN flag when the set-PIN dialog closes.
+  useEffect(() => {
+    setKioskDevice(isFixedKiosk());
+    setHasPin(hasPosPin());
+  }, [showSetPin]);
+
+  // Hand the screen back to the customer kiosk. With a PIN set we keep the login session and just
+  // lock (re-enter PIN to sell again); without a PIN we log out fully for safety.
+  const toCustomerScreen = async () => {
+    if (hasPosPin()) {
+      setPosLocked(true);
+      window.location.href = "/";
+      return;
+    }
+    if (!(await confirmDialog("Chuyển sang màn hình khách? (sẽ đăng xuất để bảo mật)", { confirmLabel: "Chuyển" }))) return;
+    try {
+      await logout();
+    } finally {
+      window.location.href = "/";
+    }
+  };
 
   // Paint the cached favorites immediately (pre-paint) → no pop-in on entering/returning home.
   useIsoLayoutEffect(() => {
@@ -399,12 +428,26 @@ export function PosHome() {
       {hasCap(boot, "sell") && (
         <a href={`/display${cfdToken ? `?k=${cfdToken}` : ""}`} target="_blank" rel="noopener" className="mt-tile mb-3.5 min-h-[64px] w-full bg-slate-700 text-lg">🖥 Mở màn hình phụ cho khách (cửa sổ mới)</a>
       )}
+
+      {/* Shared kiosk+POS touchscreen only: hand the screen back to the customer kiosk, and
+          set a quick PIN so coming back to sell doesn't need the full password again. */}
+      {kioskDevice && (
+        <div className="mb-3.5 grid grid-cols-2 gap-3.5">
+          <button onClick={toCustomerScreen} className="mt-tile min-h-[64px] bg-emerald-600 text-lg">🧑‍🌾 Màn hình khách</button>
+          <button onClick={() => setShowSetPin(true)} className="mt-tile min-h-[64px] bg-violet-600 text-lg">
+            {hasPin ? "🔒 Đổi mã PIN" : "🔒 Đặt mã PIN bán nhanh"}
+          </button>
+        </div>
+      )}
+
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
         {owner && (
           <a href="/app" target="_blank" rel="noopener" className="mt-tile min-h-[64px] bg-slate-500 text-lg">⚙️ Quản lý ERPNext</a>
         )}
         <button onClick={doLogout} className={`mt-tile min-h-[64px] bg-red-600 text-lg ${owner ? "" : "col-span-2"}`}>🚪 Đăng xuất</button>
       </div>
+
+      {showSetPin && <SetPinDialog onClose={() => setShowSetPin(false)} />}
     </div>
   );
 }

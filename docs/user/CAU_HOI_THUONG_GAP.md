@@ -47,6 +47,10 @@ không bịa. **Tuyệt đối không tự cho liều thuốc**; câu cần lưu
 lắp đặt.
 **Khách có thoát ra ngoài web được không?** Không — máy đã khoá ở mức hệ điều hành; khách chỉ
 chạm xem hàng, không vào được cài đặt hay màn hình khác.
+**Một máy vừa làm kiosk vừa bán hàng được không?** Được. Đầu ca đăng nhập một lần, rồi đặt **mã
+PIN 4 số** (màn Bán hàng → 🔒 Đặt mã PIN bán nhanh). Khi đưa máy cho khách bấm **🧑‍🌾 Màn hình
+khách**; lúc cần bán lại, bấm dòng nhỏ **🔑 Nhân viên · Bán hàng** ở cuối màn khách rồi nhập PIN —
+không phải gõ lại mật khẩu. Để máy không dùng vài phút thì tự khoá lại bằng PIN cho an toàn.
 
 ## Khi cần trợ giúp kỹ thuật
 Xem [00_INDEX.md](../00_INDEX.md) để biết tài liệu kỹ thuật, hoặc liên hệ người triển khai.
