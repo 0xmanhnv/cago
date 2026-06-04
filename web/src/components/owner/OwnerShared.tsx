@@ -35,7 +35,11 @@ export function goBackSmart(router: ReturnType<typeof useRouter>, fallback = "/p
  * back to a picker), or omit it on a top-level screen to get smart history-back. A persistent 🏠
  * Home button is ALWAYS shown so home is one tap from anywhere, however deep the user has gone.
  */
-export function BackBar({ onBack, title, label = "Quay lại" }: { onBack?: () => void; title?: string; label?: string }) {
+// The ONE shared POS/owner header (back + title + optional action + 🏠 home), used across every
+// /pos screen so a header redesign happens in one place. The kiosk has its OWN header set under
+// components/kiosk — intentionally separate so kiosk can be restyled without touching POS.
+// `right` is an optional trailing action (rendered before 🏠) for screens that need one.
+export function BackBar({ onBack, title, label = "Quay lại", right }: { onBack?: () => void; title?: string; label?: string; right?: React.ReactNode }) {
   const router = useRouter();
   const back = onBack ?? (() => goBackSmart(router));
   return (
@@ -44,6 +48,7 @@ export function BackBar({ onBack, title, label = "Quay lại" }: { onBack?: () =
         ‹ {label}
       </button>
       {title && <div className="mt-title flex-1">{title}</div>}
+      {right}
       <button
         onClick={() => router.push("/pos")}
         aria-label="Về trang chủ"

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
-import { money } from "@/components/owner/OwnerShared";
+import { BackBar, money } from "@/components/owner/OwnerShared";
 
 import { PageLoading } from "@/components/ui/Loading";
 interface RetLine {
@@ -166,16 +166,16 @@ export function StaffReturns() {
 
   return (
     <div className="pb-10">
-      <div className="mb-3 flex items-center gap-2.5">
-        <button onClick={() => router.push("/pos")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ‹ Trang chủ
-        </button>
-        <div className="min-w-0 flex-1 text-2xl font-bold">TRẢ HÀNG</div>
-        {/* Đổi hàng = trả + bán mới; live here so it's one "trả/đổi" entry, not two home tiles. */}
-        <button onClick={() => router.push("/pos/exchange")} className="shrink-0 whitespace-nowrap rounded-xl bg-rose-500 px-4 py-3 font-bold text-white">
-          🔁 Đổi hàng
-        </button>
-      </div>
+      {/* Đổi hàng = trả + bán mới; lives in the header so it's one "trả/đổi" entry, not two tiles. */}
+      <BackBar
+        title="TRẢ HÀNG"
+        onBack={() => router.push("/pos")}
+        right={
+          <button onClick={() => router.push("/pos/exchange")} className="shrink-0 whitespace-nowrap rounded-xl bg-rose-500 px-4 py-3 font-bold text-white">
+            ↔️ Đổi hàng
+          </button>
+        }
+      />
 
       <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm theo số hoá đơn / tên khách..." />
       <FilterTabs

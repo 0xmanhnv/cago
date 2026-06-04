@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { mdLight } from "@/lib/kioskUi";
+import { BackBar } from "@/components/owner/OwnerShared";
 import type { ChatResponse, ProductCard } from "@/lib/types";
 
 export function StaffChat() {
@@ -36,15 +37,7 @@ export function StaffChat() {
 
   return (
     <div>
-      <div className="mb-3.5 flex items-center gap-2.5">
-        <button
-          onClick={() => (typeof window !== "undefined" && window.history.length > 1 ? router.back() : router.push("/pos"))}
-          className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold"
-        >
-          ‹ Quay lại
-        </button>
-        <div className="flex-1 text-xl font-bold">🤖 Trợ lý</div>
-      </div>
+      <BackBar title="🤖 Trợ lý" onBack={() => (typeof window !== "undefined" && window.history.length > 1 ? router.back() : router.push("/pos"))} />
       <div ref={logRef} className="max-h-[60vh] overflow-y-auto">
         {hist.length === 0 && <div className="text-slate-500">Hỏi nhanh: giá, tồn, vị trí kệ, tư vấn, sản phẩm thay thế...</div>}
         {hist.map((m, i) =>

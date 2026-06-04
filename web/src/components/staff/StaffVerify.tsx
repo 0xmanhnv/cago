@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { BackBar } from "@/components/owner/OwnerShared";
 
 type Req = { request_id: string; phone_masked: string; customer_name?: string | null };
 
@@ -37,12 +38,7 @@ export function StaffVerify() {
 
   return (
     <div>
-      <div className="mb-3.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/pos")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ‹ Trang chủ
-        </button>
-        <div className="flex-1 text-xl font-bold">Xác nhận khách xem nợ</div>
-      </div>
+      <BackBar title="Xác nhận khách xem nợ" onBack={() => router.push("/pos")} />
       {msg && <div className="mb-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-emerald-800">{msg}</div>}
       {list.length === 0 ? (
         <div className="text-slate-500">Chưa có khách nào yêu cầu. (Khi khách nhập SĐT ở kiosk, yêu cầu sẽ hiện ở đây.)</div>

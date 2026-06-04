@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
-import { money, ProductPicker } from "@/components/owner/OwnerShared";
+import { BackBar, money, ProductPicker } from "@/components/owner/OwnerShared";
 
 interface RetLine {
   item_code: string;
@@ -131,10 +131,7 @@ export function Exchange() {
 
   return (
     <div className="pb-10">
-      <div className="mb-3 flex items-center gap-2.5">
-        <button onClick={() => router.push("/pos")} className="shrink-0 rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">‹ Trang chủ</button>
-        <div className="flex-1 text-2xl font-bold">🔁 ĐỔI HÀNG</div>
-      </div>
+      <BackBar title="↔️ ĐỔI HÀNG" onBack={() => router.push("/pos")} />
 
       {!sel ? (
         <>
@@ -214,7 +211,7 @@ export function Exchange() {
             <span className="text-slate-500">Chênh lệch tính khi xác nhận</span>
           </div>
           <button onClick={confirm} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand text-lg font-extrabold text-white disabled:opacity-50">
-            {busy ? "Đang xử lý..." : "🔁 Xác nhận đổi hàng"}
+            {busy ? "Đang xử lý..." : "↔️ Xác nhận đổi hàng"}
           </button>
         </>
       )}
