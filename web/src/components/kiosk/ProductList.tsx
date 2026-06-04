@@ -195,7 +195,7 @@ export function ProductList() {
         <input
           value={qInput}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder={category ? `Tìm trong ${catLabel(category)}...` : "Tìm sản phẩm..."}
+          enterKeyHint="search" placeholder={category ? `Tìm trong ${catLabel(category)}...` : "Tìm sản phẩm..."}
           className="mb-2.5 w-full rounded-2xl border-2 border-emerald-200 bg-white p-3 text-lg shadow-soft outline-none transition focus:border-brand"
         />
         <div className="flex items-center gap-2">

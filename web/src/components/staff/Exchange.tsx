@@ -138,7 +138,7 @@ export function Exchange() {
           <input
             value={q}
             onChange={(e) => search(e.target.value)}
-            placeholder="🔎 Tìm hoá đơn cần đổi (số HĐ / tên khách)…"
+            enterKeyHint="search" placeholder="🔎 Tìm hoá đơn cần đổi (số HĐ / tên khách)…"
             className="mb-3 w-full rounded-xl border-2 border-emerald-200 p-3 text-base"
           />
           {rows.length === 0 ? (

@@ -115,7 +115,7 @@ export function Search() {
             clearTimeout(tRef.current);
             tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
           }}
-          placeholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
+          enterKeyHint="search" placeholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
           className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
         />
       </div>

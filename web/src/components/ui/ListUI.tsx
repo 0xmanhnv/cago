@@ -54,6 +54,8 @@ export function DateHeader({ label }: { label: string }) {
 export function SearchInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
     <input
+      type="search"
+      enterKeyHint="search"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}

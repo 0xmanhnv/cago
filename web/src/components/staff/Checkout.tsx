@@ -1039,7 +1039,7 @@ export function Checkout() {
             <input
               value={recentQ}
               onChange={(e) => setRecentQ(e.target.value)}
-              placeholder="🔎 Tìm theo số hoá đơn / tên khách..."
+              enterKeyHint="search" placeholder="🔎 Tìm theo số hoá đơn / tên khách..."
               className="mb-2 w-full rounded-xl border-2 border-slate-300 p-3"
             />
             <div className="divide-y divide-slate-100">
@@ -1126,7 +1126,7 @@ export function Checkout() {
               clearTimeout(tRef.current);
               tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
             }}
-            placeholder="🔎 Tìm theo tên, công dụng... (để trống xem tất cả)"
+            enterKeyHint="search" placeholder="🔎 Tìm theo tên, công dụng... (để trống xem tất cả)"
             className="w-full rounded-xl border-2 border-slate-300 p-3.5 text-lg sm:flex-1"
           />
           <input
@@ -1747,7 +1747,7 @@ function CustomerPicker({ onPick, onWalkIn, online }: { onPick: (c: Cust) => voi
               clearTimeout(tRef.current);
               tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
             }}
-            placeholder="Tìm khách theo tên / SĐT..."
+            enterKeyHint="search" placeholder="Tìm khách theo tên / SĐT..."
             className="w-full rounded-lg border-2 border-slate-300 p-2.5"
           />
           <button onClick={onWalkIn} className="mt-2 w-full rounded-lg bg-slate-100 py-2 text-left font-bold text-slate-600">👤 Khách lẻ (không ghi nợ)</button>

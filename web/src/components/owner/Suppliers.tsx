@@ -75,7 +75,7 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
             setHits(v ? await frappeCall<Sup[]>("cago.api.supplier.search_suppliers", { query: v }, { method: "GET" }) : []);
           }, 250);
         }}
-        placeholder="Tìm nhà cung cấp..."
+        enterKeyHint="search" placeholder="Tìm nhà cung cấp..."
         className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
       />
       <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
@@ -264,7 +264,7 @@ function CreditPurchase({ supplier, onDone }: { supplier: string; onDone: () => 
           clearTimeout(tRef.current);
           tRef.current = setTimeout(async () => setResults(await frappeCall<ProductCard[]>("cago.api.owner.search_products", { query: e.target.value.trim() }, { method: "GET" })), 250);
         }}
-        placeholder="Tìm sản phẩm để nhập..."
+        enterKeyHint="search" placeholder="Tìm sản phẩm để nhập..."
         className="mt-1 mb-2 w-full rounded-xl border-2 border-emerald-300 p-3"
       />
       {results.map((p) => (

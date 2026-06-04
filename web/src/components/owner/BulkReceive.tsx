@@ -206,7 +206,7 @@ export function BulkReceive() {
 
       {tab === "stock" && (
         <div className="mb-3 rounded-xl bg-white p-3 shadow-sm">
-          <input value={q} onChange={(e) => searchStock(e.target.value)} placeholder="Tìm hàng đã có để nhập thêm..." className="w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          <input value={q} onChange={(e) => searchStock(e.target.value)} enterKeyHint="search" placeholder="Tìm hàng đã có để nhập thêm..." className="w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           <div className="mt-2 max-h-48 overflow-auto">
             {found.map((p) => (
               <button key={p.item_code} onClick={() => addStock(p)} className="mb-1.5 flex w-full justify-between rounded-lg bg-slate-50 p-2.5 text-left">

@@ -74,7 +74,7 @@ export function Home() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && nav.openList("", search.trim())}
-          placeholder="Tìm sản phẩm..."
+          enterKeyHint="search" placeholder="Tìm sản phẩm..."
           className="w-full rounded-2xl border-2 border-emerald-200 bg-white py-4 pr-4 text-lg shadow-soft outline-none transition focus:border-brand"
           style={{ paddingLeft: "3.25rem" }}
         />
