@@ -10,9 +10,15 @@ on save. See docs/27 and [[chatbot-pipeline]]."""
 
 from __future__ import annotations
 
+import re
+
 import frappe
 
 from .deterministic import _norm
+
+# A trigger phrase shorter than this (after accent-stripping) is too broad as a substring match
+# (e.g. "có" would match almost everything), so it's ignored.
+_MIN_TRIGGER = 3
 
 _CACHE_KEY = "cago_chatbot_settings_compiled"
 
@@ -28,8 +34,14 @@ def _compiled():
 		doc = None
 	if doc:
 		for r in (doc.get("faq") or []):
-			if r.is_active and r.question and r.answer:
-				out["faq"].append({"q": _norm(r.question), "answer": r.answer})
+			if not (r.is_active and r.question and r.answer):
+				continue
+			# One answer can have MANY trigger phrasings (intent model): the question field holds one
+			# phrasing per line (or separated by , ; |). Each becomes its own (trigger → same answer).
+			for raw in re.split(r"[\n,;|]+", r.question):
+				q = _norm(raw).strip()
+				if len(q) >= _MIN_TRIGGER:
+					out["faq"].append({"q": q, "answer": r.answer})
 		# Longest pattern first so a more specific FAQ wins over a broad one.
 		out["faq"].sort(key=lambda x: -len(x["q"]))
 		for r in (doc.get("synonyms") or []):

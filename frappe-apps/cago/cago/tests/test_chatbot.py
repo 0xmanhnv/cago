@@ -234,6 +234,26 @@ class TestChatbotStoreFacts(FrappeTestCase):
 		# Never raises; returns None or a dict — and None for a non-existent item.
 		self.assertIsNone(storefacts.locate("DOES-NOT-EXIST-XYZ"))
 
+	def test_faq_many_phrasings_one_answer(self):
+		"""One FAQ answer can be triggered by several phrasings (one per line)."""
+		from cago.chatbot import settings as cbsettings
+		from cago.chatbot import storefacts
+
+		doc = frappe.get_single("Cago Chatbot Settings")
+		doc.set("faq", [])
+		doc.append("faq", {"question": "giao hàng tận nơi\ncó ship không\ngiao tới nhà", "answer": "Dạ có giao ạ.", "is_active": 1})
+		doc.save(ignore_permissions=True)
+		cbsettings.clear_cache()
+		try:
+			self.assertEqual(storefacts.faq_answer("cho hỏi có ship không"), "Dạ có giao ạ.")
+			self.assertEqual(storefacts.faq_answer("giao hàng tận nơi được không bác"), "Dạ có giao ạ.")
+			self.assertEqual(storefacts.faq_answer("mình muốn giao tới nhà"), "Dạ có giao ạ.")
+			self.assertIsNone(storefacts.faq_answer("cám gà giá bao nhiêu"))
+		finally:
+			doc.set("faq", [])
+			doc.save(ignore_permissions=True)
+			cbsettings.clear_cache()
+
 
 # --------------------------- tool-calling agent loop --------------------------- #
 class _ToolLoopProvider:

@@ -53,12 +53,12 @@ export function ChatbotContent() {
       <p className="mb-3 ml-1 text-sm text-slate-500">Cửa hàng tự dạy trợ lý: câu trả lời sẵn (FAQ), gợi ý câu hỏi cho khách bấm, và cách gọi khác của khách. Lưu là áp dụng ngay, không cần build lại.</p>
 
       {/* FAQ */}
-      <Section title="📝 Câu trả lời sẵn (FAQ)" hint="Khách hỏi khớp từ khoá ở cột trái → trợ lý trả lời đúng câu bên phải.">
+      <Section title="📝 Câu trả lời sẵn (FAQ)" hint="Một câu trả lời có thể có NHIỀU cách khách hỏi (mỗi dòng một cách). Khách hỏi khớp bất kỳ dòng nào → trợ lý trả lời câu bên phải.">
         {d.faq.map((f, i) => (
           <div key={i} className="mb-2 rounded-xl border border-slate-200 bg-white p-2.5">
             <div className="flex flex-col gap-2 sm:flex-row">
-              <input value={f.question} onChange={(e) => { const a = [...d.faq]; a[i] = { ...f, question: e.target.value }; set({ faq: a }); }} placeholder="khách hỏi (vd: giao hàng)" className="rounded-lg border-2 border-emerald-200 p-2 text-sm sm:w-1/3" />
-              <textarea value={f.answer} onChange={(e) => { const a = [...d.faq]; a[i] = { ...f, answer: e.target.value }; set({ faq: a }); }} rows={2} placeholder="trợ lý trả lời…" className="flex-1 rounded-lg border-2 border-emerald-200 p-2 text-sm" />
+              <textarea value={f.question} onChange={(e) => { const a = [...d.faq]; a[i] = { ...f, question: e.target.value }; set({ faq: a }); }} rows={3} placeholder={"các cách khách hỏi — mỗi dòng một cách:\ngiao hàng tận nơi\ncó ship không\ngiao tới nhà"} className="rounded-lg border-2 border-emerald-200 p-2 text-sm sm:w-2/5" />
+              <textarea value={f.answer} onChange={(e) => { const a = [...d.faq]; a[i] = { ...f, answer: e.target.value }; set({ faq: a }); }} rows={3} placeholder="trợ lý trả lời…" className="flex-1 rounded-lg border-2 border-emerald-200 p-2 text-sm" />
             </div>
             <div className="mt-1.5 flex items-center justify-between text-sm">
               <label className="flex items-center gap-1.5 font-bold text-slate-600">
