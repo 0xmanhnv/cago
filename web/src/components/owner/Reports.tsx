@@ -115,7 +115,7 @@ export function Report() {
         {!ready ? (
           <div className="text-center text-slate-500">Chọn từ ngày và đến ngày để xem báo cáo.</div>
         ) : !s ? (
-          <div className="text-slate-500">Đang tải...</div>
+          <SkeletonRows rows={5} thumb={false} />
         ) : (
           <>
             <div className="flex justify-between border-b border-slate-100 py-2">

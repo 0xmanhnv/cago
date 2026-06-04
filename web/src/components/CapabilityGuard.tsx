@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { hasCap, isInternal, isOwner, type Cap } from "@/lib/caps";
+import { PageLoading } from "@/components/ui/Loading";
 
 /**
  * Gate a /pos screen. With no `cap`/`owner`, allows any back-of-house user (the shell). With a
@@ -31,7 +32,7 @@ export function CapabilityGuard({
     else if (!allowed) router.replace("/pos");
   }, [loading, signedIn, allowed, router]);
 
-  if (loading) return <div className="p-8 text-center text-slate-500">Đang tải...</div>;
-  if (!allowed) return <div className="p-8 text-center text-slate-500">Đang chuyển hướng…</div>;
+  if (loading) return <PageLoading />;
+  if (!allowed) return <PageLoading label="Đang chuyển hướng…" />;
   return <>{children}</>;
 }

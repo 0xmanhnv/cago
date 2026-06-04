@@ -7,6 +7,7 @@ import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
 import { CatThumb } from "./CatThumb";
 import { KioskNavButtons } from "./KioskNavButtons";
+import { PageLoading } from "@/components/ui/Loading";
 import type { Category, ProductCard } from "@/lib/types";
 
 type Sort = "default" | "price_asc" | "price_desc";
@@ -243,7 +244,7 @@ export function ProductList() {
       </div>
 
       {loading ? (
-        <div className="py-8 text-center text-slate-500">Đang tải...</div>
+        <PageLoading />
       ) : view.length === 0 ? (
         <div className="py-8 text-center text-slate-500">
           {q.trim() || stockOnly || recoOnly ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm."}

@@ -64,7 +64,9 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
           ⛶ Toàn màn hình
         </button>
       )}
-      {children}
+      <div key={pathname} className="animate-fade-in">
+        {children}
+      </div>
 
       {showCartBar && (
         <button

@@ -6,6 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { CategoryNav } from "@/components/ui/CategoryNav";
+import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { ProductCard, Category } from "@/lib/types";
 
 const PAGE = 30;
@@ -156,7 +157,7 @@ export function StaffSearch() {
         </div>
       )}
       {loading ? (
-        <div className="py-6 text-center text-slate-500">Đang tải...</div>
+        <SkeletonRows rows={6} />
       ) : list.length === 0 ? (
         <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy. Thử gõ tên khác.</div>
       ) : (

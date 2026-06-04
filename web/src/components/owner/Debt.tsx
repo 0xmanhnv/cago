@@ -8,6 +8,7 @@ import { SearchInput } from "@/components/ui/ListUI";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, goBackSmart, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { PageLoading } from "@/components/ui/Loading";
 import { toast } from "@/components/ui/toast";
 import { useSession } from "@/lib/session";
 import { hasCap } from "@/lib/caps";
@@ -40,7 +41,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
       />
     );
   }
-  if (!info) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (!info) return <PageLoading />;
 
   const save = async () => {
     // VND has no decimals and users may type grouping dots ("1.000"); parseVnd strips to digits
@@ -187,7 +188,7 @@ export function CustomerLedger({ customer }: { customer: string }) {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer]);
-  if (!d) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (!d) return <PageLoading />;
 
   // Record a repayment / extra debt right here (was two separate home screens) — server enforces cap.
   const record = async (mode: "repay" | "add") => {

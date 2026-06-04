@@ -72,7 +72,10 @@ export function PosShell({ children }: { children: React.ReactNode }) {
   if (signedIn && locked) return <PinLock brand={boot?.brand} onUnlock={() => setLocked(false)} />;
   return (
     <CapabilityGuard cap={cap} owner={owner}>
-      {children}
+      {/* Ease each route in (keyed by path) so navigating never "snaps" — it cross-fades. */}
+      <div key={path} className="animate-fade-in">
+        {children}
+      </div>
     </CapabilityGuard>
   );
 }

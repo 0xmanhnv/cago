@@ -9,6 +9,7 @@ import { CatThumb } from "@/components/kiosk/CatThumb";
 import { ProductInfo } from "@/components/staff/StaffProductDetail";
 import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
+import { Spinner } from "@/components/ui/Loading";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import type { ProductCard, Product, Category } from "@/lib/types";
 import { useOnline } from "@/lib/offline/useOnline";
@@ -1585,7 +1586,7 @@ function ProductPreview({
         </div>
         <div className="no-scrollbar overflow-auto px-4 py-3">
           {loading ? (
-            <div className="py-10 text-center text-slate-500">Đang tải...</div>
+            <div className="flex justify-center py-10"><Spinner /></div>
           ) : !p ? (
             <div className="py-10 text-center text-slate-500">Không tải được sản phẩm.</div>
           ) : (
