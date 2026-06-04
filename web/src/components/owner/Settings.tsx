@@ -160,9 +160,12 @@ export function Settings() {
   };
 
   return (
-    <div className="mx-auto max-w-[760px]">
-      <BackBar onBack={() => goBackSmart(router)} title="QR THU TIỀN (VietQR)" />
+    <div className="mx-auto max-w-[760px] xl:max-w-[1100px]">
+      <BackBar onBack={() => goBackSmart(router)} title="CÀI ĐẶT CỬA HÀNG" />
 
+      {/* On desktop the settings cards flow into 2 columns (items-start = independent heights) so a
+          wide screen isn't one narrow strip; phones/tablets keep a single column. */}
+      <div className="xl:grid xl:grid-cols-2 xl:gap-x-4 xl:items-start">
       <div className="mt-4 rounded-xl bg-white p-4">
         <h2 className="font-extrabold text-brand-dark">📒 Hạn mức nợ mặc định</h2>
         <p className="mt-1 text-sm text-slate-500">Áp dụng cho khách CHƯA đặt hạn mức riêng. Vượt mức thì không cho ghi nợ thêm. Để 0 = không giới hạn.</p>
@@ -341,6 +344,7 @@ export function Settings() {
         ) : (
           <div className="mt-2 text-sm text-slate-400">Đang tạo khoá…</div>
         )}
+      </div>
       </div>
     </div>
   );

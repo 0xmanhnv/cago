@@ -127,11 +127,17 @@ export function ReceiveStock() {
           Giá bán: <b className="text-brand">{prod?.price_text}</b> · Tồn hiện tại: <b>{stock?.qty ?? "…"} {uomLabel(stock?.uom)}</b>
         </div>
 
-        <label className="mt-4 block font-bold text-slate-700">Số lượng nhập ({uomLabel(stock?.uom)})</label>
-        <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-emerald-300 p-3.5 text-2xl font-extrabold" />
-
-        <label className="mt-3 block font-bold text-slate-700">Giá vốn / {uomLabel(stock?.uom)} <span className="font-normal text-slate-400">(nên nhập để tính lãi)</span></label>
-        <input inputMode="numeric" value={cost} onChange={(e) => setCost(groupVnd(e.target.value))} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-amber-300 p-3.5 text-xl font-bold text-right" />
+        {/* qty + cost side-by-side on desktop (sm+), stacked on phones. */}
+        <div className="mt-4 grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+          <div>
+            <label className="block font-bold text-slate-700">Số lượng nhập ({uomLabel(stock?.uom)})</label>
+            <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-emerald-300 p-3.5 text-2xl font-extrabold" />
+          </div>
+          <div className="mt-3 sm:mt-0">
+            <label className="block font-bold text-slate-700">Giá vốn / {uomLabel(stock?.uom)} <span className="font-normal text-slate-400">(nên nhập để tính lãi)</span></label>
+            <input inputMode="numeric" value={cost} onChange={(e) => setCost(groupVnd(e.target.value))} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-amber-300 p-3.5 text-xl font-bold text-right" />
+          </div>
+        </div>
 
         {stock?.has_batch && (
           <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
