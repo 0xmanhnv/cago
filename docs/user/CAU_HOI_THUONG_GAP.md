@@ -39,5 +39,14 @@ không bịa. **Tuyệt đối không tự cho liều thuốc**; câu cần lưu
 **Trình duyệt báo "Not Secure"?** Do đang chạy HTTP. Khi lên hoạt động thật, bật HTTPS theo
 [38_GO_LIVE_RUNBOOK.md](../38_GO_LIVE_RUNBOOK.md).
 
+## Màn hình kiosk ở quầy
+**Chủ tiệm có phải cài đặt gì không?** Không. Phần cài (khoá máy, đặt địa chỉ mở) do người lắp
+đặt làm sẵn một lần trước khi giao máy. Hằng ngày chủ tiệm không phải thao tác gì.
+**Mất điện thì sao?** Có điện lại máy **tự bật lại** màn kiosk, không cần mở gì.
+**Màn bị đơ / treo?** Rút điện ~10 giây rồi cắm lại, máy tự lên lại app. Nếu vẫn lỗi → gọi người
+lắp đặt.
+**Khách có thoát ra ngoài web được không?** Không — máy đã khoá ở mức hệ điều hành; khách chỉ
+chạm xem hàng, không vào được cài đặt hay màn hình khác.
+
 ## Khi cần trợ giúp kỹ thuật
 Xem [00_INDEX.md](../00_INDEX.md) để biết tài liệu kỹ thuật, hoặc liên hệ người triển khai.

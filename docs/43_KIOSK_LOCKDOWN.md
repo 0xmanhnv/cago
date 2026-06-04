@@ -8,6 +8,17 @@ A browser tab **cannot stop a user from leaving to the OS** (Home button, edge g
 lockdown **must be enforced at the device/OS level**. The web app only complements it (fullscreen,
 idle reset, no text-select/zoom). So: pick an OS lockdown method below **and** enable the web layer.
 
+## Who does what (the shop owner is not technical)
+- **Installer — once, at install time:** everything in this doc (OS lockdown app + launch URL +
+  auto-restart). ~15–20 min. **Provision the device before delivery** so the owner just plugs it in
+  and mounts it. Lock the kiosk app's own settings behind a **PIN** so neither a customer nor the
+  owner can wander into them.
+- **Owner — daily:** nothing technical. Configure the device to **self-recover**: Fully Kiosk
+  "start on boot" + "auto-restart" + "return to start URL when idle" means a power cut → it comes
+  back on its own. The only realistic owner action is *"if the screen freezes, unplug 10s and plug
+  back in — it relaunches itself."* (Put that on a one-page card next to the screen.)
+- **Customer:** just touches the screen. No exits, no settings.
+
 ## OS / device lockdown (pick one)
 
 ### A. Android touchscreen / tablet (cheapest, recommended for a rural shop)
