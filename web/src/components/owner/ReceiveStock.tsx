@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar, goBackSmart, ProductPicker, money } from "./OwnerShared";
+import { BackBar, goBackSmart, ProductPicker, money } from "./Shared";
 import { groupVnd } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 

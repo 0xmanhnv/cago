@@ -8,7 +8,7 @@ import { SearchInput } from "@/components/ui/ListUI";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/toast";
 import type { ProductCard } from "@/lib/types";
-import { BackBar, goBackSmart } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./Shared";
 
 /**
  * Bulk-manage "⭐ khuyên dùng" flags: one tappable star per product, saved instantly (no

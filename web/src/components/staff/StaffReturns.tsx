@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
-import { BackBar, money } from "@/components/owner/OwnerShared";
+import { BackBar, money } from "@/components/owner/Shared";
 
 import { PageLoading } from "@/components/ui/Loading";
 interface RetLine {

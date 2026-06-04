@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar, goBackSmart } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./Shared";
 import { PageLoading } from "@/components/ui/Loading";
 import { toast } from "@/components/ui/toast";
 

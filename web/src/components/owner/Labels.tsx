@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar, goBackSmart, ProductPicker } from "./OwnerShared";
+import { BackBar, goBackSmart, ProductPicker } from "./Shared";
 
 interface Label {
   item_code: string;

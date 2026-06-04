@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
-import { BackBar, money, ProductPicker } from "@/components/owner/OwnerShared";
+import { BackBar, money, ProductPicker } from "@/components/owner/Shared";
 
 interface RetLine {
   item_code: string;

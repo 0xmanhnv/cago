@@ -7,7 +7,7 @@ import { CatThumb } from "@/components/kiosk/CatThumb";
 import { SearchInput } from "@/components/ui/ListUI";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { ProductCard } from "@/lib/types";
-import { BackBar, goBackSmart } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./Shared";
 
 // One product hub: search to look up a price (tra giá) → tap to edit (sửa), ➕ to add (thêm) —
 // the three old separate screens. Related product tools live here as quick links instead of

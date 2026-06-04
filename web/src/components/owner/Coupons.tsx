@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
-import { BackBar, goBackSmart, money } from "./OwnerShared";
+import { BackBar, goBackSmart, money } from "./Shared";
 import { toast } from "@/components/ui/toast";
 
 interface Coupon {

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { DateHeader, groupOrdered } from "@/components/ui/ListUI";
-import { BackBar, goBackSmart } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./Shared";
 
 import { PageLoading } from "@/components/ui/Loading";
 interface Line {

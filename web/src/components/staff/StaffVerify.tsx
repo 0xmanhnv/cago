@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar } from "@/components/owner/OwnerShared";
+import { BackBar } from "@/components/owner/Shared";
 
 type Req = { request_id: string; phone_masked: string; customer_name?: string | null };
 

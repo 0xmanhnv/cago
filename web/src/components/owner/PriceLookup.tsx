@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import type { Product } from "@/lib/types";
-import { BackBar, goBackSmart, ProductPicker, Warn } from "./OwnerShared";
+import { BackBar, goBackSmart, ProductPicker, Warn } from "./Shared";
 
 export function PriceLookup() {
   const router = useRouter();

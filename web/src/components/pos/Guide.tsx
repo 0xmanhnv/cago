@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BackBar, goBackSmart } from "@/components/owner/OwnerShared";
+import { BackBar, goBackSmart } from "@/components/owner/Shared";
 
 interface Topic {
   icon: string;

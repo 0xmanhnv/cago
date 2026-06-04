@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall, uploadFile } from "@/lib/api";
 import { groupVnd, parseVnd, formatVnd } from "@/lib/utils";
-import { BackBar, goBackSmart } from "./OwnerShared";
+import { BackBar, goBackSmart } from "./Shared";
 import { toast } from "@/components/ui/toast";
 
 let RID = 0;

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
-import { BackBar } from "@/components/owner/OwnerShared";
+import { BackBar } from "@/components/owner/Shared";
 import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 

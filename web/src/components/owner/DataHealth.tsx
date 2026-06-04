@@ -6,7 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { SkeletonRows } from "@/components/ui/Skeleton";
-import { BackBar, goBackSmart, Ok } from "./OwnerShared";
+import { BackBar, goBackSmart, Ok } from "./Shared";
 
 interface Row {
   item_code: string;

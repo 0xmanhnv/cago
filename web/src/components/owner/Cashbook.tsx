@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar, goBackSmart, Ok, Warn } from "./OwnerShared";
+import { BackBar, goBackSmart, Ok, Warn } from "./Shared";
 import { toast } from "@/components/ui/toast";
 
 interface Summary {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { ALL_CAPS, CAP_LABELS, type Cap } from "@/lib/caps";
-import { BackBar, goBackSmart } from "@/components/owner/OwnerShared";
+import { BackBar, goBackSmart } from "@/components/owner/Shared";
 import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 

@@ -6,7 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { SearchInput } from "@/components/ui/ListUI";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { Batch } from "@/lib/types";
-import { BackBar, goBackSmart, Ok } from "./OwnerShared";
+import { BackBar, goBackSmart, Ok } from "./Shared";
 
 export function LowStock() {
   const router = useRouter();

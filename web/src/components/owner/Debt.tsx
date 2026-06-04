@@ -6,7 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
 import { SearchInput } from "@/components/ui/ListUI";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar, goBackSmart, CustomerPicker, DraftModal, money, Ok, Warn } from "./OwnerShared";
+import { BackBar, goBackSmart, CustomerPicker, DraftModal, money, Ok, Warn } from "./Shared";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { PageLoading } from "@/components/ui/Loading";
 import { toast } from "@/components/ui/toast";

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar, goBackSmart, Ok } from "./OwnerShared";
+import { BackBar, goBackSmart, Ok } from "./Shared";
 import { toast } from "@/components/ui/toast";
 import type { ProductCard } from "@/lib/types";
 

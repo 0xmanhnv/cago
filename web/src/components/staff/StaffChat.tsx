@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { mdLight } from "@/lib/kioskUi";
-import { BackBar } from "@/components/owner/OwnerShared";
+import { BackBar } from "@/components/owner/Shared";
 import type { ChatResponse, ProductCard } from "@/lib/types";
 
 export function StaffChat() {

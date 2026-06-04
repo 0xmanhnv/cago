@@ -7,7 +7,7 @@ import { frappeCall, uploadFile } from "@/lib/api";
 import { uomLabel } from "@/lib/uom";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import type { Batch } from "@/lib/types";
-import { BackBar, goBackSmart, DraftModal } from "./OwnerShared";
+import { BackBar, goBackSmart, DraftModal } from "./Shared";
 import { toast } from "@/components/ui/toast";
 
 import { PageLoading } from "@/components/ui/Loading";

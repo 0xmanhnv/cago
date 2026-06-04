@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { toast } from "@/components/ui/toast";
-import { BackBar, goBackSmart, DraftModal } from "./OwnerShared";
+import { BackBar, goBackSmart, DraftModal } from "./Shared";
 import { uomLabel } from "@/lib/uom";
 
 import { PageLoading } from "@/components/ui/Loading";
