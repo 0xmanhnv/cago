@@ -82,6 +82,7 @@ const ACTIONS: Record<string, ActionDef> = {
 type Fav = { k: string; w: 1 | 2 };
 
 const FAV_CACHE = "cago_fav_cache";
+const DIGEST_CACHE = "cago_digest_cache"; // last "Việc cần làm hôm nay" so it paints instantly (no jump)
 const SHOW_ALL_KEY = "cago_show_all"; // remember whether the owner expanded "Tất cả chức năng"
 const savedShowAll = () => { try { return window.localStorage?.getItem(SHOW_ALL_KEY) === "1"; } catch { return false; } };
 // Hydrate from the local cache BEFORE the browser paints (layout effect), so the "⭐ Hay dùng" tiles
@@ -207,6 +208,10 @@ export function PosHome() {
         const a = (JSON.parse(raw) as Fav[]).filter((f) => f && ACTIONS[f.k]);
         if (Array.isArray(a)) { setFav(a); setFavLoaded(true); setShowAll(a.length ? savedShowAll() : true); }
       }
+      // Pre-paint the daily digest from its last value so the "Việc cần làm hôm nay" panel is in
+      // the first frame (no layout jump). The fetch below revalidates the numbers.
+      const draw = window.localStorage?.getItem(DIGEST_CACHE);
+      if (draw) setDigest(JSON.parse(draw) as Digest);
     } catch { /* ignore a corrupt cache */ }
   }, []);
 
@@ -232,7 +237,9 @@ export function PosHome() {
   }, [boot]);
 
   useEffect(() => {
-    frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" }).then(setDigest).catch(() => {});
+    frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" })
+      .then((d) => { setDigest(d); try { window.localStorage?.setItem(DIGEST_CACHE, JSON.stringify(d)); } catch { /* ignore */ } })
+      .catch(() => {});
     // Saved favorites: new format = [{k,w}]; legacy = ["key", ...] (treated as width 1).
     frappeCall<(string | Fav)[]>("cago.api.prefs.get_home_favorites", {}, { method: "GET" })
       .then((saved) => {
