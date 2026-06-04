@@ -225,7 +225,8 @@ export function DebtList() {
             // auto-expands so matches always show.
             <div>
               {villages.map(([vil, custs]) => {
-                const isOpen = openVil.has(vil) || !!text;
+                // Auto-expand while searching, or when there's only ONE group (no point collapsing it).
+                const isOpen = openVil.has(vil) || !!text || villages.length === 1;
                 const subtotal = custs.reduce((s, x) => s + (x.outstanding || 0), 0);
                 return (
                   <div key={vil} className="mb-2">
