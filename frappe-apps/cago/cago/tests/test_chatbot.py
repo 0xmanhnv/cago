@@ -208,3 +208,93 @@ class TestChatbotOrchestrator(FrappeTestCase):
 		r = orchestrator.ask("staff", "cam ga con gia bao nhieu")
 		self.assertTrue(r["product_cards"])
 		self.assertNotIn("chưa tìm thấy", r["answer_text"].lower())
+
+
+# --------------------------- store-facts (deterministic, DB-backed) --------------------------- #
+class TestChatbotStoreFacts(FrappeTestCase):
+	def test_overview_keyword_coverage(self):
+		from cago.chatbot import storefacts
+
+		for q in ["Cửa hàng bán những gì?", "shop có gì bán", "co nhung loai gi", "kinh doanh gì"]:
+			self.assertTrue(storefacts.is_overview(q), q)
+		self.assertFalse(storefacts.is_overview("cám gà giá bao nhiêu"))
+		text, links = storefacts.overview_answer("customer")
+		self.assertTrue(text and links)
+
+	def test_bestseller_keyword_coverage(self):
+		from cago.chatbot import storefacts
+
+		for q in ["bán chạy", "loại nào hay mua", "nhiều người mua", "sản phẩm hot", "đắt khách"]:
+			self.assertTrue(storefacts.is_bestseller(q), q)
+		self.assertFalse(storefacts.is_bestseller("phân bón cho lúa"))
+
+	def test_locate_handles_missing_map_gracefully(self):
+		from cago.chatbot import storefacts
+
+		# Never raises; returns None or a dict — and None for a non-existent item.
+		self.assertIsNone(storefacts.locate("DOES-NOT-EXIST-XYZ"))
+
+
+# --------------------------- tool-calling agent loop --------------------------- #
+class _ToolLoopProvider:
+	"""Stub tool-capable provider: first turn asks a tool, second returns the final text."""
+
+	name = "openai_compat"
+
+	def __init__(self, tool_name, tool_args):
+		self.calls = 0
+		self._tool_name = tool_name
+		self._tool_args = tool_args
+
+	def supports_tools(self):
+		return True
+
+	def chat(self, messages, *, model, temperature=0.2, max_tokens=800, tools=None, timeout=30):
+		from cago.chatbot.providers.base import LLMResult, ToolCall
+
+		self.calls += 1
+		if self.calls == 1:
+			return LLMResult(
+				text="", model=model, provider=self.name,
+				tool_calls=[ToolCall(id="c1", name=self._tool_name, arguments=self._tool_args)],
+			)
+		return LLMResult(text="Dạ cửa hàng mình có ạ.", model=model, provider=self.name)
+
+
+class TestChatbotToolCalling(FrappeTestCase):
+	def setUp(self):
+		self._log = observability.log
+		observability.log = lambda **kw: None
+		from cago.chatbot import config as cbconfig
+
+		self._cfg = cbconfig
+		self._lp, self._fb, self._gp = cbconfig.load_primary, cbconfig.load_fallback, orchestrator.get_provider
+		cbconfig.load_primary = lambda: cbconfig.LLMConfig(provider="openai", model="gpt-4o-mini")
+		cbconfig.load_fallback = lambda: None
+
+	def tearDown(self):
+		observability.log = self._log
+		self._cfg.load_primary, self._cfg.load_fallback = self._lp, self._fb
+		orchestrator.get_provider = self._gp
+
+	def test_agent_loop_runs_tool_then_answers_with_cards(self):
+		"""The model asks search_products; the tool surfaces a real item; cards come back."""
+		stub = _ToolLoopProvider("search_products", {"query": "cám gà con"})
+		orchestrator.get_provider = lambda *a, **k: stub
+		r = orchestrator.ask("customer", "có cám gà con không")
+		self.assertEqual(stub.calls, 2)  # tool round + final answer
+		self.assertIn("có", r["answer_text"].lower())
+		self.assertTrue(r["product_cards"])
+		self.assertIn(KIOSK_ITEM, r["sources"])
+
+	def test_tool_executor_is_role_safe(self):
+		"""A customer tool result never carries cost/margin fields."""
+		from cago.chatbot import tools
+
+		content, dtos = tools.run_tool("customer", "get_product", {"item_code": KIOSK_ITEM})
+		self.assertTrue(dtos)
+		for d in dtos:
+			for k in d:
+				self.assertNotIn("cost", k.lower())
+				self.assertNotIn("valuation", k.lower())
+				self.assertNotIn("margin", k.lower())

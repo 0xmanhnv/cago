@@ -54,22 +54,25 @@ _ROLE = {
 
 def _search_codes(message, public_only, k):
 	"""Phrase-first, then keyword search (accent-insensitive collation aware)."""
-	codes = dto.search_item_codes(message, public_only=public_only, limit=k)
-	if codes:
-		return codes
+	phrase = dto.search_item_codes(message, public_only=public_only, limit=k)
 	tokens = [t for t in re.split(r"\s+", (message or "").lower()) if len(t) >= 2 and t not in STOPWORDS]
-	if not tokens:
-		return []
+	# Single meaningful term → the phrase result is the answer.
+	if len(tokens) <= 1:
+		return phrase[:k]
+	# Multi-term query (e.g. "cám cho gà vịt lợn") → ALSO gather per-token hits and union them, so we
+	# don't return just the phrase's single top match and let the bot wrongly say "we don't have X".
+	# A wider per-token limit ensures each animal/topic contributes a few items.
 	scores = {}
 	for tok in tokens:
 		for c in dto.search_item_codes(tok, public_only=public_only, limit=k):
 			scores[c] = scores.get(c, 0) + 1
-	if not scores:
-		return []
-	top = max(scores.values())
-	if top < min(2, len(tokens)):
-		return []
-	return [c for c, s in sorted(scores.items(), key=lambda kv: kv[1], reverse=True) if s == top][:k]
+	token_codes = [c for c, _ in sorted(scores.items(), key=lambda kv: -kv[1])]
+	merged = []
+	for c in phrase + token_codes:
+		if c not in merged:
+			merged.append(c)
+	# Allow a few more than k for multi-topic queries so every topic is represented in the context.
+	return merged[: max(k, min(len(tokens) * 3, 10))]
 
 
 def search(role, message, k=5):

@@ -166,6 +166,26 @@ def kiosk_chips() -> dict:
 	})
 
 
+def extra_keywords(group) -> list:
+	"""Owner-added keyword synonyms for a deterministic intent group, merged on top of the
+	defaults baked into the code. Lets the owner teach the bot new local phrasings (e.g. a
+	regional word for 'còn hàng') WITHOUT a code change/rebuild — same live-config principle as
+	the LLM provider and kiosk chips. Source: env CAGO_CHATBOT_KEYWORDS / site_config
+	cago_chatbot_keywords / Company.cago_chatbot_keywords, a JSON object {group: [terms...]}.
+	Terms are normalised (accent-stripped) by the caller. Returns [] when unset/invalid."""
+	import json
+
+	raw = _get("CAGO_CHATBOT_KEYWORDS", "cago_chatbot_keywords", db_field="cago_chatbot_keywords")
+	if not raw:
+		return []
+	try:
+		val = json.loads(raw) if isinstance(raw, str) else raw
+		terms = (val or {}).get(group) if isinstance(val, dict) else None
+		return [str(t) for t in terms] if isinstance(terms, list) else []
+	except Exception:
+		return []
+
+
 def chatbot_enabled() -> bool:
 	return str(_get("CAGO_CHATBOT_ENABLED", "cago_chatbot_enabled", "1")).lower() not in ("0", "false", "no")
 
