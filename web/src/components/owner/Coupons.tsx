@@ -106,7 +106,7 @@ export function Coupons() {
         {rows.map((c) => (
           <div key={c.coupon_code} className={`mt-card flex items-center justify-between gap-2 p-3 ${c.is_active ? "" : "opacity-60"}`}>
             <div className="min-w-0">
-              <div className="font-extrabold text-brand-dark">🎟 {c.coupon_code} {!c.is_active && <span className="text-xs font-bold text-slate-400">(tắt)</span>}</div>
+              <div className="truncate font-extrabold text-brand-dark">🎟 {c.coupon_code} {!c.is_active && <span className="text-xs font-bold text-slate-400">(tắt)</span>}</div>
               <div className="text-sm text-slate-500">
                 Giảm <b>{valueText(c)}</b>
                 {c.min_order_amount > 0 && ` · đơn ≥ ${money(c.min_order_amount)}`}
