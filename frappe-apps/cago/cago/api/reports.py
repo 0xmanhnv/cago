@@ -342,9 +342,16 @@ def unsafe_questions(days=14, limit=50):
 @frappe.whitelist()
 def daily_digest():
 	"""Owner 'việc cần làm hôm nay': counts of low-stock items, soon-expiring batches, and
-	customers owing. Computed live from the existing reports (always fresh)."""
+	customers owing. The underlying reports return full row lists; this only needs counts, so the
+	result is cached per-user for a short TTL — the home screen is hit on every visit and these
+	numbers don't change second-to-second (the alert screens themselves stay live)."""
 	ensure_internal()
 	from cago.api import inventory
+
+	cache_key = f"cago_digest::{frappe.session.user}"
+	cached = frappe.cache().get_value(cache_key)
+	if cached is not None:
+		return cached
 
 	# Each section degrades to empty if the user lacks that capability — a debt-only staff sees
 	# only debtors, a stock-only staff only low-stock/expiring. (PermissionError per inner guard.)
@@ -361,7 +368,7 @@ def daily_digest():
 	# Split "đang hết" (zero stock → can't sell, highest urgency) from "sắp hết" so the home can
 	# flag them separately instead of burying lost-sales risk in one count.
 	out_of_stock = sum(1 for r in low if r.get("status") == "Hết hàng")
-	return {
+	result = {
 		"out_of_stock": out_of_stock,
 		"low_stock": len(low) - out_of_stock,
 		"expiring": len(expiring),
@@ -369,3 +376,5 @@ def daily_digest():
 		"debt_total_text": dto.format_price(total_debt) if total_debt else "0đ",
 		"has_tasks": bool(low or expiring or debts),
 	}
+	frappe.cache().set_value(cache_key, result, expires_in_sec=120)
+	return result

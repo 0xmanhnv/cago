@@ -82,7 +82,6 @@ const ACTIONS: Record<string, ActionDef> = {
 type Fav = { k: string; w: 1 | 2 };
 
 const FAV_CACHE = "cago_fav_cache";
-const DIGEST_CACHE = "cago_digest_cache"; // last "Việc cần làm hôm nay" so it paints instantly (no jump)
 const SHOW_ALL_KEY = "cago_show_all"; // remember whether the owner expanded "Tất cả chức năng"
 const savedShowAll = () => { try { return window.localStorage?.getItem(SHOW_ALL_KEY) === "1"; } catch { return false; } };
 // Hydrate from the local cache BEFORE the browser paints (layout effect), so the "⭐ Hay dùng" tiles
@@ -110,6 +109,7 @@ export function PosHome() {
   const { boot } = useSession();
   const owner = isOwner(boot);
   const [digest, setDigest] = useState<Digest | null>(null);
+  const [digestLoaded, setDigestLoaded] = useState(false); // false → show a reserved-height skeleton (no jump)
   const [onboard, setOnboard] = useState<Onboarding | null>(null);
   const [onboardHidden, setOnboardHidden] = useState(true);
   const [cfdToken, setCfdToken] = useState("");
@@ -208,10 +208,6 @@ export function PosHome() {
         const a = (JSON.parse(raw) as Fav[]).filter((f) => f && ACTIONS[f.k]);
         if (Array.isArray(a)) { setFav(a); setFavLoaded(true); setShowAll(a.length ? savedShowAll() : true); }
       }
-      // Pre-paint the daily digest from its last value so the "Việc cần làm hôm nay" panel is in
-      // the first frame (no layout jump). The fetch below revalidates the numbers.
-      const draw = window.localStorage?.getItem(DIGEST_CACHE);
-      if (draw) setDigest(JSON.parse(draw) as Digest);
     } catch { /* ignore a corrupt cache */ }
   }, []);
 
@@ -238,8 +234,8 @@ export function PosHome() {
 
   useEffect(() => {
     frappeCall<Digest>("cago.api.reports.daily_digest", {}, { method: "GET" })
-      .then((d) => { setDigest(d); try { window.localStorage?.setItem(DIGEST_CACHE, JSON.stringify(d)); } catch { /* ignore */ } })
-      .catch(() => {});
+      .then((d) => { setDigest(d); setDigestLoaded(true); })
+      .catch(() => setDigestLoaded(true));
     // Saved favorites: new format = [{k,w}]; legacy = ["key", ...] (treated as width 1).
     frappeCall<(string | Fav)[]>("cago.api.prefs.get_home_favorites", {}, { method: "GET" })
       .then((saved) => {
@@ -354,7 +350,22 @@ export function PosHome() {
         </div>
       )}
 
-      {digest?.has_tasks && (
+      {/* Reserve the slot from the first frame so the async digest never shifts the page. While
+          loading we show a neutral skeleton (NOT stale numbers, so there's no value-flip); once
+          loaded we show the real tasks, or a compact all-clear note of the same height. */}
+      {!digestLoaded ? (
+        <div className="mb-3 animate-pulse rounded-2xl border-2 border-amber-200 bg-amber-50/60 p-3" aria-hidden>
+          <div className="flex items-center justify-between">
+            <div className="h-5 w-40 rounded bg-amber-200/70" />
+            <div className="h-6 w-20 rounded-full bg-white/80" />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <div className="h-8 w-32 rounded-lg bg-white/80" />
+            <div className="h-8 w-28 rounded-lg bg-white/80" />
+            <div className="h-8 w-36 rounded-lg bg-white/80" />
+          </div>
+        </div>
+      ) : digest?.has_tasks ? (
         <div className="mb-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
           <div className="flex items-center justify-between">
             <div className="font-extrabold text-amber-800">📌 Việc cần làm hôm nay</div>
@@ -374,6 +385,10 @@ export function PosHome() {
               <button onClick={() => router.push("/pos/debt")} className="rounded-lg bg-white px-3 py-1.5 text-sm font-bold text-red-700 shadow">📒 {digest.debtors} khách nợ · {digest.debt_total_text}</button>
             )}
           </div>
+        </div>
+      ) : (
+        <div className="mb-3 rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-3 text-center text-sm font-bold text-emerald-700">
+          ✅ Hôm nay không có việc gấp
         </div>
       )}
 
