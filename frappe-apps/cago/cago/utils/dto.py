@@ -117,8 +117,9 @@ def get_selling_price(item_code):
 # Weight sale units are stored with neutral, math-style codes (base "Kg" + factor) so the
 # data layer never carries Vietnamese strings, while the UI always shows the Vietnamese name.
 # Codes: kg10 = yến (10kg), kg100 = tạ (100kg), kg1000 = tấn (1000kg). Anything not in the map
-# (Bao, Kg, Gói, Chai, …) is shown verbatim.
-UOM_LABELS = {"kg10": "Yến", "kg100": "Tạ", "kg1000": "Tấn"}
+# (Bao, Kg, Gói, Chai, …) is shown verbatim. "Nos" is ERPNext's default count UOM (Numbers) — it
+# must never leak to the Vietnamese kiosk, so it (and "Unit") map to "Cái".
+UOM_LABELS = {"kg10": "Yến", "kg100": "Tạ", "kg1000": "Tấn", "Nos": "Cái", "Unit": "Cái"}
 
 
 def uom_label(uom):

@@ -38,6 +38,10 @@ scheduler_events = {
 		"cago.setup.backup.daily",
 		"cago.api.alerts.daily_owner_digest",  # push "việc hôm nay" (low stock / near-expiry / debt)
 	],
+	"cron": {
+		# Expire support requests nobody accepted in time → ping the owner (minimal escalation).
+		"*/2 * * * *": ["cago.api.support.expire_stale_requests"],
+	},
 }
 
 # ---------------------------------------------------------------------------
