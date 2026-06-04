@@ -7,7 +7,7 @@ import { useKioskNav } from "@/lib/kioskNav";
 import { useKioskLockdown } from "@/lib/useKioskLockdown";
 import { FloatingFab } from "./FloatingFab";
 import { Assistant } from "./Assistant";
-import { isFixedKiosk } from "./StoreMapView";
+import { applyKioskUrlFlag } from "./StoreMapView";
 
 export function KioskChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -24,7 +24,7 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
   // track fullscreen (both are client-only, post-mount → hydration-safe).
   useEffect(() => {
     kiosk.hydrate();
-    setFixed(isFixedKiosk());
+    setFixed(applyKioskUrlFlag()); // ?kiosk=1/0 in the launch URL provisions the flag (OS-controlled)
     const onFs = () => setIsFs(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFs);
     onFs();

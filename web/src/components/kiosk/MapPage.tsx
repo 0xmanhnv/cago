@@ -6,6 +6,8 @@ import { frappeCall } from "@/lib/api";
 import { useKioskNav } from "@/lib/kioskNav";
 import { findZone, planRoute, slugify, type StoreMap } from "@/lib/storemap";
 import { speak } from "@/lib/kioskUi";
+import { useSession } from "@/lib/session";
+import { isInternal } from "@/lib/caps";
 import { StoreMapView, isFixedKiosk } from "./StoreMapView";
 import { KioskNavButtons } from "./KioskNavButtons";
 
@@ -13,6 +15,7 @@ export function MapPage() {
   const nav = useKioskNav();
   const router = useRouter();
   const sp = useSearchParams();
+  const { boot } = useSession();
   const toSlug = sp.get("to") || ""; // selected destination, kept in the URL so "Quay lại" restores it
   const [map, setMap] = useState<StoreMap | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -86,10 +89,15 @@ export function MapPage() {
             <p className="mt-2 text-center text-sm text-slate-400">(Sơ đồ tham khảo)</p>
           )}
 
-          <label className="mt-5 flex items-center gap-2 rounded-xl bg-slate-100 p-3 text-sm text-slate-600">
-            <input type="checkbox" checked={fixed} onChange={toggleFixed} className="h-5 w-5" />
-            Đây là màn hình kiosk cố định đặt tại quầy (chỉ đường tính từ chỗ kiosk thay vì từ cửa vào).
-          </label>
+          {/* Provisioning control — shown ONLY to a logged-in owner/staff. A customer (guest) never
+              sees it, so they can't untick it to bypass the kiosk lockdown. The robust way to
+              provision is the launch URL ?kiosk=1 (OS-controlled); this is the in-app convenience. */}
+          {isInternal(boot) && (
+            <label className="mt-5 flex items-center gap-2 rounded-xl bg-slate-100 p-3 text-sm text-slate-600">
+              <input type="checkbox" checked={fixed} onChange={toggleFixed} className="h-5 w-5" />
+              Đây là màn hình kiosk cố định đặt tại quầy (chỉ đường tính từ chỗ kiosk; bật khoá kiosk). Mở bằng <code className="rounded bg-white px-1">?kiosk=1</code> trên máy kiosk.
+            </label>
+          )}
         </>
       )}
     </div>

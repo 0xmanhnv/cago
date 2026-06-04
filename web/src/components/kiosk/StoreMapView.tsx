@@ -4,9 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { findZone, planRoute, splitStrokes, toPath, toPoints, zoneCenter, type Pt, type StoreMap } from "@/lib/storemap";
 
-// The fixed kiosk tablet sets this once (toggle on the /map page); customer phones don't
-// have it. With the flag → route starts at the kiosk; without → at the entrance ("từ cửa vào").
+// The fixed kiosk tablet carries this flag; customer phones don't. With the flag → route starts
+// at the kiosk; without → at the entrance ("từ cửa vào"). It also turns on the web hardening
+// (idle reset / no-zoom / fullscreen — see useKioskLockdown).
 export const isFixedKiosk = () => typeof window !== "undefined" && window.localStorage?.getItem("cago_fixed_kiosk") === "1";
+
+// Provision the flag from the LAUNCH URL: `?kiosk=1` enables it, `?kiosk=0` clears it. The OS
+// kiosk launcher (Fully Kiosk start URL / Chromium --kiosk) owns that URL, and a locked-in shopper
+// can't reach the address bar — so unlike an in-page checkbox this can't be flipped by a customer.
+// Call once on mount (client-only). Returns the resulting flag.
+export function applyKioskUrlFlag(): boolean {
+  if (typeof window === "undefined") return false;
+  const v = new URLSearchParams(window.location.search).get("kiosk");
+  if (v === "1") window.localStorage?.setItem("cago_fixed_kiosk", "1");
+  else if (v === "0") window.localStorage?.removeItem("cago_fixed_kiosk");
+  return isFixedKiosk();
+}
 
 /**
  * Read-only store map (multi-floor). `focusCategory` highlights that category's zone and draws a
