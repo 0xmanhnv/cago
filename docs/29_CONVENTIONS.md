@@ -26,6 +26,14 @@ Hard-won rules. Follow them so we don't repeat past mistakes. Each line is a "do
 9. **Headers/labels:** Vietnamese UI text; friendly dates ("Hôm nay/Hôm qua/dd/MM/yyyy", not raw ISO);
    each card must be identifiable without expanding (lead with WHAT it is, not a generic count).
 
+## Naming
+9b. **No folder-redundant prefixes on component files/exports.** A folder already gives context, so
+    `kiosk/Chrome.tsx` (not `KioskChrome`), `pos/Home.tsx`/`pos/Shell.tsx` (not `PosHome`/`PosShell`),
+    `staff/Chat.tsx` (not `StaffChat`). Same-named components in different folders are fine
+    (module-scoped: `kiosk/Home` vs `pos/Home`). Shared utility modules: `owner/Shared.tsx` (not
+    `OwnerShared`). When renaming an identifier project-wide, sed the UNIQUE old name (`\bPosHome\b`)
+    so common words aren't corrupted, then `git mv` the file, then build.
+
 ## Units & money
 10. **UOM display vs payload.** Relabel a unit for DISPLAY only — backend `dto.uom_label`/`UOM_LABELS`
     (public DTO `unit`) and frontend `lib/uom.ts uomLabel()` at render sites. NEVER relabel the `uom`
@@ -43,7 +51,7 @@ Hard-won rules. Follow them so we don't repeat past mistakes. Each line is a "do
     never in `staff_dto`/`public_dto` (`chatbot/context._FORBIDDEN` asserts it for the LLM too).
 14. **Every `@frappe.whitelist`** carries a guard (ensure_*; or `allow_guest` + `rate_guard` returning
     only public-safe DTOs). Helpers like `_check_item` that call ensure_cap count — but verify.
-15. **tile cap (PosHome.ACTIONS) == route guard (PosShell.capFor)** for every route. Don't let a tile be
+15. **tile cap (pos/Home.ACTIONS) == route guard (pos/Shell.capFor)** for every route. Don't let a tile be
     stricter than its route (a capless user could URL in and hit an error).
 16. **Owner/Staff are confined to /pos** — Cago business roles have `desk_access=0`; only `Cago Admin`
     keeps the Frappe Desk. `permissions.confine_to_pos` strips leftover ERPNext desk roles (Sales/Accounts
