@@ -13,8 +13,10 @@ import { PinLock } from "./PinLock";
 // Which capability the current /pos route needs. Central so we don't sprinkle guards across ~28
 // pages. Most-specific paths first. Routes that are shared lookups (home, search, orders,
 // assistant, a product detail view) need only "any internal" → no cap.
-function capFor(path: string): { cap?: Cap; owner?: boolean } {
-  if (path.startsWith("/pos/staff") || path.startsWith("/pos/ai-settings") || path.startsWith("/pos/readiness")) return { owner: true }; // owner-only
+function capFor(path: string): { cap?: Cap; owner?: boolean; admin?: boolean } {
+  // Technical tier (LLM keys / messaging webhook / backup) — hidden from a non-technical owner.
+  if (path.startsWith("/pos/ai-settings") || path.startsWith("/pos/backup")) return { admin: true };
+  if (path.startsWith("/pos/staff") || path.startsWith("/pos/readiness")) return { owner: true }; // owner-only
   if (path.startsWith("/pos/products/") && path.endsWith("/edit")) return { cap: "products" };
   if (
     path.startsWith("/pos/products/new") ||
@@ -48,7 +50,7 @@ function capFor(path: string): { cap?: Cap; owner?: boolean } {
 
 export function PosShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
-  const { cap, owner } = capFor(path);
+  const { cap, owner, admin } = capFor(path);
   const { boot, reload } = useSession();
   const signedIn = isInternal(boot);
   // The PIN lock state is authoritative from the SERVER session (boot.pos_locked) — not localStorage
@@ -71,7 +73,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
 
   if (locked) return <PinLock brand={boot?.brand} onUnlock={reload} />;
   return (
-    <CapabilityGuard cap={cap} owner={owner}>
+    <CapabilityGuard cap={cap} owner={owner} admin={admin}>
       {/* Ease each route in (keyed by path) so navigating never "snaps" — it cross-fades. */}
       <div key={path} className="animate-fade-in">
         {children}

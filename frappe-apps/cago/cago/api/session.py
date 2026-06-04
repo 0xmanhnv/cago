@@ -13,7 +13,7 @@ server-side guard (see utils/permissions.py), so a forged client role grants not
 import frappe
 
 from cago.chatbot import config as chatbot_config
-from cago.utils.permissions import caps_for_user, has_cap, selling_limits
+from cago.utils.permissions import caps_for_user, has_cap, is_admin, is_owner, selling_limits
 
 
 @frappe.whitelist(allow_guest=True)
@@ -28,6 +28,10 @@ def bootstrap():
 		# Capability keys this user holds (owner = all). The /pos UI renders only the tiles a
 		# user may use; every API still re-checks server-side (ensure_cap).
 		"caps": caps_for_user(),
+		# Tier flags for UI gating (server still re-checks every API). is_admin = technical screens
+		# (LLM keys / webhook / backup); is_owner = business super-role (admin is also an owner).
+		"is_owner": is_owner(),
+		"is_admin": is_admin(),
 		"csrf_token": frappe.sessions.get_csrf_token(),
 		"brand": frappe.db.get_single_value("Website Settings", "app_name") or "Minh Tuyết",
 		"persona": chatbot_config.persona(),

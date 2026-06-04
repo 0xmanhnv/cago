@@ -7,7 +7,7 @@ import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@d
 import { CSS } from "@dnd-kit/utilities";
 import { frappeCall, logout } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { hasCap, isInternal, isOwner, type Cap } from "@/lib/caps";
+import { hasCap, isAdmin, isInternal, isOwner, type Cap } from "@/lib/caps";
 import { BrandHeader } from "@/components/ui/BrandHeader";
 import { confirmDialog } from "@/components/ui/dialog";
 import { isFixedKiosk } from "@/components/kiosk/StoreMapView";
@@ -31,7 +31,7 @@ interface Onboarding {
 }
 
 // Required capability to use an action. null = any back-of-house user (shared); "owner" = owner only.
-type Need = Cap | null | "owner";
+type Need = Cap | null | "owner" | "admin";
 
 // One registry of every back-office action. Tiles render only when the user holds the capability;
 // groups/favorites reference these by key. Most navigate (`href`); a few run a local handler
@@ -74,9 +74,9 @@ const ACTIONS: Record<string, ActionDef> = {
   insights: { label: "🤖 Trợ lý học gì", color: "bg-violet-600", href: "/pos/assistant-insights", cap: "reports" },
   aicontent: { label: "✍️ Dạy trợ lý trả lời", color: "bg-violet-500", href: "/pos/assistant-content", cap: "reports" },
   health: { label: "🩺 Kiểm tra dữ liệu", color: "bg-blue-600", href: "/pos/health", cap: "products" },
-  aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "owner" },
+  aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "admin" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
-  backup: { label: "💾 Sao lưu dữ liệu", color: "bg-slate-600", href: "/pos/backup", cap: "owner" },
+  backup: { label: "💾 Sao lưu dữ liệu", color: "bg-slate-600", href: "/pos/backup", cap: "admin" },
   readiness: { label: "🚩 Sẵn sàng khai trương?", color: "bg-emerald-700", href: "/pos/readiness", cap: "owner" },
   cfd: { label: "🖥 Màn hình phụ cho khách", color: "bg-slate-700", cap: "sell", action: "cfd" },
   handover: { label: "🧑‍🌾 Màn hình khách", color: "bg-emerald-600", cap: null, action: "handover", kioskOnly: true },
@@ -138,6 +138,7 @@ export function PosHome() {
     if (a.kioskOnly && !kioskDevice) return false;
     if (a.cap === null) return isInternal(boot);
     if (a.cap === "owner") return owner;
+    if (a.cap === "admin") return isAdmin(boot);
     return hasCap(boot, a.cap);
   };
 

@@ -17,7 +17,7 @@ export function Settings() {
   const [expiryDays, setExpiryDays] = useState("");
   const [proof, setProof] = useState({ debt_mode: "optional", debt_min: "", repay_mode: "optional", repay_min: "" });
   const [defLimit, setDefLimit] = useState("");
-  const [notify, setNotify] = useState({ owner_phone: "", webhook: "", token: "", has_token: false });
+  const [notify, setNotify] = useState({ owner_phone: "", webhook: "", token: "", has_token: false, has_webhook: false, is_admin: false });
   const [cfdUrl, setCfdUrl] = useState("");
   const [cfdCopied, setCfdCopied] = useState(false);
 
@@ -46,8 +46,8 @@ export function Settings() {
     frappeCall<{ limit: number }>("cago.api.verify.get_default_debt_limit", {}, { method: "GET" })
       .then((d) => setDefLimit(String(d.limit || "")))
       .catch(() => {});
-    frappeCall<{ owner_phone: string; webhook: string; has_token: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
-      .then((d) => setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token }))
+    frappeCall<{ owner_phone: string; webhook: string; has_token: boolean; has_webhook: boolean; is_admin: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
+      .then((d) => setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token, has_webhook: !!d.has_webhook, is_admin: !!d.is_admin }))
       .catch(() => {});
     frappeCall<{ token: string }>("cago.api.display.cfd_token", {}, { method: "GET" })
       .then((d) => setCfdUrl(d.token ? `${window.location.origin}/display?k=${d.token}` : ""))
@@ -95,12 +95,19 @@ export function Settings() {
 
   const saveNotify = async () => {
     try {
-      const d = await frappeCall<{ owner_phone: string; webhook: string; has_token: boolean }>("cago.api.notify.set_notify_config", {
-        owner_phone: notify.owner_phone,
-        webhook: notify.webhook,
-        ...(notify.token ? { token: notify.token } : {}),
-      });
-      setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token });
+      // owner_phone is a business field (owner). webhook + token are technical relay config (admin) —
+      // saved via a separate admin endpoint, only when the current user is an admin.
+      await frappeCall("cago.api.notify.set_notify_config", { owner_phone: notify.owner_phone });
+      let d;
+      if (notify.is_admin) {
+        d = await frappeCall<{ owner_phone: string; webhook: string; has_token: boolean; has_webhook: boolean; is_admin: boolean }>("cago.api.notify.set_webhook", {
+          webhook: notify.webhook,
+          ...(notify.token ? { token: notify.token } : {}),
+        });
+      } else {
+        d = await frappeCall<{ owner_phone: string; webhook: string; has_token: boolean; has_webhook: boolean; is_admin: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" });
+      }
+      setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token, has_webhook: !!d.has_webhook, is_admin: !!d.is_admin });
       toast.success("Đã lưu cài đặt nhắn tin.");
     } catch {
       toast.error("Lỗi: không lưu được.");
@@ -288,10 +295,19 @@ export function Settings() {
         </p>
         <label className="mt-3 block font-bold text-slate-700">Số điện thoại chủ (nhận nhắc việc)</label>
         <input value={notify.owner_phone} onChange={(e) => setNotify({ ...notify, owner_phone: e.target.value })} inputMode="tel" placeholder="VD: 0912345678" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-        <label className="mt-3 block font-bold text-slate-700">Webhook gửi tin (tuỳ chọn)</label>
-        <input value={notify.webhook} onChange={(e) => setNotify({ ...notify, webhook: e.target.value })} placeholder="https://..." className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-        <label className="mt-3 block font-bold text-slate-700">Token (tuỳ chọn){notify.has_token ? " — đã lưu" : ""}</label>
-        <input value={notify.token} onChange={(e) => setNotify({ ...notify, token: e.target.value })} placeholder={notify.has_token ? "•••••• (để trống nếu giữ nguyên)" : "Bearer token"} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        {notify.is_admin ? (
+          // Technical relay config — only an admin (kỹ thuật) sees the endpoint + token.
+          <>
+            <label className="mt-3 block font-bold text-slate-700">⚙️ Webhook gửi tin (quản trị kỹ thuật)</label>
+            <input value={notify.webhook} onChange={(e) => setNotify({ ...notify, webhook: e.target.value })} placeholder="https://..." className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+            <label className="mt-3 block font-bold text-slate-700">Token (tuỳ chọn){notify.has_token ? " — đã lưu" : ""}</label>
+            <input value={notify.token} onChange={(e) => setNotify({ ...notify, token: e.target.value })} placeholder={notify.has_token ? "•••••• (để trống nếu giữ nguyên)" : "Bearer token"} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          </>
+        ) : (
+          <p className="mt-3 text-sm text-slate-400">
+            {notify.has_webhook ? "✅ Kênh gửi tin đã được quản trị kỹ thuật cấu hình." : "ℹ️ Kênh gửi tin (webhook) do quản trị kỹ thuật cấu hình."}
+          </p>
+        )}
         <button onClick={saveNotify} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
           💾 Lưu cài đặt nhắn tin
         </button>

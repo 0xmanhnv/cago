@@ -13,9 +13,16 @@ See docs/27 and the unified /pos plan.
 import frappe
 from frappe import _
 
-# An owner is anyone who may do everything (edit prices / see margins / all caps).
-# System Manager included so an admin can operate the simplified UI during setup.
-OWNER_ROLES = {"Cago Owner", "System Manager"}
+# Three tiers (Admin ⊇ Owner ⊇ Staff):
+#  - ADMIN = technical/installer/support: LLM keys, messaging webhook, backup, data health, and
+#    granting the Admin role. POS-scoped least-privilege — `Cago Admin` can do this WITHOUT full
+#    Frappe Desk root. `System Manager` (the site root / installer account) is always Admin too, so
+#    setup works before any Cago Admin user exists.
+#  - OWNER = the shop owner (business super-role): every business capability, but NOT the technical
+#    screens. An Admin is also an Owner (superset), so admins operate the shop normally + the tech bits.
+#  - STAFF = one or more capability roles.
+ADMIN_ROLES = {"Cago Admin", "System Manager"}
+OWNER_ROLES = {"Cago Owner"} | ADMIN_ROLES
 
 # capability key -> the Frappe role that grants it.
 CAP_ROLES = {
@@ -51,6 +58,21 @@ def _roles():
 
 def is_owner():
 	return bool(_roles() & OWNER_ROLES)
+
+
+def is_admin():
+	"""Technical/installer tier (Cago Admin or System Manager). Gates the technical-config screens
+	(LLM keys, messaging webhook, backup, data health) so a non-technical owner never sees them."""
+	return bool(_roles() & ADMIN_ROLES)
+
+
+def is_admin_roles(roles):
+	return bool(set(roles) & ADMIN_ROLES)
+
+
+def ensure_admin():
+	if not is_admin():
+		frappe.throw(_("Chỉ quản trị kỹ thuật mới được thực hiện thao tác này."), frappe.PermissionError)
 
 
 def is_internal():

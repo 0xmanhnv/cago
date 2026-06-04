@@ -14,7 +14,7 @@ import frappe
 from frappe import _
 
 from cago.api.debt import _company
-from cago.utils.permissions import ensure_owner
+from cago.utils.permissions import ensure_admin
 
 _DATA_FIELDS = (
 	"cago_llm_provider",
@@ -32,7 +32,7 @@ _KEY_FIELDS = ("cago_llm_api_key", "cago_llm_fallback_api_key")
 def get_ai_config():
 	"""Owner reads the AI config. Keys are never returned — only whether one is set. `effective` shows
 	what is ACTUALLY used right now (incl. site_config/env fallbacks), so the owner sees the live state."""
-	ensure_owner()
+	ensure_admin()
 	from cago.chatbot import config
 
 	c = _company()
@@ -64,7 +64,7 @@ def get_ai_config():
 def set_ai_config(**kwargs):
 	"""Owner writes the AI config. Only fields supplied are changed; API keys are written only when a
 	non-empty value is given (so the UI can leave them blank to keep the current key)."""
-	ensure_owner()
+	ensure_admin()
 	c = _company()
 	for f in _DATA_FIELDS:
 		if f in kwargs and kwargs[f] is not None:
@@ -79,7 +79,7 @@ def set_ai_config(**kwargs):
 @frappe.whitelist()
 def test_ai(which="primary"):
 	"""Owner: send a tiny prompt to validate the key/model/base_url. Returns {ok, reply|error}."""
-	ensure_owner()
+	ensure_admin()
 	from cago.chatbot import config
 	from cago.chatbot.providers import get_provider
 	from cago.chatbot.providers.base import Message

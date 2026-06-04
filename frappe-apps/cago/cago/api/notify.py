@@ -19,7 +19,7 @@ from frappe import _
 
 from cago.api.debt import _company
 from cago.chatbot.observability import clean_phone
-from cago.utils.permissions import ensure_internal, ensure_owner
+from cago.utils.permissions import ensure_admin, ensure_internal, ensure_owner, is_admin
 
 
 def _config():
@@ -77,23 +77,37 @@ def notify_status():
 
 @frappe.whitelist()
 def get_notify_config():
-	"""Owner reads the messaging config (token is never returned — only whether it is set)."""
+	"""Messaging config. owner_phone is a business field (owner). The webhook URL + token are the
+	technical relay config (admin) — the URL is returned only to an admin; others just learn whether
+	it's set."""
 	ensure_owner()
 	c = _company()
+	admin = is_admin()
 	return {
 		"owner_phone": frappe.db.get_value("Company", c, "cago_owner_phone") or "",
-		"webhook": frappe.db.get_value("Company", c, "cago_notify_webhook") or "",
+		"is_admin": admin,
+		"webhook": (frappe.db.get_value("Company", c, "cago_notify_webhook") or "") if admin else "",
+		"has_webhook": bool(frappe.db.get_value("Company", c, "cago_notify_webhook")),
 		"has_token": bool(frappe.db.get_value("Company", c, "cago_notify_token")),
 	}
 
 
 @frappe.whitelist()
-def set_notify_config(owner_phone=None, webhook=None, token=None):
-	"""Owner sets the messaging config. Token only overwritten when a non-empty value is supplied."""
+def set_notify_config(owner_phone=None):
+	"""Owner sets the shop's contact phone (alerts / support escalation). Business field."""
 	ensure_owner()
-	c = _company()
 	if owner_phone is not None:
-		frappe.db.set_value("Company", c, "cago_owner_phone", clean_phone(owner_phone))
+		frappe.db.set_value("Company", _company(), "cago_owner_phone", clean_phone(owner_phone))
+	frappe.db.commit()
+	return get_notify_config()
+
+
+@frappe.whitelist()
+def set_webhook(webhook=None, token=None):
+	"""Set the Zalo/SMS relay endpoint + bearer token — technical config, ADMIN only. Token is only
+	overwritten when a non-empty value is supplied (saving the URL alone keeps the existing token)."""
+	ensure_admin()
+	c = _company()
 	if webhook is not None:
 		frappe.db.set_value("Company", c, "cago_notify_webhook", (webhook or "").strip())
 	if token:

@@ -31,6 +31,15 @@ export function isInternal(boot: Bootstrap | null): boolean {
 
 // Owner = holds the owner ROLE (matches the server's is_owner). NOT "has all caps" — a staffer
 // granted every capability is still not the owner (can't manage staff / open the Desk).
+// An Admin is also an Owner (superset), so admins operate the shop normally + the technical bits.
 export function isOwner(boot: Bootstrap | null): boolean {
-  return !!boot && Array.isArray(boot.roles) && boot.roles.some((r) => r === "Cago Owner" || r === "System Manager");
+  if (boot?.is_owner !== undefined) return !!boot.is_owner;
+  return !!boot && Array.isArray(boot.roles) && boot.roles.some((r) => r === "Cago Owner" || r === "Cago Admin" || r === "System Manager");
+}
+
+// Admin = technical/installer tier. Gates technical-config screens (LLM keys, messaging webhook,
+// backup) so a non-technical owner never sees them. System Manager qualifies too.
+export function isAdmin(boot: Bootstrap | null): boolean {
+  if (boot?.is_admin !== undefined) return !!boot.is_admin;
+  return !!boot && Array.isArray(boot.roles) && boot.roles.some((r) => r === "Cago Admin" || r === "System Manager");
 }

@@ -105,6 +105,8 @@ export interface Bootstrap {
   is_guest: boolean;
   roles: string[];
   caps: string[]; // capability keys the user holds (owner = all) — drives the /pos menu
+  is_owner?: boolean; // business super-role (Cago Owner, or an Admin who is also an owner)
+  is_admin?: boolean; // technical tier (Cago Admin / System Manager) — LLM keys / webhook / backup
   csrf_token: string;
   brand: string;
   persona: Persona;

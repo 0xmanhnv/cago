@@ -16,7 +16,7 @@ from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import (
 	record_action,
 )
 from cago.utils import dto
-from cago.utils.permissions import ensure_cap, ensure_internal, ensure_owner
+from cago.utils.permissions import ensure_admin, ensure_cap, ensure_internal, ensure_owner
 
 
 @frappe.whitelist()
@@ -77,7 +77,7 @@ def _run_backup():
 def backup_now():
 	"""Owner-triggered backup (DB + files). Runs in the background so the request returns fast;
 	lets a non-technical owner back up without the command line."""
-	ensure_owner()
+	ensure_admin()
 	frappe.enqueue("cago.api.owner._run_backup", queue="long", timeout=1800)
 	return {"ok": True}
 
@@ -85,7 +85,7 @@ def backup_now():
 @frappe.whitelist()
 def last_backup():
 	"""Name + time of the most recent backup file, for the owner UI."""
-	ensure_owner()
+	ensure_admin()
 	import datetime
 	import glob
 	import os
