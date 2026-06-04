@@ -204,6 +204,14 @@ interface LedgerEntry {
   voucher_type: string;
   voucher_no: string;
 }
+interface Proof {
+  name: string;
+  kind: string;
+  signature?: string;
+  photo?: string;
+  witness?: string;
+  posted_at?: string;
+}
 
 export function CustomerLedger({ customer }: { customer: string }) {
   const router = useRouter();
@@ -215,6 +223,7 @@ export function CustomerLedger({ customer }: { customer: string }) {
   const [statement, setStatement] = useState<string | null>(null);
   const [amt, setAmt] = useState("");
   const [busy, setBusy] = useState(false);
+  const [proofView, setProofView] = useState<Proof[] | null>(null); // null = closed; [] = none found
   const load = async () => setD(await frappeCall<Ledger>("cago.api.debt.get_customer_ledger", { customer }, { method: "GET" }));
   useEffect(() => {
     void load();
@@ -330,6 +339,15 @@ export function CustomerLedger({ customer }: { customer: string }) {
               <br />
               <button
                 onClick={async () => {
+                  const ps = await frappeCall<Proof[]>("cago.debt_proof.proofs_for", { voucher_no: e.voucher_no }, { method: "GET" }).catch(() => []);
+                  setProofView(ps.length ? ps : []);
+                }}
+                className="mr-1 rounded bg-slate-100 px-2 py-1 text-[13px] font-bold text-slate-600"
+              >
+                ✍️ Bằng chứng
+              </button>
+              <button
+                onClick={async () => {
                   if (!(await confirmDialog("Huỷ bút toán này? (dùng khi ghi nhầm)", { danger: true, confirmLabel: "Huỷ bút toán" }))) return;
                   await frappeCall("cago.api.debt.cancel_entry", { voucher_type: e.voucher_type, voucher_no: e.voucher_no, customer });
                   await load();
@@ -345,6 +363,32 @@ export function CustomerLedger({ customer }: { customer: string }) {
       {draft !== null && <DraftModal text={draft} phone={d.phone} onClose={() => setDraft(null)} />}
       {statement !== null && (
         <DraftModal text={statement} phone={d.phone} title="📄 Sao kê công nợ" allowPrint onClose={() => setStatement(null)} />
+      )}
+      {proofView !== null && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" onClick={() => setProofView(null)}>
+          <div className="max-h-[90vh] w-full max-w-md overflow-auto rounded-3xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="text-lg font-extrabold text-brand-dark">✍️ Bằng chứng xác nhận</div>
+            {proofView.length === 0 ? (
+              <div className="mt-3 text-slate-500">Giao dịch này chưa có chữ ký / ảnh xác nhận.</div>
+            ) : (
+              proofView.map((p) => (
+                <div key={p.name} className="mt-3 rounded-2xl border border-slate-100 p-3">
+                  <div className="text-sm font-bold text-slate-500">{p.kind === "repay" ? "Khách trả nợ" : "Ghi nợ"}{p.posted_at ? ` · ${p.posted_at.slice(0, 16).replace("T", " ")}` : ""}</div>
+                  {p.signature && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.signature} alt="Chữ ký" className="mt-2 w-full rounded-lg border bg-slate-50" />
+                  )}
+                  {p.photo && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.photo} alt="Ảnh" className="mt-2 w-full rounded-lg border" />
+                  )}
+                  {p.witness && <div className="mt-2 text-sm">👤 Người làm chứng: <b>{p.witness}</b></div>}
+                </div>
+              ))
+            )}
+            <button onClick={() => setProofView(null)} className="mt-4 min-h-touch w-full rounded-xl bg-slate-200 font-bold text-slate-600">Đóng</button>
+          </div>
+        </div>
       )}
     </div>
   );
