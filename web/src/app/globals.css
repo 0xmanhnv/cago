@@ -64,6 +64,19 @@ body {
   min-height: 100vh;
 }
 
+/* iOS Safari auto-zooms when a focused form control has font-size < 16px — and often fails to zoom
+   back out when the keyboard hides, leaving the layout shifted. Several screens use Tailwind text-sm
+   (14px) / text-xs inputs. Force ALL form controls to ≥16px on touch devices so NO input anywhere can
+   trigger the zoom (one rule = whole-app fix). Scoped to coarse pointers so desktop keeps compact
+   inputs; !important to win over Tailwind's text-sm/text-xs utility classes. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* ============================================================================
    "Minh Tuyết" shared design system — one CSS used across kiosk, owner & staff
    so every screen matches: soft rounded cards, fresh-green/harvest accents,

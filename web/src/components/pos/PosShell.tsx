@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { CapabilityGuard } from "@/components/CapabilityGuard";
+import { FloatingFab } from "@/components/kiosk/FloatingFab";
 import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { isInternal, hasCap, type Cap } from "@/lib/caps";
@@ -86,6 +86,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
 }
 
 function SupportBadge() {
+  const router = useRouter();
   const [count, setCount] = useState(0);
   useEffect(() => {
     let alive = true;
@@ -105,12 +106,17 @@ function SupportBadge() {
     };
   }, []);
   if (!count) return null;
+  // Draggable like the kiosk FABs (snaps to an edge, position remembered) so it never permanently
+  // covers a tile — the staff member can park it wherever suits the counter.
   return (
-    <Link
-      href="/pos/support"
-      className="animate-pop-in fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-red-600 px-5 py-3.5 text-base font-extrabold text-white shadow-2xl"
+    <FloatingFab
+      storageKey="cago_fab_support"
+      onTap={() => router.push("/pos/support")}
+      title="Khách cần hỗ trợ"
+      style={{ position: "fixed", right: 12, bottom: 84, zIndex: 55 }}
+      className="animate-pop-in flex items-center gap-2 rounded-full bg-red-600 px-5 py-3.5 text-base font-extrabold text-white shadow-2xl"
     >
       🛎️ {count} khách cần hỗ trợ
-    </Link>
+    </FloatingFab>
   );
 }
