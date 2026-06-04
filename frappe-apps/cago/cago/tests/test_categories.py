@@ -57,6 +57,20 @@ class TestCategoryCrud(FrappeTestCase):
 
 		self.assertEqual(set(subtree_of("_Cat A")), {"_Cat A", "_Cat B"})
 
+	def test_rename_parent_keeps_children_linked(self):
+		"""Renaming a parent must carry its children's cago_parent (links are by docname)."""
+		from cago.api import owner
+
+		owner.save_category("_Cat A", icon="📦")
+		owner.save_category("_Cat B", icon="📦", parent="_Cat A")
+		owner.save_category("_Cat A2", old_name="_Cat A")  # rename the parent
+		self.assertTrue(frappe.db.exists("Item Group", "_Cat A2"))
+		self.assertEqual(frappe.db.get_value("Item Group", "_Cat B", "cago_parent"), "_Cat A2")
+		# cleanup alias
+		frappe.db.set_value("Item Group", "_Cat B", "cago_parent", None, update_modified=False)
+		frappe.delete_doc("Item Group", "_Cat B", ignore_permissions=True, force=True)
+		frappe.delete_doc("Item Group", "_Cat A2", ignore_permissions=True, force=True)
+
 	def test_two_level_only(self):
 		"""Reject 3-level nesting: a category that is already a parent can't be given a parent, and a
 		child can't be chosen as someone's parent."""

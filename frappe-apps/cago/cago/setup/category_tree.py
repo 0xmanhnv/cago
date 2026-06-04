@@ -28,14 +28,27 @@ def flatten_category_tree():
 	)
 	# Snapshot the old parent BEFORE any change (flattening erases parent_item_group).
 	old_parent = {g.name: g.parent_item_group for g in groups}
-	changed = False
 
+	def top_ancestor(name):
+		"""The old top-most shop ancestor (the node that sat directly under the root) — so a deeper
+		(3+ level) ERPNext tree collapses to the correct 2-level cago_parent, not a mid-chain link."""
+		seen = set()
+		cur = name
+		while cur in old_parent and cur not in seen:
+			seen.add(cur)
+			p = old_parent[cur]
+			if not p or p == root or p in DEFAULTS:
+				return cur
+			cur = p
+		return cur
+
+	changed = False
 	for g in groups:
-		# 1) Carry the old hierarchy into cago_parent (only when it pointed at a real shop parent and
-		#    we haven't already recorded one — so re-runs don't clobber an owner's later edit).
-		op = old_parent.get(g.name)
-		if not g.cago_parent and op and op != root and op not in DEFAULTS:
-			frappe.db.set_value("Item Group", g.name, "cago_parent", op, update_modified=False)
+		# 1) Carry the old hierarchy into cago_parent as a 2-level link (point at the TOP ancestor, not
+		#    the immediate parent), and only when we haven't already recorded one (don't clobber edits).
+		anc = top_ancestor(g.name)
+		if not g.cago_parent and anc != g.name:
+			frappe.db.set_value("Item Group", g.name, "cago_parent", anc, update_modified=False)
 			changed = True
 		# 2) Flatten the physical tree: re-parent to root so no node has ERPNext children, which lets
 		#    a former parent become a leaf (is_group=0) that can hold products.

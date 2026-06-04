@@ -707,6 +707,8 @@ def save_category(name, icon=None, color=None, old_name=None, parent=None):
 
 		with as_user("Administrator"):  # rename_doc enforces perms + this version has no ignore_permissions kwarg
 			frappe.rename_doc("Item Group", old, name)
+		# Re-point children explicitly (cago_parent is a custom Link → don't rely on the rename cascade).
+		frappe.db.sql("UPDATE `tabItem Group` SET cago_parent=%s WHERE cago_parent=%s", (name, old))
 	elif not frappe.db.exists("Item Group", name):
 		frappe.get_doc(
 			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": _root_item_group(), "is_group": 0}
