@@ -135,7 +135,17 @@ def expiring_soon(days=None):
 	)
 	out = []
 	for r in rows:
-		if not frappe.db.exists("Item", r.item) or frappe.db.get_value("Item", r.item, "disabled"):
+		meta = frappe.db.get_value("Item", r.item, ["disabled", "cago_stock_auto"], as_dict=True)
+		if not meta or meta.disabled:
 			continue
-		out.append(_batch_row(r))
+		# Only warn when there's actually stock to lose. Per-BATCH qty is often untracked (returns 0),
+		# so judge by the ITEM's on-hand: an auto-stock item with 0 on hand has nothing to expire →
+		# skip (this is why "còn 0" items were wrongly flagged). Manual-stock items (qty unknown) are
+		# kept and shown without a count.
+		item_qty = dto.get_actual_qty(r.item) if meta.cago_stock_auto else None
+		if meta.cago_stock_auto and (item_qty or 0) <= 0:
+			continue
+		row = _batch_row(r)
+		row["qty"] = item_qty  # real item on-hand (None when not auto-tracked)
+		out.append(row)
 	return out

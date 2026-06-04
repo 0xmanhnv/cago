@@ -18,7 +18,7 @@ interface ExpiryRow {
   display_name: string;
   expiry_text: string;
   days_left: number | null;
-  qty: number;
+  qty: number | null;
 }
 interface DebtRow {
   customer: string;
@@ -85,17 +85,21 @@ export function TodayAlerts() {
             {a.low_stock.map((r) => <StockItem key={r.item_code} r={r} />)}
           </Section>
           <Section title="⏰ Sắp / đã hết hạn" tint="border-l-orange-500" count={a.expiring.length}>
-            {a.expiring.map((r) => (
-              <button key={`${r.item_code}-${r.expiry_text}`} onClick={() => router.push("/pos/expiry")} className="flex w-full items-center justify-between border-b border-slate-100 py-2 text-left last:border-0">
-                <div className="min-w-0">
-                  <div className="truncate font-bold">{r.display_name}</div>
-                  <div className="text-sm text-slate-500">HSD {r.expiry_text} · còn {r.qty}</div>
-                </div>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${r.days_left !== null && r.days_left < 0 ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>
-                  {r.days_left !== null ? (r.days_left < 0 ? "Đã hết hạn" : `Còn ${r.days_left} ngày`) : "—"}
-                </span>
-              </button>
-            ))}
+            <p className="mb-1.5 text-sm text-slate-500">Đã hết hạn → <b>loại khỏi kho</b>; sắp hết hạn → <b>bán sớm / giảm giá</b>. Bấm để mở sản phẩm và xử lý tồn kho.</p>
+            {a.expiring.map((r) => {
+              const expired = r.days_left !== null && r.days_left < 0;
+              return (
+                <button key={`${r.item_code}-${r.expiry_text}`} onClick={() => router.push(`/pos/products/${encodeURIComponent(r.item_code)}/edit`)} className="flex w-full items-center justify-between border-b border-slate-100 py-2 text-left last:border-0">
+                  <div className="min-w-0">
+                    <div className="truncate font-bold">{r.display_name}</div>
+                    <div className="text-sm text-slate-500">HSD {r.expiry_text}{r.qty != null ? ` · còn ${r.qty}` : ""}</div>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${expired ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"}`}>
+                    {r.days_left !== null ? (expired ? "Đã hết hạn" : `Còn ${r.days_left} ngày`) : "—"}
+                  </span>
+                </button>
+              );
+            })}
           </Section>
           <Section title="📒 Khách nợ vượt hạn mức" tint="border-l-rose-500" count={a.over_limit.length}>
             {a.over_limit.map((r) => (
