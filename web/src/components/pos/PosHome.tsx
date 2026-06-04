@@ -77,6 +77,7 @@ const ACTIONS: Record<string, ActionDef> = {
   aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "owner" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
   backup: { label: "💾 Sao lưu dữ liệu", color: "bg-slate-600", href: "/pos/backup", cap: "owner" },
+  readiness: { label: "🚩 Sẵn sàng khai trương?", color: "bg-emerald-700", href: "/pos/readiness", cap: "owner" },
   cfd: { label: "🖥 Màn hình phụ cho khách", color: "bg-slate-700", cap: "sell", action: "cfd" },
   handover: { label: "🧑‍🌾 Màn hình khách", color: "bg-emerald-600", cap: null, action: "handover", kioskOnly: true },
   setpin: { label: "🔒 Đổi mã PIN", color: "bg-violet-600", cap: null, action: "setpin", kioskOnly: true },
@@ -103,7 +104,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🏬 Kho & nhập hàng", keys: ["alerts", "receive", "reorder", "expiry", "receivehist"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
   { title: "📊 Báo cáo", keys: ["reports", "unsafe", "insights", "aicontent"] },
-  { title: "⚙️ Cài đặt cửa hàng", keys: ["categories", "map", "coupons", "qr", "aisettings", "staffadmin", "backup", "help"] },
+  { title: "⚙️ Cài đặt cửa hàng", keys: ["readiness", "categories", "map", "coupons", "qr", "aisettings", "staffadmin", "backup", "help"] },
   { title: "🖥 Màn hình & thiết bị", keys: ["cfd", "handover", "setpin"] },
 ];
 
