@@ -184,12 +184,17 @@ export function StoreMap() {
     if (!(await confirmDialog(`Xoá ${label} và mọi khu/lối đi trên tầng đó?`, { danger: true, confirmLabel: "Xoá" }))) return;
     pushHistory();
     const floors = map.floors.filter((f) => f.label !== label);
+    const fallback = floors[0].label;
     upd({
       floors,
       zones: map.zones.filter((z) => z.floor !== label),
       aisle: map.aisle.filter((p) => p.floor !== label),
+      // If the kiosk/door lived on the deleted floor, move them to a surviving floor so the
+      // customer's route still has a valid start (else wayfinding breaks silently).
+      kiosk: map.kiosk.floor === label ? { ...map.kiosk, floor: fallback } : map.kiosk,
+      entrance: map.entrance.floor === label ? { ...map.entrance, floor: fallback } : map.entrance,
     });
-    setFloor(floors[0].label);
+    setFloor(fallback);
     setSel(null);
   };
 
@@ -246,7 +251,14 @@ export function StoreMap() {
     if (busy) return;
     setBusy(true);
     try {
-      await frappeCall("cago.api.storemap.save_store_map", { data: JSON.stringify(map) });
+      // Drop lone waypoints (a corridor "start" with no continuation → an orphan dot, no line) so a
+      // stray tap never ships to the kiosk. A start (b=1) is kept only if a same-floor point follows.
+      const aisle = map.aisle.filter((p, i) => {
+        if (!p.b) return true;
+        const next = map.aisle[i + 1];
+        return !!next && !next.b && next.floor === p.floor;
+      });
+      await frappeCall("cago.api.storemap.save_store_map", { data: JSON.stringify({ ...map, aisle }) });
       toast.success("Đã lưu sơ đồ.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lỗi lưu sơ đồ.");
@@ -468,11 +480,19 @@ export function StoreMap() {
           <label className="block text-sm font-bold text-slate-600">Tên hiển thị</label>
           <input value={selZone.label} onChange={(e) => updZone(sel!, { label: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2" />
           <label className="block text-sm font-bold text-slate-600">Danh mục (hàng trong khu này)</label>
-          <select value={selZone.item_group} onChange={(e) => updZone(sel!, { item_group: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2">
-            {["", ...groups].map((g) => (
+          <select value={selZone.item_group} onChange={(e) => updZone(sel!, { item_group: e.target.value })} className="mb-1 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2">
+            {/* If the linked category was renamed/deleted, keep its (dangling) value visible so the
+                owner can see + re-pick it instead of it silently blanking. */}
+            {(selZone.item_group && !groups.includes(selZone.item_group) ? [selZone.item_group, ""] : [""]).concat(groups).map((g) => (
               <option key={g}>{g}</option>
             ))}
           </select>
+          {selZone.item_group && !groups.includes(selZone.item_group) && (
+            <p className="mb-2 text-sm font-bold text-red-600">⚠ Danh mục “{selZone.item_group}” không còn — chọn lại để khách tìm được khu này.</p>
+          )}
+          {selZone.item_group && groups.includes(selZone.item_group) && map.zones.some((z, j) => j !== sel && z.item_group === selZone.item_group) && (
+            <p className="mb-2 text-sm font-bold text-amber-700">⚠ Một khu khác cũng gắn danh mục này — khách sẽ được chỉ tới khu đầu tiên. Mỗi danh mục nên một khu.</p>
+          )}
 
           <label className="block text-sm font-bold text-slate-600">Biểu tượng</label>
           <div className="mb-2 mt-1 flex flex-wrap gap-1.5">
