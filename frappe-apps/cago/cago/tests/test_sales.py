@@ -146,6 +146,21 @@ class TestLoyalty(FrappeTestCase):
 		after_return = int(flt(frappe.db.get_value("Customer", cust, "cago_points")))
 		self.assertLessEqual(after_return, after_sale)  # redeemed points are NOT given back by a return
 
+	def test_earn_not_reduced_by_own_redemption(self):
+		"""Spending points must NOT reduce the points earned on the same basket — earn is on the
+		pre-redemption total. So a redeemed sale awards the same as an identical sale with no redeem."""
+		from cago.api import debt, purchasing, sales
+		from cago.setup.company import ensure_payment_modes
+		from frappe.utils import flt
+
+		ensure_payment_modes()
+		purchasing.receive_stock(ITEM, 30)
+		cust = debt.add_customer("KH Diem Earn")["customer"]
+		base = frappe.get_doc("Sales Invoice", sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 5}]), "cash", customer=cust)["invoice"])
+		frappe.db.set_value("Customer", cust, "cago_points", 5)
+		red = frappe.get_doc("Sales Invoice", sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 5}]), "cash", customer=cust, redeem_points=5)["invoice"])
+		self.assertEqual(int(flt(red.cago_points_awarded or 0)), int(flt(base.cago_points_awarded or 0)))
+
 	def test_points_redeemed_discounts_bill_and_deducts(self):
 		"""Spending points at the till knocks redeem_value đồng off each, capped by the balance, is
 		stamped on the invoice, and is given back on cancel."""
