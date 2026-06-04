@@ -631,10 +631,11 @@ def list_categories():
 	Shows a group if it carries a cago icon (owner-managed) or has products — hides ERPNext's
 	stock default groups that this shop never uses."""
 	ensure_cap("products")
+	root = _root_item_group()
 	rows = frappe.get_all(
 		"Item Group",
 		filters={"is_group": 0},
-		fields=["name", "cago_icon", "cago_color", "cago_sort_order"],
+		fields=["name", "cago_icon", "cago_color", "cago_sort_order", "parent_item_group"],
 		order_by="cago_sort_order asc, name asc",
 	)
 	out = []
@@ -642,8 +643,26 @@ def list_categories():
 		count = frappe.db.count("Item", {"item_group": r.name, "disabled": 0})
 		if not (r.cago_icon or count):
 			continue
-		out.append({"category": r.name, "icon": r.cago_icon or "📦", "color": r.cago_color or "#e6f4ea", "count": count})
+		# parent = the top-level nhóm cha this leaf sits under (None when it hangs directly off the
+		# tree root → "no parent"), so the manage screen can group children under their parent.
+		parent = r.parent_item_group if (r.parent_item_group and r.parent_item_group != root) else None
+		out.append({"category": r.name, "icon": r.cago_icon or "📦", "color": r.cago_color or "#e6f4ea", "count": count, "parent": parent})
 	return out
+
+
+@frappe.whitelist()
+def list_category_parents():
+	"""Owner: the parent groups (is_group=1, excluding the tree root + ERPNext defaults) that a leaf
+	category can be placed under — populates the parent dropdown in the manage / add screen."""
+	ensure_cap("products")
+	root = _root_item_group()
+	rows = frappe.get_all(
+		"Item Group",
+		filters={"is_group": 1, "name": ["not in", list(ERPNEXT_DEFAULT_GROUPS) + [root]]},
+		fields=["name", "cago_icon"],
+		order_by="cago_sort_order asc, name asc",
+	)
+	return [{"name": r.name, "icon": r.cago_icon or "📁"} for r in rows]
 
 
 def _root_item_group():
@@ -656,13 +675,21 @@ def _root_item_group():
 
 
 @frappe.whitelist()
-def save_category(name, icon=None, color=None, old_name=None):
-	"""Owner: create a new nhóm hàng, or rename/restyle (icon+màu) an existing one.
+def save_category(name, icon=None, color=None, old_name=None, parent=None):
+	"""Owner: create a new nhóm hàng, or rename/restyle (icon+màu) an existing one. `parent` (a
+	nhóm cha = is_group Item Group) nests this category under it; empty → directly under the root.
 	Renaming an Item Group updates every product's category automatically (Frappe rename)."""
 	ensure_cap("products")
 	name = (name or "").strip()
 	if not name:
 		frappe.throw(_("Nhập tên loại hàng."))
+	# Resolve the parent group: a chosen nhóm cha (must be a group), else the tree root. Only act on
+	# the parent when the caller actually passed it (so an icon-only edit doesn't reparent to root).
+	parent_provided = parent is not None
+	parent = (parent or "").strip()
+	if parent and not frappe.db.exists("Item Group", {"name": parent, "is_group": 1}):
+		frappe.throw(_("Nhóm cha '{0}' không hợp lệ.").format(parent))
+	parent_group = parent or _root_item_group()
 	# Refuse a name that collides with an ERPNext built-in group — otherwise we'd silently restyle a
 	# system group, and the owner could never assign products to it (the product forms exclude these).
 	if name in ERPNEXT_DEFAULT_GROUPS:
@@ -679,8 +706,17 @@ def save_category(name, icon=None, color=None, old_name=None):
 			frappe.rename_doc("Item Group", old, name)
 	elif not frappe.db.exists("Item Group", name):
 		frappe.get_doc(
-			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": _root_item_group(), "is_group": 0}
+			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": parent_group, "is_group": 0}
 		).insert(ignore_permissions=True)
+	# Move an existing category under the chosen parent (NestedSet recomputes lft/rgt on save). Only
+	# when the caller passed `parent` — an icon/colour edit leaves the parent untouched.
+	if parent_provided and frappe.db.get_value("Item Group", name, "parent_item_group") != parent_group:
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):
+			doc = frappe.get_doc("Item Group", name)
+			doc.parent_item_group = parent_group
+			doc.save()
 	if icon is not None:
 		frappe.db.set_value("Item Group", name, "cago_icon", (icon or "").strip() or None)
 	if color is not None:
