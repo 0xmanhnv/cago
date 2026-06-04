@@ -793,11 +793,10 @@ export function Checkout() {
     const who = cust ? ` cho ${cust.customer_name}` : "";
     if (!(await ask(`${MODE_VI[payment_mode]} ${cartCodes.length} mặt hàng · ${money(payTotal)}${who}?`, { confirmLabel: MODE_VI[payment_mode] }))) return;
     // Bán chịu (credit) → capture the customer's debt acknowledgement (ký/ảnh/người chứng) when the
-    // owner's policy is on. Online only (the proof image uploads to the server); offline credit sales
-    // queue without it.
+    // owner's policy is on. Works offline too: the proof rides the queued sale and uploads on sync.
     let debtProof: DebtProof | null = null;
     const dpol = boot?.debt_proof?.debt;
-    if (payment_mode === "credit" && online && dpol && dpol.mode !== "off") {
+    if (payment_mode === "credit" && dpol && dpol.mode !== "off") {
       const r = await captureDebtProof(payTotal);
       if (r === false) return; // cancelled
       debtProof = r;
@@ -806,20 +805,19 @@ export function Checkout() {
     // One idempotency key for this attempt: sent on the online call AND reused if it falls back to
     // the queue, so a sale the server already booked (response lost) is never double-booked.
     const cuid = newClientUuid();
-    const { args, display } = buildSale(payment_mode);
+    const { args: baseArgs, display } = buildSale(payment_mode);
+    // Fold the proof into the sale args so it travels the SAME way online and offline (sync.ts
+    // re-sends args verbatim → the server creates the proof when the queued credit sale flushes).
+    const args = debtProof
+      ? { ...baseArgs, debt_signature: debtProof.signature || undefined, debt_photo: debtProof.photo || undefined, debt_witness: debtProof.witness || undefined }
+      : baseArgs;
     const outstanding = payment_mode === "credit" ? display.total_text : null;
     try {
       if (!online) {
         await queueOffline(payment_mode, args, display, outstanding, cuid);
         return;
       }
-      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", {
-        ...args,
-        client_uuid: cuid,
-        debt_signature: debtProof?.signature || undefined,
-        debt_photo: debtProof?.photo || undefined,
-        debt_witness: debtProof?.witness || undefined,
-      });
+      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args, client_uuid: cuid });
       setResult(r);
       setOfflineSale(null);
       setShiftRefresh((n) => n + 1);

@@ -47,6 +47,10 @@ export interface SaleArgs {
   redeem_points?: number;
   delivery_charge?: number;
   payments?: { mode: "cash" | "bank"; amount: number }[];
+  // Debt-acknowledgement captured at ring-up (credit sale); rides the queue and uploads on sync.
+  debt_signature?: string;
+  debt_photo?: string;
+  debt_witness?: string;
 }
 
 // What the pending list shows + reprints, captured at ring-up so it needs no server.
