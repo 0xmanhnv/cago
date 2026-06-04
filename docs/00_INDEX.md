@@ -53,6 +53,7 @@ Status legend: ✅ current · ⚠️ has stale parts (a banner at the top points
 | [16_UI_UX_DESIGN_SYSTEM.md](16_UI_UX_DESIGN_SYSTEM.md) — UI/UX design system | ⚠️ home regrouped into 6 sections |
 | [09_KIOSK_APP_SPEC.md](09_KIOSK_APP_SPEC.md) — kiosk spec | ⚠️ kiosk is built |
 | [37_KIOSK_STORE_MAP.md](37_KIOSK_STORE_MAP.md) — store map & wayfinding | ✅ |
+| [43_KIOSK_LOCKDOWN.md](43_KIOSK_LOCKDOWN.md) — in-store kiosk lockdown (OS + web) | ✅ |
 
 ### Chatbot / assistant
 | [25_CHATBOT_ARCHITECTURE.md](25_CHATBOT_ARCHITECTURE.md) — chatbot architecture | ⚠️ built (`cago/chatbot/*`) |
