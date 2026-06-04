@@ -15,6 +15,7 @@ export function OwnerSettings() {
   const [staffCollect, setStaffCollect] = useState(false);
   const [loyalty, setLoyalty] = useState({ earn_vnd: "", redeem_vnd: "" });
   const [expiryDays, setExpiryDays] = useState("");
+  const [proof, setProof] = useState({ debt_mode: "optional", debt_min: "", repay_mode: "optional", repay_min: "" });
   const [notify, setNotify] = useState({ owner_phone: "", webhook: "", token: "", has_token: false });
   const [cfdUrl, setCfdUrl] = useState("");
   const [cfdCopied, setCfdCopied] = useState(false);
@@ -37,6 +38,9 @@ export function OwnerSettings() {
       .catch(() => {});
     frappeCall<{ days: number }>("cago.api.verify.get_expiry_warn", {}, { method: "GET" })
       .then((d) => setExpiryDays(String(d.days || "")))
+      .catch(() => {});
+    frappeCall<{ debt: { mode: string; min: number }; repay: { mode: string; min: number } }>("cago.api.verify.get_debt_proof", {}, { method: "GET" })
+      .then((d) => setProof({ debt_mode: d.debt.mode, debt_min: String(d.debt.min || ""), repay_mode: d.repay.mode, repay_min: String(d.repay.min || "") }))
       .catch(() => {});
     frappeCall<{ owner_phone: string; webhook: string; has_token: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
       .then((d) => setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token }))
@@ -110,9 +114,60 @@ export function OwnerSettings() {
     }
   };
 
+  const saveProof = async () => {
+    try {
+      const d = await frappeCall<{ debt: { mode: string; min: number }; repay: { mode: string; min: number } }>("cago.api.verify.set_debt_proof", {
+        debt_mode: proof.debt_mode,
+        debt_min: parseInt((proof.debt_min || "").replace(/[^\d]/g, ""), 10) || 0,
+        repay_mode: proof.repay_mode,
+        repay_min: parseInt((proof.repay_min || "").replace(/[^\d]/g, ""), 10) || 0,
+      });
+      setProof({ debt_mode: d.debt.mode, debt_min: String(d.debt.min || ""), repay_mode: d.repay.mode, repay_min: String(d.repay.min || "") });
+      toast.success("Đã lưu cách xác nhận nợ.");
+    } catch {
+      toast.error("Lỗi: không lưu được.");
+    }
+  };
+
   return (
     <div className="mx-auto max-w-[760px]">
       <BackBar onBack={() => goBackSmart(router)} title="QR THU TIỀN (VietQR)" />
+
+      <div className="mt-4 rounded-xl bg-white p-4">
+        <h2 className="font-extrabold text-brand-dark">✍️ Xác nhận nợ (số nợ số hoá)</h2>
+        <p className="mt-1 text-sm text-slate-500">Yêu cầu khách ký / điểm chỉ / chụp ảnh khi ghi nợ hoặc khi trả nợ — thay cho việc ký sổ giấy.</p>
+        {([
+          { key: "debt", label: "Khi GHI NỢ", mk: "debt_mode" as const, nk: "debt_min" as const },
+          { key: "repay", label: "Khi KHÁCH TRẢ NỢ", mk: "repay_mode" as const, nk: "repay_min" as const },
+        ]).map((row) => (
+          <div key={row.key} className="mt-3 border-t border-slate-100 pt-3">
+            <div className="font-bold text-slate-700">{row.label}</div>
+            <select
+              value={proof[row.mk]}
+              onChange={(e) => setProof({ ...proof, [row.mk]: e.target.value })}
+              className="mt-1 w-full rounded-lg border-2 border-emerald-200 bg-white p-2.5"
+            >
+              <option value="off">Tắt — không cần xác nhận</option>
+              <option value="optional">Gợi ý — hiện ô ký, có thể bỏ qua</option>
+              <option value="required">Bắt buộc — phải ký/ảnh/người chứng</option>
+            </select>
+            {proof[row.mk] === "required" && (
+              <div className="mt-2">
+                <label className="text-sm text-slate-500">Chỉ bắt buộc khi số tiền ≥ (để 0 = luôn bắt buộc)</label>
+                <input
+                  inputMode="numeric"
+                  value={proof[row.nk]}
+                  onChange={(e) => setProof({ ...proof, [row.nk]: groupVnd(e.target.value) })}
+                  placeholder="VD: 500.000"
+                  className="mt-1 w-full rounded-lg border-2 border-emerald-200 p-2.5"
+                />
+              </div>
+            )}
+          </div>
+        ))}
+        <button onClick={saveProof} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">💾 Lưu cách xác nhận nợ</button>
+      </div>
+
       <div className="rounded-xl bg-white p-4">
         <p className="text-slate-500">Nhập tài khoản ngân hàng của cửa hàng để hiện mã QR cho khách chuyển khoản đúng số tiền.</p>
         <label className="mt-3 block font-bold text-slate-700">Mã ngân hàng (BIN)</label>

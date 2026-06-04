@@ -141,6 +141,35 @@ def set_expiry_warn(days=None):
 	return get_expiry_warn()
 
 
+@frappe.whitelist()
+def get_debt_proof():
+	"""Owner: the debt-acknowledgement policy (sign/photo when taking on debt + collecting)."""
+	ensure_cap("settings")
+	from cago.debt_proof import proof_policy
+
+	return proof_policy()
+
+
+_MODES = ("off", "optional", "required")
+
+
+@frappe.whitelist()
+def set_debt_proof(debt_mode=None, debt_min=None, repay_mode=None, repay_min=None):
+	"""Owner: set the debt-acknowledgement policy for taking on debt and for collecting repayment."""
+	ensure_cap("settings")
+	co = debt._company()
+	if debt_mode in _MODES:
+		frappe.db.set_value("Company", co, "cago_debt_confirm", debt_mode)
+	if repay_mode in _MODES:
+		frappe.db.set_value("Company", co, "cago_repay_confirm", repay_mode)
+	frappe.db.set_value("Company", co, "cago_debt_confirm_min", max(0, cint(debt_min)))
+	frappe.db.set_value("Company", co, "cago_repay_confirm_min", max(0, cint(repay_min)))
+	frappe.db.commit()
+	from cago.debt_proof import proof_policy
+
+	return proof_policy()
+
+
 def _owes(customer):
 	# Company-scoped to match sales._customer_outstanding — a multi-company site must not sum a
 	# customer's receivables across companies in the kiosk debt lookup.
