@@ -1,24 +1,49 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
+import { useKioskLockdown } from "@/lib/useKioskLockdown";
 import { FloatingFab } from "./FloatingFab";
 import { Assistant } from "./Assistant";
+import { isFixedKiosk } from "./StoreMapView";
 
 export function KioskChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const kiosk = useKiosk();
   const nav = useKioskNav();
   const cartCount = kiosk.cartCount();
+  const [fixed, setFixed] = useState(false); // in-store fixed-kiosk device (cago_fixed_kiosk flag)
+  const [isFs, setIsFs] = useState(false);
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
 
   // Load persisted cart/chat from sessionStorage AFTER mount (client-only) so the first render
-  // matches the server HTML — see the note in store/kiosk.ts.
+  // matches the server HTML — see the note in store/kiosk.ts. Also read the fixed-kiosk flag +
+  // track fullscreen (both are client-only, post-mount → hydration-safe).
   useEffect(() => {
     kiosk.hydrate();
+    setFixed(isFixedKiosk());
+    const onFs = () => setIsFs(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFs);
+    onFs();
+    return () => document.removeEventListener("fullscreenchange", onFs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Kiosk hardening (fixed device only): after a while idle, wipe the previous customer's cart/chat
+  // and return home; also block context menu / selection / pinch-zoom. Phones are unaffected.
+  const onIdle = useCallback(() => {
+    const k = useKiosk.getState();
+    k.clearCart();
+    k.clearFocus();
+    k.newSession();
+    k.closeCallStaff();
+    k.closeAssistant();
+    if (pathRef.current !== "/") nav.goHome();
+  }, [nav]);
+  useKioskLockdown(fixed, onIdle);
 
   const showFabs = pathname !== "/"; // home has its own big buttons
   const showCartBar = cartCount > 0 && pathname !== "/cart" && !kiosk.assistantOpen;
@@ -27,6 +52,16 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
   // (the grids add columns to fill it) instead of stranding content in a narrow centred column.
   return (
     <div className="mx-auto max-w-[900px] px-4 pb-24 pt-4 text-[#14271b] xl:max-w-[1320px] 2xl:max-w-[1600px]">
+      {/* Fixed kiosk only: one-tap fullscreen (browsers require a user gesture, so it can't be
+          auto). Hides the browser chrome — pairs with the OS-level lockdown. */}
+      {fixed && !isFs && (
+        <button
+          onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}
+          className="fixed left-2 top-2 z-[65] rounded-lg bg-black/30 px-2.5 py-1 text-xs font-bold text-white backdrop-blur"
+        >
+          ⛶ Toàn màn hình
+        </button>
+      )}
       {children}
 
       {showCartBar && (

@@ -118,3 +118,21 @@ body {
     animation: toast-in 0.22s ease-out;
   }
 }
+
+/* Kiosk hardening (added to <body> only on a fixed-kiosk device — see useKioskLockdown):
+   no text selection / long-press callout / pinch-zoom; inputs stay editable. */
+.kiosk-locked,
+.kiosk-locked * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.kiosk-locked input,
+.kiosk-locked textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.kiosk-locked {
+  overscroll-behavior: none;
+  touch-action: pan-x pan-y;
+}
