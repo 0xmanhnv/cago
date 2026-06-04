@@ -83,6 +83,9 @@ export function Assistant({
         warnings: r.safety_warnings,
         needStaff: r.needs_staff_help,
       });
+      // Assistant refused (safety) → proactively open the phone box so the customer can leave a
+      // number for the owner / a qualified person to call back. Better UX than a button to tap.
+      if (r.needs_staff_help && !phone) setPhoneOpen(true);
     } catch {
       pushMsg({ who: "bot", text: "Xin lỗi, có lỗi kết nối. Bác thử lại nhé." });
     } finally {
@@ -240,6 +243,7 @@ export function Assistant({
       <div className="px-3 pt-1.5">
         {phoneOpen ? (
           <div>
+            <div className="mb-1 text-sm font-bold text-brand-dark">📞 Nhập số điện thoại để chủ / người có chuyên môn gọi lại tư vấn:</div>
             <div className="flex items-center gap-2">
               {/* min-w-0 lets the input shrink inside the narrow popup (an input's default
                   min-width:auto would otherwise overflow and push the buttons off-screen). */}
