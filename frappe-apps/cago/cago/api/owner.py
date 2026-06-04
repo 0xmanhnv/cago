@@ -675,11 +675,13 @@ def _root_item_group():
 
 
 @frappe.whitelist()
-def save_category(name, icon=None, color=None, old_name=None, parent=None):
+def save_category(name, icon=None, color=None, old_name=None, parent=None, is_group=0):
 	"""Owner: create a new nhóm hàng, or rename/restyle (icon+màu) an existing one. `parent` (a
 	nhóm cha = is_group Item Group) nests this category under it; empty → directly under the root.
+	`is_group=1` (only on create) makes this a NHÓM CHA (a container leaves can sit under).
 	Renaming an Item Group updates every product's category automatically (Frappe rename)."""
 	ensure_cap("products")
+	is_group = 1 if str(is_group) in ("1", "true", "True") else 0
 	name = (name or "").strip()
 	if not name:
 		frappe.throw(_("Nhập tên loại hàng."))
@@ -705,8 +707,14 @@ def save_category(name, icon=None, color=None, old_name=None, parent=None):
 		with as_user("Administrator"):  # rename_doc enforces perms + this version has no ignore_permissions kwarg
 			frappe.rename_doc("Item Group", old, name)
 	elif not frappe.db.exists("Item Group", name):
+		# A nhóm cha (is_group) always sits under the tree root; a leaf sits under the chosen parent.
 		frappe.get_doc(
-			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": parent_group, "is_group": 0}
+			{
+				"doctype": "Item Group",
+				"item_group_name": name,
+				"parent_item_group": _root_item_group() if is_group else parent_group,
+				"is_group": is_group,
+			}
 		).insert(ignore_permissions=True)
 	# Move an existing category under the chosen parent (NestedSet recomputes lft/rgt on save). Only
 	# when the caller passed `parent` — an icon/colour edit leaves the parent untouched.
