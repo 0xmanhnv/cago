@@ -19,13 +19,16 @@ function capFor(path: string): { cap?: Cap; owner?: boolean; admin?: boolean } {
   if (path.startsWith("/pos/staff") || path.startsWith("/pos/readiness")) return { owner: true }; // owner-only
   if (path.startsWith("/pos/products/") && path.endsWith("/edit")) return { cap: "products" };
   if (
+    path === "/pos/products" || // the product hub (tra giá · sửa · thêm) — manage = products cap
     path.startsWith("/pos/products/new") ||
     path.startsWith("/pos/price") ||
     path.startsWith("/pos/edit") ||
-    path.startsWith("/pos/categories")
+    path.startsWith("/pos/categories") ||
+    path.startsWith("/pos/recommended") ||
+    path.startsWith("/pos/health")
   )
     return { cap: "products" };
-  if (path.startsWith("/pos/products/")) return {}; // detail view = any internal
+  if (path.startsWith("/pos/products/")) return {}; // a single product DETAIL view = any internal
   if (path.startsWith("/pos/sell") || path.startsWith("/pos/support")) return { cap: "sell" };
   if (path.startsWith("/pos/returns")) return { cap: "returns" };
   if (path.startsWith("/pos/record-payment") || path.startsWith("/pos/record-debt")) return { cap: "debt" }; // write
