@@ -49,6 +49,9 @@ def get_store_map():
 			for z in doc.zones
 		],
 		"aisle": [{"floor": p.floor or "", "x": flt(p.x), "y": flt(p.y), "b": int(p.b or 0)} for p in doc.aisle],
+		# category → loại cha, so the kiosk can fall back to the PARENT's zone when a product sits in a
+		# child category the owner didn't draw a separate zone for (flat cago_parent taxonomy).
+		"parents": {g.name: g.cago_parent for g in frappe.get_all("Item Group", filters={"cago_parent": ["is", "set"]}, fields=["name", "cago_parent"])},
 	}
 
 

@@ -36,6 +36,7 @@ export interface StoreMap {
   entrance: Pt & { floor: string };
   zones: MapZone[];
   aisle: AislePt[];
+  parents?: Record<string, string>; // category → loại cha, for the parent-zone fallback below
 }
 
 // Palettes for the owner editor — pick-don't-type, so a non-technical owner never has to know
@@ -75,10 +76,14 @@ export const slugify = (s: string): string =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-/** First zone whose category matches the product's item group (DTO `category`). */
+/** Zone for the product's category. Falls back to the category's loại cha when there's no zone for
+ *  the leaf itself — so a product in a child category still routes to the parent's zone. */
 export function findZone(map: StoreMap | null, category?: string | null): MapZone | null {
   if (!map || !category) return null;
-  return map.zones.find((z) => z.item_group === category) || null;
+  const exact = map.zones.find((z) => z.item_group === category);
+  if (exact) return exact;
+  const parent = map.parents?.[category];
+  return (parent && map.zones.find((z) => z.item_group === parent)) || null;
 }
 
 const samePt = (a: Pt, b: Pt) => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01;
