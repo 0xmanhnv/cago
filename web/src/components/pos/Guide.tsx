@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BackBar } from "@/components/owner/OwnerShared";
+import { BackBar, goBackSmart } from "@/components/owner/OwnerShared";
 
 interface Topic {
   icon: string;
@@ -87,7 +87,7 @@ export function Guide() {
   const [open, setOpen] = useState<number | null>(0);
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos")} title="📖 Hướng dẫn sử dụng" />
+      <BackBar onBack={() => goBackSmart(router)} title="📖 Hướng dẫn sử dụng" />
       <p className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
         Chạm vào từng mục để xem các bước. Đọc được cả khi không có mạng.
       </p>

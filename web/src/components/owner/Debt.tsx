@@ -301,7 +301,7 @@ export function CustomerLedger({ customer }: { customer: string }) {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/pos/debt")} label="Quay lại" />
+      <BackBar onBack={() => goBackSmart(router, "/pos/debt")} label="Quay lại" />
       <div className="rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">{d.customer_name}</h2>
         <div className="flex justify-between border-b border-slate-100 py-2">

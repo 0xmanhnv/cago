@@ -19,11 +19,14 @@ export const money = formatVnd;
  * not all the way home). On a direct/refresh load with no in-app history, fall back to home.
  * The `cago_nav` flag is set by PosShell on the first in-app route change.
  */
-export function goBackSmart(router: ReturnType<typeof useRouter>) {
+export function goBackSmart(router: ReturnType<typeof useRouter>, fallback = "/pos") {
+  // Use the browser's real history (router.back) when we navigated here in-app — pushing a "back"
+  // route instead leaves the current page in history and makes the NEXT Back loop into it. Only
+  // fall back to an explicit route on a cold/deep-link load (no in-app history to step through).
   if (typeof window !== "undefined" && window.history.length > 1 && sessionStorage.getItem("cago_nav") === "1") {
     router.back();
   } else {
-    router.push("/pos");
+    router.push(fallback);
   }
 }
 
