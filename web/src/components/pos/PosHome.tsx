@@ -113,6 +113,8 @@ export function PosHome() {
   const [kioskDevice, setKioskDevice] = useState(false); // shared kiosk+POS touchscreen (cago_fixed_kiosk)
   const [hasPin, setHasPin] = useState(false);
   const [showSetPin, setShowSetPin] = useState(false);
+  const [showHandover, setShowHandover] = useState(false); // "give the screen to a customer" chooser
+  const [lockAfterPin, setLockAfterPin] = useState(false); // set a PIN then immediately lock + hand over
   const editRef = useRef(false);
   const lp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const justLong = useRef(false);
@@ -150,15 +152,19 @@ export function PosHome() {
     setHasPin(hasPosPin());
   }, [showSetPin]);
 
-  // Hand the screen back to the customer kiosk. With a PIN set we keep the login session and just
-  // lock (re-enter PIN to sell again); without a PIN we log out fully for safety.
-  const toCustomerScreen = async () => {
+  // Hand the screen to a customer — the chooser offers both: lock behind the PIN (session kept) or
+  // log out fully. If there's no PIN yet, "lock" first opens the set-PIN dialog, then locks.
+  const lockWithPin = () => {
     if (hasPosPin()) {
       setPosLocked(true);
       window.location.href = "/";
-      return;
+    } else {
+      setShowHandover(false);
+      setLockAfterPin(true);
+      setShowSetPin(true);
     }
-    if (!(await confirmDialog("Chuyển sang màn hình khách? (sẽ đăng xuất để bảo mật)", { confirmLabel: "Chuyển" }))) return;
+  };
+  const logoutHandover = async () => {
     try {
       await logout();
     } finally {
@@ -433,7 +439,7 @@ export function PosHome() {
           set a quick PIN so coming back to sell doesn't need the full password again. */}
       {kioskDevice && (
         <div className="mb-3.5 grid grid-cols-2 gap-3.5">
-          <button onClick={toCustomerScreen} className="mt-tile min-h-[64px] bg-emerald-600 text-lg">🧑‍🌾 Màn hình khách</button>
+          <button onClick={() => setShowHandover(true)} className="mt-tile min-h-[64px] bg-emerald-600 text-lg">🧑‍🌾 Màn hình khách</button>
           <button onClick={() => setShowSetPin(true)} className="mt-tile min-h-[64px] bg-violet-600 text-lg">
             {hasPin ? "🔒 Đổi mã PIN" : "🔒 Đặt mã PIN bán nhanh"}
           </button>
@@ -447,7 +453,42 @@ export function PosHome() {
         <button onClick={doLogout} className={`mt-tile min-h-[64px] bg-red-600 text-lg ${owner ? "" : "col-span-2"}`}>🚪 Đăng xuất</button>
       </div>
 
-      {showSetPin && <SetPinDialog onClose={() => setShowSetPin(false)} />}
+      {showHandover && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/50 p-5" onClick={() => setShowHandover(false)}>
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-5xl">🧑‍🌾</div>
+            <div className="mt-2 text-xl font-extrabold text-brand-dark">Giao máy cho khách</div>
+            <div className="mt-1 text-sm text-slate-500">Chọn cách bảo vệ trước khi đưa máy cho khách xem.</div>
+            <div className="mt-5 flex flex-col gap-3">
+              <button onClick={lockWithPin} className="rounded-2xl bg-emerald-600 p-3.5 text-left text-white">
+                <div className="text-lg font-extrabold">🔒 {hasPin ? "Khoá bằng mã PIN" : "Đặt mã PIN & khoá"}</div>
+                <div className="text-xs font-medium text-white/85">Giữ phiên — quay lại bán chỉ cần nhập mã PIN.</div>
+              </button>
+              <button onClick={logoutHandover} className="rounded-2xl bg-red-600 p-3.5 text-left text-white">
+                <div className="text-lg font-extrabold">🚪 Đăng xuất</div>
+                <div className="text-xs font-medium text-white/85">Thoát hẳn — quay lại phải đăng nhập đầy đủ.</div>
+              </button>
+              <button onClick={() => setShowHandover(false)} className="min-h-[48px] rounded-2xl bg-slate-100 font-bold text-slate-600">Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSetPin && (
+        <SetPinDialog
+          onClose={() => {
+            setShowSetPin(false);
+            // "Đặt mã PIN & khoá" flow: a PIN now exists → lock and hand the screen over.
+            if (lockAfterPin) {
+              setLockAfterPin(false);
+              if (hasPosPin()) {
+                setPosLocked(true);
+                window.location.href = "/";
+              }
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
