@@ -124,7 +124,9 @@ export function Home() {
           icon="🛒"
           title="Xem tất cả"
           sub="toàn bộ sản phẩm"
-          // Grid auto-places the last tile across breakpoints (2→5 cols), so keep it a normal card.
+          // On the 2-col (phone) grid, a lone trailing tile (total count odd) spans both columns so
+          // there's no empty gap; reverts to a normal cell from sm: up (3–5 cols).
+          spanClass={categories.length % 2 === 0 ? "col-span-2 sm:col-span-1" : ""}
           wide={false}
           delay={120 + categories.length * 50}
         />
@@ -171,6 +173,7 @@ function CategoryCard({
   sub,
   delay,
   wide = false,
+  spanClass = "",
 }: {
   onClick: () => void;
   color: string;
@@ -179,12 +182,13 @@ function CategoryCard({
   sub: string;
   delay: number;
   wide?: boolean;
+  spanClass?: string; // responsive col-span (e.g. fill the odd leftover on the 2-col grid)
 }) {
   return (
     <button
       onClick={onClick}
       style={{ background: `linear-gradient(160deg, ${color} 0%, #ffffff 130%)`, animationDelay: `${delay}ms` }}
-      className={`animate-rise-in rounded-3xl border border-white/60 shadow-soft transition hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97] ${
+      className={`animate-rise-in rounded-3xl border border-white/60 shadow-soft transition hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97] ${spanClass} ${
         wide
           ? "col-span-2 flex min-h-[96px] flex-row items-center justify-center gap-4 p-4"
           : "flex min-h-[140px] flex-col items-center justify-center gap-2 p-4 text-center"
