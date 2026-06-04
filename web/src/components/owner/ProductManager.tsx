@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { SearchInput } from "@/components/ui/ListUI";
@@ -21,9 +21,13 @@ const LINKS = [
 
 export function ProductManager() {
   const router = useRouter();
+  // Optional ?q= seed — e.g. "Trợ lý học gì" → "Bổ sung dữ liệu" deep-links here prefilled with the
+  // unanswered question so the owner immediately sees matching products to edit (add nickname / label)
+  // or finds none → "➕ Thêm sản phẩm mới".
+  const seed = useSearchParams().get("q") || "";
   const [list, setList] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(seed);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const load = async (query: string) => {
@@ -35,8 +39,8 @@ export function ProductManager() {
     }
   };
   useEffect(() => {
-    void load("");
-  }, []);
+    void load(seed.trim());
+  }, [seed]);
   const onSearch = (v: string) => {
     setQ(v);
     clearTimeout(tRef.current);

@@ -106,7 +106,7 @@ export function AssistantInsights() {
                     {g.safety ? (
                       <span className="rounded-full bg-red-100 px-2.5 py-0.5 font-bold text-red-700">⚠️ an toàn — cần người tư vấn</span>
                     ) : (
-                      <button onClick={() => router.push("/pos/products")} className="rounded-full bg-brand-light px-2.5 py-0.5 font-bold text-brand-dark">➕ Bổ sung dữ liệu</button>
+                      <button onClick={() => router.push(`/pos/products?q=${encodeURIComponent(g.q)}`)} className="rounded-full bg-brand-light px-2.5 py-0.5 font-bold text-brand-dark">🔎 Tìm sản phẩm để bổ sung</button>
                     )}
                   </div>
                   {!g.safety && <Approve q={g.q} />}
