@@ -6,6 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { BackBar, goBackSmart } from "./OwnerShared";
 import { PageLoading } from "@/components/ui/Loading";
 import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/dialog";
 
 type Faq = { question: string; answer: string; is_active: number };
 type Chip = { context: string; label: string };
@@ -47,6 +48,12 @@ export function ChatbotContent() {
   if (!d) return <PageLoading />;
   const set = (patch: Partial<Settings>) => setD({ ...d, ...patch });
 
+  // Confirm before removing a row that has content (an empty just-added row removes silently).
+  const removeRow = async (key: keyof Settings, i: number, hasContent: boolean) => {
+    if (hasContent && !(await confirmDialog("Xoá dòng này?", { danger: true, confirmLabel: "Xoá" }))) return;
+    set({ [key]: (d[key] as unknown[]).filter((_, j) => j !== i) } as Partial<Settings>);
+  };
+
   return (
     <div className="pb-24">
       <BackBar onBack={() => goBackSmart(router)} title="✍️ Dạy trợ lý trả lời" />
@@ -64,7 +71,7 @@ export function ChatbotContent() {
               <label className="flex items-center gap-1.5 font-bold text-slate-600">
                 <input type="checkbox" checked={!!f.is_active} onChange={(e) => { const a = [...d.faq]; a[i] = { ...f, is_active: e.target.checked ? 1 : 0 }; set({ faq: a }); }} /> Đang dùng
               </label>
-              <button onClick={() => set({ faq: d.faq.filter((_, j) => j !== i) })} className="font-bold text-red-500">Xoá</button>
+              <button onClick={() => removeRow("faq", i, !!(f.question.trim() || f.answer.trim()))} className="font-bold text-red-500">Xoá</button>
             </div>
           </div>
         ))}
@@ -79,7 +86,7 @@ export function ChatbotContent() {
               {Object.entries(CTX_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
             <input value={c.label} onChange={(e) => { const a = [...d.chips]; a[i] = { ...c, label: e.target.value }; set({ chips: a }); }} placeholder="vd: Cửa hàng bán những gì?" className="flex-1 rounded-lg border-2 border-emerald-200 p-2 text-sm" />
-            <button onClick={() => set({ chips: d.chips.filter((_, j) => j !== i) })} className="shrink-0 font-bold text-red-500">Xoá</button>
+            <button onClick={() => removeRow("chips", i, !!c.label.trim())} className="shrink-0 font-bold text-red-500">Xoá</button>
           </div>
         ))}
         <AddBtn onClick={() => set({ chips: [...d.chips, { context: "general", label: "" }] })} />
@@ -93,7 +100,7 @@ export function ChatbotContent() {
               {Object.entries(GROUP_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
             <input value={s.term} onChange={(e) => { const a = [...d.synonyms]; a[i] = { ...s, term: e.target.value }; set({ synonyms: a }); }} placeholder="vd: hàng nào đắt khách" className="flex-1 rounded-lg border-2 border-emerald-200 p-2 text-sm" />
-            <button onClick={() => set({ synonyms: d.synonyms.filter((_, j) => j !== i) })} className="shrink-0 font-bold text-red-500">Xoá</button>
+            <button onClick={() => removeRow("synonyms", i, !!s.term.trim())} className="shrink-0 font-bold text-red-500">Xoá</button>
           </div>
         ))}
         <AddBtn onClick={() => set({ synonyms: [...d.synonyms, { intent_group: "overview", term: "" }] })} />
