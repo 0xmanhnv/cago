@@ -224,6 +224,7 @@ export function CustomerLedger({ customer }: { customer: string }) {
   const [amt, setAmt] = useState("");
   const [busy, setBusy] = useState(false);
   const [proofView, setProofView] = useState<Proof[] | null>(null); // null = closed; [] = none found
+  const [quickPending, setQuickPending] = useState<{ amount: number; mode: "repay" | "add" } | null>(null);
   const load = async () => setD(await frappeCall<Ledger>("cago.api.debt.get_customer_ledger", { customer }, { method: "GET" }));
   useEffect(() => {
     void load();
@@ -236,12 +237,25 @@ export function CustomerLedger({ customer }: { customer: string }) {
     const val = parseVnd(amt);
     if (busy) return;
     if (!val || val <= 0) { toast.error("Nhập số tiền lớn hơn 0."); return; }
+    // Acknowledgement policy → the proof modal IS the confirmation; else a plain yes/no.
+    const pol = boot?.debt_proof?.[mode === "repay" ? "repay" : "debt"];
+    if (pol && pol.mode !== "off") { setQuickPending({ amount: val, mode }); return; }
     const label = mode === "repay" ? "Khách trả" : "Ghi nợ thêm";
     if (!(await confirmDialog(`${label} ${money(val)} cho ${d.customer_name}?`, { confirmLabel: label }))) return;
+    await doQuick(val, mode, null);
+  };
+
+  const doQuick = async (val: number, mode: "repay" | "add", proof: DebtProof | null) => {
     setBusy(true);
     try {
       const method = mode === "repay" ? "cago.api.debt.record_repayment" : "cago.api.debt.record_debt";
-      const r = await frappeCall<{ outstanding_text: string }>(method, { customer, amount: val });
+      const r = await frappeCall<{ outstanding_text: string }>(method, {
+        customer,
+        amount: val,
+        signature: proof?.signature || undefined,
+        photo: proof?.photo || undefined,
+        witness: proof?.witness || undefined,
+      });
       toast.success(`Xong. Nợ còn lại: ${r.outstanding_text}`);
       setAmt("");
       await load();
@@ -249,6 +263,7 @@ export function CustomerLedger({ customer }: { customer: string }) {
       toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
     } finally {
       setBusy(false);
+      setQuickPending(null);
     }
   };
 
@@ -363,6 +378,16 @@ export function CustomerLedger({ customer }: { customer: string }) {
       {draft !== null && <DraftModal text={draft} phone={d.phone} onClose={() => setDraft(null)} />}
       {statement !== null && (
         <DraftModal text={statement} phone={d.phone} title="📄 Sao kê công nợ" allowPrint onClose={() => setStatement(null)} />
+      )}
+      {quickPending && boot?.debt_proof && (
+        <ConfirmDebt
+          amount={quickPending.amount}
+          kind={quickPending.mode === "repay" ? "repay" : "debt"}
+          customerName={d.customer_name}
+          policy={boot.debt_proof[quickPending.mode === "repay" ? "repay" : "debt"]}
+          onDone={(p) => doQuick(quickPending.amount, quickPending.mode, p)}
+          onCancel={() => setQuickPending(null)}
+        />
       )}
       {proofView !== null && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" onClick={() => setProofView(null)}>
