@@ -151,6 +151,7 @@ export function DebtList() {
   const [list, setList] = useState<{ customer: string; slug?: string; customer_name: string; village?: string; outstanding_text: string; outstanding?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [sort, setSort] = useState<"amount" | "name" | "village">("amount");
   useEffect(() => {
     frappeCall<typeof list>("cago.api.reports.debt_list", {}, { method: "GET" }).then((r) => {
       setList(r || []);
@@ -159,7 +160,13 @@ export function DebtList() {
   }, []);
 
   const text = q.trim().toLowerCase();
-  const filtered = text ? list.filter((c) => `${c.customer_name} ${c.village || ""}`.toLowerCase().includes(text)) : list;
+  const filtered = (text ? list.filter((c) => `${c.customer_name} ${c.village || ""}`.toLowerCase().includes(text)) : list).slice();
+  filtered.sort((a, b) => {
+    if (sort === "name") return a.customer_name.localeCompare(b.customer_name, "vi");
+    // Theo xóm: nhóm theo xóm (khách chưa có xóm xuống cuối), trong xóm thì nợ nhiều lên trước.
+    if (sort === "village") return (a.village || "~~~").localeCompare(b.village || "~~~", "vi") || (b.outstanding || 0) - (a.outstanding || 0);
+    return (b.outstanding || 0) - (a.outstanding || 0); // nợ nhiều nhất trước
+  });
   return (
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="CÔNG NỢ KHÁCH HÀNG" />
@@ -171,23 +178,45 @@ export function DebtList() {
         <>
           <div className="mb-2 rounded-xl bg-red-50 p-2.5 text-center font-bold text-red-700">{list.length} khách đang nợ</div>
           <SearchInput value={q} onChange={setQ} placeholder="🔎 Tìm khách theo tên / xóm..." />
+          <div className="no-scrollbar mb-2 flex gap-2 overflow-x-auto">
+            {([["amount", "💰 Nợ nhiều"], ["village", "🏘 Theo xóm"], ["name", "🔤 Tên A–Z"]] as const).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setSort(k)}
+                className={`flex-none whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-bold ${sort === k ? "border-brand bg-brand text-white" : "border-emerald-300 bg-brand-light text-brand-dark"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {filtered.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy khách.</div>
           ) : (
-            <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
-            {filtered.map((c) => (
-              <button
-                key={c.customer}
-                onClick={() => router.push(`/pos/debt/${encodeURIComponent(c.slug || c.customer)}`)}
-                className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
-              >
-                <div>
-                  <div className="font-bold">{c.customer_name}</div>
-                  <div className="text-slate-500">{c.village || ""} · bấm xem chi tiết</div>
-                </div>
-                <div className="text-xl font-bold text-red-600">{c.outstanding_text}</div>
-              </button>
-            ))}
+            <div className="xl:grid xl:grid-cols-2 xl:gap-x-3 xl:items-start">
+            {filtered.map((c, i) => {
+              // When grouping by xóm, a sticky header starts each new village (with its debtor count).
+              const vil = c.village || "Chưa rõ xóm";
+              const showHeader = sort === "village" && (i === 0 || (filtered[i - 1].village || "Chưa rõ xóm") !== vil);
+              return (
+              <div key={c.customer} className={showHeader ? "xl:col-span-2" : ""}>
+                {showHeader && (
+                  <div className="sticky top-0 z-10 mb-1 mt-1 rounded-lg bg-[#eef9f0]/95 px-2 py-1 text-sm font-extrabold text-brand-dark backdrop-blur">
+                    🏘 {vil} · {filtered.filter((x) => (x.village || "Chưa rõ xóm") === vil).length} khách
+                  </div>
+                )}
+                <button
+                  onClick={() => router.push(`/pos/debt/${encodeURIComponent(c.slug || c.customer)}`)}
+                  className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
+                >
+                  <div>
+                    <div className="font-bold">{c.customer_name}</div>
+                    <div className="text-slate-500">{c.village || ""} · bấm xem chi tiết</div>
+                  </div>
+                  <div className="text-xl font-bold text-red-600">{c.outstanding_text}</div>
+                </button>
+              </div>
+              );
+            })}
             </div>
           )}
         </>
