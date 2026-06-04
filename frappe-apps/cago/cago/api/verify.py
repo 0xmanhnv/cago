@@ -104,20 +104,23 @@ def set_staff_collect_debt(on):
 def get_loyalty():
 	"""Owner: the loyalty rates currently in effect (resolved value, incl. defaults)."""
 	ensure_cap("settings")
-	from cago.loyalty import _per_point, redeem_value
+	from cago.loyalty import _per_point, loyalty_on_credit, redeem_value
 
-	return {"earn_vnd": int(_per_point()), "redeem_vnd": int(redeem_value())}
+	return {"earn_vnd": int(_per_point()), "redeem_vnd": int(redeem_value()), "on_credit": loyalty_on_credit()}
 
 
 @frappe.whitelist()
-def set_loyalty(earn_vnd=None, redeem_vnd=None):
-	"""Owner: set loyalty rates (đồng per point earned / per point redeemed). 0/empty = keep default."""
+def set_loyalty(earn_vnd=None, redeem_vnd=None, on_credit=None):
+	"""Owner: set loyalty rates (đồng per point earned / per point redeemed). 0/empty = keep default.
+	on_credit: 1 = a credit (mua nợ) sale also earns points, 0 = only the paid part earns."""
 	ensure_cap("settings")
 	company = debt._company()
 	if earn_vnd is not None:
 		frappe.db.set_value("Company", company, "cago_loyalty_earn_vnd", max(0, cint(earn_vnd)))
 	if redeem_vnd is not None:
 		frappe.db.set_value("Company", company, "cago_loyalty_redeem_vnd", max(0, cint(redeem_vnd)))
+	if on_credit is not None:
+		frappe.db.set_value("Company", company, "cago_loyalty_on_credit", 1 if cint(on_credit) else 0)
 	frappe.db.commit()
 	return get_loyalty()
 

@@ -134,9 +134,11 @@ export function ConfirmDebt({
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <label className="flex min-h-[56px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-100 font-bold text-slate-700">
-            📷 {photo ? "Chụp lại" : "Chụp ảnh"}
-            <input type="file" accept="image/*" capture="environment" onChange={onPhoto} className="hidden" />
+          {/* No `capture` → the OS offers BOTH "chụp ảnh" and "chọn từ thư viện", so staff can attach a
+              bank-transfer screenshot the customer sent, not just a fresh photo. */}
+          <label className="flex min-h-[56px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-100 text-center text-sm font-bold text-slate-700">
+            📷 {photo ? "Đổi ảnh" : "Chụp / chọn ảnh"}
+            <input type="file" accept="image/*" onChange={onPhoto} className="hidden" />
           </label>
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element

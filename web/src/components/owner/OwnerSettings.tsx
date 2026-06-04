@@ -13,7 +13,7 @@ export function OwnerSettings() {
   const [debtVisible, setDebtVisible] = useState(false);
   const [priceEdit, setPriceEdit] = useState(false);
   const [staffCollect, setStaffCollect] = useState(false);
-  const [loyalty, setLoyalty] = useState({ earn_vnd: "", redeem_vnd: "" });
+  const [loyalty, setLoyalty] = useState({ earn_vnd: "", redeem_vnd: "", on_credit: false });
   const [expiryDays, setExpiryDays] = useState("");
   const [proof, setProof] = useState({ debt_mode: "optional", debt_min: "", repay_mode: "optional", repay_min: "" });
   const [notify, setNotify] = useState({ owner_phone: "", webhook: "", token: "", has_token: false });
@@ -33,8 +33,8 @@ export function OwnerSettings() {
     frappeCall<{ enabled: boolean }>("cago.api.verify.get_staff_collect_debt", {}, { method: "GET" })
       .then((d) => setStaffCollect(!!d.enabled))
       .catch(() => {});
-    frappeCall<{ earn_vnd: number; redeem_vnd: number }>("cago.api.verify.get_loyalty", {}, { method: "GET" })
-      .then((d) => setLoyalty({ earn_vnd: String(d.earn_vnd || ""), redeem_vnd: String(d.redeem_vnd || "") }))
+    frappeCall<{ earn_vnd: number; redeem_vnd: number; on_credit: boolean }>("cago.api.verify.get_loyalty", {}, { method: "GET" })
+      .then((d) => setLoyalty({ earn_vnd: String(d.earn_vnd || ""), redeem_vnd: String(d.redeem_vnd || ""), on_credit: !!d.on_credit }))
       .catch(() => {});
     frappeCall<{ days: number }>("cago.api.verify.get_expiry_warn", {}, { method: "GET" })
       .then((d) => setExpiryDays(String(d.days || "")))
@@ -77,11 +77,12 @@ export function OwnerSettings() {
 
   const saveLoyalty = async () => {
     try {
-      const d = await frappeCall<{ earn_vnd: number; redeem_vnd: number }>("cago.api.verify.set_loyalty", {
+      const d = await frappeCall<{ earn_vnd: number; redeem_vnd: number; on_credit: boolean }>("cago.api.verify.set_loyalty", {
         earn_vnd: parseVnd(loyalty.earn_vnd),
         redeem_vnd: parseVnd(loyalty.redeem_vnd),
+        on_credit: loyalty.on_credit ? 1 : 0,
       });
-      setLoyalty({ earn_vnd: String(d.earn_vnd || ""), redeem_vnd: String(d.redeem_vnd || "") });
+      setLoyalty({ earn_vnd: String(d.earn_vnd || ""), redeem_vnd: String(d.redeem_vnd || ""), on_credit: !!d.on_credit });
       toast.success("Đã lưu cài đặt tích điểm.");
     } catch {
       toast.error("Lỗi: không lưu được.");
@@ -227,6 +228,11 @@ export function OwnerSettings() {
           placeholder="VD: 1.000"
           className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
         />
+        <label className="mt-3 flex items-center gap-2 rounded-lg bg-slate-50 p-2.5 font-bold text-slate-700">
+          <input type="checkbox" checked={loyalty.on_credit} onChange={(e) => setLoyalty({ ...loyalty, on_credit: e.target.checked })} className="h-5 w-5" />
+          Tích điểm cho cả đơn mua nợ
+          <span className="font-normal text-slate-400">(tắt = chỉ tính điểm phần đã trả)</span>
+        </label>
         <button onClick={saveLoyalty} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
           💾 Lưu tích điểm
         </button>

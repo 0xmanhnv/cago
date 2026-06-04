@@ -994,6 +994,9 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			if paid < total - 1:  # shortfall -> the rest is debt
 				if cust == walkin_customer():
 					frappe.throw(_("Trả thiếu thì phải chọn khách hàng (phần còn lại ghi nợ)."))
+				from cago.debt_proof import require_proof
+
+				require_proof("debt", total - paid, debt_signature, debt_photo, debt_witness)
 				limit = flt(frappe.db.get_value("Customer", cust, "cago_debt_limit"))
 				if limit:
 					current = _customer_outstanding(cust)
@@ -1030,6 +1033,9 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 
 	if payment_mode == "credit":
 		# Bán chịu tại quầy: unpaid, stock-reducing Sales Invoice (NOT is_pos). Respects limit.
+		from cago.debt_proof import require_proof
+
+		require_proof("debt", subtotal_all - disc, debt_signature, debt_photo, debt_witness)
 		limit = flt(frappe.db.get_value("Customer", cust, "cago_debt_limit"))
 		if limit:
 			current = _customer_outstanding(cust)

@@ -35,6 +35,19 @@ def proof_policy():
 	}
 
 
+def require_proof(kind, amount, signature=None, photo=None, witness=None):
+	"""Server-side enforcement of the owner's `required` policy — the real guarantee (the client also
+	gates it). Raises when a required acknowledgement is missing for this kind/amount. No-op for
+	off/optional, or when the amount is below the threshold."""
+	pol = proof_policy().get("repay" if kind == "repay" else "debt", {})
+	if pol.get("mode") != "required":
+		return
+	if flt(amount) < flt(pol.get("min") or 0):
+		return
+	if not ((signature or "").strip() or (photo or "").strip() or (witness or "").strip()):
+		frappe.throw(frappe._("Khoản này bắt buộc khách xác nhận (ký / chụp ảnh / người làm chứng)."))
+
+
 def _save_dataurl_image(dataurl, prefix, proof_name):
 	"""Persist a base64 data: URL (signature canvas / camera photo) as a private File attached to the
 	proof, return its file_url. Returns None for empty/invalid input."""
@@ -44,19 +57,21 @@ def _save_dataurl_image(dataurl, prefix, proof_name):
 	ext = "png" if "png" in header else ("jpeg" if ("jpeg" in header or "jpg" in header) else "png")
 	try:
 		content = base64.b64decode(b64)
+		f = frappe.get_doc(
+			{
+				"doctype": "File",
+				"file_name": f"{prefix}-{proof_name}.{ext}",
+				"is_private": 1,
+				"content": content,
+				"attached_to_doctype": "Cago Debt Proof",
+				"attached_to_name": proof_name,
+			}
+		).insert(ignore_permissions=True)
+		return f.file_url
 	except Exception:
+		# Oversized / invalid image → don't crash the proof; just store nothing for this slot.
+		frappe.log_error(title="cago.debt_proof._save_dataurl_image")
 		return None
-	f = frappe.get_doc(
-		{
-			"doctype": "File",
-			"file_name": f"{prefix}-{proof_name}.{ext}",
-			"is_private": 1,
-			"content": content,
-			"attached_to_doctype": "Cago Debt Proof",
-			"attached_to_name": proof_name,
-		}
-	).insert(ignore_permissions=True)
-	return f.file_url
 
 
 def save_proof(customer, kind, amount, voucher_type=None, voucher_no=None, signature=None, photo=None, witness=None, cashier=None):
@@ -78,18 +93,17 @@ def save_proof(customer, kind, amount, voucher_type=None, voucher_no=None, signa
 				"voucher_no": voucher_no,
 				"posted_at": now_datetime(),
 				"cashier": cashier or frappe.session.user,
-				"witness": witness or None,
-				"method": ",".join(m for m, on in (("signature", signature), ("photo", photo), ("witness", witness)) if on),
 			}
 		).insert(ignore_permissions=True)
+		# Save the images first; `method` then reflects what ACTUALLY stored — a failed/oversized photo
+		# never makes `method` advertise an image that isn't there.
 		sig_url = _save_dataurl_image(signature, "sign", proof.name)
 		photo_url = _save_dataurl_image(photo, "photo", proof.name)
-		if sig_url or photo_url:
-			if sig_url:
-				proof.signature = sig_url
-			if photo_url:
-				proof.photo = photo_url
-			proof.save(ignore_permissions=True)
+		proof.signature = sig_url
+		proof.photo = photo_url
+		proof.witness = witness or None
+		proof.method = ",".join(m for m, on in (("signature", sig_url), ("photo", photo_url), ("witness", witness)) if on)
+		proof.save(ignore_permissions=True)
 		return proof.name
 	except Exception:
 		frappe.log_error(title="cago.debt_proof.save_proof")

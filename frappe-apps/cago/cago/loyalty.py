@@ -40,6 +40,12 @@ def _per_point():
 	return flt(_get("CAGO_LOYALTY_VND_PER_POINT", "cago_loyalty_vnd_per_point", 10000)) or 10000
 
 
+def loyalty_on_credit():
+	"""Whether a credit (mua nợ) sale also earns points. Default OFF — points reward paid sales; the
+	unpaid (debt) portion earns nothing until/unless the owner turns this on."""
+	return bool(_company_rate("cago_loyalty_on_credit"))
+
+
 def redeem_value():
 	"""Đồng per point when a customer SPENDS points at the till (default 1.000đ/điểm) — separate
 	from the accrual rate so redeeming isn't 100% cashback. Owner setting (Company) wins, then
@@ -74,6 +80,10 @@ def accrue(doc, method=None):
 	# of the redemption (folded into the bill discount), so add that value back. Coupons / manual
 	# bargaining still reduce the earn basis — you earn on what you actually paid.
 	basis = flt(getattr(doc, "grand_total", 0)) + redeemed * redeem_value()
+	# Mua nợ: by default the unpaid (debt) portion earns no points — subtract the outstanding so only
+	# the PAID part earns (a fully-credit sale → 0). Owner can turn this off (earn on the full bill).
+	if not loyalty_on_credit():
+		basis = max(0.0, basis - flt(getattr(doc, "outstanding_amount", 0)))
 	pts = int(basis / _per_point())
 	if pts > 0:
 		_add_points(customer, +pts)

@@ -98,9 +98,29 @@ class TestLoyalty(FrappeTestCase):
 			self.skipTest("sample item missing")
 		self._commit = frappe.db.commit
 		frappe.db.commit = lambda *a, **k: None
+		# These tests exercise the accrue/reverse MECHANICS on credit sales, so enable earning on
+		# credit (the default is OFF — a credit sale earns nothing; that's covered separately below).
+		from cago.api import debt
+
+		self._co = debt._company()
+		self._prev_oncredit = frappe.db.get_value("Company", self._co, "cago_loyalty_on_credit")
+		frappe.db.set_value("Company", self._co, "cago_loyalty_on_credit", 1)
 
 	def tearDown(self):
+		frappe.db.set_value("Company", self._co, "cago_loyalty_on_credit", self._prev_oncredit or 0)
 		frappe.db.commit = self._commit
+
+	def test_no_points_on_credit_when_off(self):
+		"""Default policy: a fully-credit (mua nợ) sale earns NO points until the owner turns it on."""
+		from cago.api import debt, purchasing, sales
+		from frappe.utils import flt
+
+		frappe.db.set_value("Company", self._co, "cago_loyalty_on_credit", 0)
+		purchasing.receive_stock(ITEM, 10)
+		cust = debt.add_customer("KH Diem NoCredit")["customer"]
+		before = flt(frappe.db.get_value("Customer", cust, "cago_points"))
+		sales.credit_sale(cust, json.dumps([{"item_code": ITEM, "qty": 3}]))
+		self.assertEqual(flt(frappe.db.get_value("Customer", cust, "cago_points")), before)
 
 	def test_points_accrue_on_credit_sale(self):
 		from cago.api import debt, purchasing, sales

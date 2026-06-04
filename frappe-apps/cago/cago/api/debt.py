@@ -155,6 +155,9 @@ def record_debt(customer, amount, note=None, signature=None, photo=None, witness
 	amount = flt(amount)
 	if amount <= 0:
 		frappe.throw(_("Số tiền phải lớn hơn 0."))
+	from cago.debt_proof import require_proof
+
+	require_proof("debt", amount, signature, photo, witness)
 
 	# Credit limit (hạn mức nợ): block if this would push outstanding over the limit.
 	limit = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
@@ -212,6 +215,9 @@ def record_repayment(customer, amount, note=None, signature=None, photo=None, wi
 	amount = flt(amount)
 	if amount <= 0:
 		frappe.throw(_("Số tiền phải lớn hơn 0."))
+	from cago.debt_proof import require_proof
+
+	require_proof("repay", amount, signature, photo, witness)
 
 	company = _company()
 	receivable = _receivable_account(company)

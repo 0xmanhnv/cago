@@ -861,12 +861,23 @@ export function Checkout() {
     const rest = payTotal - paid;
     const msg = rest > 0 ? `Còn lại ${money(rest)} ghi nợ cho ${cust?.customer_name}.` : rest < 0 ? `Thối lại ${money(-rest)}.` : "";
     if (!(await ask(`Thu Tiền mặt ${money(cashAmt)} + Chuyển khoản ${money(bankAmt)}. ${msg} Xác nhận?`))) return;
+    // The shortfall (rest > 0) is debt → capture the acknowledgement for that amount, like a credit sale.
+    let debtProof: DebtProof | null = null;
+    const dpol = boot?.debt_proof?.debt;
+    if (rest > 0 && dpol && dpol.mode !== "off") {
+      const r = await captureDebtProof(rest);
+      if (r === false) return; // cancelled
+      debtProof = r;
+    }
     setBusy(true);
     const splitPayments = [
       { mode: "cash" as const, amount: cashAmt },
       { mode: "bank" as const, amount: bankAmt },
     ].filter((p) => p.amount > 0);
-    const { args } = buildSale("split", splitPayments);
+    const { args: baseArgs } = buildSale("split", splitPayments);
+    const args = debtProof
+      ? { ...baseArgs, debt_signature: debtProof.signature || undefined, debt_photo: debtProof.photo || undefined, debt_witness: debtProof.witness || undefined }
+      : baseArgs;
     const cuid = newClientUuid(); // dedup a manual re-ring if the response was lost mid-checkout
     try {
       const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args, client_uuid: cuid });
