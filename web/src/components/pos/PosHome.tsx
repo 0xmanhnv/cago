@@ -72,6 +72,7 @@ const ACTIONS: Record<string, ActionDef> = {
   reports: { label: "📊 Báo cáo", color: "bg-blue-600", href: "/pos/reports", cap: "reports" },
   unsafe: { label: "⚠️ Câu hỏi cần lưu ý", color: "bg-amber-600", href: "/pos/unsafe", cap: "reports" },
   insights: { label: "🤖 Trợ lý học gì", color: "bg-violet-600", href: "/pos/assistant-insights", cap: "reports" },
+  aicontent: { label: "✍️ Dạy trợ lý trả lời", color: "bg-violet-500", href: "/pos/assistant-content", cap: "reports" },
   health: { label: "🩺 Kiểm tra dữ liệu", color: "bg-blue-600", href: "/pos/health", cap: "products" },
   aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "owner" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
@@ -101,7 +102,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "📦 Sản phẩm", keys: ["product", "recommended", "labels", "health"] },
   { title: "🏬 Kho & nhập hàng", keys: ["alerts", "receive", "reorder", "expiry", "receivehist"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
-  { title: "📊 Báo cáo", keys: ["reports", "unsafe", "insights"] },
+  { title: "📊 Báo cáo", keys: ["reports", "unsafe", "insights", "aicontent"] },
   { title: "⚙️ Cài đặt cửa hàng", keys: ["categories", "map", "coupons", "qr", "aisettings", "staffadmin", "backup", "help"] },
   { title: "🖥 Màn hình & thiết bị", keys: ["cfd", "handover", "setpin"] },
 ];

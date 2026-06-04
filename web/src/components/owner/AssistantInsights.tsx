@@ -5,11 +5,61 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { BackBar, goBackSmart } from "./OwnerShared";
 import { PageLoading } from "@/components/ui/Loading";
+import { toast } from "@/components/ui/toast";
 
 interface Insights {
   total: number;
   top: { q: string; count: number }[];
   gaps: { q: string; count: number; safety: boolean }[];
+}
+
+/** Per-question "approve" actions: turn a real customer question into a tappable suggestion chip,
+ *  or write an FAQ answer for it — both feed the live chatbot with no rebuild (cago.api.chatbot_admin). */
+function Approve({ q }: { q: string }) {
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [answer, setAnswer] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const addChip = async () => {
+    setBusy(true);
+    try {
+      await frappeCall("cago.api.chatbot_admin.add_chip", { label: q, context: "general" });
+      toast.success("Đã thêm vào gợi ý câu hỏi.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const saveFaq = async () => {
+    if (!answer.trim()) return;
+    setBusy(true);
+    try {
+      await frappeCall("cago.api.chatbot_admin.add_faq", { question: q, answer: answer.trim() });
+      toast.success("Đã lưu câu trả lời. Trợ lý sẽ tự trả lời câu này.");
+      setFaqOpen(false);
+      setAnswer("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <div className="flex flex-wrap gap-2">
+        <button onClick={addChip} disabled={busy} className="rounded-full bg-violet-100 px-2.5 py-1 text-sm font-bold text-violet-700 disabled:opacity-50">✨ Thành gợi ý</button>
+        <button onClick={() => setFaqOpen((v) => !v)} disabled={busy} className="rounded-full bg-emerald-100 px-2.5 py-1 text-sm font-bold text-emerald-700 disabled:opacity-50">📝 Viết câu trả lời (FAQ)</button>
+      </div>
+      {faqOpen && (
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={2} placeholder="Câu trả lời cửa hàng muốn trợ lý nói…" className="flex-1 rounded-lg border-2 border-emerald-300 p-2.5 text-sm" />
+          <button onClick={saveFaq} disabled={busy || !answer.trim()} className="shrink-0 rounded-lg bg-brand px-4 py-2 font-extrabold text-white disabled:opacity-50">Lưu</button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** "Trợ lý học gì" — what customers actually asked the assistant, so the owner can teach it:
@@ -59,6 +109,7 @@ export function AssistantInsights() {
                       <button onClick={() => router.push("/pos/products")} className="rounded-full bg-brand-light px-2.5 py-0.5 font-bold text-brand-dark">➕ Bổ sung dữ liệu</button>
                     )}
                   </div>
+                  {!g.safety && <Approve q={g.q} />}
                 </div>
               ))}
             </div>
@@ -70,9 +121,12 @@ export function AssistantInsights() {
           ) : (
             <div className="space-y-2">
               {d.top.map((t, i) => (
-                <div key={i} className="flex items-center justify-between gap-2 rounded-xl bg-white p-3 shadow-sm">
-                  <span className="font-medium text-[#1b2733]">“{t.q}”</span>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-bold text-slate-500">{t.count}×</span>
+                <div key={i} className="rounded-xl bg-white p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-[#1b2733]">“{t.q}”</span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-bold text-slate-500">{t.count}×</span>
+                  </div>
+                  <Approve q={t.q} />
                 </div>
               ))}
             </div>

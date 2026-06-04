@@ -124,12 +124,23 @@ export function Assistant({
     // window docked bottom-right (Messenger-style) — it does NOT cover the page, so the screen
     // behind stays visible and clickable. No backdrop; close via the header buttons.
     <div className="animate-sheet-up fixed inset-0 z-[60] flex flex-col bg-[#f0fdf4] will-change-transform xl:inset-auto xl:bottom-4 xl:right-4 xl:h-[640px] xl:max-h-[calc(100vh-2rem)] xl:w-[400px] xl:origin-bottom-right xl:animate-chat-pop xl:overflow-hidden xl:rounded-2xl xl:border xl:border-emerald-200 xl:shadow-2xl">
-      {/* header — brand gradient bar */}
-      <div className="flex items-center gap-2 bg-gradient-to-r from-brand to-brand-dark px-3 py-2.5 text-white shadow-card">
-        <button onClick={onBack} className="shrink-0 whitespace-nowrap rounded-xl bg-white/20 px-3.5 py-2.5 font-extrabold text-white">
-          ‹ Quay lại
+      {/* header — brand gradient bar. Back (subtle) · identity (name + role, never truncated to "Trợ…")
+          · "Khách mới" reset (the important kiosk action — clear label, not a loud ambiguous "Xong"). */}
+      <div className="flex items-center gap-2 bg-gradient-to-r from-brand to-brand-dark px-3 py-2 text-white shadow-card">
+        <button
+          onClick={onBack}
+          aria-label="Quay lại"
+          className="shrink-0 whitespace-nowrap rounded-xl bg-white/25 px-3 py-2.5 font-extrabold text-white active:bg-white/40"
+        >
+          ‹
         </button>
-        <h2 className="m-0 min-w-0 flex-1 truncate text-lg font-bold">🤖 {persona?.name || "Trợ lý"} — Trợ lý</h2>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/20 text-xl">🤖</span>
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-base font-extrabold">{persona?.name || "Trợ lý"}</div>
+            <div className="truncate text-[11px] font-medium text-white/80">Trợ lý cửa hàng</div>
+          </div>
+        </div>
         <button
           onClick={async () => {
             if (await confirmDialog("Kết thúc và xoá cuộc trò chuyện cho khách mới?", { confirmLabel: "Khách mới" })) {
@@ -137,10 +148,10 @@ export function Assistant({
               onClose();
             }
           }}
-          className="shrink-0 whitespace-nowrap rounded-xl bg-harvest px-3.5 py-2.5 font-extrabold text-white"
-          title="Khách mới"
+          className="shrink-0 whitespace-nowrap rounded-xl bg-harvest px-3.5 py-2.5 text-sm font-extrabold text-white active:brightness-95"
+          title="Bắt đầu cho khách mới"
         >
-          🆕 Xong
+          🔄 Khách mới
         </button>
       </div>
 
@@ -162,10 +173,38 @@ export function Assistant({
           popup once the log hits its top/bottom (so the background doesn't move under the chat). */}
       <div ref={logRef} className="flex-1 overflow-y-auto overscroll-contain px-3 py-3">
         {history.length === 0 && (
-          <div className="text-slate-500">
-            Dạ {persona?.pronoun || "cháu"} là <b>{persona?.name || "trợ lý"}</b>
-            {persona?.relation ? ` — ${persona.relation}` : ""}, trợ lý của cửa hàng. Bác cần hỏi gì về sản phẩm, giá,
-            cách dùng ạ? (ví dụ: &quot;cám gà con giá bao nhiêu&quot;)
+          // Warm welcome + big tappable example questions, so a low-tech customer can start by
+          // TAPPING (not typing) and the screen never feels empty/broken.
+          <div className="animate-fade-in">
+            <div className="flex items-start gap-2.5">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-light text-2xl">🤖</span>
+              <div className="rounded-2xl rounded-tl-sm bg-white p-3 text-slate-700 shadow-sm">
+                Dạ {persona?.pronoun || "cháu"} là <b>{persona?.name || "trợ lý"}</b>
+                {persona?.relation ? ` — ${persona.relation}` : ""}, trợ lý của cửa hàng. Bác cần hỏi gì về sản phẩm,
+                giá, cách dùng ạ?
+              </div>
+            </div>
+            {(() => {
+              const chips = pickChips(boot?.kiosk_chips, focusItem, focusCat, { storeMap: boot?.store_map });
+              if (!chips.length) return null;
+              return (
+                <div className="ml-12 mt-3">
+                  <div className="mb-1.5 text-xs font-bold text-slate-400">Bác bấm nhanh một câu nhé:</div>
+                  <div className="grid gap-2">
+                    {chips.slice(0, 6).map((c) => (
+                      <button
+                        key={c}
+                        disabled={sending}
+                        onClick={() => ask(c)}
+                        className="rounded-xl border border-emerald-200 bg-white px-3.5 py-3 text-left font-bold text-brand-dark shadow-sm transition hover:-translate-y-0.5 hover:border-brand hover:shadow-card disabled:opacity-50"
+                      >
+                        💬 {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
         {history.map((m, i) =>
@@ -298,9 +337,9 @@ export function Assistant({
               setPhoneVal(phone);
               setPhoneOpen(true);
             }}
-            className="w-full rounded-lg border border-dashed border-emerald-300 bg-[#f0fdf4] px-3 py-2.5 text-left text-sm text-emerald-800"
+            className="w-full rounded-lg px-3 py-1.5 text-left text-xs text-emerald-700/80 hover:text-emerald-800"
           >
-            {phone ? `📞 Đã lưu SĐT: ${phone} — bấm để sửa` : "📞 Để lại số điện thoại để được gọi lại (không bắt buộc)"}
+            {phone ? `📞 SĐT đã lưu: ${phone} — sửa` : "📞 Để lại SĐT để được gọi lại (không bắt buộc)"}
           </button>
         )}
       </div>
@@ -309,7 +348,8 @@ export function Assistant({
           customer taps to reveal the chip strip, so it doesn't crowd the chat. */}
       {(() => {
         const chips = pickChips(boot?.kiosk_chips, focusItem, focusCat, { storeMap: boot?.store_map });
-        if (!chips.length) return null;
+        // When the chat is empty the welcome card already shows the chips — don't duplicate them here.
+        if (!chips.length || history.length === 0) return null;
         return (
           <div className="border-t border-brand-light bg-[#f0fdf4]">
             <button
