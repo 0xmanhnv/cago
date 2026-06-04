@@ -176,7 +176,9 @@ export function DebtList() {
         <Ok>Không có khách nào đang nợ. 🎉</Ok>
       ) : (
         <>
-          <div className="mb-2 rounded-xl bg-red-50 p-2.5 text-center font-bold text-red-700">{list.length} khách đang nợ</div>
+          <div className="mb-2 rounded-xl bg-red-50 p-2.5 text-center font-bold text-red-700">
+            {list.length} khách đang nợ · tổng {money(list.reduce((s, c) => s + (c.outstanding || 0), 0))}
+          </div>
           <SearchInput value={q} onChange={setQ} placeholder="🔎 Tìm khách theo tên / xóm..." />
           <div className="no-scrollbar mb-2 flex gap-2 overflow-x-auto">
             {([["amount", "💰 Nợ nhiều"], ["village", "🏘 Theo xóm"], ["name", "🔤 Tên A–Z"]] as const).map(([k, label]) => (
@@ -200,8 +202,9 @@ export function DebtList() {
               return (
               <div key={c.customer} className={showHeader ? "xl:col-span-2" : ""}>
                 {showHeader && (
-                  <div className="sticky top-0 z-10 mb-1 mt-1 rounded-lg bg-[#eef9f0]/95 px-2 py-1 text-sm font-extrabold text-brand-dark backdrop-blur">
-                    🏘 {vil} · {filtered.filter((x) => (x.village || "Chưa rõ xóm") === vil).length} khách
+                  <div className="sticky top-0 z-10 mb-1 mt-1 flex justify-between gap-2 rounded-lg bg-[#eef9f0]/95 px-2 py-1 text-sm font-extrabold text-brand-dark backdrop-blur">
+                    <span>🏘 {vil} · {filtered.filter((x) => (x.village || "Chưa rõ xóm") === vil).length} khách</span>
+                    <span className="text-red-600">{money(filtered.filter((x) => (x.village || "Chưa rõ xóm") === vil).reduce((s, x) => s + (x.outstanding || 0), 0))}</span>
                   </div>
                 )}
                 <button
@@ -366,8 +369,15 @@ export function CustomerLedger({ customer }: { customer: string }) {
         </div>
         <div className="mt-3 font-extrabold">Lịch sử ghi nợ / trả nợ</div>
         {d.entries.length === 0 && <div className="text-slate-500">Chưa có giao dịch.</div>}
-        {d.entries.map((e, i) => (
-          <div key={i} className="flex justify-between border-b border-slate-100 py-2">
+        {d.entries.map((e, i) => {
+          // Group by month: a header starts each new "Tháng M/YYYY" (entries are newest-first).
+          const ym = (e.date || "").slice(0, 7); // YYYY-MM
+          const showMonth = ym && (i === 0 || (d.entries[i - 1].date || "").slice(0, 7) !== ym);
+          const [yy, mm] = ym.split("-");
+          return (
+          <div key={i}>
+          {showMonth && <div className="mt-2 text-sm font-extrabold text-slate-400">📅 Tháng {Number(mm)}/{yy}</div>}
+          <div className="flex justify-between border-b border-slate-100 py-2">
             <span>
               <b>
                 {e.type === "debt" ? "📝" : "💵"} {e.label}
@@ -402,7 +412,9 @@ export function CustomerLedger({ customer }: { customer: string }) {
               </button>
             </span>
           </div>
-        ))}
+          </div>
+          );
+        })}
       </div>
       {draft !== null && <DraftModal text={draft} phone={d.phone} onClose={() => setDraft(null)} />}
       {statement !== null && (
