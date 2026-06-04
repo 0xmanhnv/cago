@@ -41,7 +41,8 @@ _COMPILED = {intent: [re.compile(p, re.IGNORECASE) for p in pats] for intent, pa
 DOSAGE_REFUSAL = (
 	"Dạ cháu là Mạnh, cháu không thể tự đưa ra liều lượng, cách pha/trộn hay thời gian "
 	"cách ly. Bác vui lòng đọc kỹ hướng dẫn trên nhãn sản phẩm, hoặc hỏi trực tiếp người "
-	"bán/cô Tuyết (chủ cửa hàng) hay người có chuyên môn để được tư vấn đúng.\n"
+	"bán/cô Tuyết (chủ cửa hàng) hay người có chuyên môn để được tư vấn đúng. Bác để lại số "
+	"điện thoại ở dưới, chủ sẽ gọi lại tư vấn giúp bác ạ.\n"
 	+ STANDARD_SAFETY_WARNING
 )
 

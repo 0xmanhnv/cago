@@ -30,7 +30,8 @@ export function UnsafeQuestions() {
       <BackBar onBack={() => goBackSmart(router)} title="⚠️ Câu hỏi cần lưu ý" />
       <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
         Trợ lý đã <b>từ chối</b> trả lời các câu hỏi về liều lượng / pha trộn / cách ly (14 ngày gần đây).
-        Bác nên tư vấn trực tiếp cho khách hoặc nhờ người có chuyên môn.
+        Bác nên tư vấn trực tiếp cho khách hoặc nhờ người có chuyên môn. Có SĐT thì bấm <b>📞 Gọi tư vấn</b>;
+        chưa có thì lần sau nhắc khách để lại số trên màn Hỏi trợ lý để được gọi lại.
       </p>
       {rows.length === 0 ? (
         <div className="rounded-2xl border-2 border-emerald-100 bg-white p-6 text-center text-slate-500">
@@ -44,7 +45,11 @@ export function UnsafeQuestions() {
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
               <span className="rounded-full bg-amber-100 px-2.5 py-0.5 font-bold text-amber-800">{q.flags_text}</span>
               <span className="text-slate-400">{q.when}</span>
-              {q.phone && <span className="ml-auto font-bold text-brand-dark">📞 {q.phone}</span>}
+              {q.phone ? (
+                <a href={`tel:${q.phone}`} className="ml-auto rounded-full bg-brand px-3 py-1 font-bold text-white">📞 Gọi tư vấn {q.phone}</a>
+              ) : (
+                <span className="ml-auto text-slate-400">(khách chưa để lại SĐT)</span>
+              )}
             </div>
           </div>
         ))}

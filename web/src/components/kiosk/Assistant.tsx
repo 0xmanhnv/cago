@@ -211,12 +211,18 @@ export function Assistant({
                 </div>
               ))}
               {m.needStaff && (
-                <button
-                  onClick={onCallStaff}
-                  className="mt-2.5 w-full rounded-xl bg-red-600 px-4 py-3 font-extrabold text-white"
-                >
-                  📞 Gọi người bán
-                </button>
+                <div className="mt-2.5 flex flex-col gap-2">
+                  <button onClick={onCallStaff} className="w-full rounded-xl bg-red-600 px-4 py-3 font-extrabold text-white">
+                    📞 Gọi người bán
+                  </button>
+                  {!phone && (
+                    // A safety question we couldn't answer → invite the customer to leave a number so
+                    // the owner can call back to advise (shows up in "Câu hỏi cần lưu ý").
+                    <button onClick={() => setPhoneOpen(true)} className="w-full rounded-xl border-2 border-emerald-300 bg-brand-light px-4 py-2.5 font-bold text-brand-dark">
+                      📝 Để lại SĐT để chủ gọi tư vấn
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           ),
