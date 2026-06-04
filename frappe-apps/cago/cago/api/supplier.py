@@ -55,7 +55,7 @@ def search_suppliers(query=None):
 	query = (query or "").strip()
 	or_filters = [["supplier_name", "like", f"%{query}%"], ["name", "like", f"%{query}%"]] if query else None
 	rows = frappe.get_all(
-		"Supplier", or_filters=or_filters, fields=["name", "supplier_name", "mobile_no"], limit=24, order_by="supplier_name asc"
+		"Supplier", filters={"disabled": 0}, or_filters=or_filters, fields=["name", "supplier_name", "mobile_no"], limit=24, order_by="supplier_name asc"
 	)
 	out = []
 	for r in rows:
@@ -67,7 +67,7 @@ def search_suppliers(query=None):
 
 
 @frappe.whitelist()
-def add_supplier(supplier_name, phone=None):
+def add_supplier(supplier_name, phone=None, note=None):
 	ensure_cap("supplier")
 	name = (supplier_name or "").strip()
 	if not name:
@@ -78,9 +78,70 @@ def add_supplier(supplier_name, phone=None):
 	group = frappe.db.get_value("Supplier Group", {"is_group": 0}, "name")
 	if group:
 		doc.supplier_group = group
+	if note is not None:
+		doc.cago_supplier_note = (note or "").strip() or None
 	doc.insert(ignore_permissions=True)
 	frappe.db.commit()
 	return {"supplier": doc.name, "supplier_name": name}
+
+
+@frappe.whitelist()
+def list_suppliers():
+	"""All suppliers for the manage screen (name, phone, note, debt) — newest activity aside, simple
+	alphabetical so the owner can find + edit any supplier, not only the ones currently owed."""
+	ensure_cap("supplier")
+	out = []
+	for r in frappe.get_all("Supplier", fields=["name", "supplier_name", "mobile_no", "cago_supplier_note", "disabled"], order_by="disabled asc, supplier_name asc"):
+		bal = _supplier_outstanding(r.name)
+		out.append({
+			"supplier": r.name, "supplier_name": r.supplier_name, "mobile": r.mobile_no or "",
+			"note": r.cago_supplier_note or "", "debt": bal, "debt_text": dto.format_price(bal) if bal > 0 else "Không nợ",
+			"disabled": bool(r.disabled),
+		})
+	return out
+
+
+@frappe.whitelist()
+def save_supplier(supplier, supplier_name, phone=None, note=None):
+	"""Edit a supplier (name / phone / note). Renaming an ERPNext Supplier updates its links."""
+	ensure_cap("supplier")
+	if not frappe.db.exists("Supplier", supplier):
+		frappe.throw(_("Không tìm thấy nhà cung cấp."))
+	from cago.chatbot.observability import clean_phone
+
+	name = (supplier_name or "").strip()
+	if not name:
+		frappe.throw(_("Nhập tên nhà cung cấp."))
+	doc = frappe.get_doc("Supplier", supplier)
+	doc.mobile_no = clean_phone(phone) or None
+	doc.cago_supplier_note = (note or "").strip() or None
+	doc.save(ignore_permissions=True)
+	# A name change renames the docname; do it last so the links cascade cleanly.
+	if name != doc.supplier_name or name != supplier:
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):
+			if name != supplier and frappe.db.exists("Supplier", name):
+				frappe.throw(_("Đã có nhà cung cấp tên '{0}'.").format(name))
+			frappe.db.set_value("Supplier", supplier, "supplier_name", name)
+			if name != supplier:
+				frappe.rename_doc("Supplier", supplier, name)
+	frappe.db.commit()
+	return {"supplier": name}
+
+
+@frappe.whitelist()
+def set_supplier_active(supplier, active=1):
+	"""Ngừng dùng / dùng lại a supplier — we DISABLE, never delete, so purchase & debt history stays
+	traceable. A disabled supplier is hidden from new-purchase search but its ledger remains."""
+	ensure_cap("supplier")
+	if not frappe.db.exists("Supplier", supplier):
+		frappe.throw(_("Không tìm thấy nhà cung cấp."))
+	from frappe.utils import cint
+
+	frappe.db.set_value("Supplier", supplier, "disabled", 0 if cint(active) else 1)
+	frappe.db.commit()
+	return {"supplier": supplier, "disabled": 0 if cint(active) else 1}
 
 
 @frappe.whitelist()
@@ -214,4 +275,13 @@ def get_supplier_ledger(supplier):
 		)
 	entries.reverse()
 	d = get_supplier_debt(supplier)
-	return {"supplier": supplier, "supplier_name": d["supplier_name"], "outstanding_text": d["outstanding_text"], "entries": entries}
+	info = frappe.db.get_value("Supplier", supplier, ["mobile_no", "cago_supplier_note", "disabled"], as_dict=True) or {}
+	return {
+		"supplier": supplier,
+		"supplier_name": d["supplier_name"],
+		"outstanding_text": d["outstanding_text"],
+		"mobile": info.get("mobile_no") or "",
+		"note": info.get("cago_supplier_note") or "",
+		"disabled": bool(info.get("disabled")),
+		"entries": entries,
+	}

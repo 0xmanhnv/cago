@@ -8,7 +8,7 @@ import { BackBar, goBackSmart, Ok } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 import type { ProductCard } from "@/lib/types";
 
-type Sup = { supplier: string; supplier_name: string; mobile?: string; debt?: number; debt_text?: string; outstanding_text?: string };
+type Sup = { supplier: string; supplier_name: string; mobile?: string; note?: string; debt?: number; debt_text?: string; outstanding_text?: string; disabled?: boolean };
 
 export function SupplierDebt() {
   const router = useRouter();
@@ -18,14 +18,15 @@ export function SupplierDebt() {
 }
 
 function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id: string; name: string }) => void }) {
-  const [owed, setOwed] = useState<Sup[]>([]);
+  const [all, setAll] = useState<Sup[]>([]);
   const [hits, setHits] = useState<Sup[]>([]);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "" });
+  const [form, setForm] = useState({ name: "", phone: "", note: "" });
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
-    frappeCall<Sup[]>("cago.api.supplier.supplier_debt_list", {}, { method: "GET" }).then((r) => setOwed(r || []));
+    // The full supplier list (incl. ngừng-dùng) — a real manage list, not only those currently owed.
+    frappeCall<Sup[]>("cago.api.supplier.list_suppliers", {}, { method: "GET" }).then((r) => setAll(r || []));
   }, []);
 
   if (adding) {
@@ -38,6 +39,7 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
         const r = await frappeCall<{ supplier: string; supplier_name: string }>("cago.api.supplier.add_supplier", {
           supplier_name: form.name.trim(),
           phone: form.phone.trim(),
+          note: form.note.trim(),
         });
         onPick({ id: r.supplier, name: r.supplier_name });
       } catch {
@@ -52,6 +54,8 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
           <input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           <label className="block font-bold text-slate-700">Số điện thoại (tùy chọn)</label>
           <input inputMode="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          <label className="block font-bold text-slate-700">Ghi chú (địa chỉ, mặt hàng…)</label>
+          <textarea rows={2} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           <button onClick={save} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
             Lưu nhà cung cấp
           </button>
@@ -75,14 +79,17 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
         className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
       />
       <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
-      {(hits.length ? hits : owed).map((s) => (
-        <button key={s.supplier} onClick={() => onPick({ id: s.supplier, name: s.supplier_name })} className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow">
-          <div className="min-w-0 font-bold">{s.supplier_name}</div>
-          <div className="shrink-0 font-bold text-red-600">{s.debt_text || s.outstanding_text || ""}</div>
+      {(hits.length ? hits : all).map((s) => (
+        <button key={s.supplier} onClick={() => onPick({ id: s.supplier, name: s.supplier_name })} className={`mb-2 flex w-full items-center justify-between rounded-xl p-3.5 text-left shadow ${s.disabled ? "bg-slate-100 opacity-70" : "bg-white"}`}>
+          <div className="min-w-0">
+            <div className="font-bold">{s.supplier_name} {s.disabled && <span className="text-xs font-bold text-slate-400">· ngừng dùng</span>}</div>
+            {s.mobile && <div className="text-sm text-slate-500">📞 {s.mobile}</div>}
+          </div>
+          <div className="shrink-0 font-bold text-red-600">{(s.debt || 0) > 0 ? s.debt_text || s.outstanding_text : ""}</div>
         </button>
       ))}
       </div>
-      {!hits.length && !owed.length && <Ok>Không nợ nhà cung cấp nào. 🎉</Ok>}
+      {!hits.length && !all.length && <Ok>Chưa có nhà cung cấp nào.</Ok>}
       <button onClick={() => setAdding(true)} className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
         ➕ Thêm nhà cung cấp
       </button>
@@ -91,23 +98,66 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
 }
 
 function SupplierView({ supplier, name, onBack }: { supplier: string; name: string; onBack: () => void }) {
-  type Ledger = { outstanding_text: string; entries: { type: string; label: string; date: string; amount_text: string }[] };
+  type Ledger = { supplier_name: string; outstanding_text: string; mobile?: string; note?: string; disabled?: boolean; entries: { type: string; label: string; date: string; amount_text: string }[] };
   const [d, setD] = useState<Ledger | null>(null);
-  const [tab, setTab] = useState<"ledger" | "pay" | "buy">("ledger");
-  const load = async () => setD(await frappeCall<Ledger>("cago.api.supplier.get_supplier_ledger", { supplier }, { method: "GET" }));
+  const [tab, setTab] = useState<"ledger" | "pay" | "buy" | "edit">("ledger");
+  const [edit, setEdit] = useState({ name: "", phone: "", note: "" });
+  const load = async () => {
+    const r = await frappeCall<Ledger>("cago.api.supplier.get_supplier_ledger", { supplier }, { method: "GET" });
+    setD(r);
+    setEdit({ name: r.supplier_name || name, phone: r.mobile || "", note: r.note || "" });
+  };
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplier]);
 
+  const saveInfo = async () => {
+    try {
+      await frappeCall("cago.api.supplier.save_supplier", { supplier, supplier_name: edit.name.trim(), phone: edit.phone.trim(), note: edit.note.trim() });
+      toast.success("Đã lưu thông tin NCC.");
+      setTab("ledger");
+      void load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
+    }
+  };
+  const toggleActive = async () => {
+    try {
+      await frappeCall("cago.api.supplier.set_supplier_active", { supplier, active: d?.disabled ? 1 : 0 });
+      toast.success(d?.disabled ? "Đã dùng lại NCC." : "Đã ngừng dùng NCC (vẫn giữ lịch sử).");
+      void load();
+    } catch {
+      toast.error("Lỗi: không đổi được trạng thái.");
+    }
+  };
+
   return (
     <div>
       <BackBar onBack={onBack} label="Danh sách NCC" title={name} />
-      <div className="mb-3 flex gap-2">
+      {d?.disabled && <div className="mb-2 rounded-lg bg-slate-100 p-2 text-center text-sm font-bold text-slate-500">NCC này đang NGỪNG DÙNG (vẫn xem được lịch sử)</div>}
+      <div className="mb-3 flex flex-wrap gap-2">
         <button onClick={() => setTab("ledger")} className={`rounded-xl px-4 py-2.5 font-bold ${tab === "ledger" ? "bg-blue-600 text-white" : "bg-brand-light text-brand-dark"}`}>Sổ nợ</button>
         <button onClick={() => setTab("buy")} className={`rounded-xl px-4 py-2.5 font-bold ${tab === "buy" ? "bg-red-600 text-white" : "bg-brand-light text-brand-dark"}`}>📦 Nhập nợ</button>
         <button onClick={() => setTab("pay")} className={`rounded-xl px-4 py-2.5 font-bold ${tab === "pay" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>💵 Trả tiền</button>
+        <button onClick={() => setTab("edit")} className={`rounded-xl px-4 py-2.5 font-bold ${tab === "edit" ? "bg-slate-600 text-white" : "bg-brand-light text-brand-dark"}`}>✏️ Sửa</button>
       </div>
+
+      {tab === "edit" && (
+        <div className="rounded-xl bg-white p-4">
+          <label className="block font-bold text-slate-700">Tên NCC</label>
+          <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          <label className="block font-bold text-slate-700">Số điện thoại</label>
+          <input inputMode="tel" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          <label className="block font-bold text-slate-700">Ghi chú (địa chỉ, mặt hàng…)</label>
+          <textarea rows={2} value={edit.note} onChange={(e) => setEdit({ ...edit, note: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          <button onClick={saveInfo} className="mt-1 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">💾 Lưu thông tin</button>
+          <button onClick={toggleActive} className={`mt-2 min-h-touch w-full rounded-xl font-extrabold text-white ${d?.disabled ? "bg-teal-600" : "bg-amber-600"}`}>
+            {d?.disabled ? "♻️ Dùng lại NCC này" : "🚫 Ngừng dùng NCC này"}
+          </button>
+          <p className="mt-2 text-center text-xs text-slate-400">Ngừng dùng = ẩn khỏi chọn khi nhập hàng, nhưng GIỮ toàn bộ lịch sử nợ/nhập để truy vết.</p>
+        </div>
+      )}
 
       {tab === "ledger" && d && (
         <div className="rounded-xl bg-white p-4">

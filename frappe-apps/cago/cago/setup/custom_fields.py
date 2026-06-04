@@ -433,10 +433,21 @@ def ensure_payment_fields():
 	print("Company/Payment Entry fields ensured: cago_staff_can_collect_debt, cago_cashier")
 
 
+def ensure_supplier_fields():
+	"""A free-text note on the Supplier (địa chỉ, mặt hàng, điều khoản giao…) for the manage screen."""
+	create_custom_fields(
+		{"Supplier": [{"fieldname": "cago_supplier_note", "label": "Ghi chú NCC", "fieldtype": "Small Text", "insert_after": "supplier_name"}]},
+		ignore_validate=True,
+	)
+	frappe.db.commit()
+	print("Supplier field ensured: cago_supplier_note")
+
+
 def setup_all_fields():
 	"""Create EVERY Cago custom field (idempotent). Wired to the `after_migrate` hook so a
 	fresh deploy or a `bench migrate` always has the full schema — no manual ensure_* runs."""
 	ensure_category_fields()
+	ensure_supplier_fields()
 	ensure_retail_field()
 	ensure_stock_fields()
 	ensure_customer_fields()
