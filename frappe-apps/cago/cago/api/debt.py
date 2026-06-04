@@ -143,8 +143,9 @@ def get_customer_debt(customer):
 
 
 @frappe.whitelist()
-def record_debt(customer, amount, note=None):
-	"""Customer takes goods on credit. Increases receivable via a Journal Entry."""
+def record_debt(customer, amount, note=None, signature=None, photo=None, witness=None):
+	"""Customer takes goods on credit. Increases receivable via a Journal Entry.
+	signature/photo/witness (optional) capture the customer's acknowledgement (số nợ số hoá)."""
 	ensure_cap("debt")
 	ensure_can_collect_debt()
 	ensure_lang()
@@ -189,12 +190,15 @@ def record_debt(customer, amount, note=None):
 	)
 	_submit_privileged(je)
 	record_action("Debt Add", ref_doctype="Journal Entry", ref_name=je.name, new_value=amount)
+	from cago.debt_proof import save_proof
+
+	save_proof(customer, "debt", amount, "Journal Entry", je.name, signature, photo, witness)
 	frappe.db.commit()
 	return get_customer_debt(customer)
 
 
 @frappe.whitelist()
-def record_repayment(customer, amount, note=None):
+def record_repayment(customer, amount, note=None, signature=None, photo=None, witness=None):
 	"""Customer pays. Decreases receivable via an on-account Payment Entry (Receive).
 	Requires the `debt` capability — the cash then counts in that cashier's till shift and the
 	collector is stamped on the Payment Entry."""
@@ -253,6 +257,9 @@ def record_repayment(customer, amount, note=None):
 		remaining -= alloc
 	_submit_privileged(pe)
 	record_action("Debt Payment", ref_doctype="Payment Entry", ref_name=pe.name, new_value=amount)
+	from cago.debt_proof import save_proof
+
+	save_proof(customer, "repay", amount, "Payment Entry", pe.name, signature, photo, witness, cashier=cashier)
 	frappe.db.commit()
 	# _debt_summary is guard-free so a staff collector can read the new balance back
 	# (get_customer_debt is owner-only and would throw for staff).

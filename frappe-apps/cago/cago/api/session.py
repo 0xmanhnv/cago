@@ -46,7 +46,18 @@ def bootstrap():
 		# so editing the URL / clearing storage can't bypass it. Drives the PinLock gate.
 		"pos_locked": _is_pos_locked(),
 		"has_pos_pin": _has_pos_pin(),
+		# Debt-acknowledgement policy (when to ask the customer to sign / photo / witness).
+		"debt_proof": _debt_proof_policy(),
 	}
+
+
+def _debt_proof_policy():
+	try:
+		from cago.debt_proof import proof_policy
+
+		return proof_policy()
+	except Exception:
+		return {"debt": {"mode": "off", "min": 0}, "repay": {"mode": "off", "min": 0}}
 
 
 def _store_map_published():

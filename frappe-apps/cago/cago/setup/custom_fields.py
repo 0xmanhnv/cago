@@ -306,6 +306,13 @@ def ensure_payment_fields():
 				{"fieldname": "cago_bank_bin", "label": "Cago Bank BIN", "fieldtype": "Data", "insert_after": "company_name", "description": "Mã ngân hàng (BIN), vd Vietcombank=970436."},
 				{"fieldname": "cago_bank_account", "label": "Cago Bank Account", "fieldtype": "Data", "insert_after": "cago_bank_bin"},
 				{"fieldname": "cago_bank_account_name", "label": "Cago Bank Account Name", "fieldtype": "Data", "insert_after": "cago_bank_account"},
+				# Debt-acknowledgement (số nợ số hoá): require a finger signature / photo / witness when
+				# taking on debt or collecting repayment. off | optional | required; *_min = only REQUIRE
+				# at/above this amount (0 = always). See cago.debt_proof.
+				{"fieldname": "cago_debt_confirm", "label": "Xác nhận khi ghi nợ", "fieldtype": "Select", "options": "off\noptional\nrequired", "default": "optional", "insert_after": "cago_bank_account_name"},
+				{"fieldname": "cago_debt_confirm_min", "label": "Bắt buộc xác nhận nợ khi ≥ (đồng)", "fieldtype": "Currency", "insert_after": "cago_debt_confirm"},
+				{"fieldname": "cago_repay_confirm", "label": "Xác nhận khi khách trả nợ", "fieldtype": "Select", "options": "off\noptional\nrequired", "default": "optional", "insert_after": "cago_debt_confirm_min"},
+				{"fieldname": "cago_repay_confirm_min", "label": "Bắt buộc xác nhận trả nợ khi ≥ (đồng)", "fieldtype": "Currency", "insert_after": "cago_repay_confirm"},
 				{
 					"fieldname": "cago_kiosk_debt_visible",
 					"label": "Cho khách xem công nợ trên kiosk (cần người bán xác nhận)",
