@@ -88,21 +88,74 @@ def persona() -> dict:
 	}
 
 
+def learned_general_chips(limit=4):
+	"""The most-asked, self-contained, ANSWERABLE customer questions from recent chat history — so
+	the opening suggestions reflect what THIS shop's customers actually ask (tap instead of type).
+	Cached 1h. Deterministic frequency clustering; excludes refused/needs-staff turns and product-
+	relative questions (those only make sense with an item on screen)."""
+	import frappe
+
+	cached = frappe.cache().get_value("cago_learned_chips")
+	if cached is not None:
+		return cached
+	out = []
+	try:
+		from frappe.utils import add_days, nowdate
+
+		from cago.chatbot.deterministic import _norm
+
+		rows = frappe.get_all(
+			"Cago Chatbot Log",
+			filters={"creation": [">=", add_days(nowdate(), -14) + " 00:00:00"], "role": ["!=", "staff"], "needs_staff_help": 0},
+			fields=["question"],
+			limit=3000,
+		)
+		groups = {}
+		for r in rows:
+			q = (r.question or "").strip()
+			n = " ".join((_norm(q) or "").split())
+			# Skip too-short and product-relative questions (need an item on screen to make sense).
+			if len(q) < 6 or any(t in n for t in ("bao nhieu", "con hang", "gia ", "loai nao", "cai nay", "no ")):
+				continue
+			g = groups.setdefault(n, {"q": q, "c": 0})
+			g["c"] += 1
+		out = [g["q"] for g in sorted(groups.values(), key=lambda g: -g["c"]) if g["c"] >= 2][: int(limit)]
+	except Exception:
+		out = []
+	frappe.cache().set_value("cago_learned_chips", out, expires_in_sec=3600)
+	return out
+
+
 def kiosk_chips() -> dict:
 	"""Suggested tap-to-ask chips for the kiosk assistant — configurable per deployment
 	(env CAGO_KIOSK_CHIPS / site_config cago_kiosk_chips as JSON {product,category,general}).
-	Defaults live here in ONE place, not scattered/hardcoded in the UI."""
+	Defaults live here in ONE place, not scattered/hardcoded in the UI. The `general` chips are
+	augmented with auto-learned top questions (what this shop's customers actually ask)."""
 	import json
+
+	def _augment(d):
+		# Prepend learned top questions to `general`, de-duplicated, keeping the list short.
+		learned = learned_general_chips()
+		base = d.get("general") or []
+		seen, merged = set(), []
+		for c in learned + base:
+			k = (c or "").strip().lower()
+			if c and k not in seen:
+				seen.add(k)
+				merged.append(c)
+		d = dict(d)
+		d["general"] = merged[:8]
+		return d
 
 	raw = _get("CAGO_KIOSK_CHIPS", "cago_kiosk_chips")
 	if raw:
 		try:
 			val = json.loads(raw) if isinstance(raw, str) else raw
 			if isinstance(val, dict):
-				return val
+				return _augment(val)
 		except Exception:
 			pass
-	return {
+	return _augment({
 		# Product context (a specific item is on screen): questions ABOUT that item.
 		"product": ["Còn hàng không?", "Giá bao nhiêu?", "Dùng cho gì?", "Có loại nào khác?", "Có an toàn không?"],
 		# Category context (a group is on screen): questions that compare items in the group.
@@ -110,7 +163,7 @@ def kiosk_chips() -> dict:
 		# No context (the opening screen): must be SELF-CONTAINED topics — never product-relative
 		# questions like "Giá bao nhiêu?"/"Còn hàng không?" (bao nhiêu/còn hàng của CÁI GÌ?).
 		"general": ["Cửa hàng bán những gì?", "Thuốc trừ sâu cho lúa", "Phân bón cho cây", "Cám cho gà vịt lợn", "Thuốc diệt chuột", "Thuốc diệt cỏ"],
-	}
+	})
 
 
 def chatbot_enabled() -> bool:

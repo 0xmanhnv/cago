@@ -39,7 +39,7 @@ function capFor(path: string): { cap?: Cap; owner?: boolean } {
   if (path.startsWith("/pos/labels")) return { cap: "products" };
   if (path.startsWith("/pos/supplier-debt")) return { cap: "supplier" };
   if (path.startsWith("/pos/cashbook")) return { cap: "cash" };
-  if (path.startsWith("/pos/reports") || path.startsWith("/pos/unsafe")) return { cap: "reports" };
+  if (path.startsWith("/pos/reports") || path.startsWith("/pos/unsafe") || path.startsWith("/pos/assistant-insights")) return { cap: "reports" };
   if (path.startsWith("/pos/coupons") || path.startsWith("/pos/settings") || path.startsWith("/pos/map")) return { cap: "settings" };
   return {}; // /pos home, /pos/search, /pos/orders, /pos/assistant
 }

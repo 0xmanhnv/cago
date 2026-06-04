@@ -305,6 +305,54 @@ def debt_list():
 	return out
 
 
+def _norm_q(q):
+	"""Normalise a question for clustering: lowercase, strip Vietnamese accents + punctuation, collapse
+	spaces. So 'Cám gà bao nhiêu?' / 'cam ga bao nhieu' land in the same bucket."""
+	from cago.chatbot.deterministic import _norm
+
+	return " ".join((_norm(q) or "").split())
+
+
+@frappe.whitelist()
+def assistant_insights(days=1, limit=12):
+	"""What the assistant was asked recently, so the owner can teach it: the most-asked questions
+	(→ FAQ / suggestion chips) and the GAPS (questions it couldn't answer / refused → the owner adds
+	a product, a nickname, or label instructions). Deterministic frequency clustering over the chat
+	log (no LLM needed); customer-facing turns only."""
+	ensure_cap("reports")
+	from frappe.utils import add_days, nowdate
+
+	since = add_days(nowdate(), -(int(days or 1) - 1)) + " 00:00:00"
+	rows = frappe.get_all(
+		"Cago Chatbot Log",
+		filters={"creation": [">=", since], "role": ["!=", "staff"]},
+		fields=["question", "needs_staff_help", "safety_flags", "provider"],
+		limit=5000,
+	)
+	groups = {}
+	for r in rows:
+		q = (r.question or "").strip()
+		if len(q) < 3:
+			continue
+		key = _norm_q(q)
+		if not key:
+			continue
+		g = groups.setdefault(key, {"sample": q, "count": 0, "gap": 0, "safety": 0})
+		g["count"] += 1
+		if r.needs_staff_help or r.provider in ("refused", "no_data"):
+			g["gap"] += 1
+		if (r.safety_flags or "").strip():
+			g["safety"] += 1
+	lim = int(limit or 12)
+	top = sorted(groups.values(), key=lambda g: -g["count"])[:lim]
+	gaps = sorted([g for g in groups.values() if g["gap"]], key=lambda g: -g["gap"])[:lim]
+	return {
+		"total": len(rows),
+		"top": [{"q": g["sample"], "count": g["count"]} for g in top],
+		"gaps": [{"q": g["sample"], "count": g["gap"], "safety": bool(g["safety"])} for g in gaps],
+	}
+
+
 @frappe.whitelist()
 def unsafe_questions(days=14, limit=50):
 	"""Chemical-safety questions the chatbot REFUSED (dosage/mixing/stronger/cách ly), recently.
