@@ -17,7 +17,7 @@ export function Keypad({
 }) {
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
   return (
-    <div className="w-full max-w-[300px]">
+    <div className="w-[280px]">
       <div className={`mb-6 flex justify-center gap-3 ${shake ? "animate-shake" : ""}`}>
         {Array.from({ length: len }).map((_, i) => (
           <span
