@@ -169,8 +169,11 @@ export function DebtList() {
     return (b.outstanding || 0) - (a.outstanding || 0); // nợ nhiều nhất trước
   });
 
-  const Cust = ({ c }: { c: (typeof list)[number] }) => (
+  // A plain render fn (NOT a component defined in render) so the parent re-rendering on each search
+  // keystroke doesn't remount all rows — important with hundreds of debtors.
+  const cust = (c: (typeof list)[number]) => (
     <button
+      key={c.customer}
       onClick={() => router.push(`/pos/debt/${encodeURIComponent(c.slug || c.customer)}`)}
       className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
     >
@@ -242,7 +245,7 @@ export function DebtList() {
                     </button>
                     {isOpen && (
                       <div className="mt-1.5 xl:grid xl:grid-cols-2 xl:gap-x-3 xl:items-start">
-                        {custs.map((c) => <Cust key={c.customer} c={c} />)}
+                        {custs.map((c) => cust(c))}
                       </div>
                     )}
                   </div>
@@ -251,7 +254,7 @@ export function DebtList() {
             </div>
           ) : (
             <div className="xl:grid xl:grid-cols-2 xl:gap-x-3 xl:items-start">
-              {filtered.map((c) => <Cust key={c.customer} c={c} />)}
+              {filtered.map((c) => cust(c))}
             </div>
           )}
         </>
