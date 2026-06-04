@@ -48,6 +48,18 @@ def _has(norm_msg, kws):
 	return any(k in norm_msg for k in kws)
 
 
+# Questions that are ABOUT what the customer is currently viewing (compare / availability / price /
+# use / location), so when they're inside a category or on a product the answer should stay anchored
+# to that context instead of triggering a broad store-wide search ("loại nào rẻ hơn?" in Cám = which
+# CÁM is cheaper, not the cheapest thing in the whole shop).
+_CONTEXTUAL = (CHEAP, EXPENSIVE, BEST, EXIST, STOCK, PRICE, USE, WHERE, UNITS, ALT, SAFE)
+
+
+def is_contextual(message):
+	m = _norm(message)
+	return any(_has(m, kws) for kws in _CONTEXTUAL)
+
+
 def _line(p, extra=""):
 	bits = [f"• {'⭐ ' if p.get('recommended') else ''}{p.get('display_name')}"]
 	if extra:

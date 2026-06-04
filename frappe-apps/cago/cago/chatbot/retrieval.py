@@ -12,6 +12,7 @@ import re
 
 import frappe
 
+from cago.chatbot import deterministic
 from cago.utils import dto
 
 # Vietnamese stopwords for product search. Only NON-product words live here — never
@@ -141,11 +142,22 @@ def resolve(role, message, focus_item=None, focus_category=None, k=5, history=No
 	  3. The conversation history — a follow-up ("2 bao") keeps the previous product
 	     so the chat stays coherent.
 	  4. The category being browsed (`focus_category`).
+
+	A CONTEXTUAL question ("loại nào rẻ hơn?", "còn hàng không?") asked while viewing a product or
+	category is answered ABOUT that focus — we skip the broad store-wide search so a vague compare/
+	availability question doesn't dredge up unrelated items. A message that names a specific product
+	is non-contextual, so it still wins via the global search.
 	"""
-	searched = search(role, message, k)
-	if searched:
-		return searched
 	public_only = role not in ("staff", "owner")
+	contextual = deterministic.is_contextual(message)
+	anchored = contextual and (focus_item or focus_category)
+
+	# Named product wins — unless this is a context-free question while something is on screen.
+	if not anchored:
+		searched = search(role, message, k)
+		if searched:
+			return searched
+
 	if focus_item:
 		if _wants_alternatives(message):
 			sibs = _category_siblings(role, focus_item, k, public_only)
@@ -164,4 +176,9 @@ def resolve(role, message, focus_item=None, focus_category=None, k=5, history=No
 		prods = _category_products(role, focus_category, k, public_only)
 		if prods:
 			return prods
+	# Anchored question whose focus yielded nothing → fall back to the global search now.
+	if anchored:
+		searched = search(role, message, k)
+		if searched:
+			return searched
 	return []
