@@ -7,6 +7,7 @@ import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, goBackSmart } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
+import { PageLoading } from "@/components/ui/Loading";
 export function NewProduct() {
   const router = useRouter();
   const [meta, setMeta] = useState<{ item_groups: string[]; uoms: string[]; stock_status_options: string[] } | null>(null);
@@ -17,7 +18,7 @@ export function NewProduct() {
       .then(setMeta)
       .catch(() => {});
   }, []);
-  if (!meta) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (!meta) return <PageLoading />;
 
   const create = async () => {
     if (!f.name.trim()) {

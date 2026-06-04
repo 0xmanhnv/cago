@@ -11,6 +11,7 @@ import { KioskNavButtons } from "./KioskNavButtons";
 import { EXPIRY_LABEL, speak } from "@/lib/kioskUi";
 import type { Product, ProductCard } from "@/lib/types";
 
+import { PageLoading } from "@/components/ui/Loading";
 export function ProductDetail({ code }: { code: string }) {
   const nav = useKioskNav();
   const kiosk = useKiosk();
@@ -48,7 +49,7 @@ export function ProductDetail({ code }: { code: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
-  if (loading) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (loading) return <PageLoading />;
   if (error || !product)
     return (
       <div className="rounded-xl border border-amber-400 bg-amber-100 p-4 text-amber-900">

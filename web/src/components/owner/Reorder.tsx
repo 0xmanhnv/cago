@@ -7,6 +7,7 @@ import { useSession } from "@/lib/session";
 import { toast } from "@/components/ui/toast";
 import { BackBar, goBackSmart, DraftModal } from "./OwnerShared";
 
+import { PageLoading } from "@/components/ui/Loading";
 interface Suggest {
   item_code: string;
   display_name: string;
@@ -39,7 +40,7 @@ export function Reorder() {
       .catch(() => setRows([]));
   }, []);
 
-  if (!rows) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (!rows) return <PageLoading />;
 
   const groups: Record<string, Suggest[]> = {};
   for (const r of rows) (groups[r.supplier_name] ||= []).push(r);

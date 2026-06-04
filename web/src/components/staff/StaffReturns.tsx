@@ -7,6 +7,7 @@ import { toast } from "@/components/ui/toast";
 import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
 import { money } from "@/components/owner/OwnerShared";
 
+import { PageLoading } from "@/components/ui/Loading";
 interface RetLine {
   item_code: string;
   name: string;
@@ -187,7 +188,7 @@ export function StaffReturns() {
       />
 
       {loading ? (
-        <div className="py-6 text-center text-slate-500">Đang tải...</div>
+        <PageLoading />
       ) : rows.length === 0 ? (
         <div className="rounded-xl bg-white p-6 text-center text-slate-400">{q.trim() ? "Không tìm thấy hoá đơn." : "Chưa có hoá đơn nào."}</div>
       ) : (
@@ -237,7 +238,7 @@ export function StaffReturns() {
               </div>
             </div>
             {retLoading ? (
-              <div className="py-6 text-center text-slate-500">Đang tải...</div>
+              <PageLoading />
             ) : retLines.length === 0 ? (
               <div className="py-6 text-center text-slate-400">Đơn này đã trả hết, không còn gì để trả.</div>
             ) : (

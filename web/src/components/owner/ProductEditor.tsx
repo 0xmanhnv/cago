@@ -9,6 +9,7 @@ import type { Batch } from "@/lib/types";
 import { BackBar, goBackSmart, DraftModal } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
+import { PageLoading } from "@/components/ui/Loading";
 interface EditData {
   cago_display_name?: string;
   selling_price?: number;
@@ -126,7 +127,7 @@ export function ProductEditor({ code }: { code: string }) {
     });
   }, [code]);
 
-  if (!e) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (!e) return <PageLoading />;
 
   const set = (k: string, v: string | number) => setData((d) => ({ ...d, [k]: v }));
 

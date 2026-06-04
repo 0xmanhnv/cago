@@ -8,6 +8,7 @@ import { BackBar, goBackSmart } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 import { COLORS, ICONS, splitStrokes, toPoints, type MapZone, type Pt, type StoreMap } from "@/lib/storemap";
 
+import { PageLoading } from "@/components/ui/Loading";
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 type Drag =
@@ -144,7 +145,7 @@ export function StoreMap() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map?.width, map?.height]);
 
-  if (!map) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (!map) return <PageLoading />;
 
   const upd = (patch: Partial<StoreMap>) => setMap((m) => (m ? { ...m, ...patch } : m));
   const updZone = (i: number, patch: Partial<MapZone>) =>

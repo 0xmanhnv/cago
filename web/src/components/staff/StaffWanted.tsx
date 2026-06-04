@@ -7,6 +7,7 @@ import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
 
+import { PageLoading } from "@/components/ui/Loading";
 const STATUS_VI: Record<string, string> = {
   New: "Mới",
   Processing: "Đang xử lý",
@@ -286,7 +287,7 @@ export function StaffWanted() {
       {(() => {
         const t = listQ.trim().toLowerCase();
         const list = t ? orders.filter((o) => `${o.code} ${o.summary}`.toLowerCase().includes(t)) : orders;
-        if (loading) return <div className="py-6 text-center text-slate-500">Đang tải...</div>;
+        if (loading) return <PageLoading />;
         if (list.length === 0)
           return <div className="rounded-xl bg-white p-6 text-center text-slate-400">{t ? "Không tìm thấy đơn." : "Chưa có đơn nào khách chọn."}</div>;
         return groupOrdered(list, (o) => o.date_group || o.created).map((g) => (

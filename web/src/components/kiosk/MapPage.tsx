@@ -11,6 +11,7 @@ import { isInternal } from "@/lib/caps";
 import { StoreMapView, isFixedKiosk } from "./StoreMapView";
 import { KioskNavButtons } from "./KioskNavButtons";
 
+import { PageLoading } from "@/components/ui/Loading";
 export function MapPage() {
   const nav = useKioskNav();
   const router = useRouter();
@@ -69,7 +70,7 @@ export function MapPage() {
       </div>
 
       {!loaded ? (
-        <div className="py-8 text-center text-slate-400">Đang tải sơ đồ...</div>
+        <PageLoading label="Đang tải sơ đồ..." />
       ) : !map || !map.published || map.zones.length === 0 ? (
         <div className="rounded-2xl bg-white p-6 text-center text-slate-500">Cửa hàng chưa có sơ đồ. Bác hỏi người bán giúp ạ.</div>
       ) : (

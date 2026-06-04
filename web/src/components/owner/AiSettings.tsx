@@ -6,6 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { BackBar, goBackSmart, Ok, Warn } from "./OwnerShared";
 import { toast } from "@/components/ui/toast";
 
+import { PageLoading } from "@/components/ui/Loading";
 interface Cfg {
   provider: string;
   model: string;
@@ -31,7 +32,7 @@ export function AiSettings() {
 
   const load = () => frappeCall<Cfg>("cago.api.ai_config.get_ai_config", {}, { method: "GET" }).then(setC).catch(() => {});
   useEffect(() => { void load(); }, []);
-  if (!c) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (!c) return <PageLoading />;
 
   const set = (patch: Partial<Cfg>) => setC({ ...c, ...patch });
 

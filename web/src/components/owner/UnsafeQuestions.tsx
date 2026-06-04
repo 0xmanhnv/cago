@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { BackBar, goBackSmart } from "./OwnerShared";
 
+import { PageLoading } from "@/components/ui/Loading";
 interface Q {
   question: string;
   flags_text: string;
@@ -22,7 +23,7 @@ export function UnsafeQuestions() {
       .catch(() => setRows([]));
   }, []);
 
-  if (!rows) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (!rows) return <PageLoading />;
 
   return (
     <div>

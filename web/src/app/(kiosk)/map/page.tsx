@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { MapPage } from "@/components/kiosk/MapPage";
 
+import { PageLoading } from "@/components/ui/Loading";
 export default function Page() {
   return (
-    <Suspense fallback={<div className="py-8 text-center text-slate-400">Đang tải sơ đồ...</div>}>
+    <Suspense fallback={<PageLoading label="Đang tải sơ đồ..." />}>
       <MapPage />
     </Suspense>
   );

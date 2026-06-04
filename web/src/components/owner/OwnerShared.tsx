@@ -9,6 +9,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import type { ProductCard } from "@/lib/types";
 
+import { PageLoading } from "@/components/ui/Loading";
 // VND has no decimals — round + group. Single shared formatter (lib/utils) so owner/staff/kiosk match.
 export const money = formatVnd;
 
@@ -201,7 +202,7 @@ export function ProductPicker({ title, onBack, onPick }: { title: string; onBack
       />
       <div className="text-xl font-bold text-brand-dark">{title}</div>
       {loading ? (
-        <div className="py-6 text-center text-slate-500">Đang tải...</div>
+        <PageLoading />
       ) : list.length === 0 ? (
         <div className="text-slate-500">Không tìm thấy.</div>
       ) : (

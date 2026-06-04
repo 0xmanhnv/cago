@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { findZone, planRoute, splitStrokes, toPath, toPoints, zoneCenter, type Pt, type StoreMap } from "@/lib/storemap";
 
+import { PageLoading } from "@/components/ui/Loading";
 // The fixed kiosk tablet carries this flag; customer phones don't. With the flag → route starts
 // at the kiosk; without → at the entrance ("từ cửa vào"). It also turns on the web hardening
 // (idle reset / no-zoom / fullscreen — see useKioskLockdown).
@@ -85,7 +86,7 @@ export function StoreMapView({
     return () => window.removeEventListener("resize", calc);
   }, [loaded, map]);
 
-  if (!loaded) return <div className="py-6 text-center text-slate-400">Đang tải sơ đồ...</div>;
+  if (!loaded) return <PageLoading label="Đang tải sơ đồ..." />;
   if (!map || !map.published || map.zones.length === 0 || !start) return null;
 
   const hasFloors = map.floors.length > 0;

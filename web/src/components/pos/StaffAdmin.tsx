@@ -8,6 +8,7 @@ import { BackBar, goBackSmart } from "@/components/owner/OwnerShared";
 import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 
+import { PageLoading } from "@/components/ui/Loading";
 interface Staff {
   user: string;
   full_name: string;
@@ -344,7 +345,7 @@ export function StaffAdmin() {
       </div>
 
       {loading ? (
-        <div className="py-6 text-center text-slate-500">Đang tải...</div>
+        <PageLoading />
       ) : tab === "staff" ? (
         <>
           <button

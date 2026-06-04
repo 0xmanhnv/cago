@@ -8,6 +8,7 @@ import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { ICONS } from "@/lib/storemap";
 
+import { PageLoading } from "@/components/ui/Loading";
 interface Cat {
   category: string;
   icon: string;
@@ -150,7 +151,7 @@ export function CategoryOrder() {
       )}
 
       {loading ? (
-        <div className="py-8 text-center text-slate-500">Đang tải...</div>
+        <PageLoading />
       ) : items.length === 0 ? (
         <div className="mt-card p-6 text-center text-slate-400">Chưa có loại hàng nào. Bấm &quot;➕ Thêm loại hàng&quot;.</div>
       ) : (

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import type { Product } from "@/lib/types";
 
+import { PageLoading } from "@/components/ui/Loading";
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
     <div className="flex justify-between gap-3 border-b border-slate-100 py-2">
@@ -88,7 +89,7 @@ export function StaffProductDetail({ code }: { code: string }) {
       .finally(() => setLoading(false));
   }, [code]);
 
-  if (loading) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (loading) return <PageLoading />;
   if (!p)
     return (
       <div className="rounded-xl border border-amber-400 bg-amber-100 p-4 text-amber-900">

@@ -6,6 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { DateHeader, groupOrdered } from "@/components/ui/ListUI";
 import { BackBar, goBackSmart } from "./OwnerShared";
 
+import { PageLoading } from "@/components/ui/Loading";
 interface Line {
   name: string;
   qty: number;
@@ -63,7 +64,7 @@ export function ReceiveHistory() {
       <BackBar onBack={() => goBackSmart(router)} title="LỊCH SỬ NHẬP HÀNG" />
 
       {loading ? (
-        <div className="py-8 text-center text-slate-500">Đang tải...</div>
+        <PageLoading />
       ) : rows.length === 0 ? (
         <div className="rounded-2xl bg-white p-6 text-center text-slate-400">Chưa có phiếu nhập nào.</div>
       ) : (

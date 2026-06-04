@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { BackBar, goBackSmart } from "./OwnerShared";
 
+import { PageLoading } from "@/components/ui/Loading";
 interface StockRow {
   item_code: string;
   display_name: string;
@@ -54,7 +55,7 @@ export function TodayAlerts() {
       .catch(() => setA({ out_of_stock: [], low_stock: [], expiring: [], over_limit: [] }));
   }, []);
 
-  if (!a) return <div className="py-8 text-center text-slate-500">Đang tải...</div>;
+  if (!a) return <PageLoading />;
   const empty = !a.out_of_stock.length && !a.low_stock.length && !a.expiring.length && !a.over_limit.length;
 
   const StockItem = ({ r }: { r: StockRow }) => (
