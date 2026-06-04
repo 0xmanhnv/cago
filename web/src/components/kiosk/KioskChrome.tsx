@@ -16,6 +16,7 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
   const cartCount = kiosk.cartCount();
   const [fixed, setFixed] = useState(false); // in-store fixed-kiosk device (cago_fixed_kiosk flag)
   const [isFs, setIsFs] = useState(false);
+  const [fsOk, setFsOk] = useState(false); // Fullscreen API actually supported (false on iOS Safari)
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
 
@@ -25,6 +26,7 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     kiosk.hydrate();
     setFixed(applyKioskUrlFlag()); // ?kiosk=1/0 in the launch URL provisions the flag (OS-controlled)
+    setFsOk(!!document.documentElement.requestFullscreen && document.fullscreenEnabled);
     const onFs = () => setIsFs(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFs);
     onFs();
@@ -54,7 +56,7 @@ export function KioskChrome({ children }: { children: React.ReactNode }) {
     <div className="mx-auto max-w-[900px] px-4 pb-24 pt-4 text-[#14271b] xl:max-w-[1320px] 2xl:max-w-[1600px]">
       {/* Fixed kiosk only: one-tap fullscreen (browsers require a user gesture, so it can't be
           auto). Hides the browser chrome — pairs with the OS-level lockdown. */}
-      {fixed && !isFs && (
+      {fixed && fsOk && !isFs && (
         <button
           onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}
           className="fixed left-2 top-2 z-[65] rounded-lg bg-black/30 px-2.5 py-1 text-xs font-bold text-white backdrop-blur"
