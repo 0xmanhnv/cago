@@ -12,6 +12,7 @@ import { PageLoading } from "@/components/ui/Loading";
 import { toast } from "@/components/ui/toast";
 import { useSession } from "@/lib/session";
 import { hasCap } from "@/lib/caps";
+import { ConfirmDebt, type DebtProof } from "@/components/pos/ConfirmDebt";
 
 export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const router = useRouter();
@@ -21,6 +22,9 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [qrCfg, setQrCfg] = useState(true);
+  const [pending, setPending] = useState<number | null>(null); // amount awaiting the proof modal
+  const { boot } = useSession();
+  const policy = boot?.debt_proof?.[mode === "add" ? "debt" : "repay"];
   const method = mode === "add" ? "cago.api.debt.record_debt" : "cago.api.debt.record_repayment";
   const title = mode === "add" ? "GHI NỢ" : "KHÁCH TRẢ NỢ";
 
@@ -52,16 +56,33 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
       toast.error("Số tiền phải lớn hơn 0.");
       return;
     }
+    // When the owner requires/offers a debt acknowledgement, the proof modal IS the confirmation;
+    // otherwise just a yes/no confirm.
+    if (policy && policy.mode !== "off") {
+      setPending(val);
+      return;
+    }
     if (!(await confirmDialog(`${mode === "add" ? "Ghi nợ " : "Khách trả "}${money(val)} cho ${info.customer_name}?`))) return;
+    await doSave(val, null);
+  };
+
+  const doSave = async (val: number, proof: DebtProof | null) => {
     setBusy(true);
     try {
-      const r = await frappeCall<{ outstanding_text: string }>(method, { customer: cust, amount: val });
+      const r = await frappeCall<{ outstanding_text: string }>(method, {
+        customer: cust,
+        amount: val,
+        signature: proof?.signature || undefined,
+        photo: proof?.photo || undefined,
+        witness: proof?.witness || undefined,
+      });
       toast.success(`Xong. Nợ còn lại: ${r.outstanding_text}`);
       setAmt("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
     } finally {
       setBusy(false);
+      setPending(null);
     }
   };
 
@@ -110,6 +131,17 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
         )}
         {!qrCfg && <Warn>Chưa cài đặt tài khoản QR. Vào &quot;💳 QR thu tiền&quot; ở trang chủ để cài.</Warn>}
       </div>
+
+      {pending !== null && policy && (
+        <ConfirmDebt
+          amount={pending}
+          kind={mode === "add" ? "debt" : "repay"}
+          customerName={info.customer_name}
+          policy={policy}
+          onDone={(proof) => doSave(pending, proof)}
+          onCancel={() => setPending(null)}
+        />
+      )}
     </div>
   );
 }

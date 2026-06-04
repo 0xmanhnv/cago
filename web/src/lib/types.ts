@@ -117,6 +117,10 @@ export interface Bootstrap {
   store_map?: boolean;
   pos_locked?: boolean; // shared kiosk+POS device: POS gated behind the PIN (server-session flag)
   has_pos_pin?: boolean; // this user has set a quick-unlock PIN
+  debt_proof?: {
+    debt: { mode: "off" | "optional" | "required"; min: number };
+    repay: { mode: "off" | "optional" | "required"; min: number };
+  };
 }
 
 export interface Batch {
