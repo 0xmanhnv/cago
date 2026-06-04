@@ -99,11 +99,18 @@ export function ReceiveHistory() {
                       <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-2xl">📦</span>
                     )}
                     <div className="min-w-0 flex-1">
-                      {/* Lead with WHAT was received so each card is identifiable without expanding. */}
-                      <div className="truncate font-bold text-slate-800">
-                        {first ? `${first.name} · ${first.qty} ${uomLabel(first.uom)}` : `${r.count} mặt hàng`}
-                      </div>
-                      {r.count > 1 && <div className="text-xs text-slate-400">+ {r.count - 1} mặt hàng khác</div>}
+                      {/* Lead with WHAT was received so each card is identifiable without expanding.
+                          Single item → name+qty; bulk receive → "📦 N mặt hàng" + a name preview. */}
+                      {r.count > 1 ? (
+                        <>
+                          <div className="font-bold text-slate-800">📦 Nhập {r.count} mặt hàng</div>
+                          <div className="truncate text-xs text-slate-400">{r.lines.map((l) => l.name).join(", ")}</div>
+                        </>
+                      ) : (
+                        <div className="truncate font-bold text-slate-800">
+                          {first ? `${first.name} · ${first.qty} ${uomLabel(first.uom)}` : "Phiếu nhập"}
+                        </div>
+                      )}
                       <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm">
                         <span className="text-slate-400">🕒 {r.time}</span>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${r.invoiced ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-800"}`}>

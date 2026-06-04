@@ -152,6 +152,7 @@ export function DebtList() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<"amount" | "name" | "village">("amount");
+  const [openVil, setOpenVil] = useState<Set<string>>(new Set()); // expanded villages (collapsed by default)
   useEffect(() => {
     frappeCall<typeof list>("cago.api.reports.debt_list", {}, { method: "GET" }).then((r) => {
       setList(r || []);
@@ -167,6 +168,31 @@ export function DebtList() {
     if (sort === "village") return (a.village || "~~~").localeCompare(b.village || "~~~", "vi") || (b.outstanding || 0) - (a.outstanding || 0);
     return (b.outstanding || 0) - (a.outstanding || 0); // nợ nhiều nhất trước
   });
+
+  const Cust = ({ c }: { c: (typeof list)[number] }) => (
+    <button
+      onClick={() => router.push(`/pos/debt/${encodeURIComponent(c.slug || c.customer)}`)}
+      className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
+    >
+      <div>
+        <div className="font-bold">{c.customer_name}</div>
+        <div className="text-slate-500">{c.village || ""} · bấm xem chi tiết</div>
+      </div>
+      <div className="text-xl font-bold text-red-600">{c.outstanding_text}</div>
+    </button>
+  );
+
+  // Group filtered customers by village (used by the collapsible "Theo xóm" view).
+  const villages = Array.from(
+    filtered.reduce((m, c) => {
+      const v = c.village || "Chưa rõ xóm";
+      const arr = m.get(v) || [];
+      arr.push(c);
+      m.set(v, arr);
+      return m;
+    }, new Map<string, typeof filtered>())
+  );
+
   return (
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="CÔNG NỢ KHÁCH HÀNG" />
@@ -193,33 +219,38 @@ export function DebtList() {
           </div>
           {filtered.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy khách.</div>
+          ) : sort === "village" ? (
+            // Each village is a COLLAPSIBLE section (collapsed by default) → a directory of villages
+            // you can jump between, instead of scrolling through a 163-customer group. Searching
+            // auto-expands so matches always show.
+            <div>
+              {villages.map(([vil, custs]) => {
+                const isOpen = openVil.has(vil) || !!text;
+                const subtotal = custs.reduce((s, x) => s + (x.outstanding || 0), 0);
+                return (
+                  <div key={vil} className="mb-2">
+                    <button
+                      onClick={() => setOpenVil((p) => { const n = new Set(p); n.has(vil) ? n.delete(vil) : n.add(vil); return n; })}
+                      className="flex w-full items-center justify-between gap-2 rounded-xl bg-[#eef9f0] px-3 py-2.5 text-left font-extrabold text-brand-dark"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className={`transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
+                        <span className="truncate">🏘 {vil} · {custs.length} khách</span>
+                      </span>
+                      <span className="shrink-0 text-red-600">{money(subtotal)}</span>
+                    </button>
+                    {isOpen && (
+                      <div className="mt-1.5 xl:grid xl:grid-cols-2 xl:gap-x-3 xl:items-start">
+                        {custs.map((c) => <Cust key={c.customer} c={c} />)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <div className="xl:grid xl:grid-cols-2 xl:gap-x-3 xl:items-start">
-            {filtered.map((c, i) => {
-              // When grouping by xóm, a sticky header starts each new village (with its debtor count).
-              const vil = c.village || "Chưa rõ xóm";
-              const showHeader = sort === "village" && (i === 0 || (filtered[i - 1].village || "Chưa rõ xóm") !== vil);
-              return (
-              <div key={c.customer} className={showHeader ? "xl:col-span-2" : ""}>
-                {showHeader && (
-                  <div className="sticky top-0 z-10 mb-1 mt-1 flex justify-between gap-2 rounded-lg bg-[#eef9f0]/95 px-2 py-1 text-sm font-extrabold text-brand-dark backdrop-blur">
-                    <span>🏘 {vil} · {filtered.filter((x) => (x.village || "Chưa rõ xóm") === vil).length} khách</span>
-                    <span className="text-red-600">{money(filtered.filter((x) => (x.village || "Chưa rõ xóm") === vil).reduce((s, x) => s + (x.outstanding || 0), 0))}</span>
-                  </div>
-                )}
-                <button
-                  onClick={() => router.push(`/pos/debt/${encodeURIComponent(c.slug || c.customer)}`)}
-                  className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow"
-                >
-                  <div>
-                    <div className="font-bold">{c.customer_name}</div>
-                    <div className="text-slate-500">{c.village || ""} · bấm xem chi tiết</div>
-                  </div>
-                  <div className="text-xl font-bold text-red-600">{c.outstanding_text}</div>
-                </button>
-              </div>
-              );
-            })}
+              {filtered.map((c) => <Cust key={c.customer} c={c} />)}
             </div>
           )}
         </>
