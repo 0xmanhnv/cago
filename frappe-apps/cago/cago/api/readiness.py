@@ -122,9 +122,9 @@ def golive_check():
 
 	ops = [
 		_check("owner_phone", "Số điện thoại chủ", OK if owner_phone else FAIL,
-			f"Đã có: {owner_phone}" if owner_phone else "Chưa có — cảnh báo & 'gọi nhân viên' không tới được chủ", "/pos/settings"),
+			f"Đã có: {owner_phone}" if owner_phone else "Chưa có — cảnh báo & 'gọi nhân viên' không tới được chủ", "/pos/settings#notify"),
 		_check("notify", "Kênh nhắn tin (Zalo/SMS)", OK if notify_on else WARN,
-			"Đã cấu hình" if notify_on else "Chưa cấu hình — nhắc việc/gọi hỗ trợ chỉ lưu nháp", "/pos/settings"),
+			"Đã cấu hình" if notify_on else "Chưa cấu hình — nhắc việc/gọi hỗ trợ chỉ lưu nháp", "/pos/settings#notify"),
 		_check("staff", "Nhân viên bán hàng", OK if has_staff else WARN,
 			"Đã có nhân viên" if has_staff else "Chưa thêm nhân viên (chủ vẫn bán được)", "/pos/staff"),
 	]

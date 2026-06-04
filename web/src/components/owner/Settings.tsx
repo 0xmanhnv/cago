@@ -21,6 +21,14 @@ export function Settings() {
   const [cfdUrl, setCfdUrl] = useState("");
   const [cfdCopied, setCfdCopied] = useState(false);
 
+  // Deep-link support: readiness ("Sửa →" for SĐT chủ / kênh nhắn tin) links to /pos/settings#notify
+  // so we land on the messaging section instead of the top (QR). Scroll to it after first paint.
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#notify") return;
+    const t = setTimeout(() => document.getElementById("notify")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     frappeCall<{ bin: string; account: string; name: string }>("cago.api.payment.get_bank", {}, { method: "GET" })
       .then((d) => setB({ bank_bin: d.bin || "", account: d.account || "", account_name: d.name || "" }))
@@ -287,7 +295,7 @@ export function Settings() {
         </button>
       </div>
 
-      <div className="mt-4 rounded-xl bg-white p-4">
+      <div id="notify" className="mt-4 scroll-mt-20 rounded-xl bg-white p-4">
         <div className="font-extrabold">📩 Nhắn tin Zalo/SMS (tuỳ chọn)</div>
         <p className="text-slate-500">
           Số của chủ để nhận nhắc việc hằng ngày (hết hàng / cận hạn / công nợ). Muốn gửi tin cho khách
