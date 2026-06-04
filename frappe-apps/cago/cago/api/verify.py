@@ -145,6 +145,21 @@ def set_expiry_warn(days=None):
 
 
 @frappe.whitelist()
+def get_default_debt_limit():
+	"""Owner: the shop-wide default credit limit applied when a customer has none (0 = unlimited)."""
+	ensure_cap("settings")
+	return {"limit": flt(frappe.db.get_value("Company", debt._company(), "cago_default_debt_limit"))}
+
+
+@frappe.whitelist()
+def set_default_debt_limit(limit=None):
+	ensure_cap("settings")
+	frappe.db.set_value("Company", debt._company(), "cago_default_debt_limit", max(0, cint(limit)))
+	frappe.db.commit()
+	return get_default_debt_limit()
+
+
+@frappe.whitelist()
 def get_debt_proof():
 	"""Owner: the debt-acknowledgement policy (sign/photo when taking on debt + collecting)."""
 	ensure_cap("settings")

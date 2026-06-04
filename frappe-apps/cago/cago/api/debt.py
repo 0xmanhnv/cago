@@ -38,6 +38,15 @@ def _receivable_account(company):
 	return acc
 
 
+def effective_debt_limit(customer):
+	"""The credit limit that applies to a customer: their own (cago_debt_limit) if set, else the
+	shop-wide default (Company.cago_default_debt_limit). 0 = no limit."""
+	own = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
+	if own:
+		return own
+	return flt(frappe.db.get_value("Company", _company(), "cago_default_debt_limit"))
+
+
 def _submit_privileged(doc):
 	"""Insert + submit a trusted accounting document.
 
@@ -129,7 +138,7 @@ def get_customer_debt(customer):
 		company=company,
 	)
 	balance = flt(balance)
-	limit = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
+	limit = effective_debt_limit(customer)
 	return {
 		"customer": customer,
 		"customer_name": frappe.db.get_value("Customer", customer, "customer_name"),
@@ -160,7 +169,7 @@ def record_debt(customer, amount, note=None, signature=None, photo=None, witness
 	require_proof("debt", amount, signature, photo, witness)
 
 	# Credit limit (hạn mức nợ): block if this would push outstanding over the limit.
-	limit = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
+	limit = effective_debt_limit(customer)
 	if limit:
 		current = flt(get_customer_debt(customer)["outstanding"])
 		if current + amount > limit:

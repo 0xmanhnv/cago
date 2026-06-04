@@ -284,7 +284,7 @@ def credit_sale(customer, items, note=None, client_uuid=None):
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 
 	# Credit limit (rough estimate in selling units).
-	limit = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
+	limit = flt(debt.effective_debt_limit(customer))
 	if limit:
 		current = flt(debt.get_customer_debt(customer)["outstanding"])
 		est = sum(r["qty"] * r["rate"] for r in rows)
@@ -997,7 +997,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				from cago.debt_proof import require_proof
 
 				require_proof("debt", total - paid, debt_signature, debt_photo, debt_witness)
-				limit = flt(frappe.db.get_value("Customer", cust, "cago_debt_limit"))
+				limit = flt(debt.effective_debt_limit(cust))
 				if limit:
 					current = _customer_outstanding(cust)
 					if current + (total - paid) > limit:
@@ -1036,7 +1036,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		from cago.debt_proof import require_proof
 
 		require_proof("debt", subtotal_all - disc, debt_signature, debt_photo, debt_witness)
-		limit = flt(frappe.db.get_value("Customer", cust, "cago_debt_limit"))
+		limit = flt(debt.effective_debt_limit(cust))
 		if limit:
 			current = _customer_outstanding(cust)
 			est = sum(r["qty"] * r["rate"] for r in rows)

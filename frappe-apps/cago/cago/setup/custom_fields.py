@@ -335,6 +335,13 @@ def ensure_payment_fields():
 					"description": "Bật: nhân viên được ghi 'Khách trả nợ' (tiền vào sổ quỹ ca, ghi rõ người thu). Tắt: chỉ chủ thu nợ.",
 				},
 				{
+					"fieldname": "cago_default_debt_limit",
+					"label": "Hạn mức nợ mặc định mỗi khách (đồng)",
+					"fieldtype": "Currency",
+					"insert_after": "cago_staff_can_collect_debt",
+					"description": "Áp dụng khi khách chưa đặt hạn mức riêng. 0 = không giới hạn.",
+				},
+				{
 					"fieldname": "cago_loyalty_earn_vnd",
 					"label": "Tích điểm: bao nhiêu đồng = 1 điểm",
 					"fieldtype": "Int",

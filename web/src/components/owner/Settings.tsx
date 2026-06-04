@@ -16,6 +16,7 @@ export function Settings() {
   const [loyalty, setLoyalty] = useState({ earn_vnd: "", redeem_vnd: "", on_credit: false });
   const [expiryDays, setExpiryDays] = useState("");
   const [proof, setProof] = useState({ debt_mode: "optional", debt_min: "", repay_mode: "optional", repay_min: "" });
+  const [defLimit, setDefLimit] = useState("");
   const [notify, setNotify] = useState({ owner_phone: "", webhook: "", token: "", has_token: false });
   const [cfdUrl, setCfdUrl] = useState("");
   const [cfdCopied, setCfdCopied] = useState(false);
@@ -41,6 +42,9 @@ export function Settings() {
       .catch(() => {});
     frappeCall<{ debt: { mode: string; min: number }; repay: { mode: string; min: number } }>("cago.api.verify.get_debt_proof", {}, { method: "GET" })
       .then((d) => setProof({ debt_mode: d.debt.mode, debt_min: String(d.debt.min || ""), repay_mode: d.repay.mode, repay_min: String(d.repay.min || "") }))
+      .catch(() => {});
+    frappeCall<{ limit: number }>("cago.api.verify.get_default_debt_limit", {}, { method: "GET" })
+      .then((d) => setDefLimit(String(d.limit || "")))
       .catch(() => {});
     frappeCall<{ owner_phone: string; webhook: string; has_token: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
       .then((d) => setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token }))
@@ -115,6 +119,16 @@ export function Settings() {
     }
   };
 
+  const saveDefLimit = async () => {
+    try {
+      const d = await frappeCall<{ limit: number }>("cago.api.verify.set_default_debt_limit", { limit: parseVnd(defLimit) });
+      setDefLimit(String(d.limit || ""));
+      toast.success("Đã lưu hạn mức nợ mặc định.");
+    } catch {
+      toast.error("Lỗi: không lưu được.");
+    }
+  };
+
   const saveProof = async () => {
     try {
       const d = await frappeCall<{ debt: { mode: string; min: number }; repay: { mode: string; min: number } }>("cago.api.verify.set_debt_proof", {
@@ -133,6 +147,19 @@ export function Settings() {
   return (
     <div className="mx-auto max-w-[760px]">
       <BackBar onBack={() => goBackSmart(router)} title="QR THU TIỀN (VietQR)" />
+
+      <div className="mt-4 rounded-xl bg-white p-4">
+        <h2 className="font-extrabold text-brand-dark">📒 Hạn mức nợ mặc định</h2>
+        <p className="mt-1 text-sm text-slate-500">Áp dụng cho khách CHƯA đặt hạn mức riêng. Vượt mức thì không cho ghi nợ thêm. Để 0 = không giới hạn.</p>
+        <input
+          inputMode="numeric"
+          value={groupVnd(defLimit)}
+          onChange={(e) => setDefLimit(String(parseVnd(e.target.value)))}
+          placeholder="VD: 2.000.000 (0 = không giới hạn)"
+          className="mt-2 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+        />
+        <button onClick={saveDefLimit} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">💾 Lưu hạn mức mặc định</button>
+      </div>
 
       <div className="mt-4 rounded-xl bg-white p-4">
         <h2 className="font-extrabold text-brand-dark">✍️ Xác nhận nợ (số nợ số hoá)</h2>
