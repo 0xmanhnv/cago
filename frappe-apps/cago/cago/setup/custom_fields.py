@@ -119,12 +119,22 @@ def ensure_stock_fields():
 					"insert_after": "cago_allow_oversell",
 					"description": "Đánh dấu mặt hàng cửa hàng khuyên dùng trong nhóm. Trợ lý ưu tiên gợi ý khi khách hỏi 'loại nào tốt nhất', và hiện huy hiệu ⭐ trên thẻ sản phẩm.",
 				},
+				{
+					# Official label instructions (dosage / mixing / pre-harvest interval) the owner copies
+					# from the manufacturer's label. When present, the assistant QUOTES it for a dosage/
+					# mixing question instead of refusing — quoting the label is not "inventing a dose".
+					"fieldname": "cago_label_instructions",
+					"label": "Hướng dẫn trên nhãn (liều lượng / pha trộn / cách ly)",
+					"fieldtype": "Long Text",
+					"insert_after": "cago_recommended",
+					"description": "Chép NGUYÊN VĂN hướng dẫn liều lượng/pha trộn/cách ly từ nhãn nhà sản xuất. Có nội dung này thì trợ lý sẽ trích dẫn cho khách (vẫn kèm cảnh báo an toàn). Để trống = trợ lý từ chối và mời hỏi người bán.",
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Item stock fields ensured: cago_stock_auto, cago_reorder_level, cago_min_price, cago_allow_oversell, cago_recommended")
+	print("Item stock fields ensured: cago_stock_auto, cago_reorder_level, cago_min_price, cago_allow_oversell, cago_recommended, cago_label_instructions")
 
 
 def ensure_customer_fields():

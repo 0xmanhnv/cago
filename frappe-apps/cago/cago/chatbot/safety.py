@@ -57,14 +57,41 @@ def is_sensitive(intents) -> bool:
 	return bool(intents)
 
 
-def answerable_from_data(intents, products) -> bool:
-	"""A sensitive question may only be answered if verified data covers it.
+# Intents we NEVER answer, even with label text on file — asking to exceed/misuse the label, or a
+# medical dose. These always refuse + escalate.
+_NEVER_ANSWER = {"stronger_than_label", "misuse", "medical"}
+# Intents that a manufacturer's LABEL legitimately covers — if the owner recorded the official label
+# instructions on the product, quoting them is correct (not "inventing a dose").
+_LABEL_ANSWERABLE = {"dosage", "mixing", "near_harvest"}
 
-	Conservative: we never auto-answer dosage/mixing/stronger/near-harvest/medical from
-	free text, even if a product has notes — those must come from the label. So sensitive
-	intents are always refused by the chatbot and escalated.
-	"""
-	return False
+
+def answerable_from_data(intents, products) -> bool:
+	"""Answer a sensitive question ONLY by quoting the official label the owner recorded on the
+	product. Allowed when: no never-answer intent is present, the question is a label-coverable one,
+	and exactly the focused product (single) has `label_instructions` on file. Otherwise refuse +
+	escalate. We never let the LLM compose a dose — see label_answer (deterministic quote)."""
+	intents = set(intents or [])
+	if intents & _NEVER_ANSWER:
+		return False
+	if not (intents & _LABEL_ANSWERABLE):
+		return False
+	prods = [p for p in (products or []) if (p.get("label_instructions") or "").strip()]
+	return len(prods) == 1
+
+
+def label_answer(products) -> str | None:
+	"""Build a SAFE answer that quotes the product's recorded label instructions verbatim (no
+	invention), attributed to the label, plus the standard warning. Returns None if none on file."""
+	prods = [p for p in (products or []) if (p.get("label_instructions") or "").strip()]
+	if len(prods) != 1:
+		return None
+	p = prods[0]
+	name = p.get("display_name") or "sản phẩm"
+	return (
+		f"Theo hướng dẫn ghi trên nhãn của {name}:\n\n{p['label_instructions'].strip()}\n\n"
+		"Đây là thông tin chép từ nhãn sản phẩm. Nếu chưa rõ, bác hỏi thêm người bán/cô Tuyết hoặc "
+		"người có chuyên môn nhé.\n" + STANDARD_SAFETY_WARNING
+	)
 
 
 def products_have_chemical(products) -> bool:

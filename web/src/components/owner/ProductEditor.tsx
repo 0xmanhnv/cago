@@ -38,6 +38,7 @@ const EDIT_FIELDS = [
   "cago_package_color",
   "cago_product_quality_tier",
   "cago_staff_advice",
+  "cago_label_instructions",
   "cago_call_owner_when",
   "cago_safety_notes",
   "cago_is_chemical",
@@ -260,6 +261,7 @@ export function ProductEditor({ code }: { code: string }) {
         <EditField label="Màu bao bì" k="cago_package_color" data={data} set={set} />
         <EditSelect label="Mức chất lượng" k="cago_product_quality_tier" opts={e.quality_options || []} data={data} set={set} />
         <EditArea label="Câu tư vấn cho người bán" k="cago_staff_advice" data={data} set={set} />
+        <EditArea label="📋 Hướng dẫn trên nhãn (liều lượng / pha trộn / cách ly) — chép nguyên văn từ nhãn. Có thì trợ lý sẽ trích cho khách thay vì từ chối." k="cago_label_instructions" data={data} set={set} />
         <EditArea label="Khi nào cần gọi chủ" k="cago_call_owner_when" data={data} set={set} />
         <EditArea label="Lưu ý an toàn" k="cago_safety_notes" data={data} set={set} />
         <EditCheck label="⭐ Khuyên dùng — trợ lý ưu tiên gợi ý loại này khi khách hỏi 'loại nào tốt nhất', và hiện ⭐ trên thẻ" k="cago_recommended" data={data} set={set} />

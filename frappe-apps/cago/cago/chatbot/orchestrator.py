@@ -146,13 +146,22 @@ def ask(role, message, history=None, session_id=None, customer_phone=None, focus
 	if safety.products_have_chemical(products) or intents:
 		warnings.append(STANDARD_SAFETY_WARNING)
 
-	# 1) Unsafe chemical intent -> refuse, escalate (never call LLM for this).
-	if safety.is_sensitive(intents) and not safety.answerable_from_data(intents, products):
-		resp = ChatResponse(
-			answer_text=_refusal_answer(), product_cards=cards, safety_warnings=warnings,
-			needs_staff_help=True, sources=sources, confidence="low",
-		)
-		provider_used = "refused"
+	# 1) Sensitive chemical intent. If the owner recorded the official LABEL instructions on the
+	# focused product, quote them (deterministic — never the LLM, never invented). Otherwise refuse
+	# and escalate to the seller.
+	if safety.is_sensitive(intents):
+		if safety.answerable_from_data(intents, products):
+			resp = ChatResponse(
+				answer_text=safety.label_answer(products), product_cards=cards, safety_warnings=warnings,
+				needs_staff_help=False, sources=sources, confidence="medium",
+			)
+			provider_used = "label"
+		else:
+			resp = ChatResponse(
+				answer_text=_refusal_answer(), product_cards=cards, safety_warnings=warnings,
+				needs_staff_help=True, sources=sources, confidence="low",
+			)
+			provider_used = "refused"
 	# 2) No matching product. If it's a "what do you sell?" question, answer with the category list
 	# (a useful discovery reply); otherwise say we couldn't find it and offer the seller.
 	elif not products:

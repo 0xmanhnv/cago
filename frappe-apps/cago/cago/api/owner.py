@@ -418,6 +418,7 @@ EDITABLE_FIELDS = (
 	"cago_min_price",
 	"cago_product_quality_tier",
 	"cago_staff_advice",
+	"cago_label_instructions",  # official label dosage/mixing → assistant quotes it instead of refusing
 	"cago_call_owner_when",
 	"cago_safety_notes",
 	"cago_is_chemical",
