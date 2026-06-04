@@ -18,7 +18,7 @@ from frappe.utils import cint, flt
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
-from cago.utils.permissions import ensure_cap, ensure_internal, ensure_lang
+from cago.utils.permissions import ensure_cap, ensure_internal, ensure_lang, is_owner
 from cago.utils.privileged import as_user
 
 
@@ -115,9 +115,11 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None, invoiced=1, inv
 
 @frappe.whitelist()
 def receive_history(start=0, limit=30):
-	"""Owner: recent stock-ins (Material Receipts) with their saved invoice photo + có/không HĐ flag.
-	Lets the owner review chứng từ later. Owner-only (shows giá vốn)."""
+	"""Recent stock-ins (Material Receipts) with their saved invoice photo + có/không HĐ flag.
+	Stock staff may review the list, but giá vốn (the money columns) is shown ONLY to the owner —
+	a stock-cap staffer who needs receive/adjust must not read supplier cost."""
 	ensure_cap("stock")
+	show_cost = is_owner()
 	rows = frappe.get_all(
 		"Stock Entry",
 		filters={"stock_entry_type": "Material Receipt", "docstatus": 1},
@@ -138,7 +140,7 @@ def receive_history(start=0, limit=30):
 				"name": frappe.db.get_value("Item", d.item_code, "cago_display_name") or frappe.db.get_value("Item", d.item_code, "item_name") or d.item_code,
 				"qty": flt(d.qty),
 				"uom": d.uom,
-				"amount_text": dto.format_price(d.amount) if d.amount else "",
+				"amount_text": (dto.format_price(d.amount) if d.amount else "") if show_cost else "",
 			}
 			for d in dets
 		]
@@ -148,7 +150,7 @@ def receive_history(start=0, limit=30):
 				"date": str(r.posting_date),
 				"invoiced": bool(r.cago_invoiced),
 				"image": r.cago_invoice_image,
-				"total_text": dto.format_price(r.total_incoming_value) if r.total_incoming_value else "—",
+				"total_text": (dto.format_price(r.total_incoming_value) if r.total_incoming_value else "—") if show_cost else "",
 				"lines": lines,
 				"count": len(lines),
 			}

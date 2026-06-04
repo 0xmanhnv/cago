@@ -179,6 +179,19 @@ def _existing_sale_result(si_name):
 	}
 
 
+def _replay_existing(client_uuid):
+	"""A concurrent retry hit the unique cago_client_uuid index while booking a sale. Roll back this
+	losing attempt (which also undoes its coupon increment / point redemption — they share the
+	transaction) and return the sale the winning request already booked, so the loser returns the
+	same result instead of a 500. Returns None when there is no such invoice (the error was something
+	else → the caller re-raises)."""
+	if not client_uuid:
+		return None
+	frappe.db.rollback()
+	existing = frappe.db.get_value("Sales Invoice", {"cago_client_uuid": client_uuid}, "name")
+	return _existing_sale_result(existing) if existing else None
+
+
 def _auto_batch(code, wh):
 	"""Pick a batch for a batch-tracked item so staff never sees ERPNext's raw
 	'Batch No are mandatory' at checkout. FEFO: sell the nearest-expiry lot first (correct for
@@ -971,7 +984,12 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				si.apply_discount_on = "Grand Total"
 				si.discount_amount = disc
 			si.flags.ignore_permissions = True
-			si.insert(ignore_permissions=True)
+			try:
+				si.insert(ignore_permissions=True)
+			except Exception:
+				if (_dup := _replay_existing(client_uuid)):
+					return _dup
+				raise
 			total = flt(si.grand_total)
 			if paid < total - 1:  # shortfall -> the rest is debt
 				if cust == walkin_customer():
@@ -1038,7 +1056,12 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		if disc > 0:
 			si.apply_discount_on = "Grand Total"
 			si.discount_amount = disc
-		debt._submit_privileged(si)
+		try:
+			debt._submit_privileged(si)
+		except Exception:
+			if (_dup := _replay_existing(client_uuid)):
+				return _dup
+			raise
 		record_action("Debt Add", ref_doctype="Sales Invoice", ref_name=si.name, new_value=flt(si.grand_total))
 		frappe.db.commit()
 		total = flt(si.grand_total)
@@ -1087,7 +1110,12 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			si.apply_discount_on = "Grand Total"
 			si.discount_amount = disc
 		si.flags.ignore_permissions = True
-		si.insert(ignore_permissions=True)  # totals computed (after discount)
+		try:
+			si.insert(ignore_permissions=True)  # totals computed (after discount)
+		except Exception:
+			if (_dup := _replay_existing(client_uuid)):
+				return _dup
+			raise
 		si.append("payments", {"mode_of_payment": mode, "amount": flt(si.grand_total)})
 		si.save(ignore_permissions=True)
 		si.submit()

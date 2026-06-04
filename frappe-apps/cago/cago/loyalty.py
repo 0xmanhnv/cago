@@ -68,7 +68,13 @@ def accrue(doc, method=None):
 	customer = getattr(doc, "customer", None)
 	if not customer or _is_walkin(customer):
 		return
-	pts = int(flt(getattr(doc, "grand_total", 0)) / _per_point())
+	redeemed = int(flt(getattr(doc, "cago_points_redeemed", 0) or 0))
+	# Earn on the PRE-redemption total: a customer who spends points must not also earn less for
+	# doing so (their points are cashed-in value, not a shop discount). grand_total is already net
+	# of the redemption (folded into the bill discount), so add that value back. Coupons / manual
+	# bargaining still reduce the earn basis — you earn on what you actually paid.
+	basis = flt(getattr(doc, "grand_total", 0)) + redeemed * redeem_value()
+	pts = int(basis / _per_point())
 	if pts > 0:
 		_add_points(customer, +pts)
 		# Persist what we actually gave (read back on cancel). Field may be absent on older sites.
@@ -76,7 +82,6 @@ def accrue(doc, method=None):
 			frappe.db.set_value("Sales Invoice", doc.name, "cago_points_awarded", pts, update_modified=False)
 		except Exception:
 			pass
-	redeemed = int(flt(getattr(doc, "cago_points_redeemed", 0) or 0))
 	if redeemed > 0:
 		_add_points(customer, -redeemed)  # customer spent these points as a discount
 
@@ -86,10 +91,12 @@ def reverse(doc, method=None):
 	customer = getattr(doc, "customer", None)
 	if not customer or _is_walkin(customer):
 		return
+	redeemed = int(flt(getattr(doc, "cago_points_redeemed", 0) or 0))
 	awarded = getattr(doc, "cago_points_awarded", None)
-	pts = int(flt(awarded)) if awarded else int(flt(getattr(doc, "grand_total", 0)) / _per_point())
+	# Prefer the persisted award; fall back to the same pre-redemption basis used in accrue().
+	basis = flt(getattr(doc, "grand_total", 0)) + redeemed * redeem_value()
+	pts = int(flt(awarded)) if awarded else int(basis / _per_point())
 	if pts > 0:
 		_add_points(customer, -pts)
-	redeemed = int(flt(getattr(doc, "cago_points_redeemed", 0) or 0))
 	if redeemed > 0:
 		_add_points(customer, +redeemed)

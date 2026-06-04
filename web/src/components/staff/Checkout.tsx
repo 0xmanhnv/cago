@@ -15,7 +15,7 @@ import type { ProductCard, Product, Category } from "@/lib/types";
 import { useOnline } from "@/lib/offline/useOnline";
 import { type SaleArgs, type SaleDisplay } from "@/lib/offline/db";
 import { findByBarcodeLocal, getProductLocal, refreshCatalog, searchCatalogLocal, searchCustomersLocal } from "@/lib/offline/catalog";
-import { enqueueSale } from "@/lib/offline/queue";
+import { enqueueSale, newClientUuid } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
 import { cfdPost } from "@/lib/cfd";
 import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
@@ -743,8 +743,8 @@ export function Checkout() {
 
   // Ring up a sale with no network: store it in the queue and show a provisional receipt. The
   // server books it (deduping on client_uuid) once the connection returns.
-  const queueOffline = async (payment_mode: PayMode, args: SaleArgs, display: SaleDisplay, outstanding: string | null) => {
-    const sale = await enqueueSale(args, display);
+  const queueOffline = async (payment_mode: PayMode, args: SaleArgs, display: SaleDisplay, outstanding: string | null, clientUuid?: string) => {
+    const sale = await enqueueSale(args, display, clientUuid);
     setOfflineSale({ code: sale.local_code, lines: display.lines, total_text: display.total_text, outstanding });
     setResult({
       invoice: sale.local_code,
@@ -778,14 +778,17 @@ export function Checkout() {
     const who = cust ? ` cho ${cust.customer_name}` : "";
     if (!(await ask(`${MODE_VI[payment_mode]} ${cartCodes.length} mặt hàng · ${money(payTotal)}${who}?`, { confirmLabel: MODE_VI[payment_mode] }))) return;
     setBusy(true);
+    // One idempotency key for this attempt: sent on the online call AND reused if it falls back to
+    // the queue, so a sale the server already booked (response lost) is never double-booked.
+    const cuid = newClientUuid();
     const { args, display } = buildSale(payment_mode);
     const outstanding = payment_mode === "credit" ? display.total_text : null;
     try {
       if (!online) {
-        await queueOffline(payment_mode, args, display, outstanding);
+        await queueOffline(payment_mode, args, display, outstanding, cuid);
         return;
       }
-      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args });
+      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args, client_uuid: cuid });
       setResult(r);
       setOfflineSale(null);
       setShiftRefresh((n) => n + 1);
@@ -804,7 +807,7 @@ export function Checkout() {
       // A transport failure (not a server rejection) mid-checkout = the network just dropped. Queue
       // the cash/credit sale rather than lose it; bank can't be queued (needs the gateway).
       if (!(e instanceof FrappeError) && payment_mode !== "bank") {
-        await queueOffline(payment_mode, args, display, outstanding);
+        await queueOffline(payment_mode, args, display, outstanding, cuid);
         return;
       }
       toast.error(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
@@ -835,8 +838,9 @@ export function Checkout() {
       { mode: "bank" as const, amount: bankAmt },
     ].filter((p) => p.amount > 0);
     const { args } = buildSale("split", splitPayments);
+    const cuid = newClientUuid(); // dedup a manual re-ring if the response was lost mid-checkout
     try {
-      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args });
+      const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args, client_uuid: cuid });
       setResult(r);
       setOfflineSale(null);
       setShiftRefresh((n) => n + 1);

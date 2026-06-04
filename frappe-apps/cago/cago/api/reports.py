@@ -13,7 +13,7 @@ from frappe.utils import add_days, cint, flt, format_date, get_first_day, getdat
 
 from cago.api.debt import get_customer_debt
 from cago.utils import dto
-from cago.utils.permissions import ensure_cap, ensure_internal
+from cago.utils.permissions import ensure_cap, ensure_internal, ensure_owner
 
 LOW_STOCK_STATUSES = ["Còn ít", "Hết hàng", "Sắp nhập"]
 PERIOD_LABEL = {"today": "Hôm nay", "week": "7 ngày qua", "month": "Tháng này", "year": "Năm nay", "custom": "Khoảng ngày"}
@@ -175,8 +175,9 @@ def sales_by_customer(period="month", limit=10, from_date=None, to_date=None):
 @frappe.whitelist()
 def gross_profit(period="today", from_date=None, to_date=None):
 	"""Owner-only gross profit = doanh thu (net) − giá vốn (COGS). COGS uses the Sales
-	Invoice Item incoming_rate (set when stock is maintained). Never exposed to staff/kiosk."""
-	ensure_cap("reports")
+	Invoice Item incoming_rate (set when stock is maintained). Never exposed to staff/kiosk —
+	owner-only, NOT the delegable `reports` cap (a "Báo cáo" staffer must not see giá vốn/profit)."""
+	ensure_owner()
 	start, end, label = _resolve(period, from_date, to_date)
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")

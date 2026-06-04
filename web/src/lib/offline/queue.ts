@@ -9,6 +9,13 @@ function uuid(): string {
   return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
+/** A fresh idempotency key for one checkout attempt. The ONLINE sale sends it too, and the same key
+ * is reused if that attempt falls back to the queue — so a server that already booked the sale
+ * (its response lost on a flaky network) dedups the retry instead of double-booking. */
+export function newClientUuid(): string {
+  return uuid();
+}
+
 /** "TẠM-AB12CD" — short, human-readable, derived from the uuid so it's stable for reprints. */
 function localCodeFrom(id: string): string {
   return `TẠM-${id.replace(/[^a-z0-9]/gi, "").slice(0, 6).toUpperCase()}`;
@@ -21,8 +28,10 @@ function nowStamp(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-export async function enqueueSale(args: SaleArgs, display: SaleDisplay): Promise<QueuedSale> {
-  const id = uuid();
+export async function enqueueSale(args: SaleArgs, display: SaleDisplay, clientUuid?: string): Promise<QueuedSale> {
+  // Reuse the attempt's key when an online sale fell back to the queue (so the server dedups);
+  // mint a fresh one for a sale that started offline.
+  const id = clientUuid || uuid();
   const sale: QueuedSale = {
     client_uuid: id,
     local_code: localCodeFrom(id),
