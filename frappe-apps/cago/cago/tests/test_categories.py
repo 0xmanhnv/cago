@@ -82,11 +82,36 @@ class TestCategoryCrud(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			owner.save_category("_Cat A", old_name="_Cat A", parent="_Cat B")
 
-	def test_delete_refused_when_products_exist(self):
+	def test_delete_parent_frees_children_and_moves_own_products(self):
+		"""WordPress-style delete: children become top-level; the deleted category's products move to
+		its parent (child) or to 'Chưa phân loại' (top-level). Nothing is orphaned."""
 		from cago.api import owner
 
-		grp = frappe.db.get_value("Item", {"disabled": 0}, "item_group")
-		if not grp:
-			self.skipTest("no items to occupy a category")
+		owner.save_category("_Cat A", icon="📦")  # top-level parent
+		owner.save_category("_Cat B", icon="📦", parent="_Cat A")  # child
+		owner.delete_category("_Cat A")
+		# Child B is now top-level (parent cleared), and A is gone.
+		self.assertFalse(frappe.db.exists("Item Group", "_Cat A"))
+		self.assertIsNone(frappe.db.get_value("Item Group", "_Cat B", "cago_parent"))
+
+	def test_delete_child_folds_products_into_parent(self):
+		from cago.api import owner
+
+		owner.save_category("_Cat A", icon="📦")
+		owner.save_category("_Cat B", icon="📦", parent="_Cat A")
+		# Park a real item under the child, then delete the child → item should fold up into _Cat A.
+		item = frappe.db.get_value("Item", {"disabled": 0}, "name")
+		if not item:
+			self.skipTest("no item to reassign")
+		orig = frappe.db.get_value("Item", item, "item_group")
+		frappe.db.set_value("Item", item, "item_group", "_Cat B")
+		owner.delete_category("_Cat B")
+		self.assertEqual(frappe.db.get_value("Item", item, "item_group"), "_Cat A")
+		frappe.db.set_value("Item", item, "item_group", orig)  # restore
+
+	def test_uncategorized_cannot_be_deleted(self):
+		from cago.api import owner
+
+		owner._ensure_uncategorized()
 		with self.assertRaises(frappe.ValidationError):
-			owner.delete_category(grp)
+			owner.delete_category(owner.UNCATEGORIZED)

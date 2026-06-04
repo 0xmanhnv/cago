@@ -671,6 +671,19 @@ def _root_item_group():
 	)
 
 
+UNCATEGORIZED = "Chưa phân loại"
+
+
+def _ensure_uncategorized():
+	"""The fallback category products fall into when their category is deleted and there's no parent
+	to fold them up into — so a product is never left without a category. Cannot be deleted."""
+	if not frappe.db.exists("Item Group", UNCATEGORIZED):
+		frappe.get_doc(
+			{"doctype": "Item Group", "item_group_name": UNCATEGORIZED, "parent_item_group": _root_item_group(), "is_group": 0, "cago_icon": "📦"}
+		).insert(ignore_permissions=True)
+	return UNCATEGORIZED
+
+
 @frappe.whitelist()
 def save_category(name, icon=None, color=None, old_name=None, parent=None):
 	"""Owner: create / rename / restyle a category, and set its loại cha (`cago_parent`). Flat model:
@@ -723,20 +736,60 @@ def save_category(name, icon=None, color=None, old_name=None, parent=None):
 	return {"name": name}
 
 
+def delete_preview(name):
+	"""What deleting `name` will do (for the confirm dialog): how many products move and where, and
+	how many child categories become top-level. No changes."""
+	ensure_cap("products")
+	name = (name or "").strip()
+	if not frappe.db.exists("Item Group", name):
+		return {"products": 0, "children": 0, "target": None}
+	parent = frappe.db.get_value("Item Group", name, "cago_parent")
+	return {
+		"products": frappe.db.count("Item", {"item_group": name}),
+		"children": frappe.db.count("Item Group", {"cago_parent": name}),
+		# A child's products fold up into its parent; a top-level's go to "Chưa phân loại".
+		"target": parent or UNCATEGORIZED,
+	}
+
+
+delete_preview = frappe.whitelist()(delete_preview)
+
+
 @frappe.whitelist()
-def delete_category(name):
-	"""Owner: delete a nhóm hàng — refused if any product still uses it or it has sub-groups."""
+def delete_category(name, move_to=None):
+	"""Owner: delete a category, WordPress-style — nothing is orphaned:
+	- its child categories become top-level (cago_parent cleared);
+	- its products move to `move_to` if given, else fold up into its parent, else "Chưa phân loại".
+	Refuses only for the protected fallback + ERPNext system groups."""
 	ensure_cap("products")
 	name = (name or "").strip()
 	if not frappe.db.exists("Item Group", name):
 		return {"deleted": True}
-	if frappe.db.exists("Item", {"item_group": name}):
-		frappe.throw(_("Còn sản phẩm trong loại '{0}'. Hãy chuyển sản phẩm sang loại khác trước khi xoá.").format(name))
-	if frappe.db.exists("Item Group", {"cago_parent": name}):
-		frappe.throw(_("Loại '{0}' đang là cha của loại khác. Hãy bỏ/đổi loại cha của các loại con trước.").format(name))
+	if name == UNCATEGORIZED or name in ERPNEXT_DEFAULT_GROUPS:
+		frappe.throw(_("Không thể xoá loại '{0}' (loại hệ thống).").format(name))
+
+	# Where this category's products go: an explicit target, else its parent (fold up), else the
+	# protected "Chưa phân loại" fallback. Validate an explicit target.
+	parent = frappe.db.get_value("Item Group", name, "cago_parent")
+	move_to = (move_to or "").strip()
+	if move_to:
+		if move_to == name or not frappe.db.exists("Item Group", {"name": move_to, "is_group": 0}):
+			frappe.throw(_("Loại chuyển đến '{0}' không hợp lệ.").format(move_to))
+		target = move_to
+	else:
+		target = parent or _ensure_uncategorized()
+
+	moved = frappe.db.count("Item", {"item_group": name})
+	freed = frappe.db.count("Item Group", {"cago_parent": name})
+	# 1) Children become top-level (clear the link so the parent has no dependents blocking delete).
+	frappe.db.sql("UPDATE `tabItem Group` SET cago_parent=NULL WHERE cago_parent=%s", name)
+	# 2) Reassign every product (incl. disabled) to the target, so none is left linked to the group.
+	if moved:
+		frappe.db.sql("UPDATE `tabItem` SET item_group=%s WHERE item_group=%s", (target, name))
 	frappe.delete_doc("Item Group", name, ignore_permissions=True)
 	frappe.db.commit()
-	return {"deleted": True}
+	frappe.clear_cache()
+	return {"deleted": True, "moved_products": moved, "freed_children": freed, "target": target if moved else None}
 
 
 @frappe.whitelist()

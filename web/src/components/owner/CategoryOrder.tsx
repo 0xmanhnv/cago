@@ -113,10 +113,22 @@ export function CategoryOrder() {
   };
 
   const remove = async (name: string) => {
-    if (!(await confirmDialog(`Xoá loại hàng "${name}"?`, { danger: true, confirmLabel: "Xoá" }))) return;
+    // Tell the owner exactly what the delete will do (nothing is orphaned, but they should know
+    // where products land + that children become top-level) before confirming.
+    let msg = `Xoá loại hàng "${name}"?`;
     try {
-      await frappeCall("cago.api.owner.delete_category", { name });
-      toast.success("Đã xoá.");
+      const p = await frappeCall<{ products: number; children: number; target: string | null }>(
+        "cago.api.owner.delete_preview", { name }, { method: "GET" },
+      );
+      const parts: string[] = [];
+      if (p.products > 0) parts.push(`${p.products} sản phẩm sẽ chuyển sang "${p.target}"`);
+      if (p.children > 0) parts.push(`${p.children} loại con sẽ thành loại gốc`);
+      if (parts.length) msg = `Xoá "${name}"? ${parts.join("; ")}.`;
+    } catch { /* fall back to the simple confirm */ }
+    if (!(await confirmDialog(msg, { danger: true, confirmLabel: "Xoá" }))) return;
+    try {
+      const r = await frappeCall<{ moved_products: number; target: string | null }>("cago.api.owner.delete_category", { name });
+      toast.success(r.moved_products ? `Đã xoá. ${r.moved_products} sản phẩm chuyển sang "${r.target}".` : "Đã xoá.");
       load();
     } catch (e) {
       toast.error(`${e instanceof Error ? e.message : "Không xoá được."}`);
