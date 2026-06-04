@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { logout } from "@/lib/api";
-import { verifyPosPin, setPosLocked } from "@/lib/posLock";
+import { unlockPos } from "@/lib/posLock";
 import { Keypad } from "./Keypad";
 
 /**
@@ -14,18 +14,22 @@ export function PinLock({ brand = "Minh Tuyết", onUnlock }: { brand?: string; 
   const [pin, setPin] = useState("");
   const [shake, setShake] = useState(false);
 
-  const press = (d: string) => {
+  const [busy, setBusy] = useState(false);
+  const press = async (d: string) => {
+    if (busy) return;
     const next = (pin + d).slice(0, 4);
     setPin(next);
     if (next.length < 4) return;
-    if (verifyPosPin(next)) {
-      setPosLocked(false);
+    setBusy(true);
+    try {
+      await unlockPos(next); // server verifies + clears the session lock; throws on wrong PIN
       onUnlock();
-    } else {
+    } catch {
       setShake(true);
       setTimeout(() => {
         setShake(false);
         setPin("");
+        setBusy(false);
       }, 450);
     }
   };

@@ -1,59 +1,28 @@
 "use client";
 
+import { frappeCall } from "./api";
+
 /**
- * Quick PIN lock for a shared kiosk device that is BOTH the customer kiosk and the staff POS.
- * Full login happens once per shift; after that a 4-digit PIN locks/unlocks the POS so the owner
- * doesn't retype the password on every hand-over. This is a UI lock on an OS-locked in-shop device
- * (the real boundary is the OS kiosk lockdown + the login session) — the PIN digest is device-local,
- * so it gates the screen, not the server. No-op on personal phones (only when isFixedKiosk()).
+ * Quick PIN lock for a shared kiosk+POS device. The lock state + PIN live on the SERVER (session
+ * flag + hashed PIN on the User), NOT in localStorage — so a customer can't bypass it by editing
+ * the URL, reloading, or clearing storage. The frontend reads `boot.pos_locked` / `boot.has_pos_pin`
+ * from the session bootstrap and calls these to change it (reload the bootstrap afterwards). This is
+ * defence-in-depth on top of the OS-level kiosk lockdown, which remains the real boundary.
  */
-const PIN_KEY = "cago_pos_pin"; // device-local digest of the 4-digit PIN
-const LOCK_KEY = "cago_pos_locked"; // "1" while the POS is locked behind the PIN
-
-export function hasPosPin(): boolean {
-  return typeof window !== "undefined" && !!window.localStorage?.getItem(PIN_KEY);
+export async function setPosPin(pin: string): Promise<void> {
+  await frappeCall("cago.api.session.set_pos_pin", { pin });
 }
 
-export function setPosPin(pin: string): void {
-  window.localStorage?.setItem(PIN_KEY, digest(pin));
+export async function clearPosPin(): Promise<void> {
+  await frappeCall("cago.api.session.clear_pos_pin", {});
 }
 
-export function clearPosPin(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage?.removeItem(PIN_KEY);
-  window.localStorage?.removeItem(LOCK_KEY);
+/** Lock the POS on this device (server-session flag). */
+export async function lockPos(): Promise<void> {
+  await frappeCall("cago.api.session.pos_lock", {});
 }
 
-export function verifyPosPin(pin: string): boolean {
-  const h = typeof window !== "undefined" ? window.localStorage?.getItem(PIN_KEY) : null;
-  return !!h && h === digest(pin);
-}
-
-export function isPosLocked(): boolean {
-  return typeof window !== "undefined" && window.localStorage?.getItem(LOCK_KEY) === "1";
-}
-
-export function setPosLocked(v: boolean): void {
-  if (typeof window === "undefined") return;
-  if (v) window.localStorage?.setItem(LOCK_KEY, "1");
-  else window.localStorage?.removeItem(LOCK_KEY);
-}
-
-// Synchronous, non-cryptographic digest (FNV-1a 32-bit ×2). Deliberately NOT crypto.subtle, which
-// only exists in a secure context (HTTPS/localhost) and would throw over plain HTTP — see the bug
-// where the PIN dialog froze on an IP/HTTP kiosk. Good enough: the PIN is a device-local UI gate,
-// not server auth, but we still avoid storing it in clear.
-function digest(pin: string): string {
-  const a = fnv(pin, 0x811c9dc5);
-  const b = fnv("salt:" + pin, 0x01000193);
-  return (a >>> 0).toString(16).padStart(8, "0") + (b >>> 0).toString(16).padStart(8, "0");
-}
-function fnv(s: string, seed: number): number {
-  let h = seed;
-  const str = "cago:" + s;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h;
+/** Verify the PIN server-side and clear the lock. Throws (wrong PIN / rate-limited) on failure. */
+export async function unlockPos(pin: string): Promise<void> {
+  await frappeCall("cago.api.session.pos_unlock", { pin });
 }

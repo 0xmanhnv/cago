@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { setPosPin, clearPosPin, hasPosPin } from "@/lib/posLock";
+import { setPosPin, clearPosPin } from "@/lib/posLock";
+import { useSession } from "@/lib/session";
 import { Keypad } from "./Keypad";
 
 /**
@@ -10,14 +11,15 @@ import { Keypad } from "./Keypad";
  * full password retype (see PinLock).
  */
 export function SetPinDialog({ onClose }: { onClose: () => void }) {
+  const { boot, reload } = useSession();
   const [step, setStep] = useState<"enter" | "confirm">("enter");
   const [first, setFirst] = useState("");
   const [pin, setPin] = useState("");
   const [shake, setShake] = useState(false);
   const [done, setDone] = useState<"set" | "cleared" | null>(null);
-  const had = hasPosPin();
+  const had = !!boot?.has_pos_pin;
 
-  const press = (d: string) => {
+  const press = async (d: string) => {
     const next = (pin + d).slice(0, 4);
     setPin(next);
     if (next.length < 4) return;
@@ -26,7 +28,8 @@ export function SetPinDialog({ onClose }: { onClose: () => void }) {
       setPin("");
       setStep("confirm");
     } else if (next === first) {
-      setPosPin(next);
+      await setPosPin(next);
+      await reload();
       setDone("set");
       setTimeout(onClose, 900);
     } else {
@@ -40,8 +43,9 @@ export function SetPinDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const remove = () => {
-    clearPosPin();
+  const remove = async () => {
+    await clearPosPin();
+    await reload();
     setDone("cleared");
     setTimeout(onClose, 900);
   };

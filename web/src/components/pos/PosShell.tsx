@@ -1,12 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { CapabilityGuard } from "@/components/CapabilityGuard";
 import { useSession } from "@/lib/session";
 import { isInternal, type Cap } from "@/lib/caps";
-import { isFixedKiosk } from "@/components/kiosk/StoreMapView";
-import { hasPosPin, isPosLocked } from "@/lib/posLock";
 import { usePosKioskAutoLock } from "@/lib/usePosKioskLogout";
 import { PinLock } from "./PinLock";
 
@@ -49,15 +47,14 @@ function capFor(path: string): { cap?: Cap; owner?: boolean } {
 export function PosShell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
   const { cap, owner } = capFor(path);
-  const { boot } = useSession();
+  const { boot, reload } = useSession();
   const signedIn = isInternal(boot);
-  // Shared kiosk device only: gate the POS behind a quick PIN (full login kept). `locked` is
-  // client-only (reads localStorage), so it starts false on the server → hydration-safe.
-  const [locked, setLocked] = useState(false);
-  useEffect(() => {
-    setLocked(isFixedKiosk() && hasPosPin() && isPosLocked());
-  }, [path]);
-  usePosKioskAutoLock(signedIn, useCallback(() => setLocked(true), []));
+  // The PIN lock state is authoritative from the SERVER session (boot.pos_locked) — not localStorage
+  // — so editing the URL / reloading / clearing storage can't bypass it, and there's no first-render
+  // flash (boot is already awaited before children render).
+  const locked = signedIn && !!boot?.pos_locked;
+  // Idle on a shared kiosk device → lock server-side, then refresh the bootstrap so the gate shows.
+  usePosKioskAutoLock(signedIn, reload);
 
   // Record that the user has navigated within the app this session, so BackBar's smart-back knows
   // there's real in-app history to step back through (vs a cold/refresh load → fall back to home).
@@ -69,7 +66,7 @@ export function PosShell({ children }: { children: React.ReactNode }) {
     prev.current = path;
   }, [path]);
 
-  if (signedIn && locked) return <PinLock brand={boot?.brand} onUnlock={() => setLocked(false)} />;
+  if (locked) return <PinLock brand={boot?.brand} onUnlock={reload} />;
   return (
     <CapabilityGuard cap={cap} owner={owner}>
       {/* Ease each route in (keyed by path) so navigating never "snaps" — it cross-fades. */}

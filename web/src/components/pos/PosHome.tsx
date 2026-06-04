@@ -11,7 +11,7 @@ import { hasCap, isInternal, isOwner, type Cap } from "@/lib/caps";
 import { BrandHeader } from "@/components/ui/BrandHeader";
 import { confirmDialog } from "@/components/ui/dialog";
 import { isFixedKiosk } from "@/components/kiosk/StoreMapView";
-import { hasPosPin, setPosLocked } from "@/lib/posLock";
+import { lockPos } from "@/lib/posLock";
 import { SetPinDialog } from "./SetPinDialog";
 
 interface Digest {
@@ -106,7 +106,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
 
 export function PosHome() {
   const router = useRouter();
-  const { boot } = useSession();
+  const { boot, reload } = useSession();
   const owner = isOwner(boot);
   const [digest, setDigest] = useState<Digest | null>(null);
   const [digestLoaded, setDigestLoaded] = useState(false); // false → show a reserved-height skeleton (no jump)
@@ -118,7 +118,6 @@ export function PosHome() {
   const [showAll, setShowAll] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [kioskDevice, setKioskDevice] = useState(false); // shared kiosk+POS touchscreen (cago_fixed_kiosk)
-  const [hasPin, setHasPin] = useState(false);
   const [showSetPin, setShowSetPin] = useState(false);
   const [showHandover, setShowHandover] = useState(false); // "give the screen to a customer" chooser
   const [lockAfterPin, setLockAfterPin] = useState(false); // set a PIN then immediately lock + hand over
@@ -166,25 +165,25 @@ export function PosHome() {
   useEffect(() => () => clearTimeout(lp.current), []);
 
   // Detect a shared kiosk+POS device (client-only → hydration-safe) to offer the hand-over button
-  // + quick-sell PIN. Re-read the PIN flag when the set-PIN dialog closes.
+  // + quick-sell PIN. PIN presence comes from the server bootstrap (boot.has_pos_pin).
   useEffect(() => {
     setKioskDevice(isFixedKiosk());
-    setHasPin(hasPosPin());
-  }, [showSetPin]);
+  }, []);
+  const hasPin = !!boot?.has_pos_pin;
 
-  // Hand the screen to a customer. If a PIN is already set → lock and go straight to the kiosk (no
-  // prompt). If not, open the chooser so the owner can set a PIN+lock or log out fully.
-  const handover = () => {
-    if (hasPosPin()) {
-      setPosLocked(true);
+  // Hand the screen to a customer. If a PIN is already set → lock (server) and go straight to the
+  // kiosk (no prompt). If not, open the chooser so the owner can set a PIN+lock or log out fully.
+  const handover = async () => {
+    if (boot?.has_pos_pin) {
+      await lockPos();
       window.location.href = "/";
     } else {
       setShowHandover(true);
     }
   };
-  const lockWithPin = () => {
-    if (hasPosPin()) {
-      setPosLocked(true);
+  const lockWithPin = async () => {
+    if (boot?.has_pos_pin) {
+      await lockPos();
       window.location.href = "/";
     } else {
       setShowHandover(false);
@@ -513,13 +512,14 @@ export function PosHome() {
 
       {showSetPin && (
         <SetPinDialog
-          onClose={() => {
+          onClose={async () => {
             setShowSetPin(false);
-            // "Đặt mã PIN & khoá" flow: a PIN now exists → lock and hand the screen over.
+            // "Đặt mã PIN & khoá" flow: a PIN now exists → lock (server) and hand the screen over.
             if (lockAfterPin) {
               setLockAfterPin(false);
-              if (hasPosPin()) {
-                setPosLocked(true);
+              const b = await reload();
+              if (b?.has_pos_pin) {
+                await lockPos();
                 window.location.href = "/";
               }
             }

@@ -1,33 +1,24 @@
 "use client";
 
 import { useEffect } from "react";
-import { logout } from "./api";
 import { isFixedKiosk } from "@/components/kiosk/StoreMapView";
-import { hasPosPin, setPosLocked } from "./posLock";
+import { lockPos } from "./posLock";
 
 /**
- * Safety net for a shared device that is BOTH a customer kiosk and the staff POS (one touchscreen).
- * On a fixed-kiosk device (`cago_fixed_kiosk`), a staff session left idle on /pos is a risk — the
- * next customer could reach back-office screens on the still-signed-in session. After `idleMs` of
- * no interaction:
- *  - if a quick-sell PIN is set → LOCK the POS behind the PIN (session kept; `onLock` re-renders);
- *  - otherwise → log out and return to the customer kiosk home.
- * No-op on personal phones/PCs (only when isFixedKiosk()).
+ * Safety net for a shared kiosk+POS device: a staff session left idle on /pos is a risk (the next
+ * customer could reach back-office on the still-signed-in session). On a fixed-kiosk device, after
+ * `idleMs` of no interaction, lock the POS server-side (PIN required to return) and refresh the
+ * bootstrap so the gate shows. No-op on personal phones/PCs.
  */
-export function usePosKioskAutoLock(signedIn: boolean, onLock: () => void, idleMs = 180_000) {
+export function usePosKioskAutoLock(signedIn: boolean, onLocked: () => void, idleMs = 180_000) {
   useEffect(() => {
     if (!signedIn || !isFixedKiosk()) return;
     let timer: ReturnType<typeof setTimeout>;
     const fire = async () => {
-      if (hasPosPin()) {
-        setPosLocked(true);
-        onLock();
-      } else {
-        try {
-          await logout();
-        } finally {
-          window.location.href = "/";
-        }
+      try {
+        await lockPos();
+      } finally {
+        onLocked(); // reload the bootstrap → boot.pos_locked = true → PinLock shows
       }
     };
     const reset = () => {
@@ -41,5 +32,5 @@ export function usePosKioskAutoLock(signedIn: boolean, onLock: () => void, idleM
       clearTimeout(timer);
       events.forEach((e) => window.removeEventListener(e, reset));
     };
-  }, [signedIn, onLock, idleMs]);
+  }, [signedIn, onLocked, idleMs]);
 }

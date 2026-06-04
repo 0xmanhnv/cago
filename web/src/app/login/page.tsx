@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { login } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { isInternal } from "@/lib/caps";
-import { setPosLocked } from "@/lib/posLock";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,7 +24,6 @@ export default function LoginPage() {
     setErr("");
     try {
       await login(usr.trim(), pwd);
-      setPosLocked(false); // a full login supersedes any pending PIN lock on this device
       const b = await reload();
       // Any back-of-house user (holds a capability) → unified /pos; customers/guests → kiosk.
       router.push(isInternal(b) ? "/pos" : "/");

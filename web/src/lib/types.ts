@@ -115,6 +115,8 @@ export interface Bootstrap {
   loyalty_redeem_vnd?: number; // đồng per loyalty point when redeemed at the till
   staff_can_collect_debt?: boolean;
   store_map?: boolean;
+  pos_locked?: boolean; // shared kiosk+POS device: POS gated behind the PIN (server-session flag)
+  has_pos_pin?: boolean; // this user has set a quick-unlock PIN
 }
 
 export interface Batch {
