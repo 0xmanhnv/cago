@@ -16,7 +16,12 @@ class TestCategoryCrud(FrappeTestCase):
 
 	def tearDown(self):
 		frappe.db.commit = self._commit
-		for n in ("_Cat A", "_Cat B"):
+		# Clear child links first so the parent isn't blocked by a cago_parent reference, then delete
+		# children before parents.
+		for n in ("_Cat B", "_Cat A"):
+			if frappe.db.exists("Item Group", n):
+				frappe.db.set_value("Item Group", n, "cago_parent", None, update_modified=False)
+		for n in ("_Cat B", "_Cat A"):
 			if frappe.db.exists("Item Group", n):
 				frappe.delete_doc("Item Group", n, ignore_permissions=True, force=True)
 
@@ -37,28 +42,31 @@ class TestCategoryCrud(FrappeTestCase):
 		owner.delete_category("_Cat B")
 		self.assertFalse(frappe.db.exists("Item Group", "_Cat B"))
 
-	def test_convert_leaf_to_parent_and_back(self):
-		"""WordPress-style: a leaf with no products can become a nhóm cha, and a childless parent can
-		go back to a leaf."""
+	def test_set_parent_flat_model(self):
+		"""Flat WordPress-style model: every category is a leaf (is_group=0) that can have a loại cha
+		via cago_parent; a top-level category can itself hold products AND be a parent."""
+		from cago.api import owner
+
+		owner.save_category("_Cat A", icon="📦")  # top-level
+		owner.save_category("_Cat B", icon="📦", parent="_Cat A")  # child of A
+		self.assertEqual(int(frappe.db.get_value("Item Group", "_Cat A", "is_group") or 0), 0)
+		self.assertEqual(int(frappe.db.get_value("Item Group", "_Cat B", "is_group") or 0), 0)
+		self.assertEqual(frappe.db.get_value("Item Group", "_Cat B", "cago_parent"), "_Cat A")
+		# A parent's subtree (for product aggregation) = itself + its children.
+		from cago.setup.category_tree import subtree_of
+
+		self.assertEqual(set(subtree_of("_Cat A")), {"_Cat A", "_Cat B"})
+
+	def test_two_level_only(self):
+		"""Reject 3-level nesting: a category that is already a parent can't be given a parent, and a
+		child can't be chosen as someone's parent."""
 		from cago.api import owner
 
 		owner.save_category("_Cat A", icon="📦")
-		self.assertEqual(int(frappe.db.get_value("Item Group", "_Cat A", "is_group") or 0), 0)
-		owner.save_category("_Cat A", old_name="_Cat A", is_group=1)  # leaf → nhóm cha
-		self.assertEqual(int(frappe.db.get_value("Item Group", "_Cat A", "is_group") or 0), 1)
-		owner.save_category("_Cat A", old_name="_Cat A", is_group=0)  # back to leaf (no children)
-		self.assertEqual(int(frappe.db.get_value("Item Group", "_Cat A", "is_group") or 0), 0)
-
-	def test_convert_to_parent_refused_when_products_exist(self):
-		from cago.api import owner
-
-		# A leaf category that actually holds products (items hang off leaves, is_group=0).
-		rows = frappe.get_all("Item", filters={"disabled": 0}, fields=["item_group"], limit=200)
-		grp = next((r.item_group for r in rows if not int(frappe.db.get_value("Item Group", r.item_group, "is_group") or 0)), None)
-		if not grp:
-			self.skipTest("no leaf category with products")
+		owner.save_category("_Cat B", icon="📦", parent="_Cat A")  # B is a child of A
+		# A is a parent (has child B) → can't become a child itself.
 		with self.assertRaises(frappe.ValidationError):
-			owner.save_category(grp, old_name=grp, is_group=1)
+			owner.save_category("_Cat A", old_name="_Cat A", parent="_Cat B")
 
 	def test_delete_refused_when_products_exist(self):
 		from cago.api import owner

@@ -39,12 +39,23 @@ def ensure_category_fields():
 					"insert_after": "cago_color",
 					"description": "Thứ tự hiển thị danh mục trên kiosk (số nhỏ hiện trước). Owner sắp được.",
 				},
+				{
+					# Logical parent (WordPress-style): the shop taxonomy is flat is_group=0 leaves under
+					# the root + this 2-level link, so a category can BOTH hold its own products AND be a
+					# parent (a group can't hold items in ERPNext's tree). Empty = top-level.
+					"fieldname": "cago_parent",
+					"label": "Cago Parent Category",
+					"fieldtype": "Link",
+					"options": "Item Group",
+					"insert_after": "cago_sort_order",
+					"description": "Loại cha (để trống = loại gốc). Xem cha sẽ gộp cả sản phẩm của các loại con.",
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Item Group fields ensured: cago_icon, cago_color, cago_sort_order")
+	print("Item Group fields ensured: cago_icon, cago_color, cago_sort_order, cago_parent")
 
 
 def ensure_retail_field():
@@ -403,6 +414,10 @@ def setup_all_fields():
 	ensure_user_fields()
 	ensure_stock_entry_fields()
 	ensure_payment_fields()
+	# Migrate an existing site's category tree to the flat cago_parent model (idempotent).
+	from cago.setup.category_tree import flatten_category_tree
+
+	flatten_category_tree()
 	# Backfill the customer URL slug for any customer created before the field existed.
 	from cago.customer import backfill_slugs
 

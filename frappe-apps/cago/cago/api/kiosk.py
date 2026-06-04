@@ -43,34 +43,38 @@ def category_tree(public_only=True):
 		.where(where)
 		.groupby(item.item_group)
 	).run(as_dict=True)
-	leaf_counts = {r.item_group: r.count for r in rows if r.item_group}
-	if not leaf_counts:
-		return []
+	own_counts = {r.item_group: r.count for r in rows if r.item_group}
 
-	# Whole Item Group tree (one query) to resolve parents + presentation.
+	# Flat shop taxonomy: every category is a leaf; the 2-level hierarchy is the cago_parent link.
+	# A top-level category (cago_parent empty) aggregates its own products + its children's.
 	groups = {
 		g.name: g
 		for g in frappe.get_all(
 			"Item Group",
-			fields=["name", "parent_item_group", "cago_icon", "cago_color", "cago_sort_order"],
+			fields=["name", "cago_parent", "cago_icon", "cago_color", "cago_sort_order", "is_group"],
 		)
 	}
-	roots = {n for n, g in groups.items() if not g.parent_item_group or g.parent_item_group not in groups}
+	# Only real shop categories (leaves) — ignore the root + any ERPNext default group nodes.
+	from cago.setup.category_tree import DEFAULTS
+
+	cats = {n: g for n, g in groups.items() if not g.is_group and n not in DEFAULTS}
 
 	def top_level(name):
-		"""The category's ancestor that sits directly under a tree root (or itself)."""
+		"""Resolve to the ancestor that has no cago_parent. Normally 1 hop (we enforce 2 levels), but
+		follow the chain defensively — with a visited-guard so a bad cago_parent cycle can't loop —
+		and stop at a parent that's missing / not a shop category (that node becomes the top)."""
 		seen = set()
 		cur = name
-		while cur in groups and cur not in seen:
+		while cur in cats and cur not in seen:
 			seen.add(cur)
-			parent = groups[cur].parent_item_group
-			if not parent or parent in roots or parent not in groups:
+			parent = cats[cur].cago_parent
+			if not parent or parent not in cats:
 				return cur
 			cur = parent
 		return name
 
 	def present(name, count):
-		g = groups.get(name)
+		g = cats.get(name)
 		return {
 			"category": name,
 			"slug": slugify(name),  # URL-safe id for ?category= (Vietnamese name stays as the label)
@@ -80,13 +84,18 @@ def category_tree(public_only=True):
 			"sort": (g and g.cago_sort_order) or 0,
 		}
 
+	# Show every category that has products OR is a parent of a category with products, so a parent
+	# with only-its-own or only-children products still appears.
+	relevant = set(own_counts) | {top_level(n) for n in own_counts}
 	tops = {}
-	for leaf, count in leaf_counts.items():
-		tl = top_level(leaf)
+	for name in relevant:
+		if name not in cats:
+			continue
+		tl = top_level(name)
 		node = tops.setdefault(tl, {**present(tl, 0), "children": []})
-		node["count"] += count
-		if leaf != tl:
-			node["children"].append(present(leaf, count))
+		node["count"] += own_counts.get(name, 0)
+		if name != tl:
+			node["children"].append(present(name, own_counts.get(name, 0)))
 
 	# Unset order (cago_sort_order = 0) sorts LAST, not first — so a half-finished reorder or a
 	# brand-new category appears at the end, behind the ones the owner explicitly placed.

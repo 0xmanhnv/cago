@@ -631,11 +631,10 @@ def list_categories():
 	Shows a group if it carries a cago icon (owner-managed) or has products — hides ERPNext's
 	stock default groups that this shop never uses."""
 	ensure_cap("products")
-	root = _root_item_group()
 	rows = frappe.get_all(
 		"Item Group",
-		filters={"is_group": 0},
-		fields=["name", "cago_icon", "cago_color", "cago_sort_order", "parent_item_group"],
+		filters={"is_group": 0, "name": ["not in", list(ERPNEXT_DEFAULT_GROUPS)]},
+		fields=["name", "cago_icon", "cago_color", "cago_sort_order", "cago_parent"],
 		order_by="cago_sort_order asc, name asc",
 	)
 	out = []
@@ -643,22 +642,20 @@ def list_categories():
 		count = frappe.db.count("Item", {"item_group": r.name, "disabled": 0})
 		if not (r.cago_icon or count):
 			continue
-		# parent = the top-level nhóm cha this leaf sits under (None when it hangs directly off the
-		# tree root → "no parent"), so the manage screen can group children under their parent.
-		parent = r.parent_item_group if (r.parent_item_group and r.parent_item_group != root) else None
-		out.append({"category": r.name, "icon": r.cago_icon or "📦", "color": r.cago_color or "#e6f4ea", "count": count, "parent": parent})
+		# parent = the loại cha (cago_parent). None = top-level. The manage screen indents children
+		# under their parent; viewing a parent on the kiosk aggregates its + its children's products.
+		out.append({"category": r.name, "icon": r.cago_icon or "📦", "color": r.cago_color or "#e6f4ea", "count": count, "parent": r.cago_parent or None})
 	return out
 
 
 @frappe.whitelist()
 def list_category_parents():
-	"""Owner: the parent groups (is_group=1, excluding the tree root + ERPNext defaults) that a leaf
-	category can be placed under — populates the parent dropdown in the manage / add screen."""
+	"""Owner: top-level categories (cago_parent empty) that another category may sit under — fills the
+	parent dropdown. In the flat model ANY top-level category can be a parent (it also holds products)."""
 	ensure_cap("products")
-	root = _root_item_group()
 	rows = frappe.get_all(
 		"Item Group",
-		filters={"is_group": 1, "name": ["not in", list(ERPNEXT_DEFAULT_GROUPS) + [root]]},
+		filters={"is_group": 0, "cago_parent": ["in", ["", None]], "name": ["not in", list(ERPNEXT_DEFAULT_GROUPS)]},
 		fields=["name", "cago_icon"],
 		order_by="cago_sort_order asc, name asc",
 	)
@@ -675,27 +672,31 @@ def _root_item_group():
 
 
 @frappe.whitelist()
-def save_category(name, icon=None, color=None, old_name=None, parent=None, is_group=0):
-	"""Owner: create a new nhóm hàng, or rename/restyle (icon+màu) an existing one. `parent` (a
-	nhóm cha = is_group Item Group) nests this category under it; empty → directly under the root.
-	`is_group=1` (only on create) makes this a NHÓM CHA (a container leaves can sit under).
-	Renaming an Item Group updates every product's category automatically (Frappe rename)."""
+def save_category(name, icon=None, color=None, old_name=None, parent=None):
+	"""Owner: create / rename / restyle a category, and set its loại cha (`cago_parent`). Flat model:
+	every category is an is_group=0 leaf under the root that can hold products AND be a parent; the
+	hierarchy is just the cago_parent link (kept to 2 levels). Empty parent = top-level (loại gốc)."""
 	ensure_cap("products")
-	is_group = 1 if str(is_group) in ("1", "true", "True") else 0
 	name = (name or "").strip()
 	if not name:
 		frappe.throw(_("Nhập tên loại hàng."))
-	# Resolve the parent group: a chosen nhóm cha (must be a group), else the tree root. Only act on
-	# the parent when the caller actually passed it (so an icon-only edit doesn't reparent to root).
-	parent_provided = parent is not None
-	parent = (parent or "").strip()
-	if parent and not frappe.db.exists("Item Group", {"name": parent, "is_group": 1}):
-		frappe.throw(_("Nhóm cha '{0}' không hợp lệ.").format(parent))
-	parent_group = parent or _root_item_group()
-	# Refuse a name that collides with an ERPNext built-in group — otherwise we'd silently restyle a
-	# system group, and the owner could never assign products to it (the product forms exclude these).
 	if name in ERPNEXT_DEFAULT_GROUPS:
 		frappe.throw(_("Tên '{0}' trùng nhóm hệ thống. Hãy chọn tên khác.").format(name))
+	# Validate the chosen parent (only when passed). Keep the tree 2 levels deep and acyclic: a parent
+	# must itself be top-level (no cago_parent) and can't be the category itself.
+	parent_provided = parent is not None
+	parent = (parent or "").strip()
+	if parent:
+		if parent == name:
+			frappe.throw(_("Loại cha không thể là chính nó."))
+		if not frappe.db.exists("Item Group", {"name": parent, "is_group": 0}):
+			frappe.throw(_("Loại cha '{0}' không hợp lệ.").format(parent))
+		if frappe.db.get_value("Item Group", parent, "cago_parent"):
+			frappe.throw(_("Chỉ lồng 2 cấp: '{0}' đã là loại con nên không thể làm cha.").format(parent))
+		# Can't give a parent to a category that itself has children (would be 3 levels).
+		if frappe.db.exists("Item Group", {"cago_parent": name}):
+			frappe.throw(_("Loại '{0}' đang là cha của loại khác nên không thể đặt làm con.").format(name))
+
 	old = (old_name or "").strip()
 	if old and old != name:
 		if not frappe.db.exists("Item Group", old):
@@ -707,39 +708,11 @@ def save_category(name, icon=None, color=None, old_name=None, parent=None, is_gr
 		with as_user("Administrator"):  # rename_doc enforces perms + this version has no ignore_permissions kwarg
 			frappe.rename_doc("Item Group", old, name)
 	elif not frappe.db.exists("Item Group", name):
-		# A nhóm cha (is_group) always sits under the tree root; a leaf sits under the chosen parent.
 		frappe.get_doc(
-			{
-				"doctype": "Item Group",
-				"item_group_name": name,
-				"parent_item_group": _root_item_group() if is_group else parent_group,
-				"is_group": is_group,
-			}
+			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": _root_item_group(), "is_group": 0}
 		).insert(ignore_permissions=True)
-	# Convert leaf↔nhóm cha and/or move under a new parent (WordPress-style: any category can be made
-	# a parent or re-nested). NestedSet recomputes lft/rgt on save. Guards keep ERPNext consistent.
-	cur_is_group = int(frappe.db.get_value("Item Group", name, "is_group") or 0)
-	want_group = is_group  # only meaningful as a CONVERT when it differs from current
-	convert = want_group != cur_is_group
-	if convert and want_group:  # leaf → nhóm cha: a group can't hold products directly
-		if frappe.db.exists("Item", {"item_group": name}):
-			frappe.throw(_("Loại '{0}' còn sản phẩm. Hãy chuyển sản phẩm sang loại khác trước khi biến nó thành nhóm cha.").format(name))
-	if convert and not want_group:  # nhóm cha → leaf: can't if it still has child categories
-		if frappe.db.exists("Item Group", {"parent_item_group": name}):
-			frappe.throw(_("Nhóm '{0}' còn loại con bên trong. Hãy chuyển/xoá loại con trước.").format(name))
-	# A nhóm cha sits under the root; a leaf under the chosen parent.
-	target_parent = _root_item_group() if want_group else parent_group
-	need_parent_move = (parent_provided or convert) and frappe.db.get_value("Item Group", name, "parent_item_group") != target_parent
-	if convert or need_parent_move:
-		from cago.utils.privileged import as_user
-
-		with as_user("Administrator"):
-			doc = frappe.get_doc("Item Group", name)
-			if convert:
-				doc.is_group = want_group
-			if need_parent_move:
-				doc.parent_item_group = target_parent
-			doc.save()
+	if parent_provided:
+		frappe.db.set_value("Item Group", name, "cago_parent", parent or None, update_modified=False)
 	if icon is not None:
 		frappe.db.set_value("Item Group", name, "cago_icon", (icon or "").strip() or None)
 	if color is not None:
@@ -757,8 +730,8 @@ def delete_category(name):
 		return {"deleted": True}
 	if frappe.db.exists("Item", {"item_group": name}):
 		frappe.throw(_("Còn sản phẩm trong loại '{0}'. Hãy chuyển sản phẩm sang loại khác trước khi xoá.").format(name))
-	if frappe.db.exists("Item Group", {"parent_item_group": name}):
-		frappe.throw(_("Loại '{0}' còn loại con bên trong.").format(name))
+	if frappe.db.exists("Item Group", {"cago_parent": name}):
+		frappe.throw(_("Loại '{0}' đang là cha của loại khác. Hãy bỏ/đổi loại cha của các loại con trước.").format(name))
 	frappe.delete_doc("Item Group", name, ignore_permissions=True)
 	frappe.db.commit()
 	return {"deleted": True}

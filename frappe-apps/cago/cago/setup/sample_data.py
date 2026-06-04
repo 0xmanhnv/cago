@@ -209,19 +209,9 @@ PRODUCE_SAMPLES = [
 def seed_produce_samples():
 	"""Create the 'Nông sản' tree + bulk-weight produce items sold by kg/yến/tạ/tấn (idempotent)."""
 	root = _ensure_root_item_group()
-	if not frappe.db.exists("Item Group", "Nông sản"):
-		frappe.get_doc(
-			{"doctype": "Item Group", "item_group_name": "Nông sản", "parent_item_group": root, "is_group": 1}
-		).insert(ignore_permissions=True)
+	_ensure_flat_category("Nông sản", root, None)
 	for child in CATEGORY_TREE["Nông sản"]:
-		if not frappe.db.exists("Item Group", child):
-			frappe.get_doc(
-				{"doctype": "Item Group", "item_group_name": child, "parent_item_group": "Nông sản", "is_group": 0}
-			).insert(ignore_permissions=True)
-		elif frappe.db.get_value("Item Group", child, "parent_item_group") != "Nông sản":
-			g = frappe.get_doc("Item Group", child)
-			g.parent_item_group, g.is_group = "Nông sản", 0
-			g.save(ignore_permissions=True)
+		_ensure_flat_category(child, root, "Nông sản")
 
 	_ensure_uom("Kg")
 	for uom_code, _ in PRODUCE_WEIGHT_UNITS:
@@ -266,34 +256,30 @@ def seed_produce_samples():
 		pass
 
 
-def seed_category_tree():
-	"""Make the configured parent groups and re-parent their children (idempotent)."""
-	root = _ensure_root_item_group()
-	moved = False
-	for parent, children in CATEGORY_TREE.items():
-		if not frappe.db.exists("Item Group", parent):
-			frappe.get_doc(
-				{"doctype": "Item Group", "item_group_name": parent, "parent_item_group": root, "is_group": 1}
-			).insert(ignore_permissions=True)
-			moved = True
-		elif not frappe.db.get_value("Item Group", parent, "is_group"):
-			# An existing leaf category becoming a parent (e.g. "Cám chăn nuôi") must be a group node.
-			frappe.db.set_value("Item Group", parent, "is_group", 1)
-			moved = True
-		for child in children:
-			if frappe.db.exists("Item Group", child) and frappe.db.get_value("Item Group", child, "parent_item_group") != parent:
-				g = frappe.get_doc("Item Group", child)
-				g.parent_item_group = parent
-				g.is_group = 0
-				g.save(ignore_permissions=True)  # NestedSet recomputes lft/rgt
-				moved = True
-	if moved:
-		try:
-			from frappe.utils.nestedset import rebuild_tree
+def _ensure_flat_category(name, root, parent=None):
+	"""Create (or normalise) a shop category as a flat is_group=0 leaf under the root, with its loại
+	cha set via cago_parent — the WordPress-style model (a category both holds products + can parent)."""
+	if not frappe.db.exists("Item Group", name):
+		frappe.get_doc(
+			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": root, "is_group": 0}
+		).insert(ignore_permissions=True)
+	else:
+		if frappe.db.get_value("Item Group", name, "parent_item_group") != root or frappe.db.get_value("Item Group", name, "is_group"):
+			g = frappe.get_doc("Item Group", name)
+			g.parent_item_group, g.is_group = root, 0
+			g.save(ignore_permissions=True)
+	frappe.db.set_value("Item Group", name, "cago_parent", parent or None, update_modified=False)
 
-			rebuild_tree("Item Group")
-		except Exception:
-			pass
+
+def seed_category_tree():
+	"""Seed the configured categories flat (is_group=0 under root) with the 2-level cago_parent
+	hierarchy (idempotent)."""
+	root = _ensure_root_item_group()
+	for parent, children in CATEGORY_TREE.items():
+		_ensure_flat_category(parent, root, None)
+		for child in children:
+			_ensure_flat_category(child, root, parent)
+	frappe.db.commit()
 
 
 def seed_category_presets():

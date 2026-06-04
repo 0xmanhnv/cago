@@ -408,17 +408,11 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 		from cago.utils.slug import group_from_slug
 
 		category = group_from_slug(category) or category
-		# A parent category shows its whole subtree (children's products too); a leaf is just itself.
-		# Query the nested set by lft/rgt with frappe.get_all (NOT get_list) so it works for guests
-		# too — get_descendants_of applies user permissions and returns nothing for the kiosk Guest.
-		node = frappe.db.get_value("Item Group", category, ["lft", "rgt"], as_dict=True)
-		if node and node.lft is not None and node.rgt:
-			subtree = frappe.get_all(
-				"Item Group", filters={"lft": [">=", node.lft], "rgt": ["<=", node.rgt]}, pluck="name"
-			)
-			base["item_group"] = ["in", subtree or [category]]
-		else:
-			base["item_group"] = category
+		# Flat cago_parent taxonomy: a top-level category aggregates its OWN products + its children's
+		# (categories whose cago_parent points to it); a child/leaf is just itself. frappe.get_all (not
+		# get_list) so it works for the kiosk Guest too.
+		children = frappe.get_all("Item Group", filters={"cago_parent": category}, pluck="name")
+		base["item_group"] = ["in", [category, *children]] if children else category
 
 	if query and query.strip():
 		like = f"%{query.strip()}%"
