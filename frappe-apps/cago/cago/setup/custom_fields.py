@@ -480,3 +480,8 @@ def setup_all_fields():
 	from cago.job_role import seed_defaults
 
 	seed_defaults()
+	# Confine Cago internal users (owner/staff, non-admin) to /pos: strip leftover ERPNext desk roles
+	# (Sales User, Accounts User, …) so they never see the raw ERPNext desk. Idempotent, self-healing.
+	from cago.utils.permissions import confine_internal_users
+
+	confine_internal_users()

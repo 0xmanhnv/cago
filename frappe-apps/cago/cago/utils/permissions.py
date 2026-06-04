@@ -159,6 +159,7 @@ def sync_user_caps(user):
 	leaving any non-capability roles (System Manager, etc.) untouched. Owners are never touched."""
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
 		return
+	confine_to_pos(user)  # staff are limited to /pos (no raw ERPNext desk)
 	doc = frappe.get_doc("User", user)
 	if set(r.role for r in doc.roles) & OWNER_ROLES:
 		return
@@ -170,6 +171,44 @@ def sync_user_caps(user):
 	for role in sorted(want):
 		doc.append("roles", {"role": role})
 	doc.save(ignore_permissions=True)
+
+
+def confine_to_pos(user):
+	"""Strip generic ERPNext desk roles (Sales User, Accounts User, …) from a Cago INTERNAL,
+	non-admin user so they live only in /pos and never see the raw ERPNext desk. The Cago write
+	APIs elevate to Administrator internally, so these users never needed ERPNext doctype perms.
+	Admins (System Manager / Cago Admin) and Administrator keep the desk. Idempotent."""
+	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
+		return
+	roles = set(frappe.get_roles(user))
+	is_internal_user = "Cago Owner" in roles or bool(roles & ALL_CAP_ROLES)
+	if not is_internal_user or (roles & ADMIN_ROLES):
+		return  # not a Cago user, or an admin who should keep the desk
+	# Any role this user holds that grants desk access — our own Cago roles are desk_access=0, so this
+	# set is exactly the leftover ERPNext desk roles to remove.
+	desk_roles = set(frappe.get_all("Role", filters={"desk_access": 1, "name": ["in", list(roles)]}, pluck="name"))
+	to_remove = desk_roles - ADMIN_ROLES
+	if not to_remove:
+		return
+	doc = frappe.get_doc("User", user)
+	doc.set("roles", [r for r in doc.get("roles") if r.role not in to_remove])
+	doc.save(ignore_permissions=True)
+
+
+def confine_internal_users():
+	"""Apply confine_to_pos to every Cago internal user (run on after_migrate so the invariant
+	'owner/staff are limited to /pos' self-heals on deploy)."""
+	users = frappe.get_all(
+		"Has Role",
+		filters={"role": ["in", list(ALL_CAP_ROLES | {"Cago Owner"})], "parenttype": "User"},
+		pluck="parent",
+	)
+	for u in set(users):
+		try:
+			confine_to_pos(u)
+		except Exception:
+			frappe.log_error(frappe.get_traceback(), f"confine_to_pos {u}")
+	frappe.db.commit()
 
 
 def ensure_lang():

@@ -112,6 +112,7 @@ export function PosHome() {
   const router = useRouter();
   const { boot, reload } = useSession();
   const owner = isOwner(boot);
+  const admin = isAdmin(boot); // technical tier — only they see "Quản lý ERPNext" (the raw Desk)
   const [digest, setDigest] = useState<Digest | null>(null);
   const [digestLoaded, setDigestLoaded] = useState(false); // false → show a reserved-height skeleton (no jump)
   const [onboard, setOnboard] = useState<Onboarding | null>(null);
@@ -487,10 +488,10 @@ export function PosHome() {
           "Màn hình & thiết bị" group above, so they can be pinned to ⭐ Hay dùng like any other. */}
 
       <div className="mt-3.5 grid grid-cols-2 gap-3.5">
-        {owner && (
+        {admin && (
           <a href="/app" target="_blank" rel="noopener" className="mt-tile min-h-[64px] bg-slate-500 text-lg">⚙️ Quản lý ERPNext</a>
         )}
-        <button onClick={doLogout} className={`mt-tile min-h-[64px] bg-red-600 text-lg ${owner ? "" : "col-span-2"}`}>🚪 Đăng xuất</button>
+        <button onClick={doLogout} className={`mt-tile min-h-[64px] bg-red-600 text-lg ${admin ? "" : "col-span-2"}`}>🚪 Đăng xuất</button>
       </div>
 
       {showHandover && (
