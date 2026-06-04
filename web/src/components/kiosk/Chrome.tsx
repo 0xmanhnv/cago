@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
 import { useKioskLockdown } from "@/lib/useKioskLockdown";
-import { FloatingFab } from "./FloatingFab";
+import { HelpFab } from "./HelpFab";
 import { Assistant } from "./Assistant";
 import { CallStaff } from "./CallStaff";
 import { applyKioskUrlFlag } from "./StoreMapView";
@@ -80,28 +80,8 @@ export function Chrome({ children }: { children: React.ReactNode }) {
       )}
 
       {showFabs && (
-        <>
-          <FloatingFab
-            storageKey="cago_fab_call"
-            onTap={kiosk.openCallStaff}
-            title="Gọi người bán"
-            style={{ position: "fixed", top: 10, right: 10, zIndex: 55 }}
-            className="rounded-full bg-red-600 px-4 py-2.5 text-[15px] font-extrabold text-white shadow-lg"
-          >
-            🔔 Gọi người bán
-          </FloatingFab>
-          {!kiosk.assistantOpen && (
-            <FloatingFab
-              storageKey="cago_fab_chat"
-              onTap={nav.openChat}
-              title="Hỏi trợ lý"
-              style={{ position: "fixed", right: 10, bottom: 78, zIndex: 55 }}
-              className="rounded-full bg-violet-600 px-4 py-3 text-base font-extrabold text-white shadow-lg"
-            >
-              🤖 Hỏi trợ lý
-            </FloatingFab>
-          )}
-        </>
+        // One small corner control that expands into the labelled actions — doesn't cover content.
+        <HelpFab onChat={nav.openChat} onCall={kiosk.openCallStaff} showChat={!kiosk.assistantOpen} />
       )}
 
       {kiosk.callStaffOpen && <CallStaff onDone={kiosk.closeCallStaff} />}
