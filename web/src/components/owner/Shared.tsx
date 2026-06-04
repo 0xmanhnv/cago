@@ -17,7 +17,7 @@ export const money = formatVnd;
  * Smart "back to the previous screen": when the user navigated here within the app this session,
  * step back through real history (so a screen reached from a non-home parent returns to that parent,
  * not all the way home). On a direct/refresh load with no in-app history, fall back to home.
- * The `cago_nav` flag is set by PosShell on the first in-app route change.
+ * The `cago_nav` flag is set by Shell on the first in-app route change.
  */
 export function goBackSmart(router: ReturnType<typeof useRouter>, fallback = "/pos") {
   // Use the browser's real history (router.back) when we navigated here in-app — pushing a "back"

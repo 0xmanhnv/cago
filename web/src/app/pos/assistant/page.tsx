@@ -1,5 +1,5 @@
-import { StaffChat } from "@/components/staff/StaffChat";
+import { Chat } from "@/components/staff/Chat";
 
 export default function Page() {
-  return <StaffChat />;
+  return <Chat />;
 }

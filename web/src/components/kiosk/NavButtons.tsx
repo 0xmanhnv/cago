@@ -9,7 +9,7 @@ import { navDepth, useKioskNav } from "@/lib/kioskNav";
  *  - Deep (≥2 steps in → back ≠ home): both "‹ Quay lại" (one step) AND "🏠" (straight home).
  * Pass `onBack` to override the back target (e.g. a product detail's category fallback).
  */
-export function KioskNavButtons({ onBack }: { onBack?: () => void }) {
+export function NavButtons({ onBack }: { onBack?: () => void }) {
   const nav = useKioskNav();
   // Start shallow (matches server render → no hydration mismatch), then reflect real depth after
   // mount. One harmless frame as single-button before showing both on a deep screen.

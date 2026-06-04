@@ -48,7 +48,7 @@ interface WantedSummary {
   is_expired?: boolean;
 }
 
-export function StaffWanted() {
+export function Wanted() {
   const router = useRouter();
   const [orders, setOrders] = useState<WantedSummary[]>([]);
   const [loading, setLoading] = useState(true);

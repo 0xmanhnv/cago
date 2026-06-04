@@ -6,7 +6,7 @@ import { FrappeError, frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { CatThumb } from "@/components/kiosk/CatThumb";
-import { ProductInfo } from "@/components/staff/StaffProductDetail";
+import { ProductInfo } from "@/components/staff/ProductDetail";
 import { confirmDialog } from "@/components/ui/dialog";
 import { ConfirmDebt, type DebtProof } from "@/components/pos/ConfirmDebt";
 import { toast } from "@/components/ui/toast";

@@ -9,7 +9,7 @@ import { speak } from "@/lib/kioskUi";
 import { useSession } from "@/lib/session";
 import { isInternal } from "@/lib/caps";
 import { StoreMapView, isFixedKiosk } from "./StoreMapView";
-import { KioskNavButtons } from "./KioskNavButtons";
+import { NavButtons } from "./NavButtons";
 
 import { PageLoading } from "@/components/ui/Loading";
 export function MapPage() {
@@ -65,7 +65,7 @@ export function MapPage() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <KioskNavButtons />
+        <NavButtons />
         <div className="flex-1 text-[22px] font-bold text-brand-dark">Sơ đồ cửa hàng</div>
       </div>
 

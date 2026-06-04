@@ -10,7 +10,7 @@ import { Assistant } from "./Assistant";
 import { CallStaff } from "./CallStaff";
 import { applyKioskUrlFlag } from "./StoreMapView";
 
-export function KioskChrome({ children }: { children: React.ReactNode }) {
+export function Chrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const kiosk = useKiosk();
   const nav = useKioskNav();

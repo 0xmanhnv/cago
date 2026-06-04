@@ -7,7 +7,7 @@ import { BackBar } from "@/components/owner/Shared";
 
 type Req = { request_id: string; phone_masked: string; customer_name?: string | null };
 
-export function StaffVerify() {
+export function Verify() {
   const router = useRouter();
   const [list, setList] = useState<Req[]>([]);
   const [msg, setMsg] = useState("");

@@ -1,2 +1,2 @@
-import { PosHome } from "@/components/pos/PosHome";
-export default function Page() { return <PosHome />; }
+import { Home } from "@/components/pos/Home";
+export default function Page() { return <Home />; }

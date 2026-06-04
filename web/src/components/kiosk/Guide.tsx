@@ -1,6 +1,6 @@
 "use client";
 
-import { KioskNavButtons } from "./KioskNavButtons";
+import { NavButtons } from "./NavButtons";
 
 const STEPS: { icon: string; title: string; desc: string }[] = [
   { icon: "🔎", title: "Tìm sản phẩm", desc: "Gõ tên hàng vào ô tìm kiếm ở trang đầu (vd: cám gà, NPK, thuốc cỏ), hoặc chạm vào loại hàng để xem." },
@@ -13,11 +13,11 @@ const STEPS: { icon: string; title: string; desc: string }[] = [
 
 const SAFETY = "Lưu ý: Với thuốc trừ sâu, thuốc cỏ, thuốc chuột — đọc kỹ hướng dẫn trên nhãn. Không tự ý tăng liều hay pha trộn. Hỏi người bán hoặc người có chuyên môn khi chưa rõ.";
 
-export function KioskGuide() {
+export function Guide() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <KioskNavButtons />
+        <NavButtons />
         <div className="flex-1 text-2xl font-extrabold text-brand-dark">❓ Hướng dẫn</div>
       </div>
       <p className="mb-4 rounded-2xl bg-white px-4 py-3 text-lg text-slate-600 shadow-soft">

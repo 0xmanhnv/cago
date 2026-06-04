@@ -76,7 +76,7 @@ export function ProductInfo({ p }: { p: Product }) {
   );
 }
 
-export function StaffProductDetail({ code }: { code: string }) {
+export function ProductDetail({ code }: { code: string }) {
   const router = useRouter();
   const [p, setP] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);

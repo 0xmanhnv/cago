@@ -108,7 +108,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🖥 Màn hình & thiết bị", keys: ["cfd", "handover", "setpin"] },
 ];
 
-export function PosHome() {
+export function Home() {
   const router = useRouter();
   const { boot, reload } = useSession();
   const owner = isOwner(boot);

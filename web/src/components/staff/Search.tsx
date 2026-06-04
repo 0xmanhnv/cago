@@ -11,7 +11,7 @@ import type { ProductCard, Category } from "@/lib/types";
 
 const PAGE = 30;
 
-export function StaffSearch() {
+export function Search() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [list, setList] = useState<ProductCard[]>([]);

@@ -7,7 +7,7 @@ import { mdLight } from "@/lib/kioskUi";
 import { BackBar } from "@/components/owner/Shared";
 import type { ChatResponse, ProductCard } from "@/lib/types";
 
-export function StaffChat() {
+export function Chat() {
   const router = useRouter();
   const [hist, setHist] = useState<{ who: "user" | "bot"; text: string; cards?: ProductCard[] }[]>([]);
   const [input, setInput] = useState("");

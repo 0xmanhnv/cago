@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { useKioskNav } from "@/lib/kioskNav";
-import { KioskNavButtons } from "./KioskNavButtons";
+import { NavButtons } from "./NavButtons";
 import { normalizePhone, validPhone } from "@/lib/kioskUi";
 
 export function MyDebt() {
@@ -90,7 +90,7 @@ export function MyDebt() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <KioskNavButtons />
+        <NavButtons />
         <div className="flex-1 text-[22px] font-bold text-brand-dark">Công nợ của tôi</div>
       </div>
 

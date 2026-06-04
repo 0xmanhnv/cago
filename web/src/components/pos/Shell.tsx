@@ -51,7 +51,7 @@ function capFor(path: string): { cap?: Cap; owner?: boolean; admin?: boolean } {
   return {}; // /pos home, /pos/search, /pos/orders, /pos/assistant
 }
 
-export function PosShell({ children }: { children: React.ReactNode }) {
+export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname() || "";
   const { cap, owner, admin } = capFor(path);
   const { boot, reload } = useSession();

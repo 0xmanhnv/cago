@@ -1,5 +1,5 @@
-import { StaffSearch } from "@/components/staff/StaffSearch";
+import { Search } from "@/components/staff/Search";
 
 export default function Page() {
-  return <StaffSearch />;
+  return <Search />;
 }

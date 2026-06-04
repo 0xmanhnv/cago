@@ -109,7 +109,7 @@ export const useKiosk = create<KioskState>((set, get) => {
   // Initial state MUST be identical on the server and on the client's first render, or the
   // hydrated DOM won't match the SSR HTML (React 19 then errors out and the page can render
   // but stay non-interactive). So we start empty and read sessionStorage in hydrate(), which
-  // runs once from a post-mount effect (see KioskChrome) — client-only, after hydration.
+  // runs once from a post-mount effect (see Chrome) — client-only, after hydration.
   const initial = { sessionId: "", phone: "", history: [] as ChatMsg[], cart: {} as Record<string, CartLine> };
   return {
     cart: initial.cart,

@@ -1,2 +1,2 @@
-import { KioskGuide } from "@/components/kiosk/KioskGuide";
-export default function Page() { return <KioskGuide />; }
+import { Guide } from "@/components/kiosk/Guide";
+export default function Page() { return <Guide />; }

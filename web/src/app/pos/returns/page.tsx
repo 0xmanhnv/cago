@@ -1,5 +1,5 @@
-import { StaffReturns } from "@/components/staff/StaffReturns";
+import { Returns } from "@/components/staff/Returns";
 
 export default function Page() {
-  return <StaffReturns />;
+  return <Returns />;
 }

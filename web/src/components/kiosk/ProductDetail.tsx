@@ -7,7 +7,7 @@ import { useKioskNav } from "@/lib/kioskNav";
 import { useSession } from "@/lib/session";
 import { CatThumb } from "./CatThumb";
 import { StoreMapView } from "./StoreMapView";
-import { KioskNavButtons } from "./KioskNavButtons";
+import { NavButtons } from "./NavButtons";
 import { EXPIRY_LABEL, speak } from "@/lib/kioskUi";
 import type { Product, ProductCard } from "@/lib/types";
 
@@ -69,7 +69,7 @@ export function ProductDetail({ code }: { code: string }) {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <KioskNavButtons onBack={goBack} />
+        <NavButtons onBack={goBack} />
       </div>
 
       {/* On a big in-store screen (lg+) the single touch column wastes half the width: put the

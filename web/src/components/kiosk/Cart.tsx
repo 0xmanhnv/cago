@@ -4,7 +4,7 @@ import { useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
-import { KioskNavButtons } from "./KioskNavButtons";
+import { NavButtons } from "./NavButtons";
 
 export function Cart() {
   const kiosk = useKiosk();
@@ -36,7 +36,7 @@ export function Cart() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <KioskNavButtons />
+        <NavButtons />
         <div className="flex-1 text-[22px] font-bold text-brand-dark">Giỏ đã chọn</div>
       </div>
 

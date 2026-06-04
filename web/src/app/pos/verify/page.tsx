@@ -1,2 +1,2 @@
-import { StaffVerify } from "@/components/staff/StaffVerify";
-export default function Page() { return <StaffVerify />; }
+import { Verify } from "@/components/staff/Verify";
+export default function Page() { return <Verify />; }

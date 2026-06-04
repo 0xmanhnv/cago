@@ -6,7 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
 import { CatThumb } from "./CatThumb";
-import { KioskNavButtons } from "./KioskNavButtons";
+import { NavButtons } from "./NavButtons";
 import { PageLoading } from "@/components/ui/Loading";
 import type { Category, ProductCard } from "@/lib/types";
 
@@ -188,7 +188,7 @@ export function ProductList() {
         style={{ transform: hideBar ? "translateY(-115%)" : "translateY(0)" }}
       >
         <div className="mb-2.5 flex items-center gap-2.5">
-          <KioskNavButtons />
+          <NavButtons />
           <div className="flex-1 truncate text-[22px] font-bold text-brand-dark">{title}</div>
         </div>
 

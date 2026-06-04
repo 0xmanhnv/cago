@@ -1,5 +1,5 @@
-import { StaffWanted } from "@/components/staff/StaffWanted";
+import { Wanted } from "@/components/staff/Wanted";
 
 export default function Page() {
-  return <StaffWanted />;
+  return <Wanted />;
 }

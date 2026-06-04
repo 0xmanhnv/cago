@@ -37,7 +37,7 @@ const KIND = {
   partial: { label: "Trả thiếu", cls: "bg-amber-100 text-amber-800" },
 } as const;
 
-export function StaffReturns() {
+export function Returns() {
   const router = useRouter();
   const [rows, setRows] = useState<SaleRow[]>([]);
   const [counts, setCounts] = useState<{ all: number; returnable: number; returned: number }>({ all: 0, returnable: 0, returned: 0 });
