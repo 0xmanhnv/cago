@@ -148,18 +148,25 @@ export function CategoryOrder() {
     }
   };
 
-  // One category row. `indent` shows it nested under its parent; ▲▼ reorder within its sibling scope.
+  // One category row. Two lines on a phone so the NAME never gets crushed by the action buttons:
+  // line 1 = icon + full name + count; line 2 = actions (hide · edit · delete | reorder ▲▼).
+  // `indent` shows it nested under its parent; ▲▼ reorder within its sibling scope.
   const Row = ({ c, indent, i, count, onUp, onDown }: { c: Cat; indent: boolean; i: number; count: number; onUp: () => void; onDown: () => void }) => (
-    <div className={`flex items-center gap-2 py-2.5 ${indent ? "pl-8" : "pl-1"} ${c.hidden ? "opacity-60" : ""}`}>
-      {indent && <span className="text-slate-300">↳</span>}
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-2xl" style={{ background: c.color }}>{c.icon}</span>
-      <span className="min-w-0 flex-1 truncate text-[17px] font-bold text-brand-dark">{c.category}{c.hidden && <span className="ml-1 text-xs font-bold text-slate-400">· ẩn</span>}</span>
-      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{c.count}</span>
-      <button onClick={() => toggleHidden(c)} aria-label={c.hidden ? "Hiện" : "Ẩn"} className="h-10 w-10 rounded-xl bg-slate-100 text-lg">{c.hidden ? "🙈" : "👁"}</button>
-      <button onClick={() => openEdit(c)} aria-label="Sửa" className="h-10 w-10 rounded-xl bg-slate-100 text-lg">✏️</button>
-      <button onClick={() => remove(c.category)} aria-label="Xoá" className="h-10 w-10 rounded-xl bg-red-50 text-lg">🗑</button>
-      <button onClick={onUp} disabled={i === 0} aria-label="Lên" className="h-10 w-9 rounded-xl bg-brand-light text-lg font-extrabold text-brand-dark disabled:opacity-30">▲</button>
-      <button onClick={onDown} disabled={i === count - 1} aria-label="Xuống" className="h-10 w-9 rounded-xl bg-brand-light text-lg font-extrabold text-brand-dark disabled:opacity-30">▼</button>
+    <div className={`py-2.5 ${indent ? "pl-8" : "pl-1"} ${c.hidden ? "opacity-60" : ""}`}>
+      <div className="flex items-center gap-2">
+        {indent && <span className="shrink-0 text-slate-300">↳</span>}
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-2xl" style={{ background: c.color }}>{c.icon}</span>
+        <span className="min-w-0 flex-1 text-[17px] font-bold leading-snug text-brand-dark">{c.category}{c.hidden && <span className="ml-1 text-xs font-bold text-slate-400">· ẩn</span>}</span>
+        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{c.count} SP</span>
+      </div>
+      <div className="mt-2 flex items-center justify-end gap-2">
+        <button onClick={() => toggleHidden(c)} aria-label={c.hidden ? "Hiện" : "Ẩn"} className="h-10 w-11 rounded-xl bg-slate-100 text-lg">{c.hidden ? "🙈" : "👁"}</button>
+        <button onClick={() => openEdit(c)} aria-label="Sửa" className="h-10 w-11 rounded-xl bg-slate-100 text-lg">✏️</button>
+        <button onClick={() => remove(c.category)} aria-label="Xoá" className="h-10 w-11 rounded-xl bg-red-50 text-lg">🗑</button>
+        <span className="mx-0.5 h-6 w-px bg-slate-200" aria-hidden />
+        <button onClick={onUp} disabled={i === 0} aria-label="Lên" className="h-10 w-11 rounded-xl bg-brand-light text-lg font-extrabold text-brand-dark disabled:opacity-30">▲</button>
+        <button onClick={onDown} disabled={i === count - 1} aria-label="Xuống" className="h-10 w-11 rounded-xl bg-brand-light text-lg font-extrabold text-brand-dark disabled:opacity-30">▼</button>
+      </div>
     </div>
   );
 
