@@ -148,9 +148,11 @@ def receive_history(start=0, limit=30):
 			{
 				"entry": r.name,
 				"date": str(r.posting_date),
+				"time": str(r.creation)[11:16],  # HH:MM so same-day receipts are distinguishable
 				"invoiced": bool(r.cago_invoiced),
 				"image": r.cago_invoice_image,
-				"total_text": (dto.format_price(r.total_incoming_value) if r.total_incoming_value else "—") if show_cost else "",
+				# Owner with no cost recorded → "" (no misleading "—"); staff never see cost.
+				"total_text": (dto.format_price(r.total_incoming_value) if r.total_incoming_value else "") if show_cost else "",
 				"lines": lines,
 				"count": len(lines),
 			}

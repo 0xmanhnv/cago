@@ -17,6 +17,7 @@ interface Line {
 interface Receipt {
   entry: string;
   date: string;
+  time: string;
   invoiced: boolean;
   image: string | null;
   total_text: string;
@@ -25,6 +26,19 @@ interface Receipt {
 }
 
 const PAGE = 30;
+
+// Friendly group header: Hôm nay / Hôm qua / dd/MM/yyyy (instead of raw "2026-06-04").
+function dateLabel(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  if (isNaN(d.getTime())) return iso;
+  const today = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((startOf(today) - startOf(d)) / 86400000);
+  if (diff === 0) return "Hôm nay";
+  if (diff === 1) return "Hôm qua";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
 
 export function ReceiveHistory() {
   const router = useRouter();
@@ -70,10 +84,12 @@ export function ReceiveHistory() {
         <div className="rounded-2xl bg-white p-6 text-center text-slate-400">Chưa có phiếu nhập nào.</div>
       ) : (
         <>
-          {groupOrdered(rows, (r) => r.date).map((g) => (
+          {groupOrdered(rows, (r) => dateLabel(r.date)).map((g) => (
             <div key={g.label}>
               <DateHeader label={g.label} />
-              {g.items.map((r) => (
+              {g.items.map((r) => {
+                const first = r.lines[0];
+                return (
                 <div key={r.entry} className="mb-2.5 rounded-xl bg-white p-3 shadow-sm">
                   <button onClick={() => setOpen(open === r.entry ? null : r.entry)} className="flex w-full items-center gap-3 text-left">
                     {r.image ? (
@@ -83,14 +99,17 @@ export function ReceiveHistory() {
                       <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-2xl">📦</span>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold text-slate-800">
-                        {r.count} mặt hàng · <span className="text-brand">{r.total_text}</span>
+                      {/* Lead with WHAT was received so each card is identifiable without expanding. */}
+                      <div className="truncate font-bold text-slate-800">
+                        {first ? `${first.name} · ${first.qty} ${uomLabel(first.uom)}` : `${r.count} mặt hàng`}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-sm">
+                      {r.count > 1 && <div className="text-xs text-slate-400">+ {r.count - 1} mặt hàng khác</div>}
+                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-slate-400">🕒 {r.time}</span>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${r.invoiced ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-800"}`}>
                           {r.invoiced ? "🧾 Có HĐ" : "Không HĐ"}
                         </span>
-                        {r.image && <span className="text-xs text-slate-400">📎 có ảnh</span>}
+                        {r.total_text && <span className="font-bold text-brand">{r.total_text}</span>}
                       </div>
                     </div>
                     <span className="text-2xl text-slate-300">{open === r.entry ? "▴" : "▾"}</span>
@@ -108,7 +127,8 @@ export function ReceiveHistory() {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ))}
           {hasMore && (
