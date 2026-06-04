@@ -1171,26 +1171,25 @@ export function Checkout() {
             return (
               <div key={p.item_code} className={`flex h-full flex-col rounded-xl border-2 p-3 shadow-sm ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
                 {viewMode === "card" ? (
-                  // Card = vertical: thumb + info on top, a full-width Add button pinned to the
-                  // bottom (mt-auto) so cards with 1- and 2-line names line their buttons up.
+                  // Card = standard mobile product card: IMAGE ON TOP (full-width square), text below,
+                  // a full-width Add button pinned to the bottom (mt-auto) so card buttons line up.
                   <div className="flex flex-1 flex-col">
-                    <div className="flex items-start gap-3">
-                      <button onClick={() => setPreview(p.item_code)} aria-label="Xem chi tiết" className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg">
-                        <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
-                        <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/45 px-1 text-[10px] leading-tight text-white">🔍</span>
-                      </button>
-                      <div className="min-w-0 flex-1">
-                        <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</button>
-                        <div className="text-sm font-bold text-brand">{p.price_text}</div>
-                        <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                          {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${uomLabel(m.stock_uom)}` : null) || p.stock_status}
-                        </div>
-                      </div>
+                    <button onClick={() => setPreview(p.item_code)} aria-label="Xem chi tiết" className="relative mb-2 block aspect-square w-full overflow-hidden rounded-lg bg-slate-50">
+                      <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="thumb" />
+                      {(p.best_seller || p.recommended) && (
+                        <span className="absolute left-1 top-1 rounded-md bg-black/55 px-1.5 py-0.5 text-xs">{p.best_seller ? "🏆" : ""}{p.recommended ? "⭐" : ""}</span>
+                      )}
+                      <span className="absolute bottom-1 right-1 rounded-md bg-black/45 px-1.5 py-0.5 text-[11px] text-white">🔍</span>
+                    </button>
+                    <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-snug">{p.display_name}</button>
+                    <div className="mt-0.5 text-base font-extrabold text-brand">{p.price_text}</div>
+                    <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
+                      {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${uomLabel(m.stock_uom)}` : null) || p.stock_status}
                     </div>
                     {!line && (
                       <button
                         onClick={() => add(p.item_code, p)}
-                        className={`mt-auto min-h-touch w-full rounded-lg text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
+                        className={`mt-3 min-h-touch w-full rounded-lg text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
                       >
                         {cardOOS(p) ? "Vẫn bán" : "＋ Thêm"}
                       </button>
