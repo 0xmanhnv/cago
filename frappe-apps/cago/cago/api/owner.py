@@ -716,14 +716,29 @@ def save_category(name, icon=None, color=None, old_name=None, parent=None, is_gr
 				"is_group": is_group,
 			}
 		).insert(ignore_permissions=True)
-	# Move an existing category under the chosen parent (NestedSet recomputes lft/rgt on save). Only
-	# when the caller passed `parent` — an icon/colour edit leaves the parent untouched.
-	if parent_provided and frappe.db.get_value("Item Group", name, "parent_item_group") != parent_group:
+	# Convert leaf↔nhóm cha and/or move under a new parent (WordPress-style: any category can be made
+	# a parent or re-nested). NestedSet recomputes lft/rgt on save. Guards keep ERPNext consistent.
+	cur_is_group = int(frappe.db.get_value("Item Group", name, "is_group") or 0)
+	want_group = is_group  # only meaningful as a CONVERT when it differs from current
+	convert = want_group != cur_is_group
+	if convert and want_group:  # leaf → nhóm cha: a group can't hold products directly
+		if frappe.db.exists("Item", {"item_group": name}):
+			frappe.throw(_("Loại '{0}' còn sản phẩm. Hãy chuyển sản phẩm sang loại khác trước khi biến nó thành nhóm cha.").format(name))
+	if convert and not want_group:  # nhóm cha → leaf: can't if it still has child categories
+		if frappe.db.exists("Item Group", {"parent_item_group": name}):
+			frappe.throw(_("Nhóm '{0}' còn loại con bên trong. Hãy chuyển/xoá loại con trước.").format(name))
+	# A nhóm cha sits under the root; a leaf under the chosen parent.
+	target_parent = _root_item_group() if want_group else parent_group
+	need_parent_move = (parent_provided or convert) and frappe.db.get_value("Item Group", name, "parent_item_group") != target_parent
+	if convert or need_parent_move:
 		from cago.utils.privileged import as_user
 
 		with as_user("Administrator"):
 			doc = frappe.get_doc("Item Group", name)
-			doc.parent_item_group = parent_group
+			if convert:
+				doc.is_group = want_group
+			if need_parent_move:
+				doc.parent_item_group = target_parent
 			doc.save()
 	if icon is not None:
 		frappe.db.set_value("Item Group", name, "cago_icon", (icon or "").strip() or None)

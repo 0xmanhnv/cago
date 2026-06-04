@@ -37,6 +37,29 @@ class TestCategoryCrud(FrappeTestCase):
 		owner.delete_category("_Cat B")
 		self.assertFalse(frappe.db.exists("Item Group", "_Cat B"))
 
+	def test_convert_leaf_to_parent_and_back(self):
+		"""WordPress-style: a leaf with no products can become a nhóm cha, and a childless parent can
+		go back to a leaf."""
+		from cago.api import owner
+
+		owner.save_category("_Cat A", icon="📦")
+		self.assertEqual(int(frappe.db.get_value("Item Group", "_Cat A", "is_group") or 0), 0)
+		owner.save_category("_Cat A", old_name="_Cat A", is_group=1)  # leaf → nhóm cha
+		self.assertEqual(int(frappe.db.get_value("Item Group", "_Cat A", "is_group") or 0), 1)
+		owner.save_category("_Cat A", old_name="_Cat A", is_group=0)  # back to leaf (no children)
+		self.assertEqual(int(frappe.db.get_value("Item Group", "_Cat A", "is_group") or 0), 0)
+
+	def test_convert_to_parent_refused_when_products_exist(self):
+		from cago.api import owner
+
+		# A leaf category that actually holds products (items hang off leaves, is_group=0).
+		rows = frappe.get_all("Item", filters={"disabled": 0}, fields=["item_group"], limit=200)
+		grp = next((r.item_group for r in rows if not int(frappe.db.get_value("Item Group", r.item_group, "is_group") or 0)), None)
+		if not grp:
+			self.skipTest("no leaf category with products")
+		with self.assertRaises(frappe.ValidationError):
+			owner.save_category(grp, old_name=grp, is_group=1)
+
 	def test_delete_refused_when_products_exist(self):
 		from cago.api import owner
 

@@ -163,6 +163,16 @@ export function CategoryOrder() {
             placeholder="VD: Thuốc thú y"
             className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
           />
+          <label className="mt-3 flex items-center gap-2 rounded-lg bg-slate-50 p-2.5 text-sm font-bold text-slate-600">
+            <input
+              type="checkbox"
+              checked={form.is_group}
+              onChange={(e) => setForm({ ...form, is_group: e.target.checked, parent: "" })}
+              className="h-5 w-5"
+            />
+            Là nhóm cha (chứa các loại con, không bán trực tiếp)
+            {form.old_name && <span className="font-normal text-slate-400">— đổi tại đây để chuyển loại ↔ nhóm</span>}
+          </label>
           {!form.is_group && (
             <>
               <label className="mt-3 block text-sm font-bold text-slate-600">Thuộc nhóm cha</label>
