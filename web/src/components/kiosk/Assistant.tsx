@@ -304,32 +304,30 @@ export function Assistant({
       <div className="px-3 pt-1.5">
         {phoneOpen ? (
           <div>
-            <div className="mb-1 text-sm font-bold text-brand-dark">📞 Nhập số điện thoại để chủ / người có chuyên môn gọi lại tư vấn:</div>
-            <div className="flex items-center gap-2">
-              {/* min-w-0 lets the input shrink inside the narrow popup (an input's default
-                  min-width:auto would otherwise overflow and push the buttons off-screen). */}
-              <input
-                autoFocus
-                inputMode="tel"
-                maxLength={15}
-                value={phoneVal}
-                onChange={(e) => setPhoneVal(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && savePhone()}
-                placeholder="VD: 0987 654 321"
-                className="min-w-0 flex-1 rounded-lg border-2 border-emerald-300 p-2.5 text-base"
-              />
-              <button onClick={savePhone} className="h-11 shrink-0 rounded-lg bg-brand px-3.5 font-extrabold text-white">
-                Lưu
+            <div className="mb-1.5 text-sm font-bold text-brand-dark">📞 Nhập số điện thoại để chủ / người có chuyên môn gọi lại tư vấn:</div>
+            {/* Input on its own full-width line (numeric keypad, "Xong" key), then a clean Lưu + Huỷ
+                row with matching heights — no cramped 3-in-a-row, easier for older customers. */}
+            <input
+              autoFocus
+              type="tel"
+              inputMode="tel"
+              enterKeyHint="done"
+              maxLength={15}
+              value={phoneVal}
+              onChange={(e) => setPhoneVal(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && savePhone()}
+              placeholder="VD: 0987 654 321"
+              className={`h-12 w-full rounded-xl border-2 px-3.5 text-lg ${phoneErr ? "border-red-400" : "border-emerald-300"}`}
+            />
+            {phoneErr && <span className="mt-1 block px-0.5 text-xs text-red-600">Số điện thoại chưa đúng (vd 0987654321).</span>}
+            <div className="mt-2 flex gap-2">
+              <button onClick={savePhone} className="h-12 flex-1 rounded-xl bg-brand text-lg font-extrabold text-white active:brightness-95">
+                Lưu số
               </button>
-              <button
-                onClick={() => setPhoneOpen(false)}
-                aria-label="Đóng"
-                className="h-11 shrink-0 rounded-lg bg-slate-200 px-3.5 font-extrabold text-slate-700"
-              >
-                ✕
+              <button onClick={() => setPhoneOpen(false)} className="h-12 rounded-xl bg-slate-100 px-5 font-bold text-slate-600">
+                Huỷ
               </button>
             </div>
-            {phoneErr && <span className="block px-0.5 pt-1 text-xs text-red-600">Số điện thoại chưa đúng (vd 0987654321).</span>}
           </div>
         ) : (
           <button
