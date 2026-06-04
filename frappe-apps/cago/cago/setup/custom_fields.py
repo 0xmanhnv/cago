@@ -40,6 +40,15 @@ def ensure_category_fields():
 					"description": "Thứ tự hiển thị danh mục trên kiosk (số nhỏ hiện trước). Owner sắp được.",
 				},
 				{
+					# Soft-hide a category from the kiosk (seasonal / discontinued) WITHOUT deleting it —
+					# keeps the label + history; products stay sellable at the POS. Disable-don't-delete.
+					"fieldname": "cago_hidden",
+					"label": "Ẩn khỏi kiosk",
+					"fieldtype": "Check",
+					"insert_after": "cago_sort_order",
+					"description": "Bật: danh mục này không hiện cho khách trên kiosk (vẫn giữ dữ liệu, vẫn bán được ở POS).",
+				},
+				{
 					# Logical parent (WordPress-style): the shop taxonomy is flat is_group=0 leaves under
 					# the root + this 2-level link, so a category can BOTH hold its own products AND be a
 					# parent (a group can't hold items in ERPNext's tree). Empty = top-level.

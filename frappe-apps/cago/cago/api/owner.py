@@ -635,7 +635,7 @@ def list_categories():
 	rows = frappe.get_all(
 		"Item Group",
 		filters={"is_group": 0, "name": ["not in", list(ERPNEXT_DEFAULT_GROUPS)]},
-		fields=["name", "cago_icon", "cago_color", "cago_sort_order", "cago_parent"],
+		fields=["name", "cago_icon", "cago_color", "cago_sort_order", "cago_parent", "cago_hidden"],
 		order_by="cago_sort_order asc, name asc",
 	)
 	out = []
@@ -645,7 +645,7 @@ def list_categories():
 			continue
 		# parent = the loại cha (cago_parent). None = top-level. The manage screen indents children
 		# under their parent; viewing a parent on the kiosk aggregates its + its children's products.
-		out.append({"category": r.name, "icon": r.cago_icon or "📦", "color": r.cago_color or "#e6f4ea", "count": count, "parent": r.cago_parent or None})
+		out.append({"category": r.name, "icon": r.cago_icon or "📦", "color": r.cago_color or "#e6f4ea", "count": count, "parent": r.cago_parent or None, "hidden": bool(r.cago_hidden)})
 	return out
 
 
@@ -686,7 +686,7 @@ def _ensure_uncategorized():
 
 
 @frappe.whitelist()
-def save_category(name, icon=None, color=None, old_name=None, parent=None):
+def save_category(name, icon=None, color=None, old_name=None, parent=None, hidden=None):
 	"""Owner: create / rename / restyle a category, and set its loại cha (`cago_parent`). Flat model:
 	every category is an is_group=0 leaf under the root that can hold products AND be a parent; the
 	hierarchy is just the cago_parent link (kept to 2 levels). Empty parent = top-level (loại gốc)."""
@@ -729,6 +729,8 @@ def save_category(name, icon=None, color=None, old_name=None, parent=None):
 		).insert(ignore_permissions=True)
 	if parent_provided:
 		frappe.db.set_value("Item Group", name, "cago_parent", parent or None, update_modified=False)
+	if hidden is not None:
+		frappe.db.set_value("Item Group", name, "cago_hidden", 1 if str(hidden) in ("1", "true", "True") else 0, update_modified=False)
 	if icon is not None:
 		frappe.db.set_value("Item Group", name, "cago_icon", (icon or "").strip() or None)
 	if color is not None:

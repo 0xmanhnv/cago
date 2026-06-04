@@ -51,13 +51,13 @@ def category_tree(public_only=True):
 		g.name: g
 		for g in frappe.get_all(
 			"Item Group",
-			fields=["name", "cago_parent", "cago_icon", "cago_color", "cago_sort_order", "is_group"],
+			fields=["name", "cago_parent", "cago_icon", "cago_color", "cago_sort_order", "is_group", "cago_hidden"],
 		)
 	}
-	# Only real shop categories (leaves) — ignore the root + any ERPNext default group nodes.
+	# Only real shop categories (leaves) — ignore the root, ERPNext defaults, and owner-hidden ones.
 	from cago.setup.category_tree import DEFAULTS
 
-	cats = {n: g for n, g in groups.items() if not g.is_group and n not in DEFAULTS}
+	cats = {n: g for n, g in groups.items() if not g.is_group and n not in DEFAULTS and not g.cago_hidden}
 
 	def top_level(name):
 		"""Resolve to the ancestor that has no cago_parent. Normally 1 hop (we enforce 2 levels), but
