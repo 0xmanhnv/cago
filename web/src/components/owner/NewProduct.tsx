@@ -49,39 +49,53 @@ export function NewProduct() {
   };
 
   return (
-    <div className="mx-auto max-w-[760px]">
+    <div className="mx-auto max-w-[760px] xl:max-w-[900px]">
       <BackBar onBack={() => goBackSmart(router)} title="THÊM SẢN PHẨM" />
-      <div className="rounded-xl bg-white p-4">
-        <label className="block font-bold text-slate-700">Tên sản phẩm *</label>
-        <input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-        <label className="block font-bold text-slate-700">Nhóm hàng *</label>
-        <select value={f.group} onChange={(e) => setF({ ...f, group: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5">
-          {["", ...meta.item_groups].map((g) => (
-            <option key={g}>{g}</option>
-          ))}
-        </select>
-        <label className="block font-bold text-slate-700">Đơn vị (Bao/Gói/Chai...) *</label>
-        <input list="uoms" value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-        <datalist id="uoms">
-          {meta.uoms.map((u) => (
-            <option key={u} value={u} />
-          ))}
-        </datalist>
-        <label className="block font-bold text-slate-700">Giá bán (đồng)</label>
-        <input inputMode="numeric" value={f.price} onChange={(e) => setF({ ...f, price: groupVnd(e.target.value) })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-        <label className="block font-bold text-slate-700">Tồn kho hiển thị</label>
-        <select value={f.stock} onChange={(e) => setF({ ...f, stock: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5">
-          {["", ...meta.stock_status_options].map((o) => (
-            <option key={o}>{o}</option>
-          ))}
-        </select>
-        <label className="mt-1 flex items-center gap-2 font-bold text-slate-700">
-          <input type="checkbox" checked={f.chem} onChange={(e) => setF({ ...f, chem: e.target.checked })} className="h-5 w-5" /> Là hóa chất/thuốc
-        </label>
-        <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
-          <input type="checkbox" checked={f.pub} onChange={(e) => setF({ ...f, pub: e.target.checked })} className="h-5 w-5" /> Hiển thị trên kiosk
-        </label>
-        <button onClick={create} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
+      {/* 2-column on desktop (sm+) so the form uses the width instead of a narrow mobile strip;
+          1-column on phones. Name + checkboxes + button span both columns. */}
+      <div className="grid grid-cols-1 gap-x-5 gap-y-2 rounded-xl bg-white p-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="block font-bold text-slate-700">Tên sản phẩm *</label>
+          <input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        </div>
+        <div>
+          <label className="block font-bold text-slate-700">Nhóm hàng *</label>
+          <select value={f.group} onChange={(e) => setF({ ...f, group: e.target.value })} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5">
+            {["", ...meta.item_groups].map((g) => (
+              <option key={g}>{g}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block font-bold text-slate-700">Đơn vị (Bao/Gói/Chai...) *</label>
+          <input list="uoms" value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          <datalist id="uoms">
+            {meta.uoms.map((u) => (
+              <option key={u} value={u} />
+            ))}
+          </datalist>
+        </div>
+        <div>
+          <label className="block font-bold text-slate-700">Giá bán (đồng)</label>
+          <input inputMode="numeric" value={f.price} onChange={(e) => setF({ ...f, price: groupVnd(e.target.value) })} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        </div>
+        <div>
+          <label className="block font-bold text-slate-700">Tồn kho hiển thị</label>
+          <select value={f.stock} onChange={(e) => setF({ ...f, stock: e.target.value })} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5">
+            {["", ...meta.stock_status_options].map((o) => (
+              <option key={o}>{o}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 sm:col-span-2">
+          <label className="flex items-center gap-2 font-bold text-slate-700">
+            <input type="checkbox" checked={f.chem} onChange={(e) => setF({ ...f, chem: e.target.checked })} className="h-5 w-5" /> Là hóa chất/thuốc
+          </label>
+          <label className="flex items-center gap-2 font-bold text-slate-700">
+            <input type="checkbox" checked={f.pub} onChange={(e) => setF({ ...f, pub: e.target.checked })} className="h-5 w-5" /> Hiển thị trên kiosk
+          </label>
+        </div>
+        <button onClick={create} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white sm:col-span-2">
           Tạo sản phẩm
         </button>
       </div>
