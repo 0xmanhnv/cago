@@ -25,6 +25,7 @@ export function StoreMap() {
   const [floor, setFloor] = useState("");
   const [aisleMode, setAisleMode] = useState(false);
   const [newStroke, setNewStroke] = useState(false); // next aisle tap starts a separate corridor
+  const [eraseMode, setEraseMode] = useState(false); // tap a waypoint to delete just that point
   const [snap, setSnap] = useState(true); // snap-to-grid (like draw.io) → straight lines are easy
   const [busy, setBusy] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -226,6 +227,21 @@ export function StoreMap() {
     setNewStroke(false);
   };
 
+  // Delete a SINGLE waypoint (erase mode) — the corridor reconnects its neighbours. If the removed
+  // point started a corridor (b=1), promote the next same-floor point so that corridor still starts
+  // fresh instead of merging into the previous one.
+  const deleteAislePoint = (i: number) => {
+    pushHistory();
+    const removed = map.aisle[i];
+    const next = map.aisle[i + 1];
+    const arr = map.aisle.filter((_, j) => j !== i);
+    if (removed?.b && next && !next.b && next.floor === removed.floor) {
+      const ni = arr.indexOf(next);
+      if (ni >= 0) arr[ni] = { ...arr[ni], b: 1 };
+    }
+    upd({ aisle: arr });
+  };
+
   const save = async () => {
     if (busy) return;
     setBusy(true);
@@ -265,18 +281,27 @@ export function StoreMap() {
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <button onClick={addZone} className="rounded-lg bg-brand px-3 py-2 font-bold text-white">➕ Thêm khu</button>
         <button
-          onClick={() => { setAisleMode((v) => !v); setNewStroke(false); }}
+          onClick={() => { setAisleMode((v) => !v); setNewStroke(false); setEraseMode(false); }}
           className={`rounded-lg px-3 py-2 font-bold ${aisleMode ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-700"}`}
         >
           🛤 {aisleMode ? "Đang vẽ" : "Vẽ lối đi"}
         </button>
         {aisleMode && (
           <button
-            onClick={() => setNewStroke(true)}
+            onClick={() => { setNewStroke(true); setEraseMode(false); }}
             className={`rounded-lg px-3 py-2 font-bold ${newStroke ? "bg-amber-600 text-white" : "bg-amber-100 text-amber-800"}`}
             title="Điểm chạm tiếp theo bắt đầu một lối đi riêng (không nối với đoạn đang vẽ)"
           >
             ↳ Đoạn mới
+          </button>
+        )}
+        {aisleMode && (
+          <button
+            onClick={() => { setEraseMode((v) => !v); setNewStroke(false); }}
+            className={`rounded-lg px-3 py-2 font-bold ${eraseMode ? "bg-red-600 text-white" : "bg-red-100 text-red-700"}`}
+            title="Bật rồi chạm vào một điểm (chấm cam) để xoá riêng điểm đó"
+          >
+            🧽 Xoá điểm
           </button>
         )}
         <button onClick={() => setSnap((v) => !v)} className={`rounded-lg px-3 py-2 font-bold ${snap ? "bg-violet-600 text-white" : "bg-slate-200 text-slate-700"}`} title="Bắt dính vào lưới để căn thẳng hàng dễ">
@@ -322,7 +347,19 @@ export function StoreMap() {
         )}
         {map.aisle.map((p, i) =>
           p.floor !== floor ? null : (
-            <circle key={p._k ?? i} cx={p.x} cy={p.y} r={1.6} fill="#f59e0b" className="cursor-move" onPointerDown={(e) => { e.stopPropagation(); startDrag({ kind: "aisle", i }); }} />
+            <circle
+              key={p._k ?? i}
+              cx={p.x}
+              cy={p.y}
+              r={eraseMode ? 2.2 : 1.6}
+              fill={eraseMode ? "#dc2626" : "#f59e0b"}
+              className={eraseMode ? "cursor-pointer" : "cursor-move"}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                if (eraseMode) deleteAislePoint(i);
+                else startDrag({ kind: "aisle", i });
+              }}
+            />
           ),
         )}
 
