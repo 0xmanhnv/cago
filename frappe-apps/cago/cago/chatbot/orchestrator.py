@@ -231,6 +231,13 @@ def ask(role, message, history=None, session_id=None, customer_phone=None, focus
 			provider_used = "refused"
 		return _finish(resp, message, role, provider_used, model_used, started, intents, session_id, customer_phone)
 
+	# 1b) OWNER-CURATED FAQ — an exact owner answer for a known question wins over everything below
+	# (it is the shop's own voice). Sits AFTER the sensitive gate so it can't be used for dosage.
+	faq = storefacts.faq_answer(message)
+	if faq:
+		resp = ChatResponse(answer_text=faq, needs_staff_help=False, confidence="high")
+		return _finish(resp, message, role, "faq", model_used, started, intents, session_id, customer_phone)
+
 	# 2) STORE-LEVEL FACTS (deterministic, query the DB) — "bán những gì?", "bán chạy?", "ở đâu?".
 	# Priority so a spurious product match can't route these to the LLM and dead-end at "không có".
 	fact = _storefact_answer(role, message, focus_item)

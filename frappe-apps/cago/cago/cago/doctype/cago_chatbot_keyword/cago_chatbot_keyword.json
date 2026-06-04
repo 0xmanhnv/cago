@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "creation": "2026-06-04 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "intent_group",
+  "term"
+ ],
+ "fields": [
+  {
+   "fieldname": "intent_group",
+   "fieldtype": "Select",
+   "label": "Nhóm ý định",
+   "options": "overview\nbestseller\nwhere",
+   "in_list_view": 1,
+   "columns": 3,
+   "reqd": 1,
+   "description": "overview = bán những gì · bestseller = bán chạy · where = ở đâu"
+  },
+  {
+   "fieldname": "term",
+   "fieldtype": "Data",
+   "label": "Từ/cụm khoá",
+   "in_list_view": 1,
+   "columns": 6,
+   "reqd": 1,
+   "description": "Cách khách hay nói, vd 'hàng nào đắt khách', 'để chỗ mô'"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cago",
+ "name": "Cago Chatbot Keyword",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

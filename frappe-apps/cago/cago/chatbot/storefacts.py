@@ -36,6 +36,23 @@ def _terms(group, base):
 	return tuple(base) + tuple(t for t in extra if t)
 
 
+def faq_answer(message):
+	"""Owner-curated FAQ answer when the question matches a stored pattern, else None.
+	Patterns are matched accent-insensitively as a substring (longest pattern wins)."""
+	m = _norm(message)
+	if not m:
+		return None
+	try:
+		from cago.chatbot import settings as cbsettings
+
+		for row in cbsettings.faq_rows():
+			if row["q"] and row["q"] in m:
+				return row["answer"]
+	except Exception:
+		pass
+	return None
+
+
 def is_overview(message):
 	return _has(_norm(message), _terms("overview", _OVERVIEW))
 

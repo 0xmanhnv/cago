@@ -133,18 +133,28 @@ def kiosk_chips() -> dict:
 	augmented with auto-learned top questions (what this shop's customers actually ask)."""
 	import json
 
-	def _augment(d):
-		# Prepend learned top questions to `general`, de-duplicated, keeping the list short.
-		learned = learned_general_chips()
-		base = d.get("general") or []
+	def _dedup(items, limit):
 		seen, merged = set(), []
-		for c in learned + base:
+		for c in items:
 			k = (c or "").strip().lower()
 			if c and k not in seen:
 				seen.add(k)
 				merged.append(c)
+		return merged[:limit]
+
+	def _augment(d):
+		# Owner-curated chips (DocType) take precedence, then learned top questions, then defaults.
+		try:
+			from cago.chatbot import settings as cbsettings
+
+			db = cbsettings.chips()
+		except Exception:
+			db = {}
 		d = dict(d)
-		d["general"] = merged[:8]
+		# general: owner chips + auto-learned questions + defaults (what THIS shop's customers ask).
+		d["general"] = _dedup((db.get("general") or []) + learned_general_chips() + (d.get("general") or []), 8)
+		for ctx in ("product", "category"):
+			d[ctx] = _dedup((db.get(ctx) or []) + (d.get(ctx) or []), 8)
 		return d
 
 	raw = _get("CAGO_KIOSK_CHIPS", "cago_kiosk_chips")
@@ -175,15 +185,24 @@ def extra_keywords(group) -> list:
 	Terms are normalised (accent-stripped) by the caller. Returns [] when unset/invalid."""
 	import json
 
+	terms = []
 	raw = _get("CAGO_CHATBOT_KEYWORDS", "cago_chatbot_keywords", db_field="cago_chatbot_keywords")
-	if not raw:
-		return []
+	if raw:
+		try:
+			val = json.loads(raw) if isinstance(raw, str) else raw
+			got = (val or {}).get(group) if isinstance(val, dict) else None
+			if isinstance(got, list):
+				terms.extend(str(t) for t in got)
+		except Exception:
+			pass
+	# Owner-curated synonyms from the Cago Chatbot Settings DocType (live, no rebuild).
 	try:
-		val = json.loads(raw) if isinstance(raw, str) else raw
-		terms = (val or {}).get(group) if isinstance(val, dict) else None
-		return [str(t) for t in terms] if isinstance(terms, list) else []
+		from cago.chatbot import settings as cbsettings
+
+		terms.extend(cbsettings.keywords(group))
 	except Exception:
-		return []
+		pass
+	return terms
 
 
 def chatbot_enabled() -> bool:
