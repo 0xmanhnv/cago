@@ -6,7 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { confirmDialog } from "@/components/ui/dialog";
 import { BackBar, goBackSmart } from "./Shared";
 import { toast } from "@/components/ui/toast";
-import { COLORS, ICONS, splitStrokes, toPoints, type MapZone, type Pt, type StoreMap } from "@/lib/storemap";
+import { COLORS, ICONS, planRoute, splitStrokes, toPoints, type MapZone, type Pt, type StoreMap } from "@/lib/storemap";
 
 import { PageLoading } from "@/components/ui/Loading";
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -26,6 +26,8 @@ export function StoreMap() {
   const [aisleMode, setAisleMode] = useState(false);
   const [newStroke, setNewStroke] = useState(false); // next aisle tap starts a separate corridor
   const [eraseMode, setEraseMode] = useState(false); // tap a waypoint to delete just that point
+  const [preview, setPreview] = useState(false); // "Xem thử": tap a zone to see the customer's route
+  const [previewZone, setPreviewZone] = useState<number | null>(null);
   const [snap, setSnap] = useState(true); // snap-to-grid (like draw.io) → straight lines are easy
   const [busy, setBusy] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -269,6 +271,13 @@ export function StoreMap() {
 
   const selZone = sel != null ? map.zones[sel] : null;
   const aislePts = map.aisle.filter((p) => p.floor === floor);
+  // "Xem thử": the exact route a customer would get from the kiosk to the previewed zone, computed
+  // from the CURRENT (unsaved) edits so the owner verifies the map before saving. Shows the leg on
+  // the floor being viewed; the instruction covers cross-floor.
+  const previewPlan = preview && previewZone != null && map.zones[previewZone]
+    ? planRoute(map, map.zones[previewZone], { x: map.kiosk.x, y: map.kiosk.y }, map.kiosk.floor)
+    : null;
+  const previewLeg = previewPlan?.legs.find((l) => l.floor === floor);
 
   return (
     <div>
@@ -292,6 +301,13 @@ export function StoreMap() {
           Setup-y controls (publish / place kiosk+door) moved BELOW the canvas. */}
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <button onClick={addZone} className="rounded-lg bg-brand px-3 py-2 font-bold text-white">➕ Thêm khu</button>
+        <button
+          onClick={() => { const v = !preview; setPreview(v); setPreviewZone(null); if (v) { setAisleMode(false); setEraseMode(false); setSel(null); } }}
+          className={`rounded-lg px-3 py-2 font-bold ${preview ? "bg-blue-600 text-white" : "bg-blue-100 text-blue-700"}`}
+          title="Bật rồi chạm vào một khu để xem đúng đường đi khách sẽ thấy"
+        >
+          👁 Xem thử
+        </button>
         <button
           onClick={() => { setAisleMode((v) => !v); setNewStroke(false); setEraseMode(false); }}
           className={`rounded-lg px-3 py-2 font-bold ${aisleMode ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-700"}`}
@@ -391,10 +407,11 @@ export function StoreMap() {
                 fillOpacity={sel === i ? 0.9 : 0.7}
                 stroke={sel === i ? "#0f172a" : "white"}
                 strokeWidth={sel === i ? 0.8 : 0.4}
-                className="cursor-move"
+                className={preview ? "cursor-pointer" : "cursor-move"}
                 onPointerDown={(e) => {
                   if (aisleMode) return;
                   e.stopPropagation();
+                  if (preview) { setPreviewZone(i); return; } // tap to preview the route to this zone
                   setSel(i);
                   const p = toSvg(e);
                   if (!p) return;
@@ -405,18 +422,31 @@ export function StoreMap() {
                 {z.icon ? `${z.icon} ` : ""}
                 {z.label}
               </text>
-              <rect
-                x={z.x + z.w - 2}
-                y={z.y + z.h - 2}
-                width={2.4}
-                height={2.4}
-                fill="#0f172a"
-                className="cursor-nwse-resize"
-                onPointerDown={(e) => { if (aisleMode) return; e.stopPropagation(); setSel(i); startDrag({ kind: "zoneResize", i, ox: 0, oy: 0 }); }}
-              />
+              {!aisleMode && !preview && (
+                <>
+                  {/* bigger, finger-friendly resize grip in the bottom-right corner */}
+                  <rect
+                    x={z.x + z.w - 4.2}
+                    y={z.y + z.h - 4.2}
+                    width={4.2}
+                    height={4.2}
+                    rx={1}
+                    fill="#0f172a"
+                    fillOpacity={0.85}
+                    className="cursor-nwse-resize"
+                    onPointerDown={(e) => { e.stopPropagation(); setSel(i); startDrag({ kind: "zoneResize", i, ox: 0, oy: 0 }); }}
+                  />
+                  <path d={`M${z.x + z.w - 1} ${z.y + z.h - 3} L${z.x + z.w - 1} ${z.y + z.h - 1} L${z.x + z.w - 3} ${z.y + z.h - 1}`} stroke="white" strokeWidth={0.4} fill="none" pointerEvents="none" />
+                </>
+              )}
             </g>
           );
         })}
+
+        {/* preview route leg (Xem thử) — exactly what the customer sees, on this floor */}
+        {previewLeg && previewLeg.route.length >= 2 && (
+          <polyline points={toPoints(previewLeg.route)} fill="none" stroke="#dc2626" strokeWidth={1.4} strokeLinejoin="round" strokeLinecap="round" strokeDasharray="3 2" />
+        )}
 
         {/* stairs (per floor) */}
         {floorObj && (
@@ -440,9 +470,17 @@ export function StoreMap() {
         )}
       </svg>
 
-      <p className="mt-2 text-sm text-slate-500">
-        Kéo khối để di chuyển · kéo góc ↘ chỉnh kích thước · kéo 🪜 (cầu thang) cho khớp vị trí thật.
-      </p>
+      {preview ? (
+        <div className="mt-2 rounded-xl bg-blue-50 p-2.5 text-sm text-blue-900">
+          👁 <b>Xem thử</b>: chạm vào một khu để xem đúng đường đi khách sẽ thấy (tính từ kiosk).
+          {previewPlan && <div className="mt-1 font-bold">→ {previewPlan.instruction}</div>}
+          {previewZone != null && !previewLeg && previewPlan && <div className="mt-1 text-blue-700">Đoạn đường này ở {previewPlan.targetFloor} — chuyển sang tầng đó để xem.</div>}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-slate-500">
+          Kéo khối để di chuyển · kéo góc ↘ chỉnh kích thước · kéo 🪜 (cầu thang) cho khớp vị trí thật.
+        </p>
+      )}
 
       {/* below the canvas: place kiosk/door + publish toggle (setup, not primary) */}
       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
