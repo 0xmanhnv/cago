@@ -111,8 +111,10 @@ def webhook():
 	a read-only ops command. Always returns {ok: True} fast so Telegram doesn't retry."""
 	from cago.api.notify import notify_telegram
 
+	from cago.utils.secrets import get_secret
+
 	c = _company()
-	secret = frappe.db.get_value("Company", c, "cago_telegram_webhook_secret") if c else None
+	secret = get_secret("Company", c, "cago_telegram_webhook_secret") if c else ""
 	# No secret configured → bot isn't wired; bail before touching the request (also keeps this callable
 	# from a non-HTTP context). With a secret, Telegram must echo it back in the header.
 	if not secret or frappe.get_request_header("X-Telegram-Bot-Api-Secret-Token") != secret:
@@ -138,8 +140,10 @@ def set_webhook(public_url=None):
 	forwards messages here. Generates + stores a fresh secret token. `public_url` is the app's public
 	HTTPS origin (e.g. https://shop.example.com) — Telegram requires HTTPS. Needs a configured bot."""
 	ensure_admin()
+	from cago.utils.secrets import get_secret, set_secret
+
 	c = _company()
-	bot = frappe.utils.password.get_decrypted_password("Company", c, "cago_telegram_bot_token", raise_exception=False)
+	bot = get_secret("Company", c, "cago_telegram_bot_token")
 	if not bot:
 		frappe.throw("Chưa có Bot Token. Nhập Bot Token Telegram trước.")
 	# Default to the shop's stored public origin (Kết nối & Kênh) so the UI can register with one click.
@@ -163,7 +167,7 @@ def set_webhook(public_url=None):
 		frappe.throw(f"Không gọi được Telegram: {str(e)[:120]}")
 	if not body.get("ok"):
 		frappe.throw(f"Telegram từ chối: {body.get('description', 'lỗi không rõ')}")
-	frappe.db.set_value("Company", c, "cago_telegram_webhook_secret", secret)
+	set_secret("Company", c, "cago_telegram_webhook_secret", secret)
 	frappe.db.commit()
 	return {"ok": True, "url": hook, "result": body.get("description", "")}
 
@@ -172,8 +176,10 @@ def set_webhook(public_url=None):
 def webhook_info():
 	"""ADMIN: ask Telegram what webhook is currently registered (URL, pending count, last error)."""
 	ensure_admin()
+	from cago.utils.secrets import get_secret
+
 	c = _company()
-	bot = frappe.utils.password.get_decrypted_password("Company", c, "cago_telegram_bot_token", raise_exception=False)
+	bot = get_secret("Company", c, "cago_telegram_bot_token")
 	if not bot:
 		return {"configured": False}
 	try:

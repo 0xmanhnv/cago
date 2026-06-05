@@ -28,6 +28,16 @@ function nowStamp(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
+// FIFO ordering key. Two sales rung up in the same millisecond would otherwise tie on Date.now(),
+// and listQueue would fall back to IndexedDB key order (the random client_uuid) — breaking the
+// FIFO flush order that shift/cash reconciliation depends on. Make it strictly increasing.
+let _lastSeq = 0;
+function nextSeq(): number {
+  const t = Date.now();
+  _lastSeq = t > _lastSeq ? t : _lastSeq + 1;
+  return _lastSeq;
+}
+
 export async function enqueueSale(args: SaleArgs, display: SaleDisplay, clientUuid?: string): Promise<QueuedSale> {
   // Reuse the attempt's key when an online sale fell back to the queue (so the server dedups);
   // mint a fresh one for a sale that started offline.
@@ -36,7 +46,7 @@ export async function enqueueSale(args: SaleArgs, display: SaleDisplay, clientUu
     client_uuid: id,
     local_code: localCodeFrom(id),
     posted_at: nowStamp(),
-    created_at: Date.now(),
+    created_at: nextSeq(),
     status: "pending",
     args,
     display,

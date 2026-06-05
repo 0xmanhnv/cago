@@ -174,11 +174,12 @@ class TestInventoryBatch(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			inventory.add_batch(CHEM_ITEM, "TEST-BATCH-DUP", expiry_date=add_days(nowdate(), 20))
 
-	def test_public_dto_has_expiry_fields(self):
+	def test_public_dto_hides_expiry(self):
+		"""Kiosk/public must NOT expose expiry (HSD) — it is owner/staff-only info. See lot-expiry model."""
 		d = dto.public_dto(frappe.get_doc("Item", CHEM_ITEM))
-		self.assertIn("expiry_status", d)
-		self.assertIn("nearest_expiry", d)
-		self.assertIn("expiry_text", d)
+		self.assertNotIn("expiry_status", d)
+		self.assertNotIn("nearest_expiry", d)
+		self.assertNotIn("expiry_text", d)
 
 
 class TestSaleUnits(FrappeTestCase):
