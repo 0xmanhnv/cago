@@ -284,6 +284,9 @@ def ensure_user_fields():
 				# When this user last viewed the support queue → drives the "new/unread" badge (notify-
 				# style): the badge counts only requests created after this, and clears on view.
 				{"fieldname": "cago_support_seen_at", "label": "Cago Support Seen At", "fieldtype": "Datetime", "hidden": 1, "no_copy": 1},
+				# Linked Telegram user id (set via the deep-link flow in cago.api.telegram). Lets the ops
+				# bot gate commands by THIS user's real Cago role instead of a manual ID allowlist.
+				{"fieldname": "cago_telegram_id", "label": "Cago Telegram ID", "fieldtype": "Data", "hidden": 1, "no_copy": 1, "unique": 1},
 			]
 		},
 		ignore_validate=True,

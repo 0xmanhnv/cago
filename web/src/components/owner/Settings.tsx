@@ -21,6 +21,8 @@ export function Settings() {
   // Owner's business contact phone only. All technical channel config (webhook/token, Telegram, Zalo)
   // lives on the admin-only "Kết nối & Kênh" screen (ConnectScreen / cago.api.integrations).
   const [notify, setNotify] = useState({ owner_phone: "", is_admin: false });
+  // Self-link the owner's Telegram so the ops bot shows revenue/debt to them (in a private chat).
+  const [tg, setTg] = useState<{ linked: boolean; deep_link?: string; busy?: boolean }>({ linked: false });
   const [cfdUrl, setCfdUrl] = useState("");
   const [cfdCopied, setCfdCopied] = useState(false);
 
@@ -33,6 +35,9 @@ export function Settings() {
   }, []);
 
   useEffect(() => {
+    frappeCall<{ linked: boolean }>("cago.api.telegram.link_status", {}, { method: "GET" })
+      .then((d) => setTg({ linked: !!d.linked }))
+      .catch(() => {});
     frappeCall<{ bin: string; account: string; name: string }>("cago.api.payment.get_bank", {}, { method: "GET" })
       .then((d) => setB({ bank_bin: d.bin || "", account: d.account || "", account_name: d.name || "" }))
       .catch(() => {});
@@ -111,6 +116,33 @@ export function Settings() {
       toast.success("Đã lưu số nhận nhắc việc.");
     } catch {
       toast.error("Lỗi: không lưu được.");
+    }
+  };
+
+  const linkTelegram = async () => {
+    setTg((s) => ({ ...s, busy: true }));
+    try {
+      const d = await frappeCall<{ deep_link: string }>("cago.api.telegram.link_start", {});
+      if (d.deep_link) {
+        window.open(d.deep_link, "_blank");
+        setTg({ linked: false, deep_link: d.deep_link });
+      } else {
+        toast.error("Chưa cấu hình Bot Telegram (nhờ quản trị ở màn Kết nối & Kênh).");
+      }
+    } catch {
+      toast.error("Không tạo được liên kết.");
+    } finally {
+      setTg((s) => ({ ...s, busy: false }));
+    }
+  };
+
+  const unlinkTelegram = async () => {
+    try {
+      await frappeCall("cago.api.telegram.unlink", {});
+      setTg({ linked: false });
+      toast.success("Đã huỷ liên kết Telegram.");
+    } catch {
+      toast.error("Lỗi: không huỷ được.");
     }
   };
 
@@ -307,6 +339,33 @@ export function Settings() {
             ⚙️ Cấu hình kênh gửi tin Zalo/SMS, Telegram và Zalo Mini App ở màn{" "}
             <Link href="/pos/integrations" className="font-bold text-brand underline">🔌 Kết nối & Kênh</Link> (quản trị).
           </p>
+        )}
+      </div>
+
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
+        <div className="font-extrabold">🔗 Liên kết Telegram của tôi</div>
+        <p className="text-slate-500">
+          Liên kết tài khoản Telegram để xem doanh thu / công nợ qua tin nhắn riêng với bot (gõ
+          <code> /doanhthu</code>, <code>/no</code>). Nhân viên không thấy số liệu này.
+        </p>
+        {tg.linked ? (
+          <div className="mt-3 flex items-center gap-3">
+            <span className="font-bold text-emerald-700">✅ Đã liên kết</span>
+            <button onClick={unlinkTelegram} className="rounded-lg border-2 border-red-300 px-3 py-1.5 text-sm font-bold text-red-600">Huỷ liên kết</button>
+          </div>
+        ) : (
+          <>
+            <button onClick={linkTelegram} disabled={tg.busy} className="mt-3 min-h-touch w-full rounded-xl bg-sky-600 font-extrabold text-white disabled:opacity-50">
+              {tg.busy ? "Đang tạo liên kết…" : "🔗 Liên kết Telegram"}
+            </button>
+            {tg.deep_link && (
+              <p className="mt-2 text-sm text-slate-500">
+                Đã mở Telegram để xác nhận. Nếu chưa mở,{" "}
+                <a href={tg.deep_link} target="_blank" rel="noreferrer" className="font-bold text-brand underline">bấm vào đây</a>{" "}
+                rồi bấm <b>Start</b> trong bot (mã hết hạn sau 10 phút).
+              </p>
+            )}
+          </>
         )}
       </div>
 

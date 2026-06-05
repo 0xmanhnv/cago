@@ -94,6 +94,26 @@ Telegram wiring (no external box needed to wire, just accounts):
    `telegram.set_webhook` (defaults to the stored public URL) — generates+stores the secret and
    registers with Telegram; the screen then shows `webhook_info` status / last error.
 
+## Account linking (per-user identity ↔ Cago account)
+
+Channel identity is linked **per user**, not by group membership:
+
+- **Telegram (owner/staff) — built, deep-link flow:** in-app "🔗 Liên kết Telegram" (owner Settings)
+  → `telegram.link_start()` mints a one-time code + `https://t.me/<bot>?start=<code>` → tapping it
+  sends `/start <code>` to the bot → `telegram.webhook` maps the sender's Telegram id to that Cago
+  user (`User.cago_telegram_id`, unique). From then the bot gates commands by the linked user's
+  **real Cago role** (owner sees /doanhthu /no in a private chat; staff get only operational
+  commands) — the manual `cago_telegram_owner_ids` allowlist remains a no-link fallback.
+  `link_status()` / `unlink()` back the UI. Code is single-use, 10-min TTL (Frappe cache).
+- **Zalo (customer) — NEXT, needs OA + app secret:** "login with Zalo" via the Mini App
+  (`getUserInfo` + `getPhoneNumber` → server exchanges the phone token with Zalo using the app
+  secret → verified phone → find-or-create Customer → `Customer.cago_zalo_id`). A self-linked
+  customer is a **lead** (debt_limit 0; no auto credit) until the owner upgrades them. Build the
+  server logic now; end-to-end smoke needs the real OA + HTTPS.
+
+There is **no** social OAuth login to the app itself — app login stays Frappe user/password; channel
+links are an *augmentation* (recognise the user on Telegram/Zalo), not an auth provider.
+
 ## What's code-ready now vs needs the owner's accounts
 - ✅ Code-ready: host-aware app (Telegram Mini App works once a bot points at the public URL), PWA,
   shared order/track/status backend; **Telegram ops bot** (outbound alerts via `notify_ops`,

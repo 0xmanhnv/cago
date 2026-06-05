@@ -4,6 +4,7 @@
 staff member: blocked for non-owners, and refused even for the owner when sent in the shared group
 (so the reply isn't broadcast to staff). See cago.api.telegram + docs/45."""
 
+import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from cago.api import telegram
@@ -36,3 +37,20 @@ class TestTelegramCommandGating(FrappeTestCase):
 		r = telegram._handle("/tonkho", "222", is_owner=False, in_group=True)
 		self.assertNotIn("chỉ dành cho chủ", r)
 		self.assertNotIn("nhắn RIÊNG", r)
+
+
+class TestTelegramAccountLink(FrappeTestCase):
+	def tearDown(self):
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+
+	def test_link_by_code_maps_telegram_id_to_user(self):
+		code = frappe.generate_hash(length=10)
+		frappe.cache().set_value(telegram._link_key(code), "Administrator", expires_in_sec=600)
+		msg = telegram._consume_link(code, "777888")
+		self.assertIn("liên kết", msg.lower())
+		self.assertEqual(frappe.db.get_value("User", "Administrator", "cago_telegram_id"), "777888")
+		# code is single-use — a replay no longer links
+		self.assertIn("không hợp lệ", telegram._consume_link(code, "777888").lower())
+
+	def test_invalid_code_rejected(self):
+		self.assertIn("không hợp lệ", telegram._consume_link("nope-not-real", "123").lower())
