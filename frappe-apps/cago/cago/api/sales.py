@@ -1077,7 +1077,10 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		limit = flt(debt.effective_debt_limit(cust))
 		if limit:
 			current = _customer_outstanding(cust)
-			est = sum(r["qty"] * r["rate"] for r in rows)
+			# Check the limit against the ACTUAL debt incurred (after the bill discount) — the same
+			# amount require_proof uses — not the pre-discount gross, which would wrongly over-block a
+			# discounted credit sale.
+			est = subtotal_all - disc
 			if current + est > limit:
 				frappe.throw(
 					_("Vượt hạn mức nợ {0} (đang nợ {1}).").format(dto.format_price(limit), dto.format_price(current))
