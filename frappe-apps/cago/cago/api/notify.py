@@ -40,6 +40,8 @@ def is_configured() -> bool:
 def send_message(phone, text):
 	"""Send one message. Returns {sent, reason}. Never raises on a transport/config problem — a failed
 	reminder must not break the action that triggered it; the caller still has the draft to send by hand."""
+	if frappe.flags.in_test:
+		return {"sent": False, "reason": "test mode"}  # never hit a real channel from the test suite
 	phone = clean_phone(phone)
 	text = (text or "").strip()
 	if not phone or not text:
@@ -67,13 +69,15 @@ def send_owner(text):
 	return send_message(phone, text)
 
 
-def notify_telegram(text, chat_id=None):
+def notify_telegram(text, chat_id=None, button=None):
 	"""Push a message to the shop's Telegram ops chat (owner + staff) via the Bot API, or to a specific
-	`chat_id` (e.g. reply to the chat a command came from). No-op if no bot token / chat configured.
-	Best-effort — never raises (an alert must not break the action)."""
+	`chat_id` (e.g. reply to the chat a command came from). `button` = {"text", "url"} adds a tap-to-open
+	inline button (e.g. "Mở đơn"). No-op if no bot token / chat configured. Best-effort — never raises."""
 	text = (text or "").strip()
 	if not text:
 		return {"sent": False, "reason": "empty"}
+	if frappe.flags.in_test:
+		return {"sent": False, "reason": "test mode"}  # never hit a real channel from the test suite
 	from cago.utils.secrets import get_secret
 
 	c = _company()
@@ -86,21 +90,21 @@ def notify_telegram(text, chat_id=None):
 	try:
 		import requests
 
-		r = requests.post(
-			f"https://api.telegram.org/bot{bot}/sendMessage",
-			json={"chat_id": chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True},
-			timeout=10,
-		)
+		payload = {"chat_id": chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}
+		if button and button.get("url"):
+			payload["reply_markup"] = {"inline_keyboard": [[{"text": button.get("text") or "Mở", "url": button["url"]}]]}
+		r = requests.post(f"https://api.telegram.org/bot{bot}/sendMessage", json=payload, timeout=10)
 		ok = 200 <= r.status_code < 300
 		return {"sent": ok, "reason": "" if ok else f"HTTP {r.status_code}"}
 	except Exception as e:  # noqa: BLE001 — best-effort
 		return {"sent": False, "reason": str(e)[:120]}
 
 
-def notify_ops(text):
+def notify_ops(text, button=None):
 	"""Broadcast an OPS alert (new remote order, call-staff, daily digest…) to the shop's channels:
-	the owner's Zalo/SMS + the Telegram ops chat. Best-effort on each; returns which fired."""
-	return {"zalo": send_owner(text), "telegram": notify_telegram(text)}
+	the owner's Zalo/SMS + the Telegram ops chat. `button` = {"text","url"} adds a tap-to-open button
+	on Telegram (Zalo/SMS is plain text). Best-effort on each; returns which fired."""
+	return {"zalo": send_owner(text), "telegram": notify_telegram(text, button=button)}
 
 
 @frappe.whitelist()
@@ -127,7 +131,19 @@ def get_notify_config():
 		"telegram_chat_id": (frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "") if admin else "",
 		"has_telegram_bot": has_secret("Company", c, "cago_telegram_bot_token"),
 		"telegram_owner_ids": (frappe.db.get_value("Company", c, "cago_telegram_owner_ids") or "") if admin else "",
+		"notify_on_sale": bool(frappe.db.get_value("Company", c, "cago_notify_on_sale")),
 	}
+
+
+@frappe.whitelist()
+def set_notify_on_sale(on=0):
+	"""Owner: toggle a Zalo/Telegram ping on every completed sale (off by default)."""
+	ensure_owner()
+	from frappe.utils import cint
+
+	frappe.db.set_value("Company", _company(), "cago_notify_on_sale", 1 if cint(on) else 0)
+	frappe.db.commit()
+	return {"notify_on_sale": bool(frappe.db.get_value("Company", _company(), "cago_notify_on_sale"))}
 
 
 @frappe.whitelist()

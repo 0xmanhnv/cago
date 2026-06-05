@@ -47,6 +47,31 @@ def effective_debt_limit(customer):
 	return flt(frappe.db.get_value("Company", _company(), "cago_default_debt_limit"))
 
 
+def ensure_not_unverified(customer):
+	"""Block buying on credit for a self-registered (Zalo/web) customer until the owner verifies them.
+	A lead must not get goods on credit just by signing up — cash/bank are still fine. Cleared via
+	staff.verify_customer. (Note: limit 0 = unlimited here, so a fresh lead can't be gated by the
+	limit alone — this explicit flag is the guard.)"""
+	if frappe.db.get_value("Customer", customer, "cago_unverified"):
+		frappe.throw(
+			_("Khách tự đăng ký, chưa được duyệt mua chịu. Nhờ chủ duyệt trước (hoặc thu tiền mặt / chuyển khoản).")
+		)
+
+
+@frappe.whitelist()
+def verify_customer(customer):
+	"""Owner upgrades a self-registered lead → may now buy on credit (clears cago_unverified)."""
+	from cago.utils.permissions import ensure_owner
+
+	ensure_owner()
+	customer = resolve_customer(customer)
+	if not frappe.db.exists("Customer", customer):
+		frappe.throw(_("Không tìm thấy khách hàng."))
+	frappe.db.set_value("Customer", customer, "cago_unverified", 0)
+	frappe.db.commit()
+	return {"verified": True}
+
+
 def _submit_privileged(doc):
 	"""Insert + submit a trusted accounting document.
 
@@ -166,6 +191,7 @@ def record_debt(customer, amount, note=None, signature=None, photo=None, witness
 		frappe.throw(_("Số tiền phải lớn hơn 0."))
 	from cago.debt_proof import require_proof
 
+	ensure_not_unverified(customer)
 	require_proof("debt", amount, signature, photo, witness)
 
 	# Credit limit (hạn mức nợ): block if this would push outstanding over the limit.

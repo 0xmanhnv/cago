@@ -201,11 +201,21 @@ def create_wanted_list(items, note=None, customer_name=None, customer_phone=None
 
 	# Tell the shop (owner Zalo + Telegram ops chat) a new order came in — best-effort, never blocks.
 	try:
+		from cago.api.integrations import public_url
 		from cago.api.notify import notify_ops
 
 		who = " · ".join(x for x in [wl.customer_name, wl.customer_phone] if x)
 		how = "🚚 Giao tận nơi" if wl.fulfilment == "Giao tận nơi" else "🏪 Nhận tại cửa hàng"
-		notify_ops(f"📦 Đơn mới {wl.code} · {added} mặt hàng · {how} · {wl.payment_method}" + (f"\n👤 {who}" if who else "") + (f"\n📍 {wl.address}" if wl.address else ""))
+		# A tap-to-open button straight to the order in the staff queue — needs the public URL set
+		# (Kết nối & Kênh); without it, the alert is plain text.
+		base = public_url()
+		button = {"text": "📋 Mở đơn xử lý", "url": f"{base}/pos/orders?code={wl.code}"} if base else None
+		notify_ops(
+			f"📦 Đơn mới {wl.code} · {added} mặt hàng · {how} · {wl.payment_method}"
+			+ (f"\n👤 {who}" if who else "")
+			+ (f"\n📍 {wl.address}" if wl.address else ""),
+			button=button,
+		)
 	except Exception:
 		pass
 

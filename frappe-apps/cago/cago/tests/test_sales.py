@@ -255,6 +255,26 @@ class TestQuickSale(FrappeTestCase):
 		self.assertEqual(r1["sale_invoice"], r2["sale_invoice"])  # one new sale, not two
 		self.assertAlmostEqual(flt_qty(other), before_other - 1, places=2)  # replacement sold ONCE
 
+	def test_notify_on_sale_only_when_switch_on(self):
+		"""A completed sale pings the channels only if cago_notify_on_sale is on (off by default)."""
+		from cago.api import debt, notify, purchasing, sales
+
+		company = debt._company()
+		purchasing.receive_stock(ITEM, 5)
+		captured = []
+		orig = notify.notify_ops
+		notify.notify_ops = lambda text: captured.append(text)
+		try:
+			frappe.db.set_value("Company", company, "cago_notify_on_sale", 0)
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash")
+			self.assertEqual(captured, [])  # off → no ping
+			frappe.db.set_value("Company", company, "cago_notify_on_sale", 1)
+			sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash")
+			self.assertTrue(any("Đã bán" in t for t in captured))  # on → ping
+		finally:
+			notify.notify_ops = orig
+			frappe.db.set_value("Company", company, "cago_notify_on_sale", 0)
+
 	def test_quick_sale_posted_at_sets_posting_datetime(self):
 		"""An offline sale carries its real ring-up time so it lands in the right till-shift window."""
 		from cago.api import purchasing, sales

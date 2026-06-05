@@ -323,6 +323,7 @@ def credit_sale(customer, items, note=None, client_uuid=None):
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 
 	# Credit limit (rough estimate in selling units).
+	debt.ensure_not_unverified(customer)  # a self-registered lead can't buy on credit until verified
 	limit = flt(debt.effective_debt_limit(customer))
 	if limit:
 		current = flt(debt.get_customer_debt(customer)["outstanding"])
@@ -811,6 +812,23 @@ def _mode_of_payment(company, payment_mode):
 	return None
 
 
+def _notify_sale(si, total, mode):
+	"""Best-effort: ping the shop channels (owner Zalo + Telegram group) on a completed sale — ONLY if
+	the owner turned on cago_notify_on_sale (off by default; a busy till would otherwise spam). Never
+	raises — a notification must not break the sale."""
+	try:
+		if not frappe.db.get_value("Company", si.company, "cago_notify_on_sale"):
+			return
+		from cago.api.notify import notify_ops
+
+		labels = {"cash": "Tiền mặt", "bank": "Chuyển khoản", "credit": "Ghi nợ", "split": "Chia tiền"}
+		n = len({r.item_code for r in si.items})  # distinct products (batch-split rows count once)
+		cust = si.customer_name or "Khách lẻ"
+		notify_ops(f"💰 Đã bán {dto.format_price(flt(total))} · {n} mặt hàng · {labels.get(mode, mode)} · {cust}")
+	except Exception:  # noqa: BLE001 — best-effort
+		pass
+
+
 @frappe.whitelist()
 def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, payments=None, coupon=None, redeem_points=0, client_uuid=None, posted_at=None, delivery_charge=0, debt_signature=None, debt_photo=None, debt_witness=None):
 	"""Cago-native checkout: a stock-reducing Sales Invoice (cash/bank/credit/split) for staff.
@@ -1048,6 +1066,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				from cago.debt_proof import require_proof
 
 				require_proof("debt", total - paid, debt_signature, debt_photo, debt_witness)
+				debt.ensure_not_unverified(cust)  # lead can't take the shortfall as credit
 				limit = flt(debt.effective_debt_limit(cust))
 				if limit:
 					current = _customer_outstanding(cust)
@@ -1067,6 +1086,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		frappe.db.commit()
 		total = flt(si.grand_total)
 		change = flt(getattr(si, "change_amount", 0)) or max(0.0, paid - total)
+		_notify_sale(si, total, "split")
 		return {
 			"invoice": si.name,
 			"total": total,
@@ -1087,6 +1107,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		from cago.debt_proof import require_proof
 
 		require_proof("debt", subtotal_all - disc, debt_signature, debt_photo, debt_witness)
+		debt.ensure_not_unverified(cust)  # a self-registered lead can't buy on credit until verified
 		limit = flt(debt.effective_debt_limit(cust))
 		if limit:
 			current = _customer_outstanding(cust)
@@ -1133,6 +1154,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		frappe.db.commit()
 		total = flt(si.grand_total)
 		bal = _customer_outstanding(cust)
+		_notify_sale(si, total, "credit")
 		return {
 			"invoice": si.name,
 			"total": total,
@@ -1189,6 +1211,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 
 	frappe.db.commit()
 	total = flt(si.grand_total)
+	_notify_sale(si, total, payment_mode)
 	return {
 		"invoice": si.name,
 		"total": total,

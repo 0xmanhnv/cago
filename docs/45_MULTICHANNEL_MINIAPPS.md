@@ -105,11 +105,17 @@ Channel identity is linked **per user**, not by group membership:
   **real Cago role** (owner sees /doanhthu /no in a private chat; staff get only operational
   commands) — the manual `cago_telegram_owner_ids` allowlist remains a no-link fallback.
   `link_status()` / `unlink()` back the UI. Code is single-use, 10-min TTL (Frappe cache).
-- **Zalo (customer) — NEXT, needs OA + app secret:** "login with Zalo" via the Mini App
-  (`getUserInfo` + `getPhoneNumber` → server exchanges the phone token with Zalo using the app
-  secret → verified phone → find-or-create Customer → `Customer.cago_zalo_id`). A self-linked
-  customer is a **lead** (debt_limit 0; no auto credit) until the owner upgrades them. Build the
-  server logic now; end-to-end smoke needs the real OA + HTTPS.
+- **Zalo (customer) — server logic built (`cago.api.zalo`):** `zalo.login(access_token, phone_token,
+  zalo_id)` resolves the verified phone (`_resolve_phone` exchanges the Mini App phone token with the
+  Zalo Graph API using the OA app secret) → `link_customer()` finds-or-creates the Customer
+  (`cago_zalo_id` + `cago_zalo_phone`). A self-registered customer is a **LEAD** (`cago_unverified=1`)
+  — browse/order/cash are fine, but `debt.ensure_not_unverified` blocks buying on credit at every
+  credit path (quick_sale credit + split shortfall + credit_sale + record_debt) until the owner
+  clears it via `debt.verify_customer`. The token→phone exchange needs the real OA + app secret +
+  HTTPS to smoke; the find-or-create + lead tiering is unit-tested (test_zalo.py).
+- **Staff Telegram self-link:** the deep-link flow is now available to ALL internal users via the
+  `TelegramLink` component — Home tile "🔗 Liên kết Telegram" (`/pos/link-telegram`) + the owner
+  Settings card both render it.
 
 There is **no** social OAuth login to the app itself — app login stays Frappe user/password; channel
 links are an *augmentation* (recognise the user on Telegram/Zalo), not an auth provider.
