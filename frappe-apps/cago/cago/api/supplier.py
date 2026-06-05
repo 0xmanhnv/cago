@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Công nợ nhà cung cấp — supplier payables (owner-only).
 
@@ -18,7 +18,7 @@ from frappe.utils import flt, nowdate
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_owner
+from cago.utils.permissions import ensure_cap, ensure_lang
 
 
 def _warehouse():
@@ -51,11 +51,11 @@ def _supplier_outstanding(supplier):
 
 @frappe.whitelist()
 def search_suppliers(query=None):
-	ensure_owner()
+	ensure_cap("supplier")
 	query = (query or "").strip()
 	or_filters = [["supplier_name", "like", f"%{query}%"], ["name", "like", f"%{query}%"]] if query else None
 	rows = frappe.get_all(
-		"Supplier", or_filters=or_filters, fields=["name", "supplier_name", "mobile_no"], limit=24, order_by="supplier_name asc"
+		"Supplier", filters={"disabled": 0}, or_filters=or_filters, fields=["name", "supplier_name", "mobile_no"], limit=24, order_by="supplier_name asc"
 	)
 	out = []
 	for r in rows:
@@ -67,8 +67,8 @@ def search_suppliers(query=None):
 
 
 @frappe.whitelist()
-def add_supplier(supplier_name, phone=None):
-	ensure_owner()
+def add_supplier(supplier_name, phone=None, note=None):
+	ensure_cap("supplier")
 	name = (supplier_name or "").strip()
 	if not name:
 		frappe.throw(_("Nhập tên nhà cung cấp."))
@@ -78,14 +78,75 @@ def add_supplier(supplier_name, phone=None):
 	group = frappe.db.get_value("Supplier Group", {"is_group": 0}, "name")
 	if group:
 		doc.supplier_group = group
+	if note is not None:
+		doc.cago_supplier_note = (note or "").strip() or None
 	doc.insert(ignore_permissions=True)
 	frappe.db.commit()
 	return {"supplier": doc.name, "supplier_name": name}
 
 
 @frappe.whitelist()
+def list_suppliers():
+	"""All suppliers for the manage screen (name, phone, note, debt) — newest activity aside, simple
+	alphabetical so the owner can find + edit any supplier, not only the ones currently owed."""
+	ensure_cap("supplier")
+	out = []
+	for r in frappe.get_all("Supplier", fields=["name", "supplier_name", "mobile_no", "cago_supplier_note", "disabled"], order_by="disabled asc, supplier_name asc"):
+		bal = _supplier_outstanding(r.name)
+		out.append({
+			"supplier": r.name, "supplier_name": r.supplier_name, "mobile": r.mobile_no or "",
+			"note": r.cago_supplier_note or "", "debt": bal, "debt_text": dto.format_price(bal) if bal > 0 else "Không nợ",
+			"disabled": bool(r.disabled),
+		})
+	return out
+
+
+@frappe.whitelist()
+def save_supplier(supplier, supplier_name, phone=None, note=None):
+	"""Edit a supplier (name / phone / note). Renaming an ERPNext Supplier updates its links."""
+	ensure_cap("supplier")
+	if not frappe.db.exists("Supplier", supplier):
+		frappe.throw(_("Không tìm thấy nhà cung cấp."))
+	from cago.chatbot.observability import clean_phone
+
+	name = (supplier_name or "").strip()
+	if not name:
+		frappe.throw(_("Nhập tên nhà cung cấp."))
+	doc = frappe.get_doc("Supplier", supplier)
+	doc.mobile_no = clean_phone(phone) or None
+	doc.cago_supplier_note = (note or "").strip() or None
+	doc.save(ignore_permissions=True)
+	# A name change renames the docname; do it last so the links cascade cleanly.
+	if name != doc.supplier_name or name != supplier:
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):
+			if name != supplier and frappe.db.exists("Supplier", name):
+				frappe.throw(_("Đã có nhà cung cấp tên '{0}'.").format(name))
+			frappe.db.set_value("Supplier", supplier, "supplier_name", name)
+			if name != supplier:
+				frappe.rename_doc("Supplier", supplier, name)
+	frappe.db.commit()
+	return {"supplier": name}
+
+
+@frappe.whitelist()
+def set_supplier_active(supplier, active=1):
+	"""Ngừng dùng / dùng lại a supplier — we DISABLE, never delete, so purchase & debt history stays
+	traceable. A disabled supplier is hidden from new-purchase search but its ledger remains."""
+	ensure_cap("supplier")
+	if not frappe.db.exists("Supplier", supplier):
+		frappe.throw(_("Không tìm thấy nhà cung cấp."))
+	from frappe.utils import cint
+
+	frappe.db.set_value("Supplier", supplier, "disabled", 0 if cint(active) else 1)
+	frappe.db.commit()
+	return {"supplier": supplier, "disabled": 0 if cint(active) else 1}
+
+
+@frappe.whitelist()
 def get_supplier_debt(supplier):
-	ensure_owner()
+	ensure_cap("supplier")
 	bal = _supplier_outstanding(supplier)
 	return {
 		"supplier": supplier,
@@ -99,7 +160,7 @@ def get_supplier_debt(supplier):
 def credit_purchase(supplier, items, note=None):
 	"""Nhập hàng trả sau: submitted UNPAID Purchase Invoice (update_stock). items = list of
 	{item_code, qty, rate (giá nhập), uom?}. Increases stock + supplier payable."""
-	ensure_owner()
+	ensure_cap("supplier")
 	ensure_lang()
 	if not frappe.db.exists("Supplier", supplier):
 		frappe.throw(_("Không tìm thấy nhà cung cấp."))
@@ -142,7 +203,7 @@ def credit_purchase(supplier, items, note=None):
 @frappe.whitelist()
 def pay_supplier(supplier, amount, note=None):
 	"""Trả tiền nhà cung cấp — Payment Entry (Pay), reduces payable."""
-	ensure_owner()
+	ensure_cap("supplier")
 	ensure_lang()
 	if not frappe.db.exists("Supplier", supplier):
 		frappe.throw(_("Không tìm thấy nhà cung cấp."))
@@ -177,7 +238,7 @@ def pay_supplier(supplier, amount, note=None):
 
 @frappe.whitelist()
 def supplier_debt_list():
-	ensure_owner()
+	ensure_cap("supplier")
 	out = []
 	for s in frappe.get_all("Supplier", fields=["name", "supplier_name"]):
 		bal = _supplier_outstanding(s.name)
@@ -189,7 +250,7 @@ def supplier_debt_list():
 
 @frappe.whitelist()
 def get_supplier_ledger(supplier):
-	ensure_owner()
+	ensure_cap("supplier")
 	rows = frappe.get_all(
 		"GL Entry",
 		filters={"party_type": "Supplier", "party": supplier, "is_cancelled": 0, "company": debt._company()},
@@ -214,4 +275,13 @@ def get_supplier_ledger(supplier):
 		)
 	entries.reverse()
 	d = get_supplier_debt(supplier)
-	return {"supplier": supplier, "supplier_name": d["supplier_name"], "outstanding_text": d["outstanding_text"], "entries": entries}
+	info = frappe.db.get_value("Supplier", supplier, ["mobile_no", "cago_supplier_note", "disabled"], as_dict=True) or {}
+	return {
+		"supplier": supplier,
+		"supplier_name": d["supplier_name"],
+		"outstanding_text": d["outstanding_text"],
+		"mobile": info.get("mobile_no") or "",
+		"note": info.get("cago_supplier_note") or "",
+		"disabled": bool(info.get("disabled")),
+		"entries": entries,
+	}

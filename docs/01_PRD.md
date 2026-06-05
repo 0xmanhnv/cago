@@ -2,7 +2,7 @@
 
 ## 1. Product name
 
-**AgriMate** — Trợ lý bán hàng vật tư nông nghiệp.
+**Cago** — Trợ lý bán hàng vật tư nông nghiệp.
 
 ## 2. Context
 

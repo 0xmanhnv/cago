@@ -1,5 +1,5 @@
-import { KioskChrome } from "@/components/kiosk/KioskChrome";
+import { Chrome } from "@/components/kiosk/Chrome";
 
 export default function KioskLayout({ children }: { children: React.ReactNode }) {
-  return <KioskChrome>{children}</KioskChrome>;
+  return <Chrome>{children}</Chrome>;
 }

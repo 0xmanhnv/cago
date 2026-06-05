@@ -1,5 +1,7 @@
 # 15 — Tech Stack and Engineering Guide
 
+> ℹ️ **Current reality:** the front end has migrated to **Next.js (`web/`)** — ignore the "Phase 2 only" wording. See [27](27_FRONTEND_MIGRATION_NEXTJS.md) + [40](40_FRONTEND_DEV_GUIDE.md).
+
 ## 1. Official stack for MVP
 
 ### Core
@@ -126,8 +128,9 @@ No Go.
 
 ### Chatbot phase skills
 
-- Python FastAPI
-- RAG/retrieval
+- In-Frappe `cago/chatbot/*` (no standalone service)
+- LLM tool-calling (function calling) over role-safe DTOs
+- Deterministic store-facts (keyword + DB) fallback
 - Vietnamese text normalization
 - Prompt engineering
 - LLM safety guardrails

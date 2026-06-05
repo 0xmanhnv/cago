@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { useKioskNav } from "@/lib/kioskNav";
+import { NavButtons } from "./NavButtons";
 import { normalizePhone, validPhone } from "@/lib/kioskUi";
 
 export function MyDebt() {
@@ -11,45 +12,85 @@ export function MyDebt() {
   const [step, setStep] = useState<"enter" | "wait" | "done">("enter");
   const [err, setErr] = useState("");
   const [debt, setDebt] = useState<{ customer_name: string; outstanding_text: string; points?: number } | null>(null);
+  const [busy, setBusy] = useState(false);
   const rid = useRef<string | null>(null);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ticks = useRef(0);
 
-  useEffect(() => () => { if (poll.current) clearInterval(poll.current); }, []);
+  const stopPoll = () => {
+    if (poll.current) clearInterval(poll.current);
+    poll.current = null;
+  };
+  useEffect(() => () => stopPoll(), []);
 
   const start = async () => {
     setErr("");
+    if (busy || step === "wait") return; // ignore double-tap → never spawn a 2nd interval
     if (!validPhone(phone)) return setErr("Số điện thoại chưa đúng (vd 0987654321).");
-    const r = await frappeCall<{ enabled: boolean; request_id?: string }>("cago.api.verify.request", { phone: normalizePhone(phone) });
-    if (!r.enabled) return setErr("Cửa hàng chưa bật tính năng này.");
-    rid.current = r.request_id || null;
-    setStep("wait");
-    poll.current = setInterval(async () => {
-      const s = await frappeCall<{ approved: boolean; token?: string | null; expired?: boolean }>(
-        "cago.api.verify.status",
-        { request_id: rid.current },
-        { method: "GET" },
-      );
-      if (s.expired) {
-        if (poll.current) clearInterval(poll.current);
-        setStep("enter");
-        setErr("Hết hạn, bác thử lại nhé.");
+    setBusy(true);
+    try {
+      const r = await frappeCall<{ enabled: boolean; request_id?: string }>("cago.api.verify.request", { phone: normalizePhone(phone) });
+      if (!r.enabled) {
+        setErr("Cửa hàng chưa bật tính năng này.");
         return;
       }
-      if (s.approved && s.token) {
-        if (poll.current) clearInterval(poll.current);
-        const d = await frappeCall<{ customer_name: string; outstanding_text: string; points?: number }>("cago.api.verify.my_debt", { token: s.token });
-        setDebt(d);
-        setStep("done");
-      }
-    }, 2000);
+      rid.current = r.request_id || null;
+      ticks.current = 0;
+      stopPoll(); // clear any stray interval before starting a fresh one
+      setStep("wait");
+      poll.current = setInterval(async () => {
+        // ~2 min cap so an unattended request doesn't poll forever.
+        if (++ticks.current > 60) {
+          stopPoll();
+          setStep("enter");
+          setErr("Chưa có người xác nhận. Bác thử lại nhé.");
+          return;
+        }
+        try {
+          const s = await frappeCall<{ approved: boolean; token?: string | null; expired?: boolean }>(
+            "cago.api.verify.status",
+            { request_id: rid.current },
+            { method: "GET" },
+          );
+          if (s.expired) {
+            stopPoll();
+            setStep("enter");
+            setErr("Hết hạn, bác thử lại nhé.");
+            return;
+          }
+          if (s.approved && s.token) {
+            stopPoll();
+            const d = await frappeCall<{ customer_name: string; outstanding_text: string; points?: number }>("cago.api.verify.my_debt", { token: s.token });
+            setDebt(d);
+            setStep("done");
+          }
+        } catch {
+          // transient network/server error: stop, don't hammer or leave an unhandled rejection.
+          stopPoll();
+          setStep("enter");
+          setErr("Mạng trục trặc, bác thử lại nhé.");
+        }
+      }, 2000);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Không gửi được yêu cầu, thử lại nhé.");
+    } finally {
+      setBusy(false);
+    }
   };
+
+  // Guest privacy: after showing the balance, auto-return home so the next person at the
+  // shared kiosk doesn't see this customer's debt.
+  useEffect(() => {
+    if (step !== "done") return;
+    const t = setTimeout(() => nav.goHome(), 20000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   return (
     <div>
       <div className="mb-4 flex items-center gap-2.5">
-        <button onClick={nav.goHome} className="rounded-xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark">
-          ← Trang chủ
-        </button>
+        <NavButtons />
         <div className="flex-1 text-[22px] font-bold text-brand-dark">Công nợ của tôi</div>
       </div>
 
@@ -65,8 +106,8 @@ export function MyDebt() {
             placeholder="VD: 0987 654 321"
             className="mt-3 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
           />
-          <button onClick={start} className="mt-3 min-h-touch w-full rounded-xl bg-brand py-4 text-xl font-extrabold text-white">
-            Xem công nợ của tôi
+          <button onClick={start} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand py-4 text-xl font-extrabold text-white disabled:opacity-50">
+            {busy ? "Đang gửi…" : "Xem công nợ của tôi"}
           </button>
           {err && <div className="mt-3 rounded-lg bg-red-100 p-3 text-red-700">{err}</div>}
         </div>

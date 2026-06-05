@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "creation": "2026-06-02 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "label",
+  "floor",
+  "item_group",
+  "color",
+  "icon",
+  "x",
+  "y",
+  "w",
+  "h"
+ ],
+ "fields": [
+  {
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "label": "Nhãn khu",
+   "in_list_view": 1,
+   "columns": 3,
+   "reqd": 1
+  },
+  {
+   "fieldname": "floor",
+   "fieldtype": "Data",
+   "label": "Tầng",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "item_group",
+   "fieldtype": "Link",
+   "label": "Danh mục",
+   "options": "Item Group",
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "color",
+   "fieldtype": "Data",
+   "label": "Màu (hex)",
+   "default": "#16a34a"
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Data",
+   "label": "Icon (emoji)"
+  },
+  {
+   "fieldname": "x",
+   "fieldtype": "Float",
+   "label": "X (0-100)",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "y",
+   "fieldtype": "Float",
+   "label": "Y (0-100)",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "w",
+   "fieldtype": "Float",
+   "label": "Rộng",
+   "default": "14",
+   "columns": 1
+  },
+  {
+   "fieldname": "h",
+   "fieldtype": "Float",
+   "label": "Cao",
+   "default": "10",
+   "columns": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-02 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cago",
+ "name": "Cago Map Zone",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

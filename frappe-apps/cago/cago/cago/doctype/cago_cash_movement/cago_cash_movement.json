@@ -1,0 +1,35 @@
+{
+ "actions": [],
+ "creation": "2026-06-03 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "cashier",
+  "shift",
+  "kind",
+  "amount",
+  "reason",
+  "posted"
+ ],
+ "fields": [
+  {"fieldname": "cashier", "fieldtype": "Link", "options": "User", "label": "Nhân viên", "in_list_view": 1, "reqd": 1},
+  {"fieldname": "shift", "fieldtype": "Data", "label": "Ca", "in_list_view": 1},
+  {"fieldname": "kind", "fieldtype": "Select", "label": "Loại", "options": "Nộp quỹ\nRút quỹ\nChi vặt", "in_list_view": 1, "reqd": 1},
+  {"fieldname": "amount", "fieldtype": "Currency", "label": "Số tiền", "in_list_view": 1, "reqd": 1},
+  {"fieldname": "reason", "fieldtype": "Small Text", "label": "Lý do"},
+  {"fieldname": "posted", "fieldtype": "Datetime", "label": "Thời điểm"}
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-06-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cago",
+ "name": "Cago Cash Movement",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

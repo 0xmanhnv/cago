@@ -1,0 +1,159 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-06-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "status",
+  "kiosk_label",
+  "reason",
+  "column_break_ctx",
+  "focus_item",
+  "focus_item_name",
+  "location_text",
+  "section_detail",
+  "question",
+  "note",
+  "customer_name",
+  "customer_phone",
+  "session_id",
+  "section_handling",
+  "assigned_to",
+  "assigned_name",
+  "accepted_at",
+  "resolved_at",
+  "cancelled_at"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "SUP-.#####",
+   "default": "SUP-.#####",
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Trạng thái",
+   "options": "pending\naccepted\nresolved\ncancelled\nexpired",
+   "default": "pending",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "kiosk_label",
+   "fieldtype": "Data",
+   "label": "Kiosk",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "label": "Nhu cầu",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_ctx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "focus_item",
+   "fieldtype": "Link",
+   "label": "Sản phẩm đang xem",
+   "options": "Item"
+  },
+  {
+   "fieldname": "focus_item_name",
+   "fieldtype": "Data",
+   "label": "Tên sản phẩm"
+  },
+  {
+   "fieldname": "location_text",
+   "fieldtype": "Data",
+   "label": "Vị trí trong cửa hàng"
+  },
+  {
+   "fieldname": "section_detail",
+   "fieldtype": "Section Break",
+   "label": "Chi tiết"
+  },
+  {
+   "fieldname": "question",
+   "fieldtype": "Small Text",
+   "label": "Câu hỏi của khách"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Ghi chú"
+  },
+  {
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Tên khách (nếu có)"
+  },
+  {
+   "fieldname": "customer_phone",
+   "fieldtype": "Data",
+   "label": "SĐT khách (nếu có)"
+  },
+  {
+   "fieldname": "session_id",
+   "fieldtype": "Data",
+   "label": "Phiên khách"
+  },
+  {
+   "fieldname": "section_handling",
+   "fieldtype": "Section Break",
+   "label": "Xử lý"
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "label": "Nhân viên nhận",
+   "options": "User"
+  },
+  {
+   "fieldname": "assigned_name",
+   "fieldtype": "Data",
+   "label": "Tên nhân viên"
+  },
+  {
+   "fieldname": "accepted_at",
+   "fieldtype": "Datetime",
+   "label": "Lúc nhận"
+  },
+  {
+   "fieldname": "resolved_at",
+   "fieldtype": "Datetime",
+   "label": "Lúc xong"
+  },
+  {
+   "fieldname": "cancelled_at",
+   "fieldtype": "Datetime",
+   "label": "Lúc huỷ"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-06-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cago",
+ "name": "Cago Support Request",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1},
+  {"role": "Cago Owner", "read": 1, "write": 1, "create": 1},
+  {"role": "Cago Sell", "read": 1, "write": 1, "create": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar, Ok, Warn } from "./OwnerShared";
+import { groupVnd, parseVnd } from "@/lib/utils";
+import { BackBar, goBackSmart, Ok, Warn } from "./Shared";
+import { toast } from "@/components/ui/toast";
 
 interface Summary {
   cash: number;
@@ -30,26 +32,27 @@ export function Cashbook() {
   const [counted, setCounted] = useState("");
   const [res, setRes] = useState<CloseResult | null>(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
 
   useEffect(() => {
     frappeCall<Summary>("cago.api.cashbook.today_summary", {}, { method: "GET" }).then(setS).catch(() => setS(null));
   }, []);
 
   const close = async () => {
-    setMsg(null);
     if (busy) return;
-    if (counted === "") return setMsg(<Warn>Nhập số tiền mặt đếm được trong két.</Warn>);
+    if (counted === "") {
+      toast.error("Nhập số tiền mặt đếm được trong két.");
+      return;
+    }
     setBusy(true);
     try {
       const r = await frappeCall<CloseResult>("cago.api.cashbook.day_close", {
-        counted_cash: parseFloat(counted) || 0,
-        opening_cash: parseFloat(opening) || 0,
-        payouts: parseFloat(payouts) || 0,
+        counted_cash: parseVnd(counted),
+        opening_cash: parseVnd(opening),
+        payouts: parseVnd(payouts),
       });
       setRes(r);
     } catch (e) {
-      setMsg(<Warn>{e instanceof Error ? e.message : "Lỗi chốt ca."}</Warn>);
+      toast.error(e instanceof Error ? e.message : "Lỗi chốt ca.");
     } finally {
       setBusy(false);
     }
@@ -57,7 +60,7 @@ export function Cashbook() {
 
   return (
     <div>
-      <BackBar onBack={() => router.push("/owner")} title="CHỐT CA / SỔ QUỸ" />
+      <BackBar onBack={() => goBackSmart(router)} title="CHỐT CA / SỔ QUỸ" />
       <div className="rounded-xl bg-white p-4">
         <div className="text-slate-600">Hôm nay đã thu:</div>
         <div className="mt-1 flex justify-between border-b border-slate-100 py-1.5">
@@ -74,16 +77,15 @@ export function Cashbook() {
         </div>
 
         <div className="mt-3 font-bold text-slate-700">Tiền đầu ca trong két (tùy chọn)</div>
-        <input value={opening} onChange={(e) => setOpening(e.target.value)} inputMode="numeric" placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input value={opening} onChange={(e) => setOpening(groupVnd(e.target.value))} inputMode="numeric" placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
         <div className="mt-2 font-bold text-slate-700">Tiền đã chi ra trong ca (tùy chọn)</div>
-        <input value={payouts} onChange={(e) => setPayouts(e.target.value)} inputMode="numeric" placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <input value={payouts} onChange={(e) => setPayouts(groupVnd(e.target.value))} inputMode="numeric" placeholder="0" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
         <div className="mt-2 font-bold text-slate-700">Tiền mặt đếm được trong két *</div>
-        <input value={counted} onChange={(e) => setCounted(e.target.value)} inputMode="numeric" placeholder="Đếm tiền rồi nhập vào" className="mt-1 w-full rounded-lg border-2 border-amber-300 p-3 text-lg" />
+        <input value={counted} onChange={(e) => setCounted(groupVnd(e.target.value))} inputMode="numeric" placeholder="Đếm tiền rồi nhập vào" className="mt-1 w-full rounded-lg border-2 border-amber-300 p-3 text-lg" />
 
         <button onClick={close} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">
           {busy ? "Đang tính..." : "🧮 Chốt ca"}
         </button>
-        {msg}
 
         {res && (
           <div className="mt-3 rounded-xl border-2 p-3" style={{ borderColor: res.match ? "#16a34a" : "#dc2626" }}>

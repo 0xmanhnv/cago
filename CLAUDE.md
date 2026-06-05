@@ -2,6 +2,13 @@
 
 You are Claude Code working on an ERPNext v16/Frappe customization project for a rural Vietnamese agricultural supplies store.
 
+## Conventions — READ FIRST
+
+Before changing UI, RBAC, DocTypes, or deploying, read **docs/29_CONVENTIONS.md** (hard-won rules:
+two design sets kiosk/POS, shared BackBar header, mobile list/card/grouping patterns, UOM
+display-vs-payload, Admin⊇Owner⊇Staff tiers + every-API-guarded, controller-class-name gotcha,
+build-backend-before-test, restart frontend+web after backend). docs/28 = the full permission matrix.
+
 ## Architecture decision
 
 Use:
@@ -9,8 +16,8 @@ Use:
 ```text
 ERPNext/Frappe
   + custom Frappe app: cago
-  + ERPNext native POS fallback
-  + POS Awesome V15 if evaluation passes
+  + Cago-native POS at /pos/sell (the only POS)
+  + ERPNext native POS kept as a back-end fallback only
   + Python-only auxiliary services
 ```
 
@@ -60,13 +67,11 @@ All auxiliary services must use Python. Do not use Go.
 
 ## POS decision
 
-POS Awesome V15 is allowed and should be evaluated seriously because it may provide a better POS user experience than ERPNext native POS.
+FINAL: the POS is **Cago-native** at `/pos/sell` (Next.js). POS Awesome was evaluated and
+**removed** — do not reintroduce it. Do not add a dependency on any external POS app.
 
-However:
-
-- Do not make the whole system depend on POS Awesome.
-- Native ERPNext POS must remain a working fallback.
-- Do not store core product knowledge only inside POS Awesome-specific code.
+- ERPNext native POS / Sales Invoice stays only as a back-end fallback for data, not the UI.
+- Do not store core product knowledge only inside POS-specific code.
 - `cago` is the core business customization layer.
 
 ## Business context
@@ -91,7 +96,7 @@ Build a practical system that supports:
 2. Staff UI: search product, image, price, shelf location, advice, alternatives.
 3. Customer kiosk: browse product images/categories on tablet.
 4. ERPNext backend: product, price, stock, customer, debt, sale, purchase.
-5. POS: POS Awesome V15 if stable; native POS fallback.
+5. POS: Cago-native `/pos/sell` (cash/bank/credit/split, returns/exchange, offline, shift, loyalty, coupons).
 6. Python services: chatbot/RAG, sync/cache, image processing, Zalo message helper if needed.
 
 ## User roles
@@ -163,7 +168,7 @@ Before coding:
 3. Propose repo structure.
 4. Propose Frappe app structure for `cago`.
 5. Propose Python service structure if needed.
-6. Propose POS evaluation plan for POS Awesome V15.
+6. (Done) POS = Cago-native `/pos/sell`; POS Awesome was evaluated and removed.
 7. Propose Milestone 1 implementation plan.
 8. Do not code until the plan is written.
 
@@ -175,8 +180,7 @@ MVP is done when:
 - Staff can search product by official name, nickname, color, use case.
 - Staff sees selling price, image, stock status, location, advice, alternatives.
 - Customer can browse product catalog on tablet/kiosk.
-- Final sale can be done via native POS or POS Awesome if evaluation passes.
-- Native POS fallback remains available.
+- Final sale is done via the Cago-native `/pos/sell`.
 - Sensitive fields are hidden from staff/customer.
 - Chemical products show safety warning.
 - Sample CSV import/update workflow exists.

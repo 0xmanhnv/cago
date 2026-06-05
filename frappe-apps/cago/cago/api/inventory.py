@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Inventory: lô hàng + hạn sử dụng (Phase 1).
 
@@ -16,7 +16,7 @@ from frappe import _
 from frappe.utils import add_days, cint, date_diff, flt, getdate, nowdate
 
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap, ensure_internal
 
 DEFAULT_WARN_DAYS = 60
 
@@ -37,11 +37,15 @@ def _enable_batch_tracking(item_code):
 
 
 def _batch_qty(item_code, batch_no):
-	"""On-hand qty for a batch (0 until stock is wired to batches)."""
+	"""On-hand qty for a batch at the SELLING warehouse. Must pass a warehouse: with warehouse=None
+	get_batch_qty returns a per-warehouse breakdown (not a number), which flt()'d to 0 — that's why
+	per-lô qty read 0 before. Scoping to the sell warehouse mirrors sales._fefo_lots so the lô list
+	matches what's actually sellable."""
 	try:
 		from erpnext.stock.doctype.batch.batch import get_batch_qty
 
-		return flt(get_batch_qty(batch_no=batch_no, item_code=item_code))
+		wh = dto.selling_warehouse()
+		return flt(get_batch_qty(batch_no, wh, item_code)) if wh else flt(get_batch_qty(batch_no=batch_no, item_code=item_code))
 	except Exception:
 		return 0
 
@@ -68,7 +72,7 @@ def _batch_row(b):
 def list_batches(item_code):
 	"""All batches for a product (staff may view; owner manages). The earliest non-expired
 	batch is flagged `sell_first` (FEFO — bán lô gần hết hạn trước)."""
-	ensure_staff()
+	ensure_internal()
 	rows = frappe.get_all(
 		"Batch",
 		filters={"item": item_code},
@@ -84,14 +88,25 @@ def list_batches(item_code):
 
 
 @frappe.whitelist()
-def add_batch(item_code, batch_id, expiry_date=None, manufacturing_date=None):
-	"""Record a new batch (and enable batch tracking on the item if needed)."""
-	ensure_owner()
+def add_batch(item_code, batch_id=None, expiry_date=None, manufacturing_date=None):
+	"""Record a new batch (and enable batch tracking on the item if needed).
+
+	`batch_id` may be left blank: the owner just enters the HSD and the lô code is auto-generated
+	from it (LO-ddmmyy) so they never have to invent a code. Receiving the same HSD again reuses
+	that lô (it IS the same goods) instead of erroring."""
+	ensure_cap("stock")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	batch_id = (batch_id or "").strip()
 	if not batch_id:
-		frappe.throw(_("Nhập mã lô."))
+		# Auto code from the HSD (else today's receive date). Same HSD = same lô → reuse it.
+		batch_id = "LO-" + getdate(expiry_date or nowdate()).strftime("%d%m%y")
+		existing = frappe.db.get_value(
+			"Batch", {"batch_id": batch_id, "item": item_code},
+			["name", "batch_id", "expiry_date", "manufacturing_date"], as_dict=True,
+		)
+		if existing:
+			return _batch_row(frappe._dict({**existing, "item": item_code}))
 	_enable_batch_tracking(item_code)
 	if frappe.db.exists("Batch", {"batch_id": batch_id, "item": item_code}):
 		frappe.throw(_("Lô này đã tồn tại cho sản phẩm."))
@@ -120,10 +135,11 @@ def add_batch(item_code, batch_id, expiry_date=None, manufacturing_date=None):
 
 
 @frappe.whitelist()
-def expiring_soon(days=DEFAULT_WARN_DAYS):
-	"""Owner report: batches expiring within `days` (or already expired)."""
-	ensure_owner()
-	days = cint(days) or DEFAULT_WARN_DAYS
+def expiring_soon(days=None):
+	"""Owner report: batches expiring within `days` (or already expired). Defaults to the owner's
+	configured near-expiry window (Company.cago_expiry_warn_days) so the report matches the kiosk badge."""
+	ensure_cap("stock")
+	days = cint(days) or dto.expiry_warn_days()
 	horizon = add_days(nowdate(), days)
 	# NULL expiry_date is excluded by the `<=` comparison, so only dated batches show.
 	rows = frappe.get_all(
@@ -134,7 +150,17 @@ def expiring_soon(days=DEFAULT_WARN_DAYS):
 	)
 	out = []
 	for r in rows:
-		if not frappe.db.exists("Item", r.item) or frappe.db.get_value("Item", r.item, "disabled"):
+		meta = frappe.db.get_value("Item", r.item, ["disabled", "cago_stock_auto"], as_dict=True)
+		if not meta or meta.disabled:
 			continue
-		out.append(_batch_row(r))
+		# Only warn when there's actually stock to lose. Per-BATCH qty is often untracked (returns 0),
+		# so judge by the ITEM's on-hand: an auto-stock item with 0 on hand has nothing to expire →
+		# skip (this is why "còn 0" items were wrongly flagged). Manual-stock items (qty unknown) are
+		# kept and shown without a count.
+		item_qty = dto.get_actual_qty(r.item) if meta.cago_stock_auto else None
+		if meta.cago_stock_auto and (item_qty or 0) <= 0:
+			continue
+		row = _batch_row(r)
+		row["qty"] = item_qty  # real item on-hand (None when not auto-tracked)
+		out.append(row)
 	return out

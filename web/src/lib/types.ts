@@ -14,12 +14,22 @@ export interface ProductCard {
   stock_status?: string | null;
   short_description?: string;
   is_chemical?: boolean;
+  recommended?: boolean; // ⭐ owner-picked "khuyên dùng"
+  best_seller?: boolean; // 🏆 top-selling (computed from sales)
+  stock_auto?: boolean; // true = on-hand is tracked (so 0 means really out of stock)
+  actual_stock_qty?: number | null; // real on-hand in stock units (null when not tracked)
+  allow_oversell?: boolean; // item may be sold beyond stock (default false → blocked at the till)
+  expiry_text?: string | null; // near-expiry flag on lot-tracked items (staff/owner sell screen)
+  expiry_status?: ExpiryStatus;
+  has_batch?: boolean; // lot-tracked → the till shows which lô (FEFO) will be sold
+  unit?: string; // stock uom → label the exact on-hand count
 }
 
 export interface Product {
   item_code: string;
   display_name: string;
   category?: string;
+  category_slug?: string;
   category_icon?: string;
   category_color?: string;
   image?: string | null;
@@ -30,19 +40,24 @@ export interface Product {
   use_cases?: string | null;
   package_color?: string | null;
   stock_status?: string | null;
+  stock_auto?: boolean;
   is_chemical?: boolean;
+  recommended?: boolean; // ⭐ owner-picked "khuyên dùng"
+  best_seller?: boolean; // 🏆 top-selling
   safety_notes?: string | null;
   // expiry (Phase 1)
   nearest_expiry?: string | null;
   expiry_text?: string | null;
   expiry_status?: ExpiryStatus;
   // multi-UOM retail selling (Bao / Kg / Lạng…)
-  sale_units?: { uom: string; price_text: string }[];
+  sale_units?: { uom: string; label?: string; price_text: string }[];
   // staff/owner-only
   official_name?: string;
   local_names?: string | null;
   selling_price?: number;
   actual_stock_qty?: number;
+  has_batch?: boolean; // lot-tracked → show the per-lô list (HSD) on the detail
+
   shelf_location?: string | null;
   staff_advice?: string | null;
   crop_or_animal_targets?: string | null;
@@ -52,7 +67,8 @@ export interface Product {
 }
 
 export interface Category {
-  category: string;
+  category: string; // Vietnamese display name (label)
+  slug: string; // URL-safe id used in ?category=
   count: number;
   icon: string;
   color: string;
@@ -66,9 +82,15 @@ export interface KioskChips {
   general: string[];
 }
 
+export interface CategoryLink {
+  category: string;
+  icon?: string;
+}
+
 export interface ChatResponse {
   answer_text: string;
   product_cards: ProductCard[];
+  categories?: CategoryLink[];
   safety_warnings: string[];
   needs_staff_help: boolean;
   sources: string[];
@@ -85,16 +107,28 @@ export interface Persona {
 
 export interface Bootstrap {
   user: string;
+  full_name?: string;
   is_guest: boolean;
   roles: string[];
+  caps: string[]; // capability keys the user holds (owner = all) — drives the /pos menu
+  is_owner?: boolean; // business super-role (Cago Owner, or an Admin who is also an owner)
+  is_admin?: boolean; // technical tier (Cago Admin / System Manager) — LLM keys / webhook / backup
   csrf_token: string;
   brand: string;
   persona: Persona;
   kiosk_chips: KioskChips;
   kiosk_debt_visible: boolean;
   allow_price_edit: boolean;
-  has_posawesome: boolean;
-  pos_url?: string | null;
+  max_discount_pct?: number; // per-staff max whole-bill discount (owner = 100)
+  loyalty_redeem_vnd?: number; // đồng per loyalty point when redeemed at the till
+  staff_can_collect_debt?: boolean;
+  store_map?: boolean;
+  pos_locked?: boolean; // shared kiosk+POS device: POS gated behind the PIN (server-session flag)
+  has_pos_pin?: boolean; // this user has set a quick-unlock PIN
+  debt_proof?: {
+    debt: { mode: "off" | "optional" | "required"; min: number };
+    repay: { mode: "off" | "optional" | "required"; min: number };
+  };
 }
 
 export interface Batch {

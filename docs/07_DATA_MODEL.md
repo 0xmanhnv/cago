@@ -1,5 +1,7 @@
 # 07 — Data Model
 
+> ℹ️ **Current reality:** DTOs/fields have grown (shift, loyalty, multi-UOM, recommended, offline…). Source of truth: `cago/utils/dto.py` + [39](39_API_REFERENCE.md).
+
 ## 1. Source of truth
 
 ERPNext remains source of truth for:

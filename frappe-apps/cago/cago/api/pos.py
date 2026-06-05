@@ -1,11 +1,11 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """POS handoff — turn a kiosk wanted list into a DRAFT Sales Invoice.
 
 Staff retrieve a customer's kiosk basket by code and create a draft invoice pre-filled
 with the items (no re-typing). The invoice is left as a DRAFT — staff opens it in ERPNext
 to pick the customer/payment and submit, so no final sale happens without staff confirmation
-(docs/04). Native-POS-friendly; no dependency on POS Awesome.
+(docs/04). No dependency on any external POS app.
 """
 
 import frappe
@@ -15,14 +15,14 @@ from frappe.utils import nowdate
 from cago.api import debt
 from cago.api.sales import _warehouse, walkin_customer
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_staff
+from cago.utils.permissions import ensure_internal, ensure_lang
 from cago.utils.privileged import as_user
 
 
 @frappe.whitelist()
 def create_invoice_from_wanted(code):
 	"""From a wanted-list code, create a DRAFT Sales Invoice with its items. Staff only."""
-	ensure_staff()
+	ensure_internal()
 	ensure_lang()
 	wl = frappe.db.get_value("Cago Wanted List", {"code": code}, "name")
 	if not wl:

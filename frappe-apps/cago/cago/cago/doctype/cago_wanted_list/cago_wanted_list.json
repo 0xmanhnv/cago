@@ -11,6 +11,12 @@
   "expires_at",
   "section_items",
   "items",
+  "section_customer",
+  "customer_name",
+  "customer_phone",
+  "fulfilment",
+  "address",
+  "payment_method",
   "section_note",
   "note"
  ],
@@ -28,7 +34,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Trạng thái",
-   "options": "New\nProcessing\nCompleted\nExpired\nCancelled",
+   "options": "New\nDelivering\nConfirmed\nProcessing\nCompleted\nExpired\nCancelled",
    "default": "New",
    "in_list_view": 1,
    "in_standard_filter": 1
@@ -57,6 +63,42 @@
    "fieldname": "note",
    "fieldtype": "Small Text",
    "label": "Ghi chú"
+  },
+  {
+   "fieldname": "section_customer",
+   "fieldtype": "Section Break",
+   "label": "Khách & giao hàng"
+  },
+  {
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Tên khách"
+  },
+  {
+   "fieldname": "customer_phone",
+   "fieldtype": "Data",
+   "label": "SĐT",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "fulfilment",
+   "fieldtype": "Select",
+   "label": "Cách nhận",
+   "options": "Nhận tại cửa hàng\nGiao tận nơi",
+   "default": "Nhận tại cửa hàng"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Small Text",
+   "label": "Địa chỉ giao",
+   "depends_on": "eval:doc.fulfilment=='Giao tận nơi'"
+  },
+  {
+   "fieldname": "payment_method",
+   "fieldtype": "Select",
+   "label": "Cách thanh toán",
+   "options": "Trả khi nhận (COD)\nChuyển khoản\nGhi nợ",
+   "default": "Trả khi nhận (COD)"
   }
  ],
  "index_web_pages_for_search": 1,

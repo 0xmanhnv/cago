@@ -25,42 +25,8 @@ RUN ./env/bin/pip install --no-cache-dir --upgrade pip \
 # The cago app ships no JS/CSS bundles, so no `bench build` is needed for it.
 
 # --------------------------------------------------------------------------- #
-# Optional enhanced POS for the COUNTER station (tablet): POS Awesome.
-# Pinned to a verified commit. GPL-3.0, a SEPARATE installed app — cago does NOT
-# depend on it (no fork). Only the Python code is baked here; the Vue/Vite assets
-# (`bench build --app posawesome`) and `install-app` run at RUNTIME because
-# `sites/` is a Docker volume that masks the image's sites/ at run time.
-# Mobile staff use Cago's own /staff/sell instead (docs/36).
-ARG POSAWESOME_COMMIT=c7e2b93e943ec7e9226f7c3ae9501b03e5f5d020
-RUN git clone --branch develop https://github.com/defendicon/POS-Awesome-V15 apps/posawesome \
-    && git -C apps/posawesome checkout ${POSAWESOME_COMMIT} \
-    && ./env/bin/pip install --no-cache-dir -e apps/posawesome \
-    && ls -1 apps > sites/apps.txt
-
-# Build the POS Awesome Vue/Vite assets INTO the image so every container (backend serves
-# the page; frontend nginx serves /assets) has apps/posawesome/posawesome/public/dist.
-# (Assets are NOT in the `sites` volume — sites/assets symlinks to the image; so this must
-# be baked, not built at runtime.) Node comes from the image's bundled nvm; make its cache
-# writable by `frappe` first (the base image's ~/.nvm is root-owned).
-USER root
-RUN chown -R frappe:frappe /home/frappe/.nvm
-USER frappe
-RUN bash -lc 'export NVM_DIR=/home/frappe/.nvm && . "$NVM_DIR/nvm.sh" \
-    && nvm install 24 && nvm use 24 \
-    && corepack enable && corepack prepare yarn@1.22.22 --activate \
-    && bench build --app posawesome'
-# Ensure the asset symlink exists so the frontend nginx serves /assets/posawesome/* (the
-# runtime entrypoint doesn't recreate per-app symlinks for apps added after the base image).
-RUN ln -sfn /home/frappe/frappe-bench/apps/posawesome/posawesome/public \
-    /home/frappe/frappe-bench/assets/posawesome
-# Same for cago's static assets (public/css/posawesome.css recolours POS Awesome buttons via
-# app_include_css). cago ships no JS bundle, so just symlink its public dir for nginx.
+# Cago's static assets (e.g. public/css) served by the frontend nginx at /assets/cago/*.
+# cago ships no JS bundle, so just symlink its public dir. (The Cago-native /pos/sell is the
+# only POS.)
 RUN ln -sfn /home/frappe/frappe-bench/apps/cago/cago/public \
     /home/frappe/frappe-bench/assets/cago
-# POS Awesome's loader injects <link href="/assets/posawesome/node_modules/vuetify/dist/vuetify.min.css">.
-# That node_modules path isn't under public in a production build → 404 (text/html) → blocked by
-# nosniff and the table/dialogs lose Vuetify styles. Expose the real package file via a symlink so
-# the link resolves (200 text/css). Vuetify is also in the bundle, so this is just the fallback.
-RUN mkdir -p /home/frappe/frappe-bench/apps/posawesome/posawesome/public/node_modules \
-    && ln -sfn /home/frappe/frappe-bench/apps/posawesome/frontend/node_modules/vuetify \
-       /home/frappe/frappe-bench/apps/posawesome/posawesome/public/node_modules/vuetify

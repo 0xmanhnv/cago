@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Unit tests for the cago API/DTO/permission layer.
 
@@ -83,30 +83,47 @@ class TestCagoDTO(FrappeTestCase):
 			self.assertIn("shelf_location", d)
 
 
-class TestCagoPermissions(FrappeTestCase):
+class TestCagoCapabilities(FrappeTestCase):
+	"""Granular capability roles: a user only gets what they're granted; owner gets everything."""
+
 	def setUp(self):
-		self.staff_email = "_test_cago_staff@example.com"
-		if not frappe.db.exists("User", self.staff_email):
+		self.sell_email = "_test_cago_sell@example.com"
+		if not frappe.db.exists("User", self.sell_email):
 			frappe.get_doc(
-				{
-					"doctype": "User",
-					"email": self.staff_email,
-					"first_name": "Test Staff",
-					"send_welcome_email": 0,
-				}
+				{"doctype": "User", "email": self.sell_email, "first_name": "Sell Only", "send_welcome_email": 0}
 			).insert(ignore_permissions=True)
-		frappe.get_doc("User", self.staff_email).add_roles("Cago Staff")
+		frappe.get_doc("User", self.sell_email).add_roles("Cago Sell")
 
 	def tearDown(self):
 		frappe.set_user("Administrator")
 
-	def test_staff_blocked_from_owner_action(self):
-		frappe.set_user(self.staff_email)
+	def test_sell_only_user_has_just_sell(self):
+		frappe.set_user(self.sell_email)
 		self.assertFalse(permissions.is_owner())
+		self.assertTrue(permissions.is_internal())  # holds a capability → back-of-house
+		self.assertTrue(permissions.has_cap("sell"))
+		permissions.ensure_cap("sell")  # no raise
+		for cap in ("reports", "products", "stock", "settings", "supplier", "cash", "debt", "returns"):
+			self.assertFalse(permissions.has_cap(cap), cap)
+			with self.assertRaises(frappe.PermissionError):
+				permissions.ensure_cap(cap)
 		with self.assertRaises(frappe.PermissionError):
 			permissions.ensure_owner()
 
-	def test_staff_allowed_for_staff_action(self):
-		frappe.set_user(self.staff_email)
-		self.assertTrue(permissions.is_staff())
-		permissions.ensure_staff()  # must not raise
+	def test_owner_has_every_capability(self):
+		# Administrator (System Manager) is treated as owner → all caps.
+		self.assertTrue(permissions.is_owner())
+		for cap in permissions.CAP_ROLES:
+			self.assertTrue(permissions.has_cap(cap), cap)
+		self.assertEqual(set(permissions.caps_for_user()), set(permissions.CAP_ROLES))
+
+	def test_sell_only_blocked_from_other_capability_endpoints(self):
+		from cago.api import owner, purchasing, reports
+
+		frappe.set_user(self.sell_email)
+		with self.assertRaises(frappe.PermissionError):
+			owner.update_price("_whatever", 1000)  # needs 'products'
+		with self.assertRaises(frappe.PermissionError):
+			reports.period_summary()  # needs 'reports'
+		with self.assertRaises(frappe.PermissionError):
+			purchasing.receive_stock("_whatever", 1)  # needs 'stock'

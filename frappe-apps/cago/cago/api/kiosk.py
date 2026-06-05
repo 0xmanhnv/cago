@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Public kiosk API.
 
@@ -7,12 +7,15 @@ no buying price, no customer/debt data). Customers can browse and submit a wante
 list which staff later fulfils.
 """
 
+import re
+
 import frappe
 from frappe import _
 from frappe.query_builder.functions import Count
 from frappe.utils import add_to_date, cint, now_datetime
 
 from cago.utils import dto
+from cago.utils.slug import slugify
 
 # Guard rails for the guest-writable wanted list (anti-abuse / DoS).
 MAX_WANTED_ITEMS = 50
@@ -22,59 +25,79 @@ MAX_NOTE_LEN = 500
 
 @frappe.whitelist(allow_guest=True)
 def get_categories():
-	"""Top-level kiosk categories (Item Group tree), each with its visible-product subtree count
-	and child categories. A flat shop (no parent groups) just returns its leaf categories with
-	empty children, so the kiosk renders the same as before. Ordered by the owner's cago_sort_order."""
+	"""Top-level kiosk categories (public-visible items only). See category_tree()."""
+	return category_tree(public_only=True)
+
+
+def category_tree(public_only=True):
+	"""Top-level categories (Item Group tree), each with its product subtree count and child
+	categories. `public_only` counts only kiosk-visible items (kiosk/guest); staff pass False to
+	count every non-disabled item so categories with only internal items still appear. A flat shop
+	(no parent groups) just returns its leaf categories with empty children. Ordered by the owner's
+	cago_sort_order."""
 	item = frappe.qb.DocType("Item")
+	where = item.disabled == 0
+	if public_only:
+		where = where & (item.cago_is_public_visible == 1)
 	rows = (
 		frappe.qb.from_(item)
 		.select(item.item_group, Count(item.name).as_("count"))
-		.where((item.disabled == 0) & (item.cago_is_public_visible == 1))
+		.where(where)
 		.groupby(item.item_group)
 	).run(as_dict=True)
-	leaf_counts = {r.item_group: r.count for r in rows if r.item_group}
-	if not leaf_counts:
-		return []
+	own_counts = {r.item_group: r.count for r in rows if r.item_group}
 
-	# Whole Item Group tree (one query) to resolve parents + presentation.
+	# Flat shop taxonomy: every category is a leaf; the 2-level hierarchy is the cago_parent link.
+	# A top-level category (cago_parent empty) aggregates its own products + its children's.
 	groups = {
 		g.name: g
 		for g in frappe.get_all(
 			"Item Group",
-			fields=["name", "parent_item_group", "cago_icon", "cago_color", "cago_sort_order"],
+			fields=["name", "cago_parent", "cago_icon", "cago_color", "cago_sort_order", "is_group", "cago_hidden"],
 		)
 	}
-	roots = {n for n, g in groups.items() if not g.parent_item_group or g.parent_item_group not in groups}
+	# Only real shop categories (leaves) — ignore the root, ERPNext defaults, and owner-hidden ones.
+	from cago.setup.category_tree import DEFAULTS
+
+	cats = {n: g for n, g in groups.items() if not g.is_group and n not in DEFAULTS and not g.cago_hidden}
 
 	def top_level(name):
-		"""The category's ancestor that sits directly under a tree root (or itself)."""
+		"""Resolve to the ancestor that has no cago_parent. Normally 1 hop (we enforce 2 levels), but
+		follow the chain defensively — with a visited-guard so a bad cago_parent cycle can't loop —
+		and stop at a parent that's missing / not a shop category (that node becomes the top)."""
 		seen = set()
 		cur = name
-		while cur in groups and cur not in seen:
+		while cur in cats and cur not in seen:
 			seen.add(cur)
-			parent = groups[cur].parent_item_group
-			if not parent or parent in roots or parent not in groups:
+			parent = cats[cur].cago_parent
+			if not parent or parent not in cats:
 				return cur
 			cur = parent
 		return name
 
 	def present(name, count):
-		g = groups.get(name)
+		g = cats.get(name)
 		return {
 			"category": name,
+			"slug": slugify(name),  # URL-safe id for ?category= (Vietnamese name stays as the label)
 			"count": count,
 			"icon": (g and g.cago_icon) or dto.DEFAULT_CATEGORY_ICON,
 			"color": (g and g.cago_color) or dto.DEFAULT_CATEGORY_COLOR,
 			"sort": (g and g.cago_sort_order) or 0,
 		}
 
+	# Show every category that has products OR is a parent of a category with products, so a parent
+	# with only-its-own or only-children products still appears.
+	relevant = set(own_counts) | {top_level(n) for n in own_counts}
 	tops = {}
-	for leaf, count in leaf_counts.items():
-		tl = top_level(leaf)
+	for name in relevant:
+		if name not in cats:
+			continue
+		tl = top_level(name)
 		node = tops.setdefault(tl, {**present(tl, 0), "children": []})
-		node["count"] += count
-		if leaf != tl:
-			node["children"].append(present(leaf, count))
+		node["count"] += own_counts.get(name, 0)
+		if name != tl:
+			node["children"].append(present(name, own_counts.get(name, 0)))
 
 	# Unset order (cago_sort_order = 0) sorts LAST, not first — so a half-finished reorder or a
 	# brand-new category appears at the end, behind the ones the owner explicitly placed.
@@ -89,9 +112,25 @@ def get_categories():
 
 
 @frappe.whitelist(allow_guest=True)
-def list_products(category=None, query=None):
-	"""Public product list, optionally filtered by category and/or search term."""
-	return dto.list_dtos(query, audience="public", public_only=True, category=category, limit=60)
+def list_products(category=None, query=None, recommended_only=0):
+	"""Public product list, optionally filtered by category, search term and/or 'recommended only'."""
+	from frappe.utils import cint
+
+	return dto.list_dtos(
+		query, audience="public", public_only=True, category=category, limit=60,
+		recommended_only=bool(cint(recommended_only)),
+	)
+
+
+@frappe.whitelist(allow_guest=True)
+def best_sellers(limit=8):
+	"""Public 'bán chạy' row for the kiosk home — top-selling public products, in sold order."""
+	codes = dto.best_seller_codes()[: cint(limit) or 8]
+	if not codes:
+		return []
+	cards = dto.list_dtos(None, audience="public", public_only=True, codes=codes, limit=len(codes))
+	order = {c: i for i, c in enumerate(codes)}
+	return sorted(cards, key=lambda x: order.get(x["item_code"], 999))
 
 
 @frappe.whitelist(allow_guest=True)
@@ -117,7 +156,7 @@ def related_products(item_code, limit=8):
 
 
 @frappe.whitelist(allow_guest=True)
-def create_wanted_list(items, note=None):
+def create_wanted_list(items, note=None, customer_name=None, customer_phone=None, fulfilment=None, address=None, payment_method=None):
 	"""Create a wanted list from kiosk selections; return its lookup code.
 
 	`items` is a JSON list of {item_code, qty}. Only kiosk-visible items are kept.
@@ -135,6 +174,12 @@ def create_wanted_list(items, note=None):
 	wl = frappe.new_doc("Cago Wanted List")
 	wl.status = "New"
 	wl.note = (note or "")[:MAX_NOTE_LEN]
+	# Optional contact + fulfilment so the seller can call back / deliver (remote orders).
+	wl.customer_name = (customer_name or "").strip()[:100]
+	wl.customer_phone = re.sub(r"[^\d+]", "", (customer_phone or ""))[:20]
+	wl.fulfilment = "Giao tận nơi" if (fulfilment or "").strip() in ("Giao tận nơi", "delivery", "1") else "Nhận tại cửa hàng"
+	wl.address = (address or "").strip()[:300] if wl.fulfilment == "Giao tận nơi" else ""
+	wl.payment_method = (payment_method or "").strip() if (payment_method or "").strip() in ("Trả khi nhận (COD)", "Chuyển khoản", "Ghi nợ") else "Trả khi nhận (COD)"
 	wl.expires_at = add_to_date(now_datetime(), days=2)
 
 	added = 0
@@ -153,4 +198,62 @@ def create_wanted_list(items, note=None):
 
 	wl.insert(ignore_permissions=True)
 	frappe.db.commit()
+
+	# Tell the shop (owner Zalo + Telegram ops chat) a new order came in — best-effort, never blocks.
+	try:
+		from cago.api.notify import notify_ops
+
+		who = " · ".join(x for x in [wl.customer_name, wl.customer_phone] if x)
+		how = "🚚 Giao tận nơi" if wl.fulfilment == "Giao tận nơi" else "🏪 Nhận tại cửa hàng"
+		notify_ops(f"📦 Đơn mới {wl.code} · {added} mặt hàng · {how} · {wl.payment_method}" + (f"\n👤 {who}" if who else "") + (f"\n📍 {wl.address}" if wl.address else ""))
+	except Exception:
+		pass
+
 	return {"code": wl.code, "count": added}
+
+
+_WANTED_STATUS_VI = {
+	"New": "Mới gửi — chờ người bán xác nhận",
+	"Confirmed": "Đã xác nhận — đang chuẩn bị hàng",
+	"Delivering": "Đang giao",
+	"Processing": "Đang xử lý",
+	"Completed": "Đã xong / đã giao",
+	"Cancelled": "Đã huỷ",
+	"Expired": "Quá hạn",
+}
+
+
+@frappe.whitelist(allow_guest=True)
+def track_order(code, phone):
+	"""Public order tracking: a customer enters their order code + the phone they left, and sees the
+	status + items. The phone must match (last 8 digits) so a code alone can't leak someone's order."""
+	from cago.utils.ratelimit import rate_guard
+
+	rate_guard("track", limit=30, seconds=60)
+	code = (code or "").strip()
+	phone = re.sub(r"[^\d]", "", phone or "")
+	name = frappe.db.get_value("Cago Wanted List", {"code": code}, "name") if code else None
+	if not name or not phone:
+		frappe.throw(_("Không tìm thấy đơn. Kiểm tra lại mã và số điện thoại."))
+	wl = frappe.get_doc("Cago Wanted List", name)
+	saved = re.sub(r"[^\d]", "", wl.customer_phone or "")
+	if not saved or saved[-8:] != phone[-8:]:
+		frappe.throw(_("Số điện thoại không khớp đơn này."))
+	items = [
+		{
+			"display_name": frappe.db.get_value("Item", r.item_code, "cago_display_name")
+			or frappe.db.get_value("Item", r.item_code, "item_name")
+			or r.item_code,
+			"qty": r.qty,
+		}
+		for r in wl.items
+	]
+	return {
+		"code": wl.code,
+		"status": wl.status,
+		"status_text": _WANTED_STATUS_VI.get(wl.status, wl.status),
+		"fulfilment": wl.fulfilment,
+		"payment_method": wl.payment_method,
+		"created": str(wl.creation)[:16],
+		"items": items,
+	}

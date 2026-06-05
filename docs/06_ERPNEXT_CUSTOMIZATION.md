@@ -1,5 +1,7 @@
 # 06 — ERPNext / Frappe Customization Plan
 
+> ℹ️ **Current reality:** several newer custom fields aren't listed here (batch/FEFO, shift/cashier, loyalty, multi-UOM, `cago_recommended`…). Source of truth: `cago/setup/custom_fields.py` + the `custom_field.json` fixture.
+
 ## 1. Custom app
 
 Create Frappe app:

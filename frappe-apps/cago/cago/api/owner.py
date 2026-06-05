@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Owner API — tra giá / sửa giá.
 
@@ -16,7 +16,7 @@ from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import (
 	record_action,
 )
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner
+from cago.utils.permissions import ensure_admin, ensure_cap, ensure_internal, ensure_owner
 
 
 @frappe.whitelist()
@@ -25,7 +25,7 @@ def price_history(item_code, limit=20):
 
 	Reads the existing Cago Owner Action Log (action_type='Price Update') — no new data.
 	"""
-	ensure_owner()
+	ensure_cap("products")
 	from frappe.utils import cint
 
 	rows = frappe.get_all(
@@ -48,16 +48,185 @@ def price_history(item_code, limit=20):
 
 
 @frappe.whitelist()
-def search_products(query=None):
+def search_products(query=None, recommended_only=0):
 	"""Owner product search -> list of owner DTOs."""
-	ensure_owner()
-	return dto.list_dtos(query, audience="owner", public_only=False)
+	ensure_cap("products")
+	from frappe.utils import cint
+
+	return dto.list_dtos(query, audience="owner", public_only=False, recommended_only=bool(cint(recommended_only)))
+
+
+def _run_backup():
+	"""Background job: full DB + files backup, then copy offsite if /offsite is mounted."""
+	import os
+	import shutil
+
+	from frappe.utils.backups import new_backup
+
+	b = new_backup(ignore_files=False, force=True)
+	if os.path.isdir("/offsite"):
+		for f in (b.backup_path_db, b.backup_path_files, b.backup_path_private_files):
+			try:
+				if f and os.path.exists(f):
+					shutil.copy2(f, "/offsite/")
+			except Exception:
+				pass
+
+
+@frappe.whitelist()
+def backup_now():
+	"""Owner-triggered backup (DB + files). Runs in the background so the request returns fast;
+	lets a non-technical owner back up without the command line."""
+	ensure_admin()
+	frappe.enqueue("cago.api.owner._run_backup", queue="long", timeout=1800)
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def last_backup():
+	"""Name + time of the most recent backup file, for the owner UI."""
+	ensure_admin()
+	import datetime
+	import glob
+	import os
+
+	from frappe.utils import get_site_path
+
+	d = get_site_path("private", "backups")
+	files = sorted(glob.glob(os.path.join(d, "*-database.sql.gz")), key=os.path.getmtime, reverse=True) if os.path.isdir(d) else []
+	if not files:
+		return {"exists": False}
+	when = format_datetime(datetime.datetime.fromtimestamp(os.path.getmtime(files[0])))
+	return {"exists": True, "when": when, "name": os.path.basename(files[0])}
+
+
+def _default_company():
+	return frappe.defaults.get_global_default("company") or (frappe.get_all("Company", pluck="name") or [None])[0]
+
+
+def _dup_key(item_codes):
+	"""Stable key for a duplicate group = its sorted item_codes. If the membership changes (an item
+	merged/added), the key changes so the pair resurfaces for review."""
+	return "|".join(sorted(item_codes))
+
+
+def _dismissed_dupes():
+	raw = frappe.db.get_value("Company", _default_company(), "cago_dismissed_dupes")
+	try:
+		val = frappe.parse_json(raw) if raw else []
+		return set(val) if isinstance(val, list) else set()
+	except Exception:
+		return set()
+
+
+@frappe.whitelist()
+def data_health():
+	"""Read-only catalog health for the owner: likely-duplicate names + items missing an image,
+	price, category or shelf location — so the owner can spot & clean the issues that hurt daily use."""
+	ensure_cap("products")
+	import re
+
+	items = frappe.get_all(
+		"Item",
+		filters={"disabled": 0},
+		fields=["name", "item_name", "cago_display_name", "image", "item_group", "stock_uom", "cago_shelf_location"],
+	)
+	prices = dto._price_map([i.name for i in items])
+	root_groups = {None, "", "All Item Groups", "Products", "Tất cả nhóm sản phẩm"}
+
+	def label(i):
+		return i.cago_display_name or i.item_name
+
+	no_image, no_price, uncategorized, no_shelf, by_name = [], [], [], [], {}
+	for i in items:
+		row = {"item_code": i.name, "display_name": label(i)}
+		if not i.image:
+			no_image.append(row)
+		if not (dto._rate_for(prices.get(i.name) or {}, i.stock_uom) or 0) > 0:
+			no_price.append(row)
+		if i.item_group in root_groups:
+			uncategorized.append(row)
+		if not i.cago_shelf_location:
+			no_shelf.append(row)
+		key = re.sub(r"\s+", " ", (label(i) or "").strip().lower())
+		if key:
+			by_name.setdefault(key, []).append(row)
+
+	dismissed = _dismissed_dupes()
+	duplicates = []
+	for v in by_name.values():
+		if len(v) <= 1:
+			continue
+		if _dup_key([r["item_code"] for r in v]) in dismissed:
+			continue  # owner already marked this group "not a duplicate"
+		duplicates.append({"name": v[0]["display_name"], "items": v})
+	return {
+		"total": len(items),
+		"duplicates": duplicates,
+		"no_image": no_image,
+		"no_price": no_price,
+		"uncategorized": uncategorized,
+		"no_shelf": no_shelf,
+	}
+
+
+@frappe.whitelist()
+def dismiss_duplicate(item_codes):
+	"""Owner confirms a flagged group is NOT a duplicate → remember it so it stops showing."""
+	ensure_cap("products")
+	codes = frappe.parse_json(item_codes) if isinstance(item_codes, str) else (item_codes or [])
+	codes = [c for c in codes if c]
+	if len(codes) < 2:
+		return {"ok": True}
+	dismissed = _dismissed_dupes()
+	dismissed.add(_dup_key(codes))
+	frappe.db.set_value("Company", _default_company(), "cago_dismissed_dupes", frappe.as_json(sorted(dismissed)))
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def merge_products(source, target):
+	"""Merge a duplicate Item into another: `source` is absorbed into `target` (the one kept) — all
+	stock, prices and history repoint to `target`, then `source` is removed. Owner-confirmed and
+	irreversible. Uses Frappe's document merge (rename with merge=True)."""
+	ensure_cap("products")
+	if not source or not target or source == target:
+		frappe.throw(_("Chọn hai sản phẩm khác nhau để gộp."))
+	for code in (source, target):
+		if not frappe.db.exists("Item", code):
+			frappe.throw(_("Không tìm thấy sản phẩm: {0}").format(code))
+	src_uom, tgt_uom = frappe.db.get_value("Item", source, "stock_uom"), frappe.db.get_value("Item", target, "stock_uom")
+	if src_uom != tgt_uom:
+		frappe.throw(_("Hai mặt hàng khác đơn vị tồn ({0} ≠ {1}) — không gộp được. Hãy sửa cho khớp hoặc xoá thủ công.").format(src_uom, tgt_uom))
+	try:
+		frappe.rename_doc("Item", source, target, merge=True)
+	except Exception as e:
+		frappe.db.rollback()
+		frappe.throw(_("Không gộp được (có thể còn ràng buộc dữ liệu): {0}").format(str(e)))
+	record_action("Other", ref_doctype="Item", ref_name=target, new_value=f"merge {source} -> {target}")
+	frappe.db.commit()
+	return {"ok": True, "target": target}
+
+
+@frappe.whitelist()
+def set_recommended(item_code, on):
+	"""Toggle the ⭐ 'khuyên dùng' flag for one item (used by the bulk manage screen)."""
+	ensure_cap("products")
+	from frappe.utils import cint
+
+	if not frappe.db.exists("Item", item_code):
+		frappe.throw(_("Không tìm thấy sản phẩm."))
+	val = 1 if cint(on) else 0
+	frappe.db.set_value("Item", item_code, "cago_recommended", val)
+	frappe.db.commit()
+	return {"item_code": item_code, "recommended": bool(val)}
 
 
 @frappe.whitelist()
 def get_product(item_code):
 	"""Single owner DTO."""
-	ensure_owner()
+	ensure_cap("products")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	return dto.owner_dto(frappe.get_doc("Item", item_code))
@@ -69,16 +238,28 @@ def update_price(item_code, new_price):
 
 	Returns the new formatted price text for confirmation in the UI.
 	"""
-	ensure_owner()
+	ensure_cap("products")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 
 	new_rate = flt(new_price)
 	if new_rate <= 0:
 		frappe.throw(_("Giá phải lớn hơn 0."))
+	# Enforce the giá-sàn floor here too — update_product enforces it, but this separate endpoint
+	# must not be a back door to set the catalogue price below cost-protection.
+	min_price = flt(frappe.db.get_value("Item", item_code, "cago_min_price"))
+	if min_price and new_rate < min_price:
+		frappe.throw(_("Giá bán không được thấp hơn giá sàn ({0}).").format(dto.format_price(min_price)))
 
 	old_rate = dto.get_selling_price(item_code)
 	uom = frappe.db.get_value("Item", item_code, "stock_uom")
+	# No-op: same price → don't write a spurious history row (it would read as a price change).
+	if flt(old_rate) == new_rate:
+		return {
+			"item_code": item_code,
+			"old_price_text": dto.format_price(old_rate, uom),
+			"new_price_text": dto.format_price(new_rate, uom),
+		}
 	_upsert_selling_price(item_code, new_rate, uom)
 
 	record_action(
@@ -164,7 +345,7 @@ def _images(item_code):
 
 
 def _check_item(item_code):
-	ensure_owner()
+	ensure_cap("products")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 
@@ -237,14 +418,25 @@ EDITABLE_FIELDS = (
 	"cago_min_price",
 	"cago_product_quality_tier",
 	"cago_staff_advice",
+	"cago_label_instructions",  # official label dosage/mixing → assistant quotes it instead of refusing
 	"cago_call_owner_when",
 	"cago_safety_notes",
 	"cago_is_chemical",
 	"cago_is_public_visible",
+	"cago_allow_oversell",  # cho bán quá tồn (mặc định tắt) — per-item negative-stock opt-in
+	"cago_recommended",  # ⭐ khuyên dùng — trợ lý ưu tiên gợi ý, badge trên thẻ
+	"disabled",  # "Ngừng bán" — discontinued items vanish from sell/kiosk/alerts/reorder but keep history
 )
-_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto")
+_CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto", "cago_allow_oversell", "cago_recommended", "disabled")
 STOCK_STATUS_OPTIONS = ["Còn nhiều", "Còn hàng", "Còn ít", "Hết hàng", "Sắp nhập"]
 QUALITY_OPTIONS = ["Phổ thông", "Trung cấp", "Cao cấp"]
+# Common Vietnamese retail units for an agri shop. Frappe ships ~100 default physics/imperial
+# UOMs (Ampere, Acre, Bar…) that are meaningless to a rural owner, so the product form must NOT
+# dump every enabled UOM — it offers these curated units plus any unit the shop already uses.
+COMMON_UOMS = [
+	"Bao", "Gói", "Chai", "Lọ", "Cái", "Hộp", "Túi", "Thùng", "Lốc",
+	"Bình", "Can", "Cuộn", "Bó", "Vỉ", "Đôi", "Bộ", "Kg", "Lạng", "Lít",
+]
 
 
 @frappe.whitelist()
@@ -258,6 +450,16 @@ def get_product_for_edit(item_code):
 	row["images"] = _images(item_code)
 	row["stock_status_options"] = STOCK_STATUS_OPTIONS
 	row["quality_options"] = QUALITY_OPTIONS
+	# Suggestions for the free-text "Vị trí để hàng": shelf labels already used on other products +
+	# the store-map zone names — so the owner reuses consistent wording (this is a human note; the
+	# map itself is located by the product's item_group, not this text).
+	shelves = frappe.get_all("Item", filters={"cago_shelf_location": ["not in", ["", None]]}, pluck="cago_shelf_location") or []
+	zones = []
+	try:
+		zones = [z.label for z in frappe.get_single("Cago Store Map").zones if z.label]
+	except Exception:
+		pass
+	row["shelf_suggestions"] = sorted({s for s in (shelves + zones) if s})
 	return row
 
 
@@ -315,12 +517,28 @@ def update_product(item_code, data):
 # --------------------------------------------------------------------------- #
 # Create new product (owner adds an item without ERPNext Desk)
 # --------------------------------------------------------------------------- #
+# ERPNext seeds these default Item Groups on every new site — they are not our categories and
+# must be hidden from the owner's product forms.
+ERPNEXT_DEFAULT_GROUPS = ["Products", "Raw Material", "Services", "Sub Assemblies", "Consumable", "All Item Groups"]
+
+
 @frappe.whitelist()
 def get_product_meta():
 	"""Options for the create/edit forms: item groups, units, selects."""
-	ensure_owner()
-	groups = frappe.get_all("Item Group", filters={"is_group": 0}, pluck="name", order_by="name asc")
-	uoms = frappe.get_all("UOM", filters={"enabled": 1}, pluck="name", order_by="name asc")
+	ensure_cap("products")
+	groups = frappe.get_all(
+		"Item Group",
+		filters={"is_group": 0, "name": ["not in", ERPNEXT_DEFAULT_GROUPS]},
+		pluck="name",
+		order_by="name asc",
+	)
+	# Curated Vietnamese units first, then any unit the shop actually uses on its products — never
+	# the full list of Frappe default UOMs (Ampere, Acre…), which only confuse the owner.
+	used = frappe.get_all("Item", filters={"is_sales_item": 1}, pluck="stock_uom") or []
+	uoms = []
+	for u in [*COMMON_UOMS, *sorted({x for x in used if x and x != "Nos"})]:
+		if u and u not in uoms:
+			uoms.append(u)
 	return {
 		"item_groups": groups,
 		"uoms": uoms or ["Bao", "Gói", "Chai", "Cái", "Kg"],
@@ -336,7 +554,7 @@ def create_product(data):
 	A machine item_code is auto-generated (owner only cares about the display name).
 	Returns the editable view so the UI can continue (add images, advice, ...).
 	"""
-	ensure_owner()
+	ensure_cap("products")
 	data = frappe.parse_json(data) if isinstance(data, str) else (data or {})
 
 	name = (data.get("cago_display_name") or data.get("item_name") or "").strip()
@@ -359,6 +577,12 @@ def create_product(data):
 	item.stock_uom = unit
 	item.is_stock_item = 1
 	item.is_sales_item = 1
+	item.cago_stock_auto = 1  # default: tự tính tồn theo số thật (owner can turn off per item)
+	# Opt-in lot/expiry tracking (chemicals, feed, perishables): each receive becomes its own lô
+	# with an HSD, sold FEFO. Only set at creation — before any stock exists — so ERPNext allows it.
+	if str(data.get("cago_has_batch") or "") in ("1", "true", "True", "on", "yes"):
+		item.has_batch_no = 1
+		item.create_new_batch = 1  # let a lô be created at receive time
 	for field in EDITABLE_FIELDS:
 		if field in data and field != "item_name":
 			val = data[field]
@@ -385,8 +609,11 @@ def create_product(data):
 @frappe.whitelist()
 def zalo_draft(kind, customer=None, item_code=None):
 	"""Generate a ready-to-copy Zalo/SMS message (debt reminder or restock alert)."""
-	ensure_owner()
+	ensure_internal()
 	if kind == "debt_reminder":
+		from cago.customer import resolve_customer
+
+		customer = resolve_customer(customer)
 		if not customer or not frappe.db.exists("Customer", customer):
 			frappe.throw(_("Không tìm thấy khách hàng."))
 		from cago.api.debt import get_customer_debt
@@ -419,18 +646,178 @@ def zalo_draft(kind, customer=None, item_code=None):
 
 @frappe.whitelist()
 def list_categories():
-	"""Owner: the kiosk-visible categories in their current display order, for the reorder screen."""
-	ensure_owner()
-	from cago.api import kiosk
+	"""Owner: ALL leaf categories (incl. empty + just-created ones) for the manage/reorder screen.
+	Shows a group if it carries a cago icon (owner-managed) or has products — hides ERPNext's
+	stock default groups that this shop never uses."""
+	ensure_cap("products")
+	rows = frappe.get_all(
+		"Item Group",
+		filters={"is_group": 0, "name": ["not in", list(ERPNEXT_DEFAULT_GROUPS)]},
+		fields=["name", "cago_icon", "cago_color", "cago_sort_order", "cago_parent", "cago_hidden"],
+		order_by="cago_sort_order asc, name asc",
+	)
+	out = []
+	for r in rows:
+		count = frappe.db.count("Item", {"item_group": r.name, "disabled": 0})
+		if not (r.cago_icon or count):
+			continue
+		# parent = the loại cha (cago_parent). None = top-level. The manage screen indents children
+		# under their parent; viewing a parent on the kiosk aggregates its + its children's products.
+		out.append({"category": r.name, "icon": r.cago_icon or "📦", "color": r.cago_color or "#e6f4ea", "count": count, "parent": r.cago_parent or None, "hidden": bool(r.cago_hidden)})
+	return out
 
-	return kiosk.get_categories()
+
+@frappe.whitelist()
+def list_category_parents():
+	"""Owner: top-level categories (cago_parent empty) that another category may sit under — fills the
+	parent dropdown. In the flat model ANY top-level category can be a parent (it also holds products)."""
+	ensure_cap("products")
+	rows = frappe.get_all(
+		"Item Group",
+		filters={"is_group": 0, "cago_parent": ["in", ["", None]], "name": ["not in", list(ERPNEXT_DEFAULT_GROUPS)]},
+		fields=["name", "cago_icon"],
+		order_by="cago_sort_order asc, name asc",
+	)
+	return [{"name": r.name, "icon": r.cago_icon or "📁"} for r in rows]
+
+
+def _root_item_group():
+	"""The tree root to hang new leaf categories under (usually 'All Item Groups')."""
+	return (
+		frappe.db.get_value("Item Group", {"is_group": 1, "parent_item_group": ["in", ["", None]]}, "name")
+		or frappe.db.get_value("Item Group", {"is_group": 1}, "name")
+		or "All Item Groups"
+	)
+
+
+UNCATEGORIZED = "Chưa phân loại"
+
+
+def _ensure_uncategorized():
+	"""The fallback category products fall into when their category is deleted and there's no parent
+	to fold them up into — so a product is never left without a category. Cannot be deleted."""
+	if not frappe.db.exists("Item Group", UNCATEGORIZED):
+		frappe.get_doc(
+			{"doctype": "Item Group", "item_group_name": UNCATEGORIZED, "parent_item_group": _root_item_group(), "is_group": 0, "cago_icon": "📦"}
+		).insert(ignore_permissions=True)
+	return UNCATEGORIZED
+
+
+@frappe.whitelist()
+def save_category(name, icon=None, color=None, old_name=None, parent=None, hidden=None):
+	"""Owner: create / rename / restyle a category, and set its loại cha (`cago_parent`). Flat model:
+	every category is an is_group=0 leaf under the root that can hold products AND be a parent; the
+	hierarchy is just the cago_parent link (kept to 2 levels). Empty parent = top-level (loại gốc)."""
+	ensure_cap("products")
+	name = (name or "").strip()
+	if not name:
+		frappe.throw(_("Nhập tên loại hàng."))
+	if name in ERPNEXT_DEFAULT_GROUPS:
+		frappe.throw(_("Tên '{0}' trùng nhóm hệ thống. Hãy chọn tên khác.").format(name))
+	# Validate the chosen parent (only when passed). Keep the tree 2 levels deep and acyclic: a parent
+	# must itself be top-level (no cago_parent) and can't be the category itself.
+	parent_provided = parent is not None
+	parent = (parent or "").strip()
+	if parent:
+		if parent == name:
+			frappe.throw(_("Loại cha không thể là chính nó."))
+		if not frappe.db.exists("Item Group", {"name": parent, "is_group": 0}):
+			frappe.throw(_("Loại cha '{0}' không hợp lệ.").format(parent))
+		if frappe.db.get_value("Item Group", parent, "cago_parent"):
+			frappe.throw(_("Chỉ lồng 2 cấp: '{0}' đã là loại con nên không thể làm cha.").format(parent))
+		# Can't give a parent to a category that itself has children (would be 3 levels).
+		if frappe.db.exists("Item Group", {"cago_parent": name}):
+			frappe.throw(_("Loại '{0}' đang là cha của loại khác nên không thể đặt làm con.").format(name))
+
+	old = (old_name or "").strip()
+	if old and old != name:
+		if not frappe.db.exists("Item Group", old):
+			frappe.throw(_("Không tìm thấy loại hàng cần đổi tên."))
+		if frappe.db.exists("Item Group", name):
+			frappe.throw(_("Đã có loại hàng tên '{0}'.").format(name))
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):  # rename_doc enforces perms + this version has no ignore_permissions kwarg
+			frappe.rename_doc("Item Group", old, name)
+		# Re-point children explicitly (cago_parent is a custom Link → don't rely on the rename cascade).
+		frappe.db.sql("UPDATE `tabItem Group` SET cago_parent=%s WHERE cago_parent=%s", (name, old))
+	elif not frappe.db.exists("Item Group", name):
+		frappe.get_doc(
+			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": _root_item_group(), "is_group": 0}
+		).insert(ignore_permissions=True)
+	if parent_provided:
+		frappe.db.set_value("Item Group", name, "cago_parent", parent or None, update_modified=False)
+	if hidden is not None:
+		frappe.db.set_value("Item Group", name, "cago_hidden", 1 if str(hidden) in ("1", "true", "True") else 0, update_modified=False)
+	if icon is not None:
+		frappe.db.set_value("Item Group", name, "cago_icon", (icon or "").strip() or None)
+	if color is not None:
+		frappe.db.set_value("Item Group", name, "cago_color", (color or "").strip() or None)
+	frappe.db.commit()
+	return {"name": name}
+
+
+def delete_preview(name):
+	"""What deleting `name` will do (for the confirm dialog): how many products move and where, and
+	how many child categories become top-level. No changes."""
+	ensure_cap("products")
+	name = (name or "").strip()
+	if not frappe.db.exists("Item Group", name):
+		return {"products": 0, "children": 0, "target": None}
+	parent = frappe.db.get_value("Item Group", name, "cago_parent")
+	return {
+		"products": frappe.db.count("Item", {"item_group": name}),
+		"children": frappe.db.count("Item Group", {"cago_parent": name}),
+		# A child's products fold up into its parent; a top-level's go to "Chưa phân loại".
+		"target": parent or UNCATEGORIZED,
+	}
+
+
+delete_preview = frappe.whitelist()(delete_preview)
+
+
+@frappe.whitelist()
+def delete_category(name, move_to=None):
+	"""Owner: delete a category, WordPress-style — nothing is orphaned:
+	- its child categories become top-level (cago_parent cleared);
+	- its products move to `move_to` if given, else fold up into its parent, else "Chưa phân loại".
+	Refuses only for the protected fallback + ERPNext system groups."""
+	ensure_cap("products")
+	name = (name or "").strip()
+	if not frappe.db.exists("Item Group", name):
+		return {"deleted": True}
+	if name == UNCATEGORIZED or name in ERPNEXT_DEFAULT_GROUPS:
+		frappe.throw(_("Không thể xoá loại '{0}' (loại hệ thống).").format(name))
+
+	# Where this category's products go: an explicit target, else its parent (fold up), else the
+	# protected "Chưa phân loại" fallback. Validate an explicit target.
+	parent = frappe.db.get_value("Item Group", name, "cago_parent")
+	move_to = (move_to or "").strip()
+	if move_to:
+		if move_to == name or not frappe.db.exists("Item Group", {"name": move_to, "is_group": 0}):
+			frappe.throw(_("Loại chuyển đến '{0}' không hợp lệ.").format(move_to))
+		target = move_to
+	else:
+		target = parent or _ensure_uncategorized()
+
+	moved = frappe.db.count("Item", {"item_group": name})
+	freed = frappe.db.count("Item Group", {"cago_parent": name})
+	# 1) Children become top-level (clear the link so the parent has no dependents blocking delete).
+	frappe.db.sql("UPDATE `tabItem Group` SET cago_parent=NULL WHERE cago_parent=%s", name)
+	# 2) Reassign every product (incl. disabled) to the target, so none is left linked to the group.
+	if moved:
+		frappe.db.sql("UPDATE `tabItem` SET item_group=%s WHERE item_group=%s", (target, name))
+	frappe.delete_doc("Item Group", name, ignore_permissions=True)
+	frappe.db.commit()
+	frappe.clear_cache()
+	return {"deleted": True, "moved_products": moved, "freed_children": freed, "target": target if moved else None}
 
 
 @frappe.whitelist()
 def set_category_order(categories):
 	"""Owner: persist the display order. `categories` is a JSON list of Item Group names in the
 	desired order; we write cago_sort_order = 1..N so the kiosk lists them that way."""
-	ensure_owner()
+	ensure_cap("products")
 	names = frappe.parse_json(categories) if isinstance(categories, str) else (categories or [])
 	for i, name in enumerate(names, start=1):
 		if frappe.db.exists("Item Group", name):

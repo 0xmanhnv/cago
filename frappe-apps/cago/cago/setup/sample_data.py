@@ -1,8 +1,8 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Sample-data import for Milestone 1.
 
-Loads `data/sample_products.csv` into ERPNext as Items (with AgriMate custom fields)
+Loads `data/sample_products.csv` into ERPNext as Items (with Cago custom fields)
 and matching selling Item Prices. Idempotent: re-running updates existing records
 instead of creating duplicates.
 
@@ -44,8 +44,12 @@ AGRI_CHECK_FIELDS = [
 ]
 
 
-def import_sample_products(csv_path=None):
-	"""Import / update Items and selling prices from a products CSV."""
+def import_sample_products(csv_path=None, seed_batches=True):
+	"""Import / update Items and selling prices from a products CSV.
+
+	`seed_batches` seeds DEMO batches + 20-unit stock for chemical items (so the expiry report has
+	data out of the box) — TRUE for the sample/demo seed, but pass FALSE when importing a REAL
+	catalog so the shop doesn't get fake stock/lots."""
 	csv_path = csv_path or _default_csv_path()
 	if not os.path.exists(csv_path):
 		frappe.throw(f"CSV không tìm thấy: {csv_path}")
@@ -98,10 +102,20 @@ def import_sample_products(csv_path=None):
 
 	seed_category_tree()
 	seed_category_presets()
-	seed_sample_batches()
+	if cint(seed_batches):
+		seed_sample_batches()  # demo stock/lots — skip for a real catalog import
 	frappe.db.commit()
 	print(f"Done. Created {created}, updated {updated} item(s). Price list: {DEFAULT_PRICE_LIST}.")
 	return {"created": created, "updated": updated}
+
+
+def import_catalog(csv_path=None):
+	"""Import a REAL product catalog (products + prices only — NO demo stock/lots). Reads the CSV
+	path from the CAGO_IMPORT_CSV env var when not passed, so it can run as a NO-ARG
+	`bench execute cago.setup.sample_data.import_catalog` (some bench versions can't pass --kwargs
+	reliably). Enter real stock afterwards via the Nhập hàng screen."""
+	csv_path = csv_path or os.environ.get("CAGO_IMPORT_CSV")
+	return import_sample_products(csv_path=csv_path, seed_batches=False)
 
 
 # Initial category presentation (icon + colour). This is editable DATA — owners can
@@ -157,6 +171,11 @@ CATEGORY_PRESETS = {
 	"Bạt / lưới / dây": ("🕸️", "#e7e5e4"),
 	"Ống / tưới tiêu": ("🚿", "#cffafe"),
 	"Bảo hộ (găng / ủng / khẩu trang)": ("🧤", "#e0f2fe"),
+	# Nông sản (bán theo cân: kg / yến / tạ / tấn)
+	"Nông sản": ("🌾", "#fef9c3"),
+	"Thóc / gạo": ("🌾", "#fef9c3"),
+	"Ngô / khoai": ("🌽", "#fef9c3"),
+	"Lạc / đậu": ("🥜", "#fef9c3"),
 	# Khác (tạp hoá)
 	"Tạp hoá": ("🛒", "#fce7f3"),
 }
@@ -169,37 +188,98 @@ CATEGORY_TREE = {
 	"Phân bón": ["Phân vô cơ", "Phân hữu cơ", "Phân vi sinh"],
 	"Hạt giống": ["Giống lúa", "Giống ngô", "Giống rau", "Giống đậu / lạc"],
 	"Thuốc bảo vệ thực vật": ["Thuốc trừ sâu bệnh", "Thuốc cỏ", "Thuốc chuột"],
+	"Nông sản": ["Thóc / gạo", "Ngô / khoai", "Lạc / đậu"],
 }
 
 
-def seed_category_tree():
-	"""Make the configured parent groups and re-parent their children (idempotent)."""
-	root = _ensure_root_item_group()
-	moved = False
-	for parent, children in CATEGORY_TREE.items():
-		if not frappe.db.exists("Item Group", parent):
-			frappe.get_doc(
-				{"doctype": "Item Group", "item_group_name": parent, "parent_item_group": root, "is_group": 1}
-			).insert(ignore_permissions=True)
-			moved = True
-		elif not frappe.db.get_value("Item Group", parent, "is_group"):
-			# An existing leaf category becoming a parent (e.g. "Cám chăn nuôi") must be a group node.
-			frappe.db.set_value("Item Group", parent, "is_group", 1)
-			moved = True
-		for child in children:
-			if frappe.db.exists("Item Group", child) and frappe.db.get_value("Item Group", child, "parent_item_group") != parent:
-				g = frappe.get_doc("Item Group", child)
-				g.parent_item_group = parent
-				g.is_group = 0
-				g.save(ignore_permissions=True)  # NestedSet recomputes lft/rgt
-				moved = True
-	if moved:
-		try:
-			from frappe.utils.nestedset import rebuild_tree
+# Bulk produce sold by weight. Stored with neutral math-style unit codes (see
+# cago.utils.dto.UOM_LABELS): kg10 = yến (10kg), kg100 = tạ (100kg), kg1000 = tấn (1000kg).
+# Every UI shows the Vietnamese label; the data layer only ever sees the code.
+PRODUCE_WEIGHT_UNITS = [("kg10", 10), ("kg100", 100), ("kg1000", 1000)]
+PRODUCE_SAMPLES = [
+	# (item_code, name, sub_group, price_per_kg, local_names, public_description)
+	("NS-GAO-TE", "Gạo tẻ", "Thóc / gạo", 18000, "gạo,gạo tẻ", "Gạo tẻ bán theo cân."),
+	("NS-THOC-KHO", "Thóc khô", "Thóc / gạo", 9000, "lúa,thóc", "Thóc khô, bán theo cân/yến/tạ/tấn."),
+	("NS-NGO-HAT", "Ngô hạt khô", "Ngô / khoai", 10000, "bắp,ngô,ngô hạt", "Ngô hạt khô."),
+	("NS-LAC-NHAN", "Lạc nhân", "Lạc / đậu", 38000, "đậu phộng,lạc,lạc nhân", "Lạc nhân (đậu phộng) đã bóc vỏ."),
+	("NS-DO-TUONG", "Đỗ tương", "Lạc / đậu", 25000, "đậu nành,đỗ tương,đậu tương", "Đỗ tương (đậu nành) khô."),
+]
 
-			rebuild_tree("Item Group")
-		except Exception:
-			pass
+
+def seed_produce_samples():
+	"""Create the 'Nông sản' tree + bulk-weight produce items sold by kg/yến/tạ/tấn (idempotent)."""
+	root = _ensure_root_item_group()
+	_ensure_flat_category("Nông sản", root, None)
+	for child in CATEGORY_TREE["Nông sản"]:
+		_ensure_flat_category(child, root, "Nông sản")
+
+	_ensure_uom("Kg")
+	for uom_code, _ in PRODUCE_WEIGHT_UNITS:
+		_ensure_uom(uom_code)
+
+	for code, name, grp, kg_price, locals_, desc in PRODUCE_SAMPLES:
+		_upsert_item(
+			{
+				"item_code": code,
+				"item_name": name,
+				"item_group": grp,
+				"stock_uom": "Kg",
+				"cago_display_name": name,
+				"cago_local_names": locals_,
+				"cago_public_description": desc,
+				"cago_use_cases": "Nông sản",
+				"cago_shelf_location": "Kho nông sản",
+				"cago_stock_status_manual": "Còn hàng",
+				"cago_is_public_visible": "1",
+			}
+		)
+		item = frappe.get_doc("Item", code)
+		for uom_code, factor in PRODUCE_WEIGHT_UNITS:
+			r = next((x for x in item.uoms if x.uom == uom_code), None)
+			if r:
+				r.conversion_factor = factor
+			else:
+				item.append("uoms", {"uom": uom_code, "conversion_factor": factor})
+		item.cago_show_retail_on_kiosk = 1  # show yến/tạ/tấn prices to customers
+		item.save(ignore_permissions=True)
+		_upsert_selling_price(code, kg_price, "Kg")
+		for uom_code, factor in PRODUCE_WEIGHT_UNITS:
+			_upsert_selling_price(code, kg_price * factor, uom_code)
+		print(f"  produce: {code} {name} {kg_price:,}đ/Kg (+ yến/tạ/tấn)")
+
+	seed_category_presets()
+	try:
+		from frappe.utils.nestedset import rebuild_tree
+
+		rebuild_tree("Item Group")
+	except Exception:
+		pass
+
+
+def _ensure_flat_category(name, root, parent=None):
+	"""Create (or normalise) a shop category as a flat is_group=0 leaf under the root, with its loại
+	cha set via cago_parent — the WordPress-style model (a category both holds products + can parent)."""
+	if not frappe.db.exists("Item Group", name):
+		frappe.get_doc(
+			{"doctype": "Item Group", "item_group_name": name, "parent_item_group": root, "is_group": 0}
+		).insert(ignore_permissions=True)
+	else:
+		if frappe.db.get_value("Item Group", name, "parent_item_group") != root or frappe.db.get_value("Item Group", name, "is_group"):
+			g = frappe.get_doc("Item Group", name)
+			g.parent_item_group, g.is_group = root, 0
+			g.save(ignore_permissions=True)
+	frappe.db.set_value("Item Group", name, "cago_parent", parent or None, update_modified=False)
+
+
+def seed_category_tree():
+	"""Seed the configured categories flat (is_group=0 under root) with the 2-level cago_parent
+	hierarchy (idempotent)."""
+	root = _ensure_root_item_group()
+	for parent, children in CATEGORY_TREE.items():
+		_ensure_flat_category(parent, root, None)
+		for child in children:
+			_ensure_flat_category(child, root, parent)
+	frappe.db.commit()
 
 
 def seed_category_presets():
@@ -244,7 +324,15 @@ def seed_sample_batches():
 					"expiry_date": add_days(nowdate(), days),
 				}
 			).insert(ignore_permissions=True)
-			print(f"  batch: {batch_id} (HSD +{days}d)")
+			# Receive a little stock into the lot so the chemical is sellable out of the box
+			# (selling a batch item needs a received lot — see cago.api.sales._assign_batch).
+			try:
+				from cago.api import purchasing
+
+				purchasing.receive_stock(item_code, 20, cost_rate=0, batch_no=batch_id)
+			except Exception:
+				pass
+			print(f"  batch: {batch_id} (HSD +{days}d, +20 tồn)")
 
 
 def _default_csv_path():

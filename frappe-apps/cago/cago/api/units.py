@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Multi-UOM retail selling (đa đơn vị bán lẻ).
 
@@ -18,15 +18,16 @@ from frappe import _
 from frappe.utils import cint, flt
 
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap, ensure_internal
 
 SELLING_PRICE_LIST = dto.SELLING_PRICE_LIST
 
 # Suggestions only — owner enters how many fit in one stock unit + the retail price.
+# (Yến/Tạ/Tấn are offered separately as one-tap "bigger unit" presets in the UI; they store
+# math-style codes kg10/kg100/kg1000 — see cago.utils.dto.UOM_LABELS.)
 RETAIL_PRESETS = [
 	{"uom": "Kg", "hint": "ki-lô-gam"},
 	{"uom": "Lạng", "hint": "100g (1 kg = 10 lạng)"},
-	{"uom": "Yến", "hint": "10 kg"},
 	{"uom": "Gói", "hint": ""},
 	{"uom": "Chai", "hint": ""},
 ]
@@ -67,13 +68,14 @@ def _upsert_price(item_code, uom, rate):
 @frappe.whitelist()
 def get_units(item_code):
 	"""All sale units for a product (stock unit + retail units) with prices."""
-	ensure_staff()
+	ensure_internal()
 	item = frappe.get_doc("Item", item_code)
 	stock_uom = item.stock_uom
 	main_rate = dto.get_selling_price(item_code)
 	units = [
 		{
 			"uom": stock_uom,
+			"label": dto.uom_label(stock_uom),
 			"is_stock": 1,
 			"units_per_stock": 1,
 			"rate": main_rate,
@@ -88,6 +90,7 @@ def get_units(item_code):
 		units.append(
 			{
 				"uom": row.uom,
+				"label": dto.uom_label(row.uom),
 				"is_stock": 0,
 				"conversion_factor": row.conversion_factor,
 				"units_per_stock": ups,
@@ -107,7 +110,7 @@ def get_units(item_code):
 def save_unit(item_code, uom, units_per_stock, price):
 	"""Add/update a sale unit. `units_per_stock` = how many of this unit in one stock
 	unit (e.g. 1 Bao = 25 Kg → 25). For the stock unit itself pass units_per_stock=1."""
-	ensure_owner()
+	ensure_cap("products")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	uom = (uom or "").strip()
@@ -151,7 +154,7 @@ def save_unit(item_code, uom, units_per_stock, price):
 
 @frappe.whitelist()
 def remove_unit(item_code, uom):
-	ensure_owner()
+	ensure_cap("products")
 	item = frappe.get_doc("Item", item_code)
 	if uom == item.stock_uom:
 		frappe.throw(_("Không thể xoá đơn vị tồn kho."))
@@ -170,7 +173,7 @@ def remove_unit(item_code, uom):
 
 @frappe.whitelist()
 def set_retail_visible(item_code, visible):
-	ensure_owner()
+	ensure_cap("products")
 	on = 1 if cint(visible) else 0
 	frappe.db.set_value("Item", item_code, "cago_show_retail_on_kiosk", on)
 	frappe.db.commit()

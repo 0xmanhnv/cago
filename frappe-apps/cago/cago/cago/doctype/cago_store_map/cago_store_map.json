@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "creation": "2026-06-02 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "issingle": 1,
+ "field_order": [
+  "is_published",
+  "section_size",
+  "width",
+  "height",
+  "section_floors",
+  "floors",
+  "section_points",
+  "kiosk_floor",
+  "kiosk_x",
+  "kiosk_y",
+  "column_break_points",
+  "entrance_floor",
+  "entrance_x",
+  "entrance_y",
+  "section_zones",
+  "zones",
+  "section_aisle",
+  "aisle"
+ ],
+ "fields": [
+  {
+   "fieldname": "is_published",
+   "fieldtype": "Check",
+   "label": "Hiển thị sơ đồ trên kiosk",
+   "default": "0"
+  },
+  {
+   "fieldname": "section_size",
+   "fieldtype": "Section Break",
+   "label": "Kích thước khung"
+  },
+  {
+   "fieldname": "width",
+   "fieldtype": "Float",
+   "label": "Rộng",
+   "default": "100"
+  },
+  {
+   "fieldname": "height",
+   "fieldtype": "Float",
+   "label": "Cao",
+   "default": "70"
+  },
+  {
+   "fieldname": "section_floors",
+   "fieldtype": "Section Break",
+   "label": "Tầng"
+  },
+  {
+   "fieldname": "floors",
+   "fieldtype": "Table",
+   "label": "Các tầng",
+   "options": "Cago Map Floor"
+  },
+  {
+   "fieldname": "section_points",
+   "fieldtype": "Section Break",
+   "label": "Điểm xuất phát"
+  },
+  {
+   "fieldname": "kiosk_floor",
+   "fieldtype": "Data",
+   "label": "Kiosk ở tầng"
+  },
+  {
+   "fieldname": "kiosk_x",
+   "fieldtype": "Float",
+   "label": "Kiosk X (Bạn đang ở đây)",
+   "default": "50"
+  },
+  {
+   "fieldname": "kiosk_y",
+   "fieldtype": "Float",
+   "label": "Kiosk Y",
+   "default": "60"
+  },
+  {
+   "fieldname": "column_break_points",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "entrance_floor",
+   "fieldtype": "Data",
+   "label": "Cửa vào ở tầng"
+  },
+  {
+   "fieldname": "entrance_x",
+   "fieldtype": "Float",
+   "label": "Cửa vào X (cho khách dùng điện thoại)",
+   "default": "50"
+  },
+  {
+   "fieldname": "entrance_y",
+   "fieldtype": "Float",
+   "label": "Cửa vào Y",
+   "default": "68"
+  },
+  {
+   "fieldname": "section_zones",
+   "fieldtype": "Section Break",
+   "label": "Khu vực (theo danh mục)"
+  },
+  {
+   "fieldname": "zones",
+   "fieldtype": "Table",
+   "label": "Khu vực",
+   "options": "Cago Map Zone"
+  },
+  {
+   "fieldname": "section_aisle",
+   "fieldtype": "Section Break",
+   "label": "Lối đi chính"
+  },
+  {
+   "fieldname": "aisle",
+   "fieldtype": "Table",
+   "label": "Điểm lối đi",
+   "options": "Cago Map Aisle Point"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-06-02 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cago",
+ "name": "Cago Store Map",
+ "owner": "Administrator",
+ "naming_rule": "",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1
+  },
+  {
+   "role": "Cago Owner",
+   "read": 1,
+   "write": 1,
+   "create": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Chốt ca / sổ quỹ — end-of-day cash reconciliation (owner-only).
 
@@ -14,13 +14,13 @@ from frappe.utils import flt
 from cago.api import debt, reports
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner
+from cago.utils.permissions import ensure_cap
 
 
 @frappe.whitelist()
 def today_summary():
 	"""Today's money split (cash drawer vs bank vs credit) for the chốt-ca screen."""
-	ensure_owner()
+	ensure_cap("cash")
 	ps = reports.payment_split("today")
 	return {
 		"cash": flt(ps["cash"]),
@@ -33,7 +33,7 @@ def today_summary():
 @frappe.whitelist()
 def day_close(counted_cash, opening_cash=0, payouts=0):
 	"""Reconcile the drawer: expected = opening + today cash sales − payouts vs counted."""
-	ensure_owner()
+	ensure_cap("cash")
 	cash_sales = flt(reports.payment_split("today")["cash"])
 	opening, payouts, counted = flt(opening_cash), flt(payouts), flt(counted_cash)
 	expected = opening + cash_sales - payouts

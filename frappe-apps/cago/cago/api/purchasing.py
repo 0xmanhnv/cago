@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Nhập hàng → tồn kho thật (real stock-in).
 
@@ -13,12 +13,12 @@ flow does) AFTER the owner guard passes — ERPNext stays the source of truth.
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap, ensure_internal, ensure_lang, is_owner
 from cago.utils.privileged import as_user
 
 
@@ -37,7 +37,7 @@ def get_stock(item_code):
 
 	For batch-tracked items also returns the batches, so stock-in can be assigned to a lô.
 	"""
-	ensure_staff()
+	ensure_internal()
 	has_batch = bool(frappe.db.get_value("Item", item_code, "has_batch_no"))
 	batches = []
 	if has_batch:
@@ -56,10 +56,12 @@ def get_stock(item_code):
 
 
 @frappe.whitelist()
-def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
+def receive_stock(item_code, qty, cost_rate=None, batch_no=None, invoiced=1, invoice_image=None):
 	"""Record incoming stock (Material Receipt). `cost_rate` = giá nhập per stock unit
-	(optional; sets valuation). Batch-tracked items require `batch_no`. Returns new on-hand."""
-	ensure_owner()
+	(optional; sets valuation). Batch-tracked items require `batch_no`. `invoiced` flags whether
+	this receipt had an official invoice (off-book portions still count as real stock+cost).
+	Returns new on-hand."""
+	ensure_cap("stock")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	qty = flt(qty)
@@ -93,6 +95,8 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 				"doctype": "Stock Entry",
 				"stock_entry_type": "Material Receipt",
 				"to_warehouse": warehouse,
+				"cago_invoiced": cint(invoiced),
+				"cago_invoice_image": invoice_image or None,
 				"items": [item],
 			}
 		)
@@ -100,8 +104,60 @@ def receive_stock(item_code, qty, cost_rate=None, batch_no=None):
 		se.submit()
 		entry = se.name
 
+	# Audit who received the stock — the Stock Entry is posted under Administrator (owner lacks
+	# Stock submit), so its `owner` is Administrator; this log keeps the real actor + qty/cost/lô.
+	qn = int(flt(qty)) if flt(qty) == int(flt(qty)) else round(flt(qty), 2)
+	note = f"Nhập {qn}{(' · giá vốn ' + dto.format_price(flt(cost_rate))) if cost_rate else ''}{(' · lô ' + batch_no) if batch_no else ''}"
+	record_action("Other", ref_doctype="Item", ref_name=item_code, new_value=note)
 	frappe.db.commit()  # commit as the real user, after restoring the session
 	return {"entry": entry, "qty": flt(dto.get_actual_qty(item_code))}
+
+
+@frappe.whitelist()
+def receive_history(start=0, limit=30):
+	"""Recent stock-ins (Material Receipts) with their saved invoice photo + có/không HĐ flag.
+	Stock staff may review the list, but giá vốn (the money columns) is shown ONLY to the owner —
+	a stock-cap staffer who needs receive/adjust must not read supplier cost."""
+	ensure_cap("stock")
+	show_cost = is_owner()
+	rows = frappe.get_all(
+		"Stock Entry",
+		filters={"stock_entry_type": "Material Receipt", "docstatus": 1},
+		fields=["name", "posting_date", "cago_invoiced", "cago_invoice_image", "total_incoming_value", "creation"],
+		order_by="creation desc",
+		limit=cint(limit),
+		limit_start=cint(start),
+	)
+	out = []
+	for r in rows:
+		dets = frappe.get_all(
+			"Stock Entry Detail",
+			filters={"parent": r.name},
+			fields=["item_code", "qty", "uom", "amount"],
+		)
+		lines = [
+			{
+				"name": frappe.db.get_value("Item", d.item_code, "cago_display_name") or frappe.db.get_value("Item", d.item_code, "item_name") or d.item_code,
+				"qty": flt(d.qty),
+				"uom": d.uom,
+				"amount_text": (dto.format_price(d.amount) if d.amount else "") if show_cost else "",
+			}
+			for d in dets
+		]
+		out.append(
+			{
+				"entry": r.name,
+				"date": str(r.posting_date),
+				"time": str(r.creation)[11:16],  # HH:MM so same-day receipts are distinguishable
+				"invoiced": bool(r.cago_invoiced),
+				"image": r.cago_invoice_image,
+				# Owner with no cost recorded → "" (no misleading "—"); staff never see cost.
+				"total_text": (dto.format_price(r.total_incoming_value) if r.total_incoming_value else "") if show_cost else "",
+				"lines": lines,
+				"count": len(lines),
+			}
+		)
+	return out
 
 
 @frappe.whitelist()
@@ -110,7 +166,7 @@ def adjust_stock(item_code, counted_qty, reason=None):
 
 	Uses ERPNext's Stock Reconciliation (the correct primitive — it books the delta against
 	stock adjustment). Owner-only; privileged submit (owner lacks Stock perms)."""
-	ensure_owner()
+	ensure_cap("stock")
 	ensure_lang()
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
@@ -145,3 +201,67 @@ def adjust_stock(item_code, counted_qty, reason=None):
 	record_action("Other", ref_doctype="Item", ref_name=item_code, old_value=before, new_value=counted)
 	frappe.db.commit()
 	return {"entry": sr.name, "before": before, "qty": flt(dto.get_actual_qty(item_code))}
+
+
+def _last_supplier(item_code):
+	"""Supplier of the most recent credit purchase of this item, so reorder suggestions can be
+	grouped by who the owner usually buys it from. Returns ('', '') when never purchased on credit."""
+	row = frappe.db.sql(
+		"""
+		select pi.supplier, pi.supplier_name
+		from `tabPurchase Invoice Item` pii
+		join `tabPurchase Invoice` pi on pi.name = pii.parent
+		where pii.item_code = %s and pi.docstatus = 1
+		order by pi.posting_date desc, pi.creation desc limit 1
+		""",
+		(item_code,),
+		as_dict=True,
+	)
+	return (row[0].supplier or "", row[0].supplier_name or row[0].supplier or "") if row else ("", "")
+
+
+@frappe.whitelist()
+def reorder_suggestions():
+	"""Gợi ý nhập hàng: MỌI mặt đang cảnh báo hết — auto ở/dưới mức đặt lại HOẶC mặt chủ tự đánh dấu
+	(Còn ít / Hết hàng / Sắp nhập) — kèm số lượng đề xuất và nhà cung cấp gần nhất. Khớp đúng với
+	'Cảnh báo hôm nay' để nút 'Nhập' không dẫn tới màn trống. Chỉ đọc; gom theo NCC. Không lộ giá vốn."""
+	ensure_cap("stock")
+	from cago.api.reports import LOW_STOCK_STATUSES
+
+	items = frappe.get_all(
+		"Item",
+		filters={"disabled": 0, "is_stock_item": 1, "has_variants": 0},
+		fields=["name", "item_name", "cago_display_name", "cago_stock_auto", "cago_reorder_level", "cago_stock_status_manual", "stock_uom", "cago_shelf_location"],
+	)
+	qty_map = dto.bin_qty_map([r.name for r in items])
+	out = []
+	for r in items:
+		qty = flt(qty_map.get(r.name, 0))
+		reorder = flt(r.cago_reorder_level)
+		if r.cago_stock_auto:
+			# Auto-tracked: needs attention when out of stock or at/under the reorder level.
+			if qty > 0 and not (reorder and qty <= reorder):
+				continue
+			suggest = max(reorder * 2 - qty, reorder) if reorder else 0
+		else:
+			# Manual: include only if the owner flagged it low; qty target is the owner's call (0 = "?").
+			if r.cago_stock_status_manual not in LOW_STOCK_STATUSES:
+				continue
+			suggest = 0
+		supplier, supplier_name = _last_supplier(r.name)
+		out.append(
+			{
+				"item_code": r.name,
+				"display_name": r.cago_display_name or r.item_name,
+				"on_hand": qty,
+				"on_hand_text": f"{qty:g} {r.stock_uom}",
+				"reorder_level": reorder,
+				"suggest_qty": suggest,
+				"uom": r.stock_uom,
+				"shelf_location": r.cago_shelf_location,
+				"supplier": supplier,
+				"supplier_name": supplier_name or "Chưa rõ NCC",
+			}
+		)
+	out.sort(key=lambda x: (x["supplier_name"], -x["reorder_level"]))
+	return out

@@ -6,6 +6,8 @@ import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
 import { useKioskNav } from "@/lib/kioskNav";
 import { CatThumb } from "./CatThumb";
+import { NavButtons } from "./NavButtons";
+import { PageLoading } from "@/components/ui/Loading";
 import type { Category, ProductCard } from "@/lib/types";
 
 type Sort = "default" | "price_asc" | "price_desc";
@@ -26,6 +28,7 @@ export function ProductList() {
   const q = sp.get("q") || "";
   const sort = (sp.get("sort") as Sort) || "default";
   const stockOnly = sp.get("stock") === "1";
+  const recoOnly = sp.get("reco") === "1"; // ⭐ show only "khuyên dùng"
 
   const [products, setProducts] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,15 +89,17 @@ export function ProductList() {
 
   // fetch when category or search term (from the URL) changes
   useEffect(() => {
+    let active = true; // ignore a stale response if category/q changed before it resolved
     setLoading(true);
     frappeCall<ProductCard[]>(
       "cago.api.kiosk.list_products",
       { category: category || null, query: q || null },
       { method: "GET" },
     )
-      .then((r) => setProducts(r || []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
+      .then((r) => { if (active) setProducts(r || []); })
+      .catch(() => { if (active) setProducts([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [category, q]);
 
   // keep the input in sync when the URL changes (e.g. browser Back)
@@ -113,17 +118,28 @@ export function ProductList() {
     tRef.current = setTimeout(() => setParams({ q: val.trim() || undefined }), 300);
   };
 
+  // In-page category switch (sidebar + chips). Use REPLACE, not push: switching the category chip
+  // is filtering the same screen, not a new destination — so it shouldn't pile up history entries
+  // (otherwise "Quay lại" would step through every chip the customer tried instead of returning to
+  // the screen that opened the list). Keep an explicit (empty) category= so the URL actually
+  // changes — pushing/replacing the bare "/products" with a stale ?category= is a no-op in the App
+  // Router, which is why "Tất cả" previously did nothing.
+  const switchCategory = (c: string) => {
+    router.replace(c ? `/products?category=${encodeURIComponent(c)}` : "/products?category=");
+  };
+
   const view = useMemo(() => {
     let arr = products;
     if (stockOnly) arr = arr.filter(inStock);
+    if (recoOnly) arr = arr.filter((p) => p.recommended);
     // Price-less items ("Liên hệ") always sort last, in BOTH directions.
     if (sort === "price_asc") arr = [...arr].sort((a, b) => (priceNum(a) ?? Infinity) - (priceNum(b) ?? Infinity));
     else if (sort === "price_desc") arr = [...arr].sort((a, b) => (priceNum(b) ?? -Infinity) - (priceNum(a) ?? -Infinity));
     return arr;
-  }, [products, sort, stockOnly]);
+  }, [products, sort, stockOnly, recoOnly]);
 
   // Reset the visible window whenever the result set changes (new category/search/filter/sort).
-  useEffect(() => setShown(30), [category, q, sort, stockOnly]);
+  useEffect(() => setShown(30), [category, q, sort, stockOnly, recoOnly]);
 
   // Auto load-more: when the bottom sentinel scrolls into view and there's more, reveal the next page.
   const visible = view.slice(0, shown);
@@ -140,7 +156,16 @@ export function ProductList() {
     return () => io.disconnect();
   }, [hasMore, shown, view.length]);
 
-  const title = category || (q.trim() ? `Tìm: ${q.trim()}` : "Tất cả");
+  // `category` is a slug → show the Vietnamese label from the loaded categories.
+  const catLabel = (slug: string): string => {
+    for (const t of cats) {
+      if (t.slug === slug) return t.category;
+      const c = (t.children || []).find((x) => x.slug === slug);
+      if (c) return c.category;
+    }
+    return slug;
+  };
+  const title = category ? catLabel(category) : q.trim() ? `Tìm: ${q.trim()}` : "Tất cả";
   const chip = (active: boolean) =>
     `flex-none whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-bold ${
       active ? "border-brand bg-brand text-white" : "border-emerald-300 bg-brand-light text-brand-dark"
@@ -152,7 +177,7 @@ export function ProductList() {
           without returning to the home screen. (On phones it's a chip strip in the sticky bar.)
           The <aside> itself is sticky + self-start so it stays put while the product list scrolls. */}
       <aside className="hidden lg:block lg:w-48 lg:shrink-0 lg:self-start lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:overflow-auto">
-        <CategoryNav variant="sidebar" cats={cats} active={category} onPick={(c) => nav.openList(c)} />
+        <CategoryNav variant="sidebar" cats={cats} active={category} onPick={switchCategory} />
       </aside>
 
       <div className="min-w-0 flex-1">
@@ -163,22 +188,23 @@ export function ProductList() {
         style={{ transform: hideBar ? "translateY(-115%)" : "translateY(0)" }}
       >
         <div className="mb-2.5 flex items-center gap-2.5">
-          <button onClick={nav.goHome} className="rounded-xl bg-brand-light px-4 py-2.5 text-lg font-extrabold text-brand-dark">
-            ← Trang chủ
-          </button>
+          <NavButtons />
           <div className="flex-1 truncate text-[22px] font-bold text-brand-dark">{title}</div>
         </div>
 
         <input
           value={qInput}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder={category ? `Tìm trong ${category}...` : "Tìm sản phẩm..."}
+          enterKeyHint="search" placeholder={category ? `Tìm trong ${catLabel(category)}...` : "Tìm sản phẩm..."}
           className="mb-2.5 w-full rounded-2xl border-2 border-emerald-200 bg-white p-3 text-lg shadow-soft outline-none transition focus:border-brand"
         />
         <div className="flex items-center gap-2">
-        <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
+        <div className="no-scrollbar flex flex-1 gap-2 overflow-x-auto pb-1">
           <button onClick={() => setParams({ stock: stockOnly ? undefined : "1" })} className={chip(stockOnly)}>
             ✅ Còn hàng
+          </button>
+          <button onClick={() => setParams({ reco: recoOnly ? undefined : "1" })} className={chip(recoOnly)}>
+            ⭐ Khuyên dùng
           </button>
           <button
             onClick={() => setParams({ sort: sort === "price_asc" ? undefined : "price_asc" })}
@@ -213,15 +239,15 @@ export function ProductList() {
         </div>
         {/* Phone: category chip strip (sidebar shows on tablet+) */}
         <div className="mt-2 lg:hidden">
-          <CategoryNav variant="chips" cats={cats} active={category} onPick={(c) => nav.openList(c)} />
+          <CategoryNav variant="chips" cats={cats} active={category} onPick={switchCategory} />
         </div>
       </div>
 
       {loading ? (
-        <div className="py-8 text-center text-slate-500">Đang tải...</div>
+        <PageLoading />
       ) : view.length === 0 ? (
         <div className="py-8 text-center text-slate-500">
-          {q.trim() || stockOnly ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm."}
+          {q.trim() || stockOnly || recoOnly ? "Không tìm thấy sản phẩm phù hợp." : "Không có sản phẩm."}
         </div>
       ) : viewMode === "list" ? (
         <div className="flex flex-col gap-2.5">
@@ -239,7 +265,7 @@ export function ProductList() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-[17px] font-extrabold text-brand-dark">{p.display_name}</span>
+                    <span title={p.display_name} className="line-clamp-2 text-[17px] font-extrabold text-brand-dark">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</span>
                     {p.is_chemical && <span className="rounded-full bg-harvest-light px-1.5 py-0.5 text-[11px] font-bold text-harvest-dark">⚠️</span>}
                   </div>
                   <div className={`text-sm font-semibold ${out ? "text-slate-400" : "text-brand/80"}`}>{p.stock_status}</div>
@@ -253,7 +279,7 @@ export function ProductList() {
           })}
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
           {visible.map((p, i) => {
             const out = !inStock(p);
             return (
@@ -277,7 +303,7 @@ export function ProductList() {
                   )}
                 </div>
                 <div className="flex flex-1 flex-col p-3">
-                  <div className="line-clamp-2 text-[17px] font-extrabold leading-snug text-brand-dark">{p.display_name}</div>
+                  <div className="line-clamp-2 text-[17px] font-extrabold leading-snug text-brand-dark">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</div>
                   <div className="mt-auto pt-2 text-xl font-extrabold text-brand">{p.price_text}</div>
                   <div className={`text-sm font-semibold ${out ? "text-slate-400" : "text-brand/80"}`}>{p.stock_status}</div>
                 </div>
@@ -317,26 +343,26 @@ function CategoryNav({
   active: string;
   onPick: (category: string) => void;
 }) {
-  // Which top-level branch is currently active (so we expand its children).
-  const isActiveBranch = (t: Category) => t.category === active || (t.children || []).some((c) => c.category === active);
+  // Which top-level branch is currently active (so we expand its children). `active` is a slug.
+  const isActiveBranch = (t: Category) => t.slug === active || (t.children || []).some((c) => c.slug === active);
 
   if (variant === "chips") {
     // Flat strip: All + top-level; expand the active branch's children right after their parent.
-    const strip: { category: string; icon: string; label: string; child?: boolean; on: boolean }[] = [
-      { category: "", icon: "🛒", label: "Tất cả", on: active === "" },
+    const strip: { slug: string; icon: string; label: string; child?: boolean; on: boolean }[] = [
+      { slug: "", icon: "🛒", label: "Tất cả", on: active === "" },
     ];
     for (const t of cats) {
-      strip.push({ category: t.category, icon: t.icon, label: t.category, on: t.category === active });
+      strip.push({ slug: t.slug, icon: t.icon, label: t.category, on: t.slug === active });
       if ((t.children?.length || 0) > 0 && isActiveBranch(t)) {
-        for (const c of t.children!) strip.push({ category: c.category, icon: c.icon, label: c.category, child: true, on: c.category === active });
+        for (const c of t.children!) strip.push({ slug: c.slug, icon: c.icon, label: c.category, child: true, on: c.slug === active });
       }
     }
     return (
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
         {strip.map((c) => (
           <button
-            key={`${c.child ? "c" : "p"}:${c.category || "__all"}`}
-            onClick={() => onPick(c.category)}
+            key={`${c.child ? "c" : "p"}:${c.slug || "__all"}`}
+            onClick={() => onPick(c.slug)}
             className={`flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-bold ${
               c.on ? "border-brand bg-brand text-white" : c.child ? "border-emerald-200 bg-emerald-50 text-brand-dark" : "border-emerald-200 bg-white text-brand-dark"
             }`}
@@ -381,13 +407,18 @@ function CategoryNav({
       <div className="px-2 pb-1 pt-1 text-xs font-bold uppercase tracking-wide text-slate-400">Loại hàng</div>
       <Row icon="🛒" label="Tất cả" on={active === ""} onClick={() => onPick("")} />
       {cats.map((t) => (
-        <div key={t.category}>
-          <Row icon={t.icon} label={t.category} count={t.count} on={t.category === active} onClick={() => onPick(t.category)} />
-          {(t.children?.length || 0) > 0 && isActiveBranch(t)
-            ? t.children!.map((c) => (
-                <Row key={c.category} icon={c.icon} label={c.category} count={c.count} on={c.category === active} child onClick={() => onPick(c.category)} />
-              ))
-            : null}
+        <div key={t.slug}>
+          <Row icon={t.icon} label={t.category} count={t.count} on={t.slug === active} onClick={() => onPick(t.slug)} />
+          {/* Children expand/collapse smoothly (grid-rows 0fr↔1fr animates height both ways). */}
+          {(t.children?.length || 0) > 0 && (
+            <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isActiveBranch(t) ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+              <div className="overflow-hidden">
+                {t.children!.map((c) => (
+                  <Row key={c.slug} icon={c.icon} label={c.category} count={c.count} on={c.slug === active} child onClick={() => onPick(c.slug)} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>

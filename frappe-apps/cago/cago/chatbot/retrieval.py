@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Role-aware retrieval over cago product data.
 
@@ -12,6 +12,7 @@ import re
 
 import frappe
 
+from cago.chatbot import deterministic
 from cago.utils import dto
 
 # Vietnamese stopwords for product search. Only NON-product words live here — never
@@ -53,22 +54,25 @@ _ROLE = {
 
 def _search_codes(message, public_only, k):
 	"""Phrase-first, then keyword search (accent-insensitive collation aware)."""
-	codes = dto.search_item_codes(message, public_only=public_only, limit=k)
-	if codes:
-		return codes
+	phrase = dto.search_item_codes(message, public_only=public_only, limit=k)
 	tokens = [t for t in re.split(r"\s+", (message or "").lower()) if len(t) >= 2 and t not in STOPWORDS]
-	if not tokens:
-		return []
+	# Single meaningful term → the phrase result is the answer.
+	if len(tokens) <= 1:
+		return phrase[:k]
+	# Multi-term query (e.g. "cám cho gà vịt lợn") → ALSO gather per-token hits and union them, so we
+	# don't return just the phrase's single top match and let the bot wrongly say "we don't have X".
+	# A wider per-token limit ensures each animal/topic contributes a few items.
 	scores = {}
 	for tok in tokens:
 		for c in dto.search_item_codes(tok, public_only=public_only, limit=k):
 			scores[c] = scores.get(c, 0) + 1
-	if not scores:
-		return []
-	top = max(scores.values())
-	if top < min(2, len(tokens)):
-		return []
-	return [c for c, s in sorted(scores.items(), key=lambda kv: kv[1], reverse=True) if s == top][:k]
+	token_codes = [c for c, _ in sorted(scores.items(), key=lambda kv: -kv[1])]
+	merged = []
+	for c in phrase + token_codes:
+		if c not in merged:
+			merged.append(c)
+	# Allow a few more than k for multi-topic queries so every topic is represented in the context.
+	return merged[: max(k, min(len(tokens) * 3, 10))]
 
 
 def search(role, message, k=5):
@@ -141,11 +145,22 @@ def resolve(role, message, focus_item=None, focus_category=None, k=5, history=No
 	  3. The conversation history — a follow-up ("2 bao") keeps the previous product
 	     so the chat stays coherent.
 	  4. The category being browsed (`focus_category`).
+
+	A CONTEXTUAL question ("loại nào rẻ hơn?", "còn hàng không?") asked while viewing a product or
+	category is answered ABOUT that focus — we skip the broad store-wide search so a vague compare/
+	availability question doesn't dredge up unrelated items. A message that names a specific product
+	is non-contextual, so it still wins via the global search.
 	"""
-	searched = search(role, message, k)
-	if searched:
-		return searched
 	public_only = role not in ("staff", "owner")
+	contextual = deterministic.is_contextual(message)
+	anchored = contextual and (focus_item or focus_category)
+
+	# Named product wins — unless this is a context-free question while something is on screen.
+	if not anchored:
+		searched = search(role, message, k)
+		if searched:
+			return searched
+
 	if focus_item:
 		if _wants_alternatives(message):
 			sibs = _category_siblings(role, focus_item, k, public_only)
@@ -164,4 +179,9 @@ def resolve(role, message, focus_item=None, focus_category=None, k=5, history=No
 		prods = _category_products(role, focus_category, k, public_only)
 		if prods:
 			return prods
+	# Anchored question whose focus yielded nothing → fall back to the global search now.
+	if anchored:
+		searched = search(role, message, k)
+		if searched:
+			return searched
 	return []

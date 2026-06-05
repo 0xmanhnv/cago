@@ -1,0 +1,36 @@
+# Cago — TLS reverse proxy (production). Used by the `caddy` service (profile "tls").
+#
+# SITE_DOMAIN (in .env) drives the site address:
+#   - A real domain (cago.example.com)  -> Caddy auto-obtains & renews a Let's Encrypt cert.
+#     Requirements: DNS A record points to this server, and ports 80 + 443 are open to the internet.
+#   - A bare IP (https://203.0.113.10)  -> Caddy serves its own self-signed/internal cert.
+#     Install Caddy's root CA on each device once (see docs/38) to remove the browser warning.
+#   - Unset                              -> defaults to :443 (serves HTTPS on the IP with internal cert).
+#
+# Everything proxies to the Next.js `web` service on the internal network.
+
+{
+	# Clients reach this server by bare IP, and TLS clients DON'T send SNI for an IP literal — so
+	# Caddy must serve the cert by default when no SNI is present, else the handshake fails with
+	# "no certificate available" (an internal_error alert). This is what makes browsers-by-IP work.
+	default_sni {$SITE_DOMAIN}
+}
+
+{$SITE_DOMAIN} {
+	encode gzip zstd
+
+	# Bare-IP / LAN deployments have no public domain, so use Caddy's built-in CA to issue a
+	# self-signed leaf. Install its root CA on each device once (docs/38) → trusted + camera works.
+	# (For a real public domain, set SITE_DOMAIN to it and REMOVE this line to get Let's Encrypt.)
+	tls internal
+
+	# WebSocket (Frappe realtime) + normal HTTP both proxy to the Next app, which fans out to Frappe.
+	reverse_proxy web:3000 {
+		header_up X-Forwarded-Proto https
+	}
+
+	# Upload size for product images / invoice photos.
+	request_body {
+		max_size 50MB
+	}
+}

@@ -73,6 +73,13 @@ export async function frappeCall<T = unknown>(
     } catch {
       /* ignore */
     }
+    // Session expired (401): the cookie is gone and our CSRF token is stale. Don't strand the
+    // user on a dead page with a confusing error — send them to a fresh login. Guest/bootstrap
+    // endpoints use allow_guest so they never 401, so this only fires for a lost protected session.
+    if (res.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      csrfToken = "";
+      window.location.href = "/login";
+    }
     throw new FrappeError(msg, res.status);
   }
   const json = await res.json();
@@ -100,6 +107,14 @@ export async function logout() {
     headers: { "X-Frappe-CSRF-Token": csrfToken },
   });
   csrfToken = ""; // stale after session ends; a fresh guest token is fetched on next bootstrap
+  // Clear the per-user offline caches (catalog + customers) so the next user on a shared tablet
+  // can't read them. Dynamic import avoids a static api↔offline cycle; the sale queue is kept.
+  try {
+    const { clearUserCaches } = await import("./offline/catalog");
+    await clearUserCaches();
+  } catch {
+    /* offline cache not available — nothing to clear */
+  }
 }
 
 // Multipart upload (product images) — Frappe's upload_file, returns file_url.

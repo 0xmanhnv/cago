@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """VietQR payment QR.
 
@@ -12,7 +12,7 @@ import urllib.parse
 
 import frappe
 
-from cago.utils.permissions import ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap
 from frappe.utils import cint, flt
 
 
@@ -34,7 +34,7 @@ def _bank():
 @frappe.whitelist()
 def get_bank():
 	"""Owner: current store bank config."""
-	ensure_owner()
+	ensure_cap("settings")
 	b = _bank()
 	b["configured"] = bool(b["bin"] and b["account"])
 	return b
@@ -43,7 +43,7 @@ def get_bank():
 @frappe.whitelist()
 def save_bank(bank_bin=None, account=None, account_name=None):
 	"""Owner: set the store bank account for VietQR."""
-	ensure_owner()
+	ensure_cap("settings")
 	c = _company()
 	frappe.db.set_value(
 		"Company",
@@ -61,7 +61,7 @@ def save_bank(bank_bin=None, account=None, account_name=None):
 @frappe.whitelist()
 def vietqr(amount=None, info=None):
 	"""Staff/owner: VietQR image URL for an amount (or open QR if amount omitted)."""
-	ensure_staff()
+	ensure_cap("sell")
 	b = _bank()
 	if not (b["bin"] and b["account"]):
 		return {"configured": False, "url": None}

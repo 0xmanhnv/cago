@@ -1,5 +1,7 @@
 # 10 — Chatbot / RAG Spec
 
+> ℹ️ **Implemented.** The chatbot is built (`cago/chatbot/*` + the kiosk assistant). This is the original design spec.
+
 ## 1. Decision
 
 Chatbot is optional P2, implemented with Python if needed.

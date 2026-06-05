@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Build a compact, role-safe context string + product cards from retrieved DTOs."""
 
@@ -22,7 +22,9 @@ def build(role, products):
 	blocks = []
 	for p in products:
 		_assert_safe(p)
-		lines = [f"- {p.get('display_name')} | Giá: {p.get('price_text')} | Tồn: {p.get('stock_status') or 'không rõ'}"]
+		lines = [f"- {p.get('display_name')} | Giá: {p.get('price_text')} | Tồn: {p.get('stock_status') or 'Còn hàng'}"]
+		if p.get("recommended"):
+			lines.append("  Khuyên dùng: ⭐ Có (cửa hàng ưu tiên giới thiệu loại này)")
 		if p.get("public_description"):
 			lines.append(f"  Mô tả: {p['public_description']}")
 		if p.get("use_cases"):

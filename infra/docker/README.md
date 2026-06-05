@@ -1,4 +1,4 @@
-# AgriMate — Docker setup
+# Cago — Docker setup
 
 Full ERPNext **v16** stack with the `cago` app baked into a custom image.
 Based on the official `frappe_docker` topology (separate backend / frontend /
@@ -58,18 +58,8 @@ docker compose restart backend scheduler queue-short queue-long websocket
 - **ERPNext v16 base image:** set `ERPNEXT_VERSION` in `.env` to a published v16 tag
   (`version-16` or a pinned `v16.x.x`). If no v16 image exists yet, use `develop`
   temporarily — but the target platform is v16.
-- **POS Awesome is NOT in this image.** Native POS (part of ERPNext) is the
-  mandatory fallback. POS Awesome is evaluated separately on a throwaway stack —
-  see `docs/20_POS_AWESOME_EVALUATION_NOTES.md` and `infra/docker/README.md`
-  section below.
+- **The POS is Cago-native (`/pos/sell`).** No external POS app is installed; ERPNext
+  native POS/Sales Invoice stays only as a back-end data fallback.
 - **Production hardening (later):** put HTTPS/reverse-proxy in front (Traefik or
   nginx), pin image digests, move secrets out of `.env` into a secret store, and
   schedule the `scripts/backup.sh` job offsite (see `docs/19_DEPLOYMENT_PLAN.md`).
-
-## Evaluating POS Awesome on a separate stack
-
-Do not add POS Awesome to the main image. To test it, build a throwaway variant
-image that adds the POS Awesome app, run it under a different compose project name
-(`-p agrimate-poseval`) and site, and fill in the checklist in
-`docs/20_POS_AWESOME_EVALUATION_NOTES.md`. Keep this image and stack separate so
-the evaluation never touches the pilot site.

@@ -1,11 +1,13 @@
-# 25 — Chatbot Architecture & Implementation Plan (DESIGN — not yet built)
+# 25 — Chatbot Architecture & Implementation Plan
 
-> Status: **DESIGN ONLY. Do not code until approved.**
+> ℹ️ **Implemented.** This architecture is built (`cago/chatbot/*`). Kept as the design document.
+> Since built, the LLM path also does **tool-calling** and a deterministic **store-facts**
+> layer answers shop-level questions (see docs/27). The standalone FastAPI prototype
+> (`services/cago_chatbot_service`) was **removed** — Option A is the only implementation.
+
 > Naming: the repo app is **`cago`** (module `Cago`, APIs under `cago.api.*`). The
-> brief's `cago_store` maps to `cago`. The visible brand stays "AgriMate".
-> Builds on existing: `cago.utils.dto` (role-filtered DTOs), `cago.api.{kiosk,staff,owner}`,
-> and the current `services/cago_chatbot_service` (deterministic prototype) which this
-> design supersedes/absorbs.
+> brief's `cago_store` maps to `cago`. The visible brand stays "Cago".
+> Builds on existing: `cago.utils.dto` (role-filtered DTOs) and `cago.api.{kiosk,staff,owner}`.
 
 ---
 
@@ -22,16 +24,14 @@
   - ✅ LLM adapters are pure-Python (httpx), import-free of Frappe → independently testable.
   - ⚠️ Outbound LLM calls run in a web worker → must enforce hard timeouts; heavy
     concurrency later can move to background/gateway.
-- **Option B: standalone FastAPI service** (today's `cago_chatbot_service`).
+- **Option B (REJECTED): standalone FastAPI service.**
   - ✅ Isolation/scaling, easy SSE streaming.
   - ❌ Must re-implement auth + role propagation; tends to hit only the public kiosk API →
     weak for staff/owner sensitive data. Higher risk for requirement #6.
 
-**Recommendation:** Option A as the canonical backend. Keep an **optional thin FastAPI
-gateway** (the existing service, repurposed) only as an edge for streaming/rate-limiting
-that *proxies to the whitelisted endpoints carrying the user session* — it never imports
-`cago` and never sees the DB. The LLM-provider and safety logic live in one shared
-`cago/chatbot/` package so there is exactly one source of truth.
+**Decision:** Option A is the canonical (and only) backend. The earlier standalone prototype
+was removed. The LLM-provider and safety logic live in one shared `cago/chatbot/` package so
+there is exactly one source of truth.
 
 The rest of this document assumes Option A.
 
@@ -118,8 +118,6 @@ frappe-apps/cago/cago/
     test_chatbot_safety.py
     test_chatbot_nodata.py
     test_chatbot_provider_switch.py
-
-services/cago_chatbot_service/  # OPTIONAL edge gateway (proxy + SSE), retire if unused
 ```
 
 Rule: **no product knowledge in `providers/`**; no LLM calls in UI; no DB calls in
@@ -183,8 +181,9 @@ class LLMProvider(ABC):
 ```
 
 - Common `Message` list in, normalized `LLMResult` out → business logic is provider-blind.
-- `tools` is accepted for future function-calling but **unused in MVP** (retrieval happens
-  before the LLM, so the model needs no DB tools).
+- `tools` carries function-calling schemas. **Now implemented** (`cago/chatbot/tools.py` +
+  the agent loop): the model reads the store on demand (categories/search/product/location/
+  best-sellers) through role-safe DTOs, instead of one pre-fetched retrieval guess.
 - Errors normalized to `LLMError` (timeout, auth, rate-limit, server) so the orchestrator
   can trigger fallback uniformly.
 
@@ -385,8 +384,8 @@ Precedence: **env var > Frappe Site Config > default**. Keys:
 - **M-C4 — UI integration (Frappe-native):** chat panel (vanilla JS) on `/kiosk`
   ("Hỏi trợ lý") and `/staff`; renders answer_text + product_cards + safety_warnings +
   "Gọi người bán" when `needs_staff_help`.
-- **M-C5 — Hardening/scale:** fallback verified, rate limiting on guest, optional FastAPI
-  gateway for SSE streaming, load/latency check, retire standalone prototype.
+- **M-C5 — Hardening/scale:** fallback verified, rate limiting on guest, load/latency check.
+  (The standalone FastAPI prototype was retired/removed.)
 
 ---
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Developer diagnostics — run write APIs as a real (non-admin) role to surface
 permission bugs that Administrator would mask.
@@ -48,19 +48,17 @@ def count_search_queries():
 def check_owner_writes(owner_user="owner@cago.test"):
 	"""Exercise owner-only write paths as `owner_user` (default Cago Owner)."""
 	from cago.api import debt, owner, reports
+	from cago.utils.privileged import as_user
 
-	prev = frappe.session.user
 	results = []
-	try:
-		frappe.set_user(owner_user)
+	# Session-safe impersonation (never raw frappe.set_user, which can log the real user out).
+	with as_user(owner_user):
 		cust = frappe.db.get_value("Customer", {"customer_name": "Bác Lan"}, "name")
 		results.append(("user", "INFO", f"{frappe.session.user} roles={frappe.get_roles()}"))
 		_try("record_repayment", lambda: debt.record_repayment(cust, 50000)["outstanding_text"], results)
 		_try("record_debt", lambda: debt.record_debt(cust, 80000)["outstanding_text"], results)
 		_try("update_price", lambda: owner.update_price("NPK-16-16-8-A", 460000)["new_price_text"], results)
 		_try("debt_list", lambda: len(reports.debt_list()), results)
-	finally:
-		frappe.set_user(prev)
 
 	for label, status, detail in results:
 		print(f"  [{status}] {label}: {detail}")

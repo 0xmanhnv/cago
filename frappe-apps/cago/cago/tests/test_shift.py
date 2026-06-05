@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Till shift (mở/đóng ca + đếm két): per-cashier cash reconciliation.
 
@@ -85,3 +85,32 @@ class TestTillShift(FrappeTestCase):
 		self.assertFalse(closed["match"])
 		self.assertFalse(closed["over"])
 		self.assertAlmostEqual(closed["diff"], -1000, places=2)
+
+	def test_blind_close_hides_expected_from_cashier_but_not_owner(self):
+		"""A cashier flagged cago_blind_shift_close counts the drawer 'blind' — their shift view omits
+		expected/cash_sales/diff (anti-fraud) — while the owner still sees the variance."""
+		from cago.api import shift
+
+		email = "_test_blind_cashier@example.com"
+		if not frappe.db.exists("User", email):
+			frappe.get_doc({"doctype": "User", "email": email, "first_name": "Blind", "send_welcome_email": 0}).insert(ignore_permissions=True)
+		frappe.get_doc("User", email).add_roles("Cago Sell")
+		frappe.db.set_value("User", email, "cago_blind_shift_close", 1)
+		for n in frappe.get_all("Cago Till Shift", filters={"cashier": email, "status": "Open"}, pluck="name"):
+			frappe.db.set_value("Cago Till Shift", n, "status", "Closed")
+
+		frappe.set_user(email)
+		try:
+			shift.open_shift(opening_cash=100000)
+			cur = shift.current_shift()
+			self.assertTrue(cur.get("blind"))
+			self.assertNotIn("expected", cur)  # cashier can't see what the drawer SHOULD hold
+			self.assertNotIn("cash_sales", cur)
+		finally:
+			frappe.set_user("Administrator")
+
+		# Owner viewing the same shift DOES see the figures.
+		name = frappe.get_all("Cago Till Shift", filters={"cashier": email, "status": "Open"}, pluck="name")[0]
+		owner_view = shift._shift_dto(frappe.get_doc("Cago Till Shift", name))
+		self.assertFalse(owner_view["blind"])
+		self.assertIn("expected", owner_view)

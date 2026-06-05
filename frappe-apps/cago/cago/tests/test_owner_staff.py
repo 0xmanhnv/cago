@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Tests for owner/staff write features (product create/edit, customer, wanted-list
 status, zalo drafts, period reports). db.commit is muted so each test stays isolated."""

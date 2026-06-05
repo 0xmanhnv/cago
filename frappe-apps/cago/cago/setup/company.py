@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """One-time accounting/company setup for a bare ERPNext site.
 
@@ -11,7 +11,7 @@ and native POS need them, so this runs the official setup wizard once, idempoten
 
 import frappe
 
-COMPANY_NAME = "AgriMate Store"
+COMPANY_NAME = "Minh Tuyết"
 COMPANY_ABBR = "AS"
 
 
@@ -63,11 +63,11 @@ def ensure_company():
 
 def _apply_store_settings():
 	"""Store-friendly defaults: login by phone (rural users have phones, not email),
-	no public signup, AgriMate brand on the login page, and VND number formatting
+	no public signup, Minh Tuyết brand on the login page, and VND number formatting
 	(no decimals, dot thousands → 1.234.567đ — đồng has no sub-unit)."""
 	frappe.db.set_single_value("System Settings", "allow_login_using_mobile_number", 1)
 	# VND has no fractional unit. fmt_money(currency=) reads the GLOBAL DEFAULTS, so set both
-	# the Single and the default (POS Awesome + ERPNext desk then show "320.000" not "320.000,00";
+	# the Single and the default (ERPNext desk + print then show "320.000" not "320.000,00";
 	# Cago's own /staff/sell already formats VND manually).
 	frappe.db.set_single_value("System Settings", "number_format", "#.###")
 	frappe.db.set_single_value("System Settings", "currency_precision", 0)
@@ -78,6 +78,15 @@ def _apply_store_settings():
 		frappe.db.set_single_value("Website Settings", "disable_signup", 1)
 	except Exception:
 		pass
+	# Allow selling past on-hand: rural shops' system stock often lags reality (a bag is
+	# physically there even when the count shows 0). The POS warns the staff up-front, but the
+	# sale must still go through — so permit negative stock instead of failing at payment time.
+	frappe.db.set_single_value("Stock Settings", "allow_negative_stock", 1)
+	# Batch/HSD items (chemicals): use the simple batch_no field on rows + activate the batch
+	# system so the POS can auto-assign a lot (FEFO) without the Serial-and-Batch-Bundle dance.
+	frappe.db.set_single_value("Stock Settings", "use_serial_batch_fields", 1)
+	frappe.db.set_single_value("Stock Settings", "enable_serial_and_batch_no_for_item", 1)
+	frappe.db.set_single_value("Stock Settings", "allow_negative_stock_for_batch", 1)
 	frappe.db.commit()
 
 
@@ -107,7 +116,7 @@ def _ensure_pos_profile():
 	profile = frappe.get_doc(
 		{
 			"doctype": "POS Profile",
-			"name": "AgriMate POS",
+			"name": "Minh Tuyết POS",
 			"company": company,
 			"warehouse": warehouse,
 			"currency": "VND",
@@ -138,7 +147,7 @@ def ensure_payment_modes():
 	company = frappe.get_all("Company", pluck="name")[0]
 	bank_mode = "Chuyển khoản"
 
-	# Localize the default cash mode: POS Awesome shows the Mode of Payment record name raw
+	# Localize the default cash mode: the ERPNext POS shows the Mode of Payment record name raw
 	# (not via __()), so the only way it reads "Tiền mặt" instead of "Cash" is to rename the
 	# record. ERPNext ships a "Cash" mode (type Cash) on company setup; rename it once.
 	if frappe.db.exists("Mode of Payment", "Cash") and not frappe.db.exists("Mode of Payment", "Tiền mặt"):
@@ -178,8 +187,8 @@ def ensure_payment_modes():
 	if profile_name:
 		prof = frappe.get_doc("POS Profile", profile_name)
 		# Resolve the cash mode by TYPE, not the literal name "Cash" — it is renamed to the
-		# Vietnamese "Tiền mặt" so the POS shows a Vietnamese method name (POS Awesome renders the
-		# mode_of_payment record name raw, not via __()).
+		# Vietnamese "Tiền mặt" so the POS shows a Vietnamese method name (the ERPNext POS renders
+		# the mode_of_payment record name raw, not via __()).
 		cash_mode = frappe.db.get_value("Mode of Payment", {"type": "Cash"}, "name") or "Tiền mặt"
 		existing = {p.mode_of_payment for p in prof.payments}
 		changed = False

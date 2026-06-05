@@ -1,15 +1,17 @@
 # ERPNext Agri Store Starter Pack v4
 
-Bộ tài liệu này dùng để bắt đầu xây dựng **AgriMate** — hệ thống bán hàng cho cửa hàng vật tư nông nghiệp ở nông thôn Việt Nam.
+Bộ tài liệu này dùng để bắt đầu xây dựng **Cago** — hệ thống bán hàng cho cửa hàng vật tư nông nghiệp ở nông thôn Việt Nam.
+
+> 📚 **Mục lục tài liệu đầy đủ (chia 2 bộ sử dụng / kỹ thuật):** [`docs/00_INDEX.md`](docs/00_INDEX.md). Hướng dẫn cho chủ & nhân viên: [`docs/user/`](docs/user/). Triển khai thật: [`docs/38_GO_LIVE_RUNBOOK.md`](docs/38_GO_LIVE_RUNBOOK.md).
 
 ## Quyết định mới trong v4
 
-- Product name: **AgriMate**
+- Product name: **Cago**
 - Repository: `agrimate`
 - Custom Frappe app: `cago`
 - MVP UI: **Frappe-native pages + Jinja/HTML + Vanilla JS + simple CSS**
 - Phase 2 standalone kiosk: **Next.js + React + TypeScript + Tailwind + Radix/shadcn** nếu thật sự cần
-- POS: **POS Awesome V15 recommended evaluation**, nhưng **ERPNext native POS mandatory fallback**
+- POS: **Cago-native `/pos/sell`** (ERPNext native POS/Sales Invoice chỉ là fallback dữ liệu)
 - Auxiliary services: **Python only**, không dùng Go
 
 ## Các file kỹ thuật mới
@@ -33,8 +35,8 @@ Hướng chính:
 ```text
 ERPNext / Frappe
   + custom Frappe app: cago
-  + ERPNext native POS fallback
-  + POS Awesome V15 as recommended evaluation POS UI
+  + Cago-native /pos/sell (the only POS)
+  + ERPNext native POS kept as a back-end data fallback only
   + Python-only auxiliary services
 ```
 
@@ -42,8 +44,7 @@ ERPNext / Frappe
 
 - `cago` là lõi custom nghiệp vụ của cửa hàng.
 - ERPNext là hệ thống quản lý chuẩn: sản phẩm, giá, kho, khách, công nợ, bán hàng, nhập hàng, báo cáo.
-- POS Awesome V15 có thể dùng làm giao diện POS chính nếu test pass.
-- ERPNext native POS luôn phải giữ làm fallback.
+- POS là **Cago-native `/pos/sell`** (Next.js). ERPNext native POS/Sales Invoice chỉ giữ làm fallback dữ liệu.
 - Không dùng Go trong kiến trúc này. Nếu cần service ngoài, dùng Python.
 - Không bắt mẹ/chủ cửa hàng dùng ERPNext gốc hằng ngày. Làm UI đơn giản riêng.
 
@@ -53,18 +54,17 @@ ERPNext / Frappe
 |---|---|
 | `CLAUDE.md` | Chỉ dẫn chính cho Claude Code |
 | `prompts/MASTER_PROMPT_FOR_CLAUDE_CODE.md` | Prompt bắt đầu dự án |
-| `prompts/POS_AWESOME_EVALUATION_PROMPT.md` | Prompt đánh giá POS Awesome V15 |
 | `docs/01_PRD.md` | Yêu cầu sản phẩm |
 | `docs/02_ARCHITECTURE.md` | Kiến trúc tổng thể |
 | `docs/03_ERPNEXT_CAPABILITY_MAP.md` | ERPNext làm được gì sẵn/cần custom gì |
-| `docs/04_POS_STRATEGY.md` | Chiến lược POS: native fallback + POS Awesome V15 |
+| `docs/04_POS_STRATEGY.md` | Chiến lược POS (Cago-native) |
 | `docs/05_PYTHON_SERVICE_STRATEGY.md` | Chiến lược service phụ trợ bằng Python |
 | `docs/06_ERPNEXT_CUSTOMIZATION.md` | Kế hoạch custom Frappe |
 | `docs/07_DATA_MODEL.md` | Data model/custom fields/DTO |
-| `docs/08_OWNER_STAFF_UI_SPEC.md` | UI đơn giản cho mẹ/chủ cửa hàng và nhân viên |
+| `docs/archive/08_OWNER_STAFF_UI_SPEC.md` | UI đơn giản cho mẹ/chủ cửa hàng và nhân viên |
 | `docs/09_KIOSK_APP_SPEC.md` | UI tablet/kiosk cho khách |
 | `docs/10_CHATBOT_RAG_SPEC.md` | Chatbot an toàn |
-| `docs/11_IMPLEMENTATION_BACKLOG.md` | Backlog theo milestone |
+| `docs/archive/11_IMPLEMENTATION_BACKLOG.md` | Backlog theo milestone |
 | `docs/12_SECURITY_AND_SAFETY.md` | Bảo mật, phân quyền, an toàn thuốc |
 | `docs/13_TEST_PLAN.md` | Test plan |
 | `docs/14_OPERATIONS_AND_TRAINING.md` | Vận hành, đào tạo mẹ dùng, backup |
@@ -75,8 +75,8 @@ ERPNext / Frappe
 
 1. Không sửa ERPNext core.
 2. `cago` chứa business-specific logic.
-3. POS Awesome V15 được test như một module POS UI; không đặt dữ liệu nghiệp vụ cốt lõi vào nó.
-4. Native POS luôn còn dùng được.
+3. POS là Cago-native `/pos/sell`; không đặt dữ liệu nghiệp vụ cốt lõi vào riêng POS.
+4. ERPNext native POS/Sales Invoice giữ làm fallback dữ liệu.
 5. Toàn bộ auxiliary services dùng Python.
 6. Kiosk chỉ đọc public-safe API.
 7. Staff không thấy giá nhập/lợi nhuận.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Daily backup helper for an AgriMate site (database + uploaded files/images).
+# Daily backup helper for an Cago site (database + uploaded files/images).
 # Run from your frappe-bench directory.
 #
 #   ./scripts/backup.sh mysite.local

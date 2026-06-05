@@ -1,4 +1,4 @@
-# AgriMate — full ERPNext v16 stack with the cago app baked in.
+# Cago — full ERPNext v16 stack with the cago app baked in.
 #
 #   cd infra/docker
 #   cp .env.example .env          # adjust passwords / ports / site name
@@ -24,6 +24,13 @@ x-app-image: &app_image
 x-bench-volumes: &bench_volumes
   - sites:/home/frappe/frappe-bench/sites
   - logs:/home/frappe/frappe-bench/logs
+
+# Same as bench volumes + a host folder the daily backup mirrors to (cago.setup.backup). Repoint
+# the left side to a real offsite mount (USB/NAS/Drive-synced dir) for true off-machine backups.
+x-bench-volumes-offsite: &bench_volumes_offsite
+  - sites:/home/frappe/frappe-bench/sites
+  - logs:/home/frappe/frappe-bench/logs
+  - ./backups/offsite:/offsite
 
 services:
   # --- one-shot: write common_site_config (db + redis) -----------------------
@@ -78,12 +85,17 @@ services:
         --install-app cago
         --set-default
         "$$SITE_NAME";
-        bench --site "$$SITE_NAME" execute cago.setup.company.ensure_company;
-        bench --site "$$SITE_NAME" execute cago.setup.sample_data.import_sample_products
+        bench --site "$$SITE_NAME" execute cago.setup.seed.seed_baseline;
+        if [ "$$LOAD_SAMPLE_DATA" = "1" ]; then
+          bench --site "$$SITE_NAME" execute cago.setup.sample_data.import_sample_products;
+        else
+          echo "LOAD_SAMPLE_DATA != 1 — EMPTY catalog (production). Baseline (company/price/categories) is already seeded; import real products via docs/user/NHAP_DU_LIEU_CSV.md";
+        fi
     environment:
       SITE_NAME: ${SITE_NAME:-agrimate.localhost}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-admin}
+      LOAD_SAMPLE_DATA: ${LOAD_SAMPLE_DATA:-1}  # 1 = seed demo products (dev); 0 = clean (production)
     volumes: *bench_volumes
     depends_on:
       configurator:
@@ -104,7 +116,9 @@ services:
       - --timeout=120
       - --preload
       - frappe.app:application
-    volumes: *bench_volumes
+    environment:
+      CAGO_BACKUP_OFFSITE_DIR: /offsite
+    volumes: *bench_volumes_offsite
     depends_on:
       create-site:
         condition: service_completed_successfully
@@ -122,7 +136,9 @@ services:
     <<: *app_image
     restart: unless-stopped
     command: ["bench", "schedule"]
-    volumes: *bench_volumes
+    environment:
+      CAGO_BACKUP_OFFSITE_DIR: /offsite
+    volumes: *bench_volumes_offsite
     depends_on:
       create-site:
         condition: service_completed_successfully
@@ -183,8 +199,10 @@ services:
     depends_on:
       frontend:
         condition: service_started
+    # Dev/LAN: published on all interfaces (0.0.0.0). In production behind Caddy (TLS), set
+    # HTTP_PUBLISH_BIND=127.0.0.1 so only Caddy (443) is reachable from the network, not plain HTTP.
     ports:
-      - "${HTTP_PUBLISH_PORT:-8080}:3000"
+      - "${HTTP_PUBLISH_BIND:-0.0.0.0}:${HTTP_PUBLISH_PORT:-8080}:3000"
 
   # --- datastores ------------------------------------------------------------
   db:
@@ -218,24 +236,9 @@ services:
     volumes:
       - redis-queue-data:/data
 
-  # Optional Python chatbot (docs/10). Opt-in: `docker compose --profile chatbot up -d`.
-  chatbot:
-    build:
-      context: ../../services/cago_chatbot_service
-      dockerfile: Dockerfile
-    image: cago/chatbot:v1
-    restart: unless-stopped
-    profiles: ["chatbot"]
-    environment:
-      ERPNEXT_URL: http://frontend:8080
-    ports:
-      - "${CHATBOT_PUBLISH_PORT:-8100}:8100"
-    depends_on:
-      frontend:
-        condition: service_started
-
   # Optional daily backup (DB + files). Opt-in: `docker compose --profile backup up -d`.
-  # Backups land in the sites volume (sites/<site>/private/backups); copy them offsite.
+  # Writes straight to /offsite (mapped to ./backups/offsite — repoint this to a USB/NAS/Drive-synced
+  # dir for true off-machine safety) and prunes anything older than BACKUP_KEEP_DAYS.
   backup:
     <<: *app_image
     restart: unless-stopped
@@ -244,16 +247,39 @@ services:
     command:
       - >
         while true; do
-          bench --site "$$SITE_NAME" backup --with-files --backup-path /home/frappe/frappe-bench/sites/$$SITE_NAME/private/backups || true;
+          bench --site "$$SITE_NAME" backup --with-files --backup-path /offsite || true;
+          find /offsite -type f -mtime +$${BACKUP_KEEP_DAYS:-14} -delete 2>/dev/null || true;
           sleep "$${BACKUP_INTERVAL:-86400}";
         done
     environment:
       SITE_NAME: ${SITE_NAME:-agrimate.localhost}
       BACKUP_INTERVAL: ${BACKUP_INTERVAL:-86400}
-    volumes: *bench_volumes
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes: *bench_volumes_offsite
     depends_on:
       db:
         condition: service_healthy
+
+  # Optional TLS reverse proxy (production). Opt-in: `docker compose --profile tls up -d caddy`.
+  # SITE_DOMAIN = a real domain → Caddy auto-obtains a Let's Encrypt cert (needs DNS → this server
+  # + ports 80/443 open). SITE_DOMAIN = a bare IP → Caddy serves a self-signed/internal cert
+  # (install Caddy's root CA on devices once). Either way it terminates HTTPS in front of `web`.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["tls"]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-:443}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      web:
+        condition: service_started
 
 volumes:
   sites:
@@ -261,3 +287,5 @@ volumes:
   db-data:
   redis-cache-data:
   redis-queue-data:
+  caddy-data:
+  caddy-config:

@@ -13,6 +13,46 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Always reserve the scrollbar gutter so the layout doesn't shift left/right when a page
+   grows/shrinks past one viewport (e.g. switching a category with many vs few products). */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Press feedback EVERYWHERE: rural / low-tech users need to feel a tap registered. Every button,
+   link and role=button springs in slightly + dims on press (and no blue iOS tap-highlight box).
+   Applied in the base layer so component utility classes can still override per-element. */
+@layer base {
+  button,
+  a,
+  [role="button"],
+  label,
+  summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled),
+  a[href],
+  [role="button"] {
+    transition: transform 0.09s ease, filter 0.09s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+  button:not(:disabled):active,
+  a[href]:active,
+  [role="button"]:active {
+    transform: scale(0.97);
+    filter: brightness(0.94);
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button:active,
+    a[href]:active,
+    [role="button"]:active {
+      transform: none;
+    }
+  }
+}
+
 /* Soft sunny-field gradient: pale sky → fresh leaf, fixed so it doesn't scroll. */
 body {
   font-size: 17px;
@@ -22,6 +62,19 @@ body {
     linear-gradient(180deg, #f4fbf5 0%, #ecf9ee 100%);
   background-attachment: fixed;
   min-height: 100vh;
+}
+
+/* iOS Safari auto-zooms when a focused form control has font-size < 16px — and often fails to zoom
+   back out when the keyboard hides, leaving the layout shifted. Several screens use Tailwind text-sm
+   (14px) / text-xs inputs. Force ALL form controls to ≥16px on touch devices so NO input anywhere can
+   trigger the zoom (one rule = whole-app fix). Scoped to coarse pointers so desktop keeps compact
+   inputs; !important to win over Tailwind's text-sm/text-xs utility classes. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 /* ============================================================================
@@ -41,9 +94,70 @@ body {
     @apply flex min-h-[88px] items-center justify-center gap-2 rounded-2xl p-3 text-center text-[19px] font-extrabold text-white shadow-soft transition hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97];
   }
   .mt-backbtn {
-    @apply rounded-2xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark transition active:scale-[0.97];
+    @apply shrink-0 whitespace-nowrap rounded-2xl bg-brand-light px-4 py-3 text-lg font-extrabold text-brand-dark transition active:scale-[0.97];
   }
   .mt-title {
     @apply text-xl font-extrabold text-brand-dark;
   }
+}
+
+@layer utilities {
+  /* Hide the scrollbar on horizontal chip strips (still scrollable by touch/drag/wheel). */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* iOS-style "wobble" to signal that tiles are editable (arrange mode on the owner home). */
+  @keyframes jiggle {
+    0% { transform: rotate(-0.9deg); }
+    50% { transform: rotate(0.9deg); }
+    100% { transform: rotate(-0.9deg); }
+  }
+  .animate-jiggle {
+    animation: jiggle 0.28s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-jiggle { animation: none; }
+  }
+  /* Wrong-PIN feedback: a short horizontal shake on the dots. */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-7px); }
+    40%, 80% { transform: translateX(7px); }
+  }
+  .animate-shake {
+    animation: shake 0.4s ease-in-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-shake { animation: none; }
+  }
+  /* Toast: slide down from the top edge + fade in (iPhone-banner style). */
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+  .animate-toast-in {
+    animation: toast-in 0.22s ease-out;
+  }
+}
+
+/* Kiosk hardening (added to <body> only on a fixed-kiosk device — see useKioskLockdown):
+   no text selection / long-press callout / pinch-zoom; inputs stay editable. */
+.kiosk-locked,
+.kiosk-locked * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.kiosk-locked input,
+.kiosk-locked textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.kiosk-locked {
+  overscroll-behavior: none;
+  touch-action: pan-x pan-y;
 }

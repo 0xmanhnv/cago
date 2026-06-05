@@ -14,22 +14,28 @@ import argparse
 import subprocess
 import sys
 
-TARGET = "cago.setup.sample_data.import_sample_products"
+# Real catalog import = products + prices only (NO demo stock). Demo seeding lives in
+# import_sample_products (used by create-site when LOAD_SAMPLE_DATA=1).
+TARGET = "cago.setup.sample_data.import_catalog"
 
 
 def main():
-	parser = argparse.ArgumentParser(description="Import AgriMate sample products.")
+	parser = argparse.ArgumentParser(description="Import a real product catalog into a Cago site (no demo stock).")
 	parser.add_argument("--site", required=True, help="Frappe site name")
 	parser.add_argument("--csv", help="Absolute path to a products CSV (optional)")
 	parser.add_argument("--bench", default=".", help="Path to frappe-bench dir (default: cwd)")
 	args = parser.parse_args()
 
-	cmd = ["bench", "--site", args.site, "execute", TARGET]
-	if args.csv:
-		cmd += ["--kwargs", "{'csv_path': '%s'}" % args.csv]
+	# Pass the CSV path via env (CAGO_IMPORT_CSV) and call a NO-ARG function — `bench execute
+	# --kwargs` is unreliable across bench versions (evals the path without importing the module).
+	import os
 
-	print("Running:", " ".join(cmd))
-	sys.exit(subprocess.call(cmd, cwd=args.bench))
+	env = dict(os.environ)
+	if args.csv:
+		env["CAGO_IMPORT_CSV"] = args.csv
+	cmd = ["bench", "--site", args.site, "execute", TARGET]
+	print("Running:", " ".join(cmd), "(CAGO_IMPORT_CSV=%s)" % (args.csv or "<default sample>"))
+	sys.exit(subprocess.call(cmd, cwd=args.bench, env=env))
 
 
 if __name__ == "__main__":

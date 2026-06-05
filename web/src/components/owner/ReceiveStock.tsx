@@ -1,9 +1,13 @@
 "use client";
 
+import { uomLabel } from "@/lib/uom";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { BackBar, ProductPicker, Ok, Warn, money } from "./OwnerShared";
+import { confirmDialog } from "@/components/ui/dialog";
+import { BackBar, goBackSmart, ProductPicker, money } from "./Shared";
+import { groupVnd } from "@/lib/utils";
+import { toast } from "@/components/ui/toast";
 
 interface Stock {
   qty: number;
@@ -30,14 +34,12 @@ export function ReceiveStock() {
   const [newBatch, setNewBatch] = useState({ id: "", hsd: "" });
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<React.ReactNode>(null);
 
   const pick = async (c: string) => {
     setCode(c);
     setQty("");
     setCost("");
     setBatch("");
-    setMsg(null);
     try {
       const [p, s] = await Promise.all([
         frappeCall<Prod>("cago.api.owner.get_product", { item_code: c }, { method: "GET" }),
@@ -46,7 +48,7 @@ export function ReceiveStock() {
       setProd(p);
       setStock(s);
     } catch {
-      setMsg(<Warn>Không tải được sản phẩm.</Warn>);
+      toast.error("Không tải được sản phẩm.");
     }
   };
 
@@ -56,16 +58,21 @@ export function ReceiveStock() {
   };
 
   const addBatch = async () => {
-    if (!code || !newBatch.id.trim()) return setMsg(<Warn>Nhập mã lô.</Warn>);
+    if (!code) return;
+    // Code is optional — if blank, enter just the HSD and the server auto-generates LO-ddmmyy.
+    if (!newBatch.id.trim() && !newBatch.hsd) {
+      toast.error("Nhập hạn dùng (hoặc mã lô).");
+      return;
+    }
     setBusy(true);
     try {
-      await frappeCall("cago.api.inventory.add_batch", { item_code: code, batch_id: newBatch.id.trim(), expiry_date: newBatch.hsd || null });
+      const b = await frappeCall<{ batch_id: string }>("cago.api.inventory.add_batch", { item_code: code, batch_id: newBatch.id.trim() || null, expiry_date: newBatch.hsd || null });
       await refreshStock();
-      setBatch(newBatch.id.trim());
+      setBatch(b.batch_id);
       setNewBatch({ id: "", hsd: "" });
       setAdding(false);
     } catch (e) {
-      setMsg(<Warn>Lỗi: {e instanceof Error ? e.message : "không thêm được lô."}</Warn>);
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không thêm được lô."}`);
     } finally {
       setBusy(false);
     }
@@ -74,11 +81,16 @@ export function ReceiveStock() {
   const submit = async () => {
     if (!code) return;
     const q = num(qty);
-    if (q <= 0) return setMsg(<Warn>Nhập số lượng lớn hơn 0.</Warn>);
-    if (stock?.has_batch && !batch) return setMsg(<Warn>Chọn lô (hoặc thêm lô mới) trước khi nhập.</Warn>);
-    if (!confirm(`Nhập ${q} ${stock?.uom || ""}${cost ? ` · giá vốn ${money(num(cost))}/${stock?.uom || ""}` : ""}?`)) return;
+    if (q <= 0) {
+      toast.error("Nhập số lượng lớn hơn 0.");
+      return;
+    }
+    if (stock?.has_batch && !batch) {
+      toast.error("Chọn lô (hoặc thêm lô mới) trước khi nhập.");
+      return;
+    }
+    if (!(await confirmDialog(`Nhập ${q} ${uomLabel(stock?.uom)}${cost ? ` · giá vốn ${money(num(cost))}/${uomLabel(stock?.uom)}` : ""}?`, { confirmLabel: "Nhập kho" }))) return;
     setBusy(true);
-    setMsg(null);
     try {
       const r = await frappeCall<{ qty: number }>("cago.api.purchasing.receive_stock", {
         item_code: code,
@@ -89,32 +101,45 @@ export function ReceiveStock() {
       setStock((s) => (s ? { ...s, qty: r.qty } : s));
       setQty("");
       setCost("");
-      setMsg(<Ok>✅ Đã nhập kho. Tồn mới: <b>{r.qty} {stock?.uom}</b>.</Ok>);
+      toast.success(`Đã nhập kho. Tồn mới: ${r.qty} ${uomLabel(stock?.uom)}.`);
     } catch (e) {
-      setMsg(<Warn>Lỗi: {e instanceof Error ? e.message : "không nhập được."}</Warn>);
+      toast.error(`Lỗi: ${e instanceof Error ? e.message : "không nhập được."}`);
     } finally {
       setBusy(false);
     }
   };
 
   if (!code) {
-    return <ProductPicker title="NHẬP HÀNG" onBack={() => router.push("/owner")} onPick={pick} />;
+    return (
+      <div className="mx-auto max-w-[760px]">
+        <ProductPicker title="NHẬP HÀNG" onBack={() => goBackSmart(router)} onPick={pick} />
+        <button onClick={() => router.push("/pos/bulk")} className="mt-3 w-full rounded-xl border-2 border-teal-300 bg-white py-3 font-extrabold text-teal-700">
+          ⚡ Nhập nhiều mặt cùng lúc (nhập loạt) →
+        </button>
+      </div>
+    );
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-[760px]">
       <BackBar onBack={() => setCode(null)} title="NHẬP HÀNG" label="Chọn sản phẩm khác" />
       <div className="mt-card p-4">
         <div className="text-xl font-extrabold text-brand-dark">{prod?.display_name || code}</div>
         <div className="text-slate-500">
-          Giá bán: <b className="text-brand">{prod?.price_text}</b> · Tồn hiện tại: <b>{stock?.qty ?? "…"} {stock?.uom}</b>
+          Giá bán: <b className="text-brand">{prod?.price_text}</b> · Tồn hiện tại: <b>{stock?.qty ?? "…"} {uomLabel(stock?.uom)}</b>
         </div>
 
-        <label className="mt-4 block font-bold text-slate-700">Số lượng nhập ({stock?.uom})</label>
-        <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-emerald-300 p-3.5 text-2xl font-extrabold" />
-
-        <label className="mt-3 block font-bold text-slate-700">Giá vốn / {stock?.uom} <span className="font-normal text-slate-400">(nên nhập để tính lãi)</span></label>
-        <input inputMode="numeric" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-amber-300 p-3.5 text-xl font-bold text-right" />
+        {/* qty + cost side-by-side on desktop (sm+), stacked on phones. */}
+        <div className="mt-4 grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+          <div>
+            <label className="block font-bold text-slate-700">Số lượng nhập ({uomLabel(stock?.uom)})</label>
+            <input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-emerald-300 p-3.5 text-2xl font-extrabold" />
+          </div>
+          <div className="mt-3 sm:mt-0">
+            <label className="block font-bold text-slate-700">Giá vốn / {uomLabel(stock?.uom)} <span className="font-normal text-slate-400">(nên nhập để tính lãi)</span></label>
+            <input inputMode="numeric" value={cost} onChange={(e) => setCost(groupVnd(e.target.value))} placeholder="0" className="mt-1 w-full rounded-2xl border-2 border-amber-300 p-3.5 text-xl font-bold text-right" />
+          </div>
+        </div>
 
         {stock?.has_batch && (
           <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
@@ -132,10 +157,16 @@ export function ReceiveStock() {
               <button onClick={() => setAdding((v) => !v)} className="rounded-lg border-2 border-dashed border-teal-400 px-3 py-2 text-sm font-bold text-teal-700">➕ Lô mới</button>
             </div>
             {adding && (
-              <div className="mt-2 flex flex-wrap items-end gap-2">
-                <input value={newBatch.id} onChange={(e) => setNewBatch({ ...newBatch, id: e.target.value })} placeholder="Mã lô" className="rounded-lg border-2 border-emerald-300 p-2.5" />
-                <input type="date" value={newBatch.hsd} onChange={(e) => setNewBatch({ ...newBatch, hsd: e.target.value })} className="rounded-lg border-2 border-emerald-300 p-2.5" />
-                <button onClick={addBatch} disabled={busy} className="rounded-lg bg-teal-600 px-4 py-2.5 font-bold text-white disabled:opacity-50">Lưu lô</button>
+              <div className="mt-2">
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex flex-col text-xs font-bold text-slate-500">Hạn dùng (HSD)
+                    <input type="date" value={newBatch.hsd} onChange={(e) => setNewBatch({ ...newBatch, hsd: e.target.value })} className="mt-0.5 rounded-lg border-2 border-emerald-300 p-2.5 text-base font-normal text-slate-800" />
+                  </label>
+                  <label className="flex flex-col text-xs font-bold text-slate-500">Mã lô <span className="font-normal text-slate-400">(tự sinh nếu trống)</span>
+                    <input value={newBatch.id} onChange={(e) => setNewBatch({ ...newBatch, id: e.target.value })} placeholder="LO-…" className="mt-0.5 rounded-lg border-2 border-emerald-200 p-2.5 text-base font-normal text-slate-800" />
+                  </label>
+                  <button onClick={addBatch} disabled={busy} className="rounded-lg bg-teal-600 px-4 py-2.5 font-bold text-white disabled:opacity-50">Lưu lô</button>
+                </div>
               </div>
             )}
           </div>
@@ -144,7 +175,6 @@ export function ReceiveStock() {
         <button onClick={submit} disabled={busy} className="mt-4 min-h-touch w-full rounded-2xl bg-brand py-4 text-xl font-extrabold text-white shadow-soft disabled:opacity-50">
           {busy ? "Đang nhập..." : "📥 Nhập kho"}
         </button>
-        {msg}
       </div>
     </div>
   );

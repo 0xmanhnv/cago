@@ -1,5 +1,10 @@
 # 02 — Architecture
 
+> ℹ️ **POS section is dated.** The POS is **Cago-native `/pos/sell`** (Next.js) — POS Awesome was
+> evaluated and **fully removed**; ERPNext native POS is only a back-end fallback. The front end is a
+> decoupled **Next.js** app (`web/`). See [36](36_STAFF_MOBILE_POS_PLAN.md) + [27](27_FRONTEND_MIGRATION_NEXTJS.md).
+> The POS Awesome references below are historical.
+
 ## 1. High-level architecture
 
 ```text

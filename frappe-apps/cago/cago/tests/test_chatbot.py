@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Tests for the chatbot: providers, factory/switch, safety, context, retrieval roles,
 and the orchestrator (no-data, chemical refusal, real-price cards).
@@ -84,8 +84,15 @@ class TestChatbotSafety(FrappeTestCase):
 		self.assertIn("stronger_than_label", safety.classify("tăng liều cho mạnh hơn"))
 		self.assertIn("near_harvest", safety.classify("gần thu hoạch có phun được không"))
 
+	def test_detects_dosage_phrasings_without_explicit_units(self):
+		# Common rural phrasings that earlier slipped the unit-bound regex and reached the LLM.
+		for q in ("tỉ lệ bao nhiêu", "dùng bao nhiêu là đủ", "phun mấy lần", "mấy muỗng cho 1 bình", "bón mấy kg cho 1 sào"):
+			self.assertIn("dosage", safety.classify(q), q)
+
 	def test_non_sensitive_is_empty(self):
-		self.assertEqual(safety.classify("cám gà con giá bao nhiêu"), [])
+		# Price / stock questions must NOT be misfired as dosage (they'd be wrongly refused).
+		for q in ("cám gà con giá bao nhiêu", "phân npk bán bao nhiêu tiền", "dùng cho gà thì giá bao nhiêu", "còn hàng không"):
+			self.assertEqual(safety.classify(q), [], q)
 
 	def test_sensitive_is_never_auto_answered(self):
 		self.assertFalse(safety.answerable_from_data(["dosage"], [{"is_chemical": 1}]))
@@ -162,6 +169,16 @@ class TestChatbotOrchestrator(FrappeTestCase):
 		self.assertTrue(r["needs_staff_help"])
 		self.assertIn("tìm thấy", r["answer_text"].lower())
 
+	def test_store_overview_lists_categories_not_dead_end(self):
+		"""'Cửa hàng bán những gì?' must answer with the category list, not the no-data fallback."""
+		r = orchestrator.ask("customer", "Cửa hàng bán những gì?")
+		self.assertFalse(r["needs_staff_help"])  # NOT a dead-end "ask the seller"
+		self.assertIn("cửa hàng mình có", r["answer_text"].lower())
+		self.assertNotIn("chưa tìm thấy", r["answer_text"].lower())
+		# Categories come back as tappable links (the UI turns each into a product-list link).
+		self.assertTrue(r["categories"])
+		self.assertTrue(r["categories"][0]["category"])
+
 	def test_chemical_question_is_refused_with_warning(self):
 		r = orchestrator.ask("customer", "thuốc chuột pha bao nhiêu nước")
 		self.assertTrue(r["needs_staff_help"])
@@ -173,3 +190,131 @@ class TestChatbotOrchestrator(FrappeTestCase):
 		card = r["product_cards"][0]
 		self.assertTrue(card["price_text"])
 		self.assertIn(KIOSK_ITEM, r["sources"])
+
+	def test_keyword_fallback_stock_intent(self):
+		"""No-LLM keyword path: a 'còn hàng?' question answers about stock from real data."""
+		r = orchestrator.ask("staff", "cám gà con còn hàng không")
+		self.assertTrue(r["product_cards"])
+		self.assertNotIn("chưa tìm thấy", r["answer_text"].lower())  # not the dead-end fallback
+
+	def test_keyword_fallback_thanks_no_staff(self):
+		"""'cảm ơn' is handled socially (no product, no dead-end, no escalation)."""
+		r = orchestrator.ask("customer", "cảm ơn")
+		self.assertIn("cảm ơn", r["answer_text"].lower())
+		self.assertFalse(r["needs_staff_help"])
+
+	def test_keyword_fallback_accentless(self):
+		"""Rural users type without accents — 'gia bao nhieu' still matches the price intent."""
+		r = orchestrator.ask("staff", "cam ga con gia bao nhieu")
+		self.assertTrue(r["product_cards"])
+		self.assertNotIn("chưa tìm thấy", r["answer_text"].lower())
+
+
+# --------------------------- store-facts (deterministic, DB-backed) --------------------------- #
+class TestChatbotStoreFacts(FrappeTestCase):
+	def test_overview_keyword_coverage(self):
+		from cago.chatbot import storefacts
+
+		for q in ["Cửa hàng bán những gì?", "shop có gì bán", "co nhung loai gi", "kinh doanh gì"]:
+			self.assertTrue(storefacts.is_overview(q), q)
+		self.assertFalse(storefacts.is_overview("cám gà giá bao nhiêu"))
+		text, links = storefacts.overview_answer("customer")
+		self.assertTrue(text and links)
+
+	def test_bestseller_keyword_coverage(self):
+		from cago.chatbot import storefacts
+
+		for q in ["bán chạy", "loại nào hay mua", "nhiều người mua", "sản phẩm hot", "đắt khách"]:
+			self.assertTrue(storefacts.is_bestseller(q), q)
+		self.assertFalse(storefacts.is_bestseller("phân bón cho lúa"))
+
+	def test_locate_handles_missing_map_gracefully(self):
+		from cago.chatbot import storefacts
+
+		# Never raises; returns None or a dict — and None for a non-existent item.
+		self.assertIsNone(storefacts.locate("DOES-NOT-EXIST-XYZ"))
+
+	def test_faq_many_phrasings_one_answer(self):
+		"""One FAQ answer can be triggered by several phrasings (one per line)."""
+		from cago.chatbot import settings as cbsettings
+		from cago.chatbot import storefacts
+
+		doc = frappe.get_single("Cago Chatbot Settings")
+		doc.set("faq", [])
+		doc.append("faq", {"question": "giao hàng tận nơi\ncó ship không\ngiao tới nhà", "answer": "Dạ có giao ạ.", "is_active": 1})
+		doc.save(ignore_permissions=True)
+		cbsettings.clear_cache()
+		try:
+			self.assertEqual(storefacts.faq_answer("cho hỏi có ship không"), "Dạ có giao ạ.")
+			self.assertEqual(storefacts.faq_answer("giao hàng tận nơi được không bác"), "Dạ có giao ạ.")
+			self.assertEqual(storefacts.faq_answer("mình muốn giao tới nhà"), "Dạ có giao ạ.")
+			self.assertIsNone(storefacts.faq_answer("cám gà giá bao nhiêu"))
+		finally:
+			doc.set("faq", [])
+			doc.save(ignore_permissions=True)
+			cbsettings.clear_cache()
+
+
+# --------------------------- tool-calling agent loop --------------------------- #
+class _ToolLoopProvider:
+	"""Stub tool-capable provider: first turn asks a tool, second returns the final text."""
+
+	name = "openai_compat"
+
+	def __init__(self, tool_name, tool_args):
+		self.calls = 0
+		self._tool_name = tool_name
+		self._tool_args = tool_args
+
+	def supports_tools(self):
+		return True
+
+	def chat(self, messages, *, model, temperature=0.2, max_tokens=800, tools=None, timeout=30):
+		from cago.chatbot.providers.base import LLMResult, ToolCall
+
+		self.calls += 1
+		if self.calls == 1:
+			return LLMResult(
+				text="", model=model, provider=self.name,
+				tool_calls=[ToolCall(id="c1", name=self._tool_name, arguments=self._tool_args)],
+			)
+		return LLMResult(text="Dạ cửa hàng mình có ạ.", model=model, provider=self.name)
+
+
+class TestChatbotToolCalling(FrappeTestCase):
+	def setUp(self):
+		self._log = observability.log
+		observability.log = lambda **kw: None
+		from cago.chatbot import config as cbconfig
+
+		self._cfg = cbconfig
+		self._lp, self._fb, self._gp = cbconfig.load_primary, cbconfig.load_fallback, orchestrator.get_provider
+		cbconfig.load_primary = lambda: cbconfig.LLMConfig(provider="openai", model="gpt-4o-mini")
+		cbconfig.load_fallback = lambda: None
+
+	def tearDown(self):
+		observability.log = self._log
+		self._cfg.load_primary, self._cfg.load_fallback = self._lp, self._fb
+		orchestrator.get_provider = self._gp
+
+	def test_agent_loop_runs_tool_then_answers_with_cards(self):
+		"""The model asks search_products; the tool surfaces a real item; cards come back."""
+		stub = _ToolLoopProvider("search_products", {"query": "cám gà con"})
+		orchestrator.get_provider = lambda *a, **k: stub
+		r = orchestrator.ask("customer", "có cám gà con không")
+		self.assertEqual(stub.calls, 2)  # tool round + final answer
+		self.assertIn("có", r["answer_text"].lower())
+		self.assertTrue(r["product_cards"])
+		self.assertIn(KIOSK_ITEM, r["sources"])
+
+	def test_tool_executor_is_role_safe(self):
+		"""A customer tool result never carries cost/margin fields."""
+		from cago.chatbot import tools
+
+		content, dtos = tools.run_tool("customer", "get_product", {"item_code": KIOSK_ITEM})
+		self.assertTrue(dtos)
+		for d in dtos:
+			for k in d:
+				self.assertNotIn("cost", k.lower())
+				self.assertNotIn("valuation", k.lower())
+				self.assertNotIn("margin", k.lower())

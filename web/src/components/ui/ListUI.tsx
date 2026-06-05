@@ -26,7 +26,7 @@ export interface Tab {
 
 export function FilterTabs({ tabs, active, onChange }: { tabs: Tab[]; active: string; onChange: (k: string) => void }) {
   return (
-    <div className="mb-2.5 flex gap-2 overflow-x-auto pb-1">
+    <div className="no-scrollbar mb-2.5 flex gap-2 overflow-x-auto pb-1">
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -54,6 +54,8 @@ export function DateHeader({ label }: { label: string }) {
 export function SearchInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
     <input
+      type="search"
+      enterKeyHint="search"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}

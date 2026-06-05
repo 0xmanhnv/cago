@@ -33,21 +33,17 @@ Use only if needed:
 
 ```text
 services/
-  cago_chatbot_service/
   cago_sync_service/
   cago_image_service/
   cago_zalo_service/
 ```
 
-## 5. Chatbot service
+## 5. Chatbot
 
-Possible stack:
-
-- FastAPI
-- Python retrieval layer
-- local SQLite/Postgres vector/keyword index if needed
-- OpenAI/other LLM adapter later
-- strict role-aware context filtering
+The chatbot is **NOT** a standalone service — it lives **inside the `cago` Frappe app**
+(`cago/chatbot/*`, exposed via `cago.api.chatbot.*`) so role/session security is native and
+retrieval calls the in-process role-filtered DTOs. The earlier standalone FastAPI prototype
+(`services/cago_chatbot_service`) was removed. See docs/25 and docs/27.
 
 ## 6. Sync/cache service
 

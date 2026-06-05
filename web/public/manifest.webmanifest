@@ -1,10 +1,12 @@
 {
-  "name": "AgriMate — Cửa hàng vật tư nông nghiệp",
-  "short_name": "AgriMate",
+  "name": "Minh Tuyết — Cửa hàng vật tư nông nghiệp",
+  "short_name": "Minh Tuyết",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f0fdf4",
   "theme_color": "#16a34a",
   "lang": "vi",
-  "icons": []
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
 }

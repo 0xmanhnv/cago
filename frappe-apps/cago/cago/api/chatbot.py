@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Role-scoped chatbot endpoints.
 
@@ -9,7 +9,7 @@ so customers/staff can only ever receive data their role allows.
 import frappe
 
 from cago.chatbot import orchestrator
-from cago.utils.permissions import ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_internal, ensure_owner
 
 
 def _history(history):
@@ -42,7 +42,7 @@ def ask_kiosk(message, history=None, session_id=None, phone=None, focus_item=Non
 @frappe.whitelist()
 def ask_staff(message, history=None):
 	"""Staff chat — staff-safe fields (advice, shelf, alternatives). No buying price."""
-	ensure_staff()
+	ensure_internal()
 	return orchestrator.ask("staff", message, _history(history))
 
 

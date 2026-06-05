@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Repeatable security/safety audit (docs/12, docs/18).
 
@@ -12,9 +12,12 @@ Exits non-zero (raises) if any check fails, so it can gate a deploy.
 import frappe
 
 from cago.utils import dto
+from cago.utils.permissions import ALL_CAP_ROLES
 
 SENSITIVE_TOKENS = ("valuation", "buying", "last_purchase", "margin", "profit", "cost", "standard_rate")
-SENSITIVE_ROLES = ("Cago Staff", "Cago Kiosk")
+# No capability role (nor the deprecated Cago Staff / Kiosk) may read raw Item — staff must never
+# reach buying price / valuation via the Desk; everything goes through curated DTOs.
+SENSITIVE_ROLES = tuple(sorted(ALL_CAP_ROLES)) + ("Cago Staff", "Cago Kiosk")
 
 
 def _roles_with_item_read():
@@ -44,6 +47,16 @@ def run_audit():
 			leaked = [k for k in builder(item) if any(t in k.lower() for t in SENSITIVE_TOKENS)]
 			checks.append((f"{label} DTO has no sensitive keys", not leaked, ", ".join(leaked)))
 
+	# 2b) Offline catalog snapshot (cached on staff devices) must not leak sensitive keys either.
+	try:
+		from cago.api.staff import catalog_snapshot
+
+		snap = catalog_snapshot()
+		leaked = sorted({k for row in snap for k in row if any(t in k.lower() for t in SENSITIVE_TOKENS)})
+		checks.append(("Offline catalog snapshot has no sensitive keys", not leaked, ", ".join(leaked)))
+	except Exception as exc:
+		checks.append(("Offline catalog snapshot has no sensitive keys", False, str(exc)))
+
 	# 3) Every chemical item must produce a non-empty safety warning.
 	missing = []
 	for code in frappe.get_all("Item", filters={"cago_is_chemical": 1}, pluck="name"):
@@ -60,6 +73,28 @@ def run_audit():
 		fn = frappe.get_attr(method)
 		ok = getattr(fn, "__name__", None) is not None
 		checks.append((f"Whitelisted method exists: {method}", ok, ""))
+
+	# 4b) …and those guards must actually FIRE: a no-capability caller (Guest) must be rejected with
+	# PermissionError. This makes a dropped ensure_cap/ensure_owner fail the deploy gate, not just a
+	# unit test. Args are minimal — the guard runs before any of them is used.
+	from cago.utils.privileged import as_user
+
+	guarded = [
+		("cago.api.owner.update_price", ("_audit_no_item_", 1)),
+		("cago.api.debt.record_repayment", ("_audit_no_cust_", 1)),
+		("cago.api.purchasing.receive_stock", ("_audit_no_item_", 1)),
+		("cago.api.sales.quick_sale", ("[]",)),
+	]
+	for method, fargs in guarded:
+		enforced = False
+		try:
+			with as_user("Guest"):
+				frappe.get_attr(method)(*fargs)
+		except frappe.PermissionError:
+			enforced = True
+		except Exception:
+			enforced = False  # threw, but NOT the permission guard → the capability check didn't run first
+		checks.append((f"Capability guard rejects no-cap caller: {method}", enforced, "guard missing or runs too late"))
 
 	# 5) Hardening config sanity (go-live).
 	signup_off = bool(frappe.db.get_single_value("Website Settings", "disable_signup"))
@@ -78,7 +113,7 @@ def run_audit():
 		checks.append(("Expiry report works without sensitive keys", False, str(exc)))
 
 	failed = [c for c in checks if not c[1]]
-	print("\n=== AgriMate security/safety audit ===")
+	print("\n=== Cago security/safety audit ===")
 	for name, ok, detail in checks:
 		print(f"  {'PASS' if ok else 'FAIL'}  {name}{(' -> ' + detail) if (detail and not ok) else ''}")
 	print(f"=== {len(checks) - len(failed)}/{len(checks)} passed ===\n")

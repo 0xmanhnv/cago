@@ -1,0 +1,64 @@
+{
+ "actions": [],
+ "creation": "2026-06-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_faq",
+  "faq",
+  "section_chips",
+  "chips",
+  "section_synonyms",
+  "synonyms"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_faq",
+   "fieldtype": "Section Break",
+   "label": "Câu hỏi thường gặp (FAQ)"
+  },
+  {
+   "fieldname": "faq",
+   "fieldtype": "Table",
+   "label": "FAQ",
+   "options": "Cago Chatbot FAQ"
+  },
+  {
+   "fieldname": "section_chips",
+   "fieldtype": "Section Break",
+   "label": "Gợi ý câu hỏi"
+  },
+  {
+   "fieldname": "chips",
+   "fieldtype": "Table",
+   "label": "Gợi ý",
+   "options": "Cago Chatbot Chip"
+  },
+  {
+   "fieldname": "section_synonyms",
+   "fieldtype": "Section Break",
+   "label": "Từ khoá đồng nghĩa"
+  },
+  {
+   "fieldname": "synonyms",
+   "fieldtype": "Table",
+   "label": "Từ khoá",
+   "options": "Cago Chatbot Keyword"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-06-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cago",
+ "name": "Cago Chatbot Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
+  {"role": "Cago Owner", "read": 1, "write": 1, "create": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,6 +1,6 @@
 app_name = "cago"
-app_title = "AgriMate Store"
-app_publisher = "AgriMate"
+app_title = "Cago"
+app_publisher = "0xManhnv"
 app_description = (
     "Business customization layer for a rural Vietnamese agricultural supplies store."
 )
@@ -11,25 +11,37 @@ app_license = "MIT"
 required_apps = ["frappe", "erpnext"]
 
 # ---------------------------------------------------------------------------
-# Desk CSS overrides
+# Home page
 # ---------------------------------------------------------------------------
-# Recolour POS Awesome's look-alike payment buttons (see public/css/posawesome.css). Loaded on
-# the whole desk, but the selectors only exist on the POS Awesome page, so it is effectively
-# scoped there and is a no-op everywhere else. NOT a fork — posawesome source is untouched.
-app_include_css = ["/assets/cago/css/posawesome.css?v=2"]
+# The decoupled Next.js app (web/) is the public entry and owns "/", "/login", "/pos/*".
+# The old Frappe-native www/ pages (owner/staff/kiosk/login) have been removed — everything
+# is served by Next now — so we no longer redirect Frappe logins to those routes.
+home_page = "login"
 
 # ---------------------------------------------------------------------------
-# Home page redirect after login
+# Schema setup — keep custom fields in sync on every install / migrate so a fresh
+# deploy always has the full Cago schema (no manual ensure_* runs needed).
 # ---------------------------------------------------------------------------
-# The website root "/" serves the public customer kiosk.
-home_page = "kiosk"
+after_migrate = ["cago.setup.custom_fields.setup_all_fields"]
+after_install = ["cago.setup.custom_fields.setup_all_fields"]
 
-# Owner/staff must land on the simplified AgriMate screens, not the ERPNext Desk
-# (they lack module permissions, so the Desk would show "Not permitted").
-# These take precedence over `home_page` for the post-login redirect.
-role_home_page = {
-	"Cago Owner": "owner",
-	"Cago Staff": "staff",
+# A fresh login clears any pending POS PIN lock for the new session (escape hatch: forgot the PIN →
+# just log in again, never stuck on the PIN screen).
+on_login = "cago.api.session.clear_lock_on_login"
+
+# ---------------------------------------------------------------------------
+# Scheduled jobs — the Docker scheduler has no OS backup cron, so take a daily
+# site backup (DB + files) and keep the last 7 days. Offsite copy is manual.
+# ---------------------------------------------------------------------------
+scheduler_events = {
+	"daily": [
+		"cago.setup.backup.daily",
+		"cago.api.alerts.daily_owner_digest",  # push "việc hôm nay" (low stock / near-expiry / debt)
+	],
+	"cron": {
+		# Expire support requests nobody accepted in time → ping the owner (minimal escalation).
+		"*/2 * * * *": ["cago.api.support.expire_stale_requests"],
+	},
 }
 
 # ---------------------------------------------------------------------------
@@ -41,6 +53,16 @@ doc_events = {
 	"Sales Invoice": {
 		"on_submit": "cago.loyalty.accrue",
 		"on_cancel": "cago.loyalty.reverse",
+	},
+	# Stable URL slug per customer (so links don't carry the Vietnamese docname).
+	"Customer": {
+		"before_insert": "cago.customer.set_slug",
+		"validate": "cago.customer.set_slug",
+	},
+	# Editing a chức danh re-compiles cap-roles for everyone holding it; can't delete one in use.
+	"Cago Job Role": {
+		"on_update": "cago.job_role.on_update",
+		"on_trash": "cago.job_role.on_trash",
 	},
 }
 

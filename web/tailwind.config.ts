@@ -26,8 +26,33 @@ const config: Config = {
           from: { opacity: "0", transform: "translateY(12px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        // Bottom payment sheet sliding up into place (instead of appearing instantly).
+        "sheet-up": {
+          from: { opacity: "0", transform: "translateY(40px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "sheet-down": {
+          from: { opacity: "1", transform: "translateY(0)" },
+          to: { opacity: "0", transform: "translateY(40px)" },
+        },
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "fade-out": { from: { opacity: "1" }, to: { opacity: "0" } },
+        // Centered dialog: scale + fade in/out (no instant pop).
+        "pop-in": { from: { opacity: "0", transform: "scale(0.94) translateY(8px)" }, to: { opacity: "1", transform: "none" } },
+        "pop-out": { from: { opacity: "1", transform: "none" }, to: { opacity: "0", transform: "scale(0.96) translateY(6px)" } },
+        // PC assistant: grows out of the bottom-right corner (pair with origin-bottom-right).
+        "chat-pop": { from: { opacity: "0", transform: "scale(0.85) translateY(24px)" }, to: { opacity: "1", transform: "none" } },
       },
-      animation: { "rise-in": "rise-in 0.45s ease both" },
+      animation: {
+        "rise-in": "rise-in 0.45s ease both",
+        "sheet-up": "sheet-up 0.26s cubic-bezier(0.16,1,0.3,1) both",
+        "sheet-down": "sheet-down 0.2s ease-in both",
+        "fade-in": "fade-in 0.2s ease-out both",
+        "fade-out": "fade-out 0.2s ease-in both",
+        "pop-in": "pop-in 0.22s cubic-bezier(0.16,1,0.3,1) both",
+        "pop-out": "pop-out 0.16s ease-in both",
+        "chat-pop": "chat-pop 0.3s cubic-bezier(0.16,1,0.3,1) both",
+      },
       // Large, finger-friendly defaults for rural/elderly users (docs/16).
       minHeight: { touch: "56px" },
       fontSize: { tap: ["18px", "1.4"] },

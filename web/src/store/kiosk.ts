@@ -1,15 +1,22 @@
 "use client";
 
 import { create } from "zustand";
-import type { Product, ProductCard } from "@/lib/types";
+import type { CategoryLink, Product, ProductCard } from "@/lib/types";
 
 export interface ChatMsg {
+  id?: number; // stable React key; survives the slice(-50) cap so rows don't re-key
   who: "user" | "bot";
   text: string;
   cards?: ProductCard[];
+  cats?: CategoryLink[]; // tappable category links (the "we sell X" reply)
   warnings?: string[];
   needStaff?: boolean;
 }
+
+// Date.now base (unique across reloads) + counter (unique within a tick) → never collides
+// with ids restored from sessionStorage.
+let msgSeq = 0;
+const nextMsgId = () => Date.now() * 1000 + (++msgSeq % 1000);
 
 interface CartLine {
   product: Product;
@@ -43,15 +50,24 @@ interface KioskState {
   sessionId: string;
   phone: string;
   history: ChatMsg[];
+  hydrated: boolean; // sessionStorage loaded (client-only, post-mount) — see hydrate()
+  hydrate: () => void;
   setPhone: (p: string) => void;
   pushMsg: (m: ChatMsg) => void;
   ensureFreshSession: () => void;
   newSession: () => void;
 
-  // transient "call seller" overlay (shown over any route)
+  // transient "call seller" overlay (shown over any route). `prefill` lets the assistant pass
+  // context (the unanswered question) when the customer taps "Gọi người bán" from the chat.
   callStaffOpen: boolean;
-  openCallStaff: () => void;
+  callStaffPrefill: { reason?: string; question?: string } | null;
+  openCallStaff: (prefill?: { reason?: string; question?: string }) => void;
   closeCallStaff: () => void;
+
+  // assistant chat overlay (shown over any route — a floating window on PC, full-screen on mobile)
+  assistantOpen: boolean;
+  openAssistant: () => void;
+  closeAssistant: () => void;
 }
 
 function loadSession() {
@@ -90,7 +106,11 @@ const saveCart = (cart: Record<string, CartLine>) => {
 };
 
 export const useKiosk = create<KioskState>((set, get) => {
-  const initial = typeof window !== "undefined" ? loadSession() : { sessionId: "ssr", phone: "", history: [], cart: {} };
+  // Initial state MUST be identical on the server and on the client's first render, or the
+  // hydrated DOM won't match the SSR HTML (React 19 then errors out and the page can render
+  // but stay non-interactive). So we start empty and read sessionStorage in hydrate(), which
+  // runs once from a post-mount effect (see Chrome) — client-only, after hydration.
+  const initial = { sessionId: "", phone: "", history: [] as ChatMsg[], cart: {} as Record<string, CartLine> };
   return {
     cart: initial.cart,
     addToCart: (p) =>
@@ -132,6 +152,12 @@ export const useKiosk = create<KioskState>((set, get) => {
     sessionId: initial.sessionId,
     phone: initial.phone,
     history: initial.history,
+    hydrated: false,
+    hydrate: () => {
+      if (typeof window === "undefined" || get().hydrated) return;
+      const s = loadSession();
+      set({ sessionId: s.sessionId, phone: s.phone, history: s.history, cart: s.cart, hydrated: true });
+    },
     setPhone: (p) => {
       SS?.setItem("cago_chat_phone", p);
       touch();
@@ -139,7 +165,7 @@ export const useKiosk = create<KioskState>((set, get) => {
     },
     pushMsg: (m) =>
       set((s) => {
-        const history = [...s.history, m].slice(-50);
+        const history = [...s.history, { ...m, id: m.id ?? nextMsgId() }].slice(-50);
         SS?.setItem("cago_chat_history", JSON.stringify(history));
         touch();
         return { history };
@@ -161,7 +187,12 @@ export const useKiosk = create<KioskState>((set, get) => {
     },
 
     callStaffOpen: false,
-    openCallStaff: () => set({ callStaffOpen: true }),
-    closeCallStaff: () => set({ callStaffOpen: false }),
+    callStaffPrefill: null,
+    openCallStaff: (prefill) => set({ callStaffOpen: true, callStaffPrefill: prefill ?? null }),
+    closeCallStaff: () => set({ callStaffOpen: false, callStaffPrefill: null }),
+
+    assistantOpen: false,
+    openAssistant: () => set({ assistantOpen: true }),
+    closeAssistant: () => set({ assistantOpen: false }),
   };
 });

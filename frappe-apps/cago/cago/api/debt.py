@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Debt API — công nợ (owner-only).
 
@@ -18,8 +18,9 @@ from frappe.utils import flt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import (
 	record_action,
 )
+from cago.customer import resolve_customer
 from cago.utils import dto
-from cago.utils.permissions import ensure_lang, ensure_owner
+from cago.utils.permissions import ensure_cap, ensure_lang
 from cago.utils.privileged import as_user
 
 
@@ -37,10 +38,19 @@ def _receivable_account(company):
 	return acc
 
 
+def effective_debt_limit(customer):
+	"""The credit limit that applies to a customer: their own (cago_debt_limit) if set, else the
+	shop-wide default (Company.cago_default_debt_limit). 0 = no limit."""
+	own = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
+	if own:
+		return own
+	return flt(frappe.db.get_value("Company", _company(), "cago_default_debt_limit"))
+
+
 def _submit_privileged(doc):
 	"""Insert + submit a trusted accounting document.
 
-	The API is already authorized via ensure_owner(), but ERPNext helpers like
+	The API is already authorized via ensure_cap("debt"), but ERPNext helpers like
 	PaymentEntry.get_account_details call frappe.has_permission("Account") directly,
 	which a Cago Owner (no ERPNext accounting role) fails. So we run the write as
 	Administrator and restore the real user immediately after, keeping least-privilege
@@ -56,7 +66,7 @@ def _submit_privileged(doc):
 
 @frappe.whitelist()
 def search_customers(query=None):
-	ensure_owner()
+	ensure_cap("debt_view")
 	query = (query or "").strip()
 	filters = {}
 	or_filters = None
@@ -85,9 +95,37 @@ def search_customers(query=None):
 	return out
 
 
+def ensure_can_collect_debt():
+	"""Live owner kill-switch for staff debt actions. The `debt` capability lets a chức danh use the
+	debt screens; this toggle (Company.cago_staff_can_collect_debt) lets the owner turn staff
+	ghi nợ / thu nợ off at runtime without editing roles. The owner is always allowed."""
+	from cago.utils.permissions import is_owner
+
+	if is_owner():
+		return
+	if not frappe.db.get_value("Company", _company(), "cago_staff_can_collect_debt"):
+		frappe.throw(_("Chủ cửa hàng đang tắt quyền ghi nợ / thu nợ của nhân viên."), title=_("Không được phép"))
+
+
+def _debt_summary(customer):
+	"""Guard-free outstanding summary, INTERNAL only (called by record_repayment after its own
+	ensure_can_collect_debt guard). Not whitelisted — must never be reachable directly, or any
+	authenticated session could read any customer's balance."""
+	from erpnext.accounts.utils import get_balance_on
+
+	balance = flt(get_balance_on(party_type="Customer", party=customer, date=frappe.utils.nowdate(), company=_company()))
+	return {
+		"customer": customer,
+		"customer_name": frappe.db.get_value("Customer", customer, "customer_name"),
+		"outstanding": balance,
+		"outstanding_text": dto.format_price(balance) if balance else "Không nợ",
+	}
+
+
 @frappe.whitelist()
 def get_customer_debt(customer):
-	ensure_owner()
+	ensure_cap("debt_view")
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	company = _company()
@@ -100,7 +138,7 @@ def get_customer_debt(customer):
 		company=company,
 	)
 	balance = flt(balance)
-	limit = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
+	limit = effective_debt_limit(customer)
 	return {
 		"customer": customer,
 		"customer_name": frappe.db.get_value("Customer", customer, "customer_name"),
@@ -114,18 +152,24 @@ def get_customer_debt(customer):
 
 
 @frappe.whitelist()
-def record_debt(customer, amount, note=None):
-	"""Customer takes goods on credit. Increases receivable via a Journal Entry."""
-	ensure_owner()
+def record_debt(customer, amount, note=None, signature=None, photo=None, witness=None):
+	"""Customer takes goods on credit. Increases receivable via a Journal Entry.
+	signature/photo/witness (optional) capture the customer's acknowledgement (số nợ số hoá)."""
+	ensure_cap("debt")
+	ensure_can_collect_debt()
 	ensure_lang()
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	amount = flt(amount)
 	if amount <= 0:
 		frappe.throw(_("Số tiền phải lớn hơn 0."))
+	from cago.debt_proof import require_proof
+
+	require_proof("debt", amount, signature, photo, witness)
 
 	# Credit limit (hạn mức nợ): block if this would push outstanding over the limit.
-	limit = flt(frappe.db.get_value("Customer", customer, "cago_debt_limit"))
+	limit = effective_debt_limit(customer)
 	if limit:
 		current = flt(get_customer_debt(customer)["outstanding"])
 		if current + amount > limit:
@@ -158,20 +202,31 @@ def record_debt(customer, amount, note=None):
 	)
 	_submit_privileged(je)
 	record_action("Debt Add", ref_doctype="Journal Entry", ref_name=je.name, new_value=amount)
+	from cago.debt_proof import save_proof
+
+	save_proof(customer, "debt", amount, "Journal Entry", je.name, signature, photo, witness)
 	frappe.db.commit()
 	return get_customer_debt(customer)
 
 
 @frappe.whitelist()
-def record_repayment(customer, amount, note=None):
-	"""Customer pays. Decreases receivable via an on-account Payment Entry (Receive)."""
-	ensure_owner()
+def record_repayment(customer, amount, note=None, signature=None, photo=None, witness=None):
+	"""Customer pays. Decreases receivable via an on-account Payment Entry (Receive).
+	Requires the `debt` capability — the cash then counts in that cashier's till shift and the
+	collector is stamped on the Payment Entry."""
+	ensure_cap("debt")
+	ensure_can_collect_debt()
+	cashier = frappe.session.user
 	ensure_lang()
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	amount = flt(amount)
 	if amount <= 0:
 		frappe.throw(_("Số tiền phải lớn hơn 0."))
+	from cago.debt_proof import require_proof
+
+	require_proof("repay", amount, signature, photo, witness)
 
 	company = _company()
 	receivable = _receivable_account(company)
@@ -195,18 +250,41 @@ def record_repayment(customer, amount, note=None):
 			"received_amount": amount,
 			"reference_no": note or "Khách trả nợ",
 			"reference_date": frappe.utils.nowdate(),
+			"cago_cashier": cashier,  # who collected — for the till shift + audit
 		}
 	)
+	# Allocate the payment against the customer's open credit invoices FIFO (oldest first) so each
+	# Sales Invoice's outstanding_amount actually clears — otherwise a paid credit sale would keep
+	# showing as unpaid in "Đơn gần đây" while the aggregate balance reads zero. Any amount beyond
+	# the open invoices (or debt booked via Journal Entry) stays on-account, still reducing the
+	# receivable correctly.
+	remaining = amount
+	for inv in frappe.get_all(
+		"Sales Invoice",
+		filters={"customer": customer, "company": company, "docstatus": 1, "is_return": 0, "outstanding_amount": [">", 0]},
+		fields=["name", "outstanding_amount"],
+		order_by="posting_date asc, creation asc",
+	):
+		if remaining <= 0:
+			break
+		alloc = min(remaining, flt(inv.outstanding_amount))
+		pe.append("references", {"reference_doctype": "Sales Invoice", "reference_name": inv.name, "allocated_amount": alloc})
+		remaining -= alloc
 	_submit_privileged(pe)
 	record_action("Debt Payment", ref_doctype="Payment Entry", ref_name=pe.name, new_value=amount)
+	from cago.debt_proof import save_proof
+
+	save_proof(customer, "repay", amount, "Payment Entry", pe.name, signature, photo, witness, cashier=cashier)
 	frappe.db.commit()
-	return get_customer_debt(customer)
+	# _debt_summary is guard-free so a staff collector can read the new balance back
+	# (get_customer_debt is owner-only and would throw for staff).
+	return _debt_summary(customer)
 
 
 @frappe.whitelist()
 def add_customer(customer_name, phone=None, village=None, debt_limit=None, wholesale=0):
 	"""Create a new customer from the simplified owner UI (e.g. during Ghi nợ)."""
-	ensure_owner()
+	ensure_cap("debt")
 	from frappe.utils import cint
 
 	name = (customer_name or "").strip()
@@ -243,9 +321,10 @@ def add_customer(customer_name, phone=None, village=None, debt_limit=None, whole
 @frappe.whitelist()
 def set_wholesale(customer, on):
 	"""Owner: mark a customer as wholesale (mua theo giá sỉ) or not."""
-	ensure_owner()
+	ensure_cap("debt")
 	from frappe.utils import cint
 
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	val = 1 if cint(on) else 0
@@ -257,7 +336,8 @@ def set_wholesale(customer, on):
 @frappe.whitelist()
 def get_customer_ledger(customer):
 	"""Debt history for one customer: each ghi nợ / trả nợ with a running balance."""
-	ensure_owner()
+	ensure_cap("debt_view")
+	customer = resolve_customer(customer)
 	if not frappe.db.exists("Customer", customer):
 		frappe.throw(_("Không tìm thấy khách hàng."))
 	rows = frappe.get_all(
@@ -290,6 +370,7 @@ def get_customer_ledger(customer):
 	return {
 		"customer": customer,
 		"customer_name": cust["customer_name"],
+		"phone": frappe.db.get_value("Customer", customer, "mobile_no") or "",
 		"outstanding": cust["outstanding"],
 		"outstanding_text": cust["outstanding_text"],
 		"overpaid": cust["outstanding"] < 0,
@@ -300,10 +381,32 @@ def get_customer_ledger(customer):
 
 
 @frappe.whitelist()
+def customer_statement(customer):
+	"""A dated debt statement (sao kê công nợ) for one customer — the same ledger the owner sees,
+	plus a ready-to-share plain-text version a villager can receive on Zalo / screenshot. Defuses
+	'tôi đâu có nợ nhiều thế' disputes with a dated record."""
+	led = get_customer_ledger(customer)  # ensure_cap("debt_view") + resolve inside
+	shop = frappe.db.get_value("Company", _company(), "company_name") or "Minh Tuyết"
+	lines = [f"SAO KÊ CÔNG NỢ — {shop}", f"Khách: {led['customer_name']}", "—" * 12]
+	for e in reversed(led["entries"]):  # oldest → newest reads like a running account
+		sign = "+" if e["type"] == "debt" else "−"
+		lines.append(f"{e['date']}  {e['label']}: {sign}{e['amount_text']}  (còn {e['balance_text']})")
+	lines.append("—" * 12)
+	if led["outstanding"] > 0:
+		lines.append(f"HIỆN CÒN NỢ: {led['outstanding_text']}")
+	elif led["overpaid"]:
+		lines.append(f"CỬA HÀNG ĐANG NỢ LẠI KHÁCH: {led['outstanding_text']}")
+	else:
+		lines.append("ĐÃ THANH TOÁN ĐỦ. Cảm ơn bác ạ!")
+	return {**led, "shop": shop, "statement_text": "\n".join(lines)}
+
+
+@frappe.whitelist()
 def cancel_entry(voucher_type, voucher_no, customer=None):
 	"""Cancel a mistaken debt/payment voucher (Journal Entry / Payment Entry)."""
-	ensure_owner()
+	ensure_cap("debt")
 	ensure_lang()
+	customer = resolve_customer(customer) if customer else customer
 	if voucher_type not in ("Journal Entry", "Payment Entry"):
 		frappe.throw(_("Chỉ huỷ được bút toán ghi nợ / trả nợ."))
 	if not frappe.db.exists(voucher_type, voucher_no):

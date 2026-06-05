@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Structured chatbot response returned to the UI."""
 
@@ -11,6 +11,7 @@ from dataclasses import asdict, dataclass, field
 class ChatResponse:
 	answer_text: str
 	product_cards: list = field(default_factory=list)
+	categories: list = field(default_factory=list)  # tappable {category, icon} for the "we sell X" reply
 	safety_warnings: list = field(default_factory=list)
 	needs_staff_help: bool = False
 	sources: list = field(default_factory=list)  # item_codes used as context

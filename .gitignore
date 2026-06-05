@@ -32,3 +32,8 @@ Thumbs.db
 
 # Local site backups (DB dumps + site_config secrets — never commit)
 backups/
+infra/docker/backups/
+
+# Caddy-generated local root CA (per-machine, for LAN HTTPS) — not committed
+cago-root-ca.crt
+web/public/cago-root-ca.crt

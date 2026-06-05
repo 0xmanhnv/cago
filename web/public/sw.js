@@ -35,8 +35,13 @@ self.addEventListener("fetch", (e) => {
     url.pathname === "/" ||
     url.pathname.startsWith("/products") ||
     url.pathname === "/cart" ||
+    url.pathname === "/map" ||
     url.pathname === "/assistant";
-  if (req.mode === "navigate" && !isKioskNav) return; // owner/staff/login → always network
+  // The sell screen is the one staff page that MUST open offline. Its shell carries no session
+  // data (everything is fetched client-side from the API / IndexedDB cache), so caching it is
+  // safe on a shared till; network-first means a redeploy still wins.
+  const isSellNav = url.pathname === "/pos/sell" || url.pathname === "/pos/pending";
+  if (req.mode === "navigate" && !isKioskNav && !isSellNav) return; // other owner/staff/login → always network
 
   // Kiosk navigation (the HTML shell): NETWORK-FIRST so a redeploy is picked up immediately
   // (an old cached shell can reference deleted /_next chunks → blank page); cache is only the

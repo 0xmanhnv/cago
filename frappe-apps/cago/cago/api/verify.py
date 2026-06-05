@@ -1,4 +1,4 @@
-# Copyright (c) 2026, AgriMate and contributors
+# Copyright (c) 2026, 0xManhnv
 # For license information, please see license.txt
 """Customer self-service debt on the kiosk — staff-assisted verification.
 
@@ -27,7 +27,7 @@ from cago.chatbot.observability import clean_phone
 from frappe.utils import cint
 
 from cago.utils import dto
-from cago.utils.permissions import ensure_owner, ensure_staff
+from cago.utils.permissions import ensure_cap
 from cago.utils.ratelimit import rate_guard
 
 STORE = "cago_verify_store"
@@ -52,14 +52,14 @@ def _enabled():
 @frappe.whitelist()
 def get_visible():
 	"""Owner: is kiosk debt self-service enabled?"""
-	ensure_owner()
+	ensure_cap("settings")
 	return {"enabled": _enabled()}
 
 
 @frappe.whitelist()
 def set_visible(on):
 	"""Owner: enable/disable kiosk debt self-service."""
-	ensure_owner()
+	ensure_cap("settings")
 	val = 1 if cint(on) else 0
 	frappe.db.set_value("Company", debt._company(), "cago_kiosk_debt_visible", val)
 	frappe.db.commit()
@@ -69,18 +69,123 @@ def set_visible(on):
 @frappe.whitelist()
 def get_price_edit():
 	"""Owner: may staff edit the per-line price at the till (mặc cả / bớt giá)?"""
-	ensure_owner()
+	ensure_cap("settings")
 	return {"enabled": bool(frappe.db.get_value("Company", debt._company(), "cago_allow_price_edit"))}
 
 
 @frappe.whitelist()
 def set_price_edit(on):
 	"""Owner: enable/disable per-line price override in the sell screen."""
-	ensure_owner()
+	ensure_cap("settings")
 	val = 1 if cint(on) else 0
 	frappe.db.set_value("Company", debt._company(), "cago_allow_price_edit", val)
 	frappe.db.commit()
 	return {"enabled": bool(val)}
+
+
+@frappe.whitelist()
+def get_staff_collect_debt():
+	"""Owner: may staff record customer debt repayments (Khách trả nợ)?"""
+	ensure_cap("settings")
+	return {"enabled": bool(frappe.db.get_value("Company", debt._company(), "cago_staff_can_collect_debt"))}
+
+
+@frappe.whitelist()
+def set_staff_collect_debt(on):
+	"""Owner: enable/disable staff debt collection."""
+	ensure_cap("settings")
+	val = 1 if cint(on) else 0
+	frappe.db.set_value("Company", debt._company(), "cago_staff_can_collect_debt", val)
+	frappe.db.commit()
+	return {"enabled": bool(val)}
+
+
+@frappe.whitelist()
+def get_loyalty():
+	"""Owner: the loyalty rates currently in effect (resolved value, incl. defaults)."""
+	ensure_cap("settings")
+	from cago.loyalty import _per_point, loyalty_on_credit, redeem_value
+
+	return {"earn_vnd": int(_per_point()), "redeem_vnd": int(redeem_value()), "on_credit": loyalty_on_credit()}
+
+
+@frappe.whitelist()
+def set_loyalty(earn_vnd=None, redeem_vnd=None, on_credit=None):
+	"""Owner: set loyalty rates (đồng per point earned / per point redeemed). 0/empty = keep default.
+	on_credit: 1 = a credit (mua nợ) sale also earns points, 0 = only the paid part earns."""
+	ensure_cap("settings")
+	company = debt._company()
+	if earn_vnd is not None:
+		frappe.db.set_value("Company", company, "cago_loyalty_earn_vnd", max(0, cint(earn_vnd)))
+	if redeem_vnd is not None:
+		frappe.db.set_value("Company", company, "cago_loyalty_redeem_vnd", max(0, cint(redeem_vnd)))
+	if on_credit is not None:
+		frappe.db.set_value("Company", company, "cago_loyalty_on_credit", 1 if cint(on_credit) else 0)
+	frappe.db.commit()
+	return get_loyalty()
+
+
+@frappe.whitelist()
+def get_expiry_warn():
+	"""Owner: how many days before expiry counts as 'sắp hết hạn' (resolved value incl. default)."""
+	ensure_cap("settings")
+	from cago.utils.dto import expiry_warn_days
+
+	return {"days": int(expiry_warn_days())}
+
+
+@frappe.whitelist()
+def set_expiry_warn(days=None):
+	"""Owner: set the near-expiry warning window. 0/empty = keep default (60)."""
+	ensure_cap("settings")
+	frappe.db.set_value("Company", debt._company(), "cago_expiry_warn_days", max(0, cint(days)))
+	frappe.flags.cago_expiry_warn_days = None  # drop the request memo so the read re-resolves
+	frappe.db.commit()
+	return get_expiry_warn()
+
+
+@frappe.whitelist()
+def get_default_debt_limit():
+	"""Owner: the shop-wide default credit limit applied when a customer has none (0 = unlimited)."""
+	ensure_cap("settings")
+	return {"limit": flt(frappe.db.get_value("Company", debt._company(), "cago_default_debt_limit"))}
+
+
+@frappe.whitelist()
+def set_default_debt_limit(limit=None):
+	ensure_cap("settings")
+	frappe.db.set_value("Company", debt._company(), "cago_default_debt_limit", max(0, cint(limit)))
+	frappe.db.commit()
+	return get_default_debt_limit()
+
+
+@frappe.whitelist()
+def get_debt_proof():
+	"""Owner: the debt-acknowledgement policy (sign/photo when taking on debt + collecting)."""
+	ensure_cap("settings")
+	from cago.debt_proof import proof_policy
+
+	return proof_policy()
+
+
+_MODES = ("off", "optional", "required")
+
+
+@frappe.whitelist()
+def set_debt_proof(debt_mode=None, debt_min=None, repay_mode=None, repay_min=None):
+	"""Owner: set the debt-acknowledgement policy for taking on debt and for collecting repayment."""
+	ensure_cap("settings")
+	co = debt._company()
+	if debt_mode in _MODES:
+		frappe.db.set_value("Company", co, "cago_debt_confirm", debt_mode)
+	if repay_mode in _MODES:
+		frappe.db.set_value("Company", co, "cago_repay_confirm", repay_mode)
+	frappe.db.set_value("Company", co, "cago_debt_confirm_min", max(0, cint(debt_min)))
+	frappe.db.set_value("Company", co, "cago_repay_confirm_min", max(0, cint(repay_min)))
+	frappe.db.commit()
+	from cago.debt_proof import proof_policy
+
+	return proof_policy()
 
 
 def _owes(customer):
@@ -127,7 +232,7 @@ def request(phone):
 @frappe.whitelist()
 def pending():
 	"""Staff: list pending verification requests to confirm in person."""
-	ensure_staff()
+	ensure_cap("debt_view")
 	d = _store()
 	out = []
 	for k, v in d.items():
@@ -146,7 +251,7 @@ def pending():
 @frappe.whitelist()
 def approve(request_id):
 	"""Staff: confirm the person → issue a short-lived view token."""
-	ensure_staff()
+	ensure_cap("debt")
 	d = _store()
 	v = d.get(request_id)
 	if not v:
@@ -180,9 +285,14 @@ def my_debt(token):
 	rate_guard("verify_debt", limit=30, seconds=300)
 	if not token:
 		frappe.throw(_("Phiên không hợp lệ."))
-	for v in _store().values():
+	d = _store()
+	for v in d.values():
 		if v.get("approved") and v.get("customer") and v.get("token") and hmac.compare_digest(v["token"], token):
 			cust = v["customer"]
+			# Single-use: invalidate the token immediately so it can't be replayed (shoulder-surfed /
+			# left in a URL) to re-read this customer's debt on a shared kiosk within the TTL.
+			v["token"] = ""
+			_save(d)
 			bal = _owes(cust)
 			try:
 				record_action("Other", ref_doctype="Customer", ref_name=cust, new_value="kiosk debt view")

@@ -1,6 +1,6 @@
 # cago
 
-Custom Frappe app — the **core business customization layer** for **AgriMate**, a sales
+Custom Frappe app — the **core business customization layer** for **Cago**, a sales
 support system for a rural Vietnamese agricultural supplies store.
 
 This app sits on top of ERPNext/Frappe (the source of truth for Item, Item Price, Stock,
@@ -19,12 +19,12 @@ simplified Vietnamese UI that ERPNext does not provide out of the box.
 - A sample-data importer that loads `data/sample_products.csv`.
 
 Not yet implemented (later milestones): owner/staff/kiosk UI pages, whitelisted DTO APIs,
-chatbot/RAG, POS Awesome integration. The `api/` modules are intentionally stubs.
+and later milestones. The `api/` modules expose whitelisted DTO endpoints.
 
 ## Principles enforced
 
 - Do **not** modify ERPNext or Frappe core.
-- All store-specific logic lives here, never only inside POS Awesome.
+- All store-specific logic lives here, never only inside POS-specific code.
 - Native ERPNext POS must remain a working fallback.
 - Public/kiosk responses must be role-filtered DTOs, never raw DocTypes (later milestones).
 

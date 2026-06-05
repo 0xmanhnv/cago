@@ -6,6 +6,19 @@
   "doctype": "Role",
   "home_page": null,
   "is_custom": 0,
+  "modified": "2026-06-04 00:00:00.000000",
+  "name": "Cago Admin",
+  "restrict_to_domain": "",
+  "role_name": "Cago Admin",
+  "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0,
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Role",
+  "home_page": null,
+  "is_custom": 0,
   "modified": "2026-05-31 16:22:30.766931",
   "name": "Cago Owner",
   "restrict_to_domain": "",
@@ -13,7 +26,7 @@
   "two_factor_auth": 0
  },
  {
-  "desk_access": 1,
+  "desk_access": 0,
   "disabled": 0,
   "docstatus": 0,
   "doctype": "Role",
@@ -24,5 +37,45 @@
   "restrict_to_domain": "",
   "role_name": "Cago Staff",
   "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Sell", "restrict_to_domain": "", "role_name": "Cago Sell", "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Returns", "restrict_to_domain": "", "role_name": "Cago Returns", "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Debt", "restrict_to_domain": "", "role_name": "Cago Debt", "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Debt View", "restrict_to_domain": "", "role_name": "Cago Debt View", "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Stock", "restrict_to_domain": "", "role_name": "Cago Stock", "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Products", "restrict_to_domain": "", "role_name": "Cago Products", "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Reports", "restrict_to_domain": "", "role_name": "Cago Reports", "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Cash", "restrict_to_domain": "", "role_name": "Cago Cash", "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Supplier", "restrict_to_domain": "", "role_name": "Cago Supplier", "two_factor_auth": 0
+ },
+ {
+  "desk_access": 0, "disabled": 0, "docstatus": 0, "doctype": "Role", "home_page": null, "is_custom": 0,
+  "modified": "2026-06-02 00:00:00.000000", "name": "Cago Settings", "restrict_to_domain": "", "role_name": "Cago Settings", "two_factor_auth": 0
  }
 ]

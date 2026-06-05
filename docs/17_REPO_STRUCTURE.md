@@ -1,131 +1,80 @@
 # 17 — Repository Structure
 
-## 1. Recommended repo
+The actual repo layout (kept in sync with the running system). Product: **Cago** (Minh Tuyết shop).
+The front end is **Next.js** under `web/`; the backend is the Frappe app **`cago`**.
 
 ```text
-cago/
-  README.md
-  CLAUDE.md
-
-  docs/
-    01_PRD.md
-    02_ARCHITECTURE.md
-    ...
-    19_DEPLOYMENT_PLAN.md
-
-  prompts/
-    MASTER_PROMPT_FOR_CLAUDE_CODE.md
-    POS_AWESOME_EVALUATION_PROMPT.md
-
-  data/
-    sample_products.csv
-    custom_fields_spec.csv
-
-  frappe-apps/
-    cago/
-      cago/
-        api/
-          kiosk.py
-          staff.py
-          owner.py
-          pos.py
-          chatbot.py
-
-        cago/
-          doctype/
-            cago_product_alternative/
-            cago_wanted_list/
-            cago_owner_action_log/
-
-        www/
-          owner/
-          staff/
-          kiosk/
-
-        public/
-          css/
-          js/
-          images/
-
-        fixtures/
-        hooks.py
-        patches.txt
-        pyproject.toml
-
-  services/
-    chatbot_service/
-    sync_service/
-    image_service/
-    zalo_service/
-
-  scripts/
-    import_products.py
-    export_fixtures.py
-    backup.sh
-    restore.sh
-
-  infra/
-    docker/
-    bench/
-    nginx/
+agrimate/
+├── CLAUDE.md                     # instructions for Claude Code (architecture decisions, conventions)
+├── README.md                     # overview + link to docs/00_INDEX.md
+├── docs/                         # docs — see docs/00_INDEX.md (user / technical / archive)
+│   ├── 00_INDEX.md  user/  archive/  ...
+├── prompts/                      # project bootstrap prompts (historical)
+├── data/                         # original sample data / specs
+├── scripts/                      # CLI helpers: import_products, backup.sh, restore.sh, export_fixtures
+│
+├── web/                          # ❖ FRONTEND — Next.js 16 (App Router, TS, Tailwind), public entry
+│   ├── next.config.mjs           #   proxies /api,/app,/files,/assets,/socket.io → Frappe (one origin)
+│   ├── public/  (PWA: sw.js, manifest)
+│   └── src/
+│       ├── app/                  #   routes: (kiosk)/  pos/  display/  login/  layout/providers/error
+│       ├── components/           #   kiosk/ · staff/ · owner/ · pos/ · ui/ (+ CapabilityGuard, PwaRegister)
+│       ├── lib/                  #   api.ts (frappeCall+CSRF), session, caps, types, utils(VND),
+│       │                         #   kioskNav, cfd, useIsDesktop, offline/ (idb cache + queue + sync)
+│       └── store/kiosk.ts        #   Zustand (kiosk cart, chat session, overlays)
+│
+├── frappe-apps/cago/             # ❖ BACKEND — custom Frappe app `cago` (API-first)
+│   └── cago/
+│       ├── api/                  #   28 whitelisted modules: sales, owner, staff, kiosk, debt,
+│       │                         #   purchasing, supplier, reports, shift, cashbook, coupon,
+│       │                         #   inventory, display, payment, verify, units, staff_admin… (see 39)
+│       ├── chatbot/              #   orchestrator, retrieval, context, prompts, safety,
+│       │                         #   deterministic (keyword fallback), providers/, config, schema
+│       ├── utils/                #   dto.py (role-scoped DTOs), permissions, slug, safety…
+│       ├── setup/                #   custom_fields, company, seed, sample_data, audit, backup, test_accounts
+│       ├── cago/doctype/         #   DocTypes: cago_coupon, cago_till_shift, cago_wanted_list,
+│       │                         #   cago_store_map (+zone/floor/aisle), cago_job_role, cago_chatbot_log…
+│       ├── fixtures/             #   custom_field.json (core product fields), roles…
+│       ├── patches/  patches.txt #   migrations
+│       ├── tests/                #   FrappeTestCase suite (134 tests)
+│       └── hooks.py              #   after_migrate → setup_all_fields, etc.
+│
+└── infra/docker/                 # ❖ DEPLOY — Docker Compose
+    ├── compose.yaml              #   backend(gunicorn), websocket, scheduler, queue-short/long,
+    │                             #   frontend(Frappe nginx, internal), web(Next.js, public), db, redis,
+    │                             #   + profiles: tls(caddy) · backup
+    ├── compose.override.dev.yaml #   dev override (NOT auto-loaded — rebuild backend for any cago change)
+    ├── Dockerfile  Caddyfile  preflight.sh
+    └── .env.example / .env.production.example
 ```
 
-## 2. MVP repo simplification
+## Flow rules
+- **Public entry = `web` (Next.js, port 8080→3000)**; it proxies Frappe via `frontend` (Frappe's
+  internal nginx). The backend is **API-first**: `web` calls `cago.api.*` (cookie session + CSRF).
+- **A backend change (tests included) requires `docker compose build backend`** (the dev override
+  isn't auto-loaded). Recreating backend → restart `frontend` + `web` (nginx caches the old upstream IP → 502).
+- DTOs are role-filtered in `utils/dto.py` (staff don't see cost/profit) — checked by `setup/audit.py`.
 
-In MVP, only these are required:
+## Setup data — three separate layers
+Canonical source: the docstring in `cago/setup/seed.py`.
 
-```text
-docs/
-prompts/
-data/
-frappe-apps/cago/
-scripts/
-```
+1. **Migration (structural)** — runs on `bench migrate`/install:
+   - Custom fields: `hooks.after_migrate` → `cago.setup.custom_fields.setup_all_fields`.
+   - DocTypes + roles: `hooks.fixtures` (`fixtures/custom_field.json`…).
+   - Data patches: `patches.txt` (cap-roles, default job-role assignment…).
+   → Changes the **SHAPE** of the DB, not business records.
 
-Do not create `services/` until needed.
+2. **MANDATORY seed** — `cago.setup.seed.seed_baseline` (idempotent), run at site creation for **both
+   dev and production**: Company + accounts + POS Profile + payment modes · price lists (Standard
+   Selling, Giá sỉ) · category tree + icons/colours · default Cago Job Roles. → Without these the app can't work.
 
-Do not create `kiosk-app/` until Phase 2.
+3. **OPTIONAL / demo seed** — `cago.setup.sample_data.import_sample_products` (54 demo products + demo
+   batches/stock), gated by `LOAD_SAMPLE_DATA`. Production starts **empty** and imports the real catalog
+   via CSV (`import_catalog`). Never required.
 
-## 3. Naming
+> `create-site` (compose): new-site → **seed_baseline (always)** → demo (only when `LOAD_SAMPLE_DATA=1`).
 
-Use `cago_` prefix for custom fields:
+---
 
-```text
-cago_display_name
-cago_local_names
-cago_staff_advice
-```
-
-Use `Cago` prefix for custom DocTypes:
-
-```text
-Cago Product Alternative
-Cago Wanted List
-Cago Owner Action Log
-```
-
-## 4. API modules
-
-```text
-cago/api/kiosk.py
-cago/api/staff.py
-cago/api/owner.py
-cago/api/pos.py
-cago/api/chatbot.py
-```
-
-## 5. UI files
-
-MVP:
-
-```text
-www/owner/
-www/staff/
-www/kiosk/
-```
-
-Phase 2 standalone kiosk:
-
-```text
-kiosk-app/
-```
+See also: [27](27_FRONTEND_MIGRATION_NEXTJS.md) (why Next.js), [39](39_API_REFERENCE.md) (API),
+[40](40_FRONTEND_DEV_GUIDE.md) (`web/` dev), [42](42_CAI_DAT.md) (install), [38](38_GO_LIVE_RUNBOOK.md) (deploy).

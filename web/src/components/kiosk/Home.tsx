@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { frappeCall } from "@/lib/api";
 import { useKiosk } from "@/store/kiosk";
-import { useKioskNav } from "@/lib/kioskNav";
+import { useKioskNav, resetKioskDepth } from "@/lib/kioskNav";
 import { useSession } from "@/lib/session";
+import { isInternal } from "@/lib/caps";
 import { catColor, catIcon } from "@/lib/kioskUi";
-import type { Category } from "@/lib/types";
+import { CatThumb } from "./CatThumb";
+import type { Category, ProductCard } from "@/lib/types";
 
 export function Home() {
   const nav = useKioskNav();
@@ -14,12 +16,24 @@ export function Home() {
   const { boot } = useSession();
   const brand = boot?.brand || "Minh Tuyết";
   const [categories, setCategories] = useState<Category[]>([]);
+  const [best, setBest] = useState<ProductCard[]>([]);
   const [search, setSearch] = useState("");
+  // Hidden staff login: long-press the brand logo to reach /login. Needed because on a locked
+  // kiosk device a guest (start of day / after logout) can't type the URL — and the visible
+  // "Nhân viên" link only shows once signed in. Invisible to customers.
+  const lp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const startPress = () => { lp.current = setTimeout(() => { window.location.href = "/login"; }, 700); };
+  const endPress = () => clearTimeout(lp.current);
+  useEffect(() => () => clearTimeout(lp.current), []);
 
   useEffect(() => {
+    resetKioskDepth(); // back at home → reset nav depth (heals any drift from gesture-back)
     kiosk.clearFocus();
     frappeCall<Category[]>("cago.api.kiosk.get_categories", {}, { method: "GET" })
       .then((d) => setCategories(d || []))
+      .catch(() => {});
+    frappeCall<ProductCard[]>("cago.api.kiosk.best_sellers", { limit: 8 }, { method: "GET" })
+      .then((d) => setBest(d || []))
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -27,7 +41,13 @@ export function Home() {
   return (
     <div>
       {/* Brand banner — compact: logo + name on one row, slogan beneath; keeps the fold for products */}
-      <div className="animate-rise-in relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-dark px-5 py-4 text-white shadow-card">
+      <div
+        onPointerDown={startPress}
+        onPointerUp={endPress}
+        onPointerLeave={endPress}
+        onPointerCancel={endPress}
+        className="animate-rise-in relative mb-4 overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-dark px-5 py-4 text-white shadow-card"
+      >
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-harvest via-amber-300 to-harvest" />
         <div className="flex items-center gap-3">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-harvest/20 text-2xl leading-none ring-2 ring-harvest/60">
@@ -54,18 +74,43 @@ export function Home() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && nav.openList("", search.trim())}
-          placeholder="Tìm sản phẩm..."
+          enterKeyHint="search" placeholder="Tìm sản phẩm..."
           className="w-full rounded-2xl border-2 border-emerald-200 bg-white py-4 pr-4 text-lg shadow-soft outline-none transition focus:border-brand"
           style={{ paddingLeft: "3.25rem" }}
         />
       </div>
 
+      {/* 🏆 Bán chạy — top-selling products so customers see what's popular. Hidden when no sales yet. */}
+      {best.length > 0 && (
+        <>
+          <SectionTitle>🏆 Bán chạy</SectionTitle>
+          <div className="no-scrollbar -mx-1 mb-6 flex gap-3 overflow-x-auto px-1 pb-1 lg:grid lg:grid-cols-4 lg:overflow-visible xl:grid-cols-5">
+            {best.map((p) => (
+              <button
+                key={p.item_code}
+                onClick={() => nav.openDetail(p.item_code)}
+                className="flex w-[150px] flex-none flex-col overflow-hidden rounded-2xl border border-emerald-100 bg-white text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-card lg:w-auto"
+              >
+                <div className="relative">
+                  <CatThumb image={p.image} icon={p.category_icon} color={p.category_color} name={p.display_name} variant="grid" />
+                  <span className="absolute left-2 top-2 rounded-full bg-rose-600 px-2 py-0.5 text-xs font-bold text-white shadow">🏆 Bán chạy</span>
+                </div>
+                <div className="flex flex-1 flex-col p-2.5">
+                  <div className="line-clamp-2 min-h-[2.5em] text-sm font-bold leading-tight">{p.display_name}</div>
+                  <div className="mt-auto pt-1 font-extrabold text-brand">{p.price_text}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       <SectionTitle>🧺 Chọn loại hàng</SectionTitle>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {categories.map((c, i) => (
           <CategoryCard
-            key={c.category}
-            onClick={() => nav.openList(c.category)}
+            key={c.slug}
+            onClick={() => nav.openList(c.slug)}
             color={catColor(c.color)}
             icon={catIcon(c.icon)}
             title={c.category}
@@ -79,17 +124,38 @@ export function Home() {
           icon="🛒"
           title="Xem tất cả"
           sub="toàn bộ sản phẩm"
+          // On the 2-col (phone) grid, a lone trailing tile (total count odd) spans both columns so
+          // there's no empty gap; reverts to a normal cell from sm: up (3–5 cols).
+          spanClass={categories.length % 2 === 0 ? "col-span-2 sm:col-span-1" : ""}
+          wide={false}
           delay={120 + categories.length * 50}
         />
       </div>
 
       <SectionTitle className="mt-7">💬 Cần giúp đỡ?</SectionTitle>
-      <div className="grid grid-cols-2 gap-4">
-        <HelpCard onClick={nav.openChat} icon="🤖" title="Hỏi trợ lý" from="from-violet-500" to="to-violet-700" />
-        <HelpCard onClick={kiosk.openCallStaff} icon="🔔" title="Gọi người bán" from="from-rose-500" to="to-red-600" />
-        {boot?.kiosk_debt_visible && (
-          <HelpCard onClick={nav.openMyDebt} icon="📒" title="Công nợ của tôi" from="from-amber-400" to="to-harvest-dark" />
-        )}
+      {(() => {
+        // Only the cards that actually apply (store map + debt are optional).
+        const cards = [
+          <HelpCard key="chat" onClick={nav.openChat} icon="🤖" title="Hỏi trợ lý" from="from-violet-500" to="to-violet-700" />,
+          <HelpCard key="staff" onClick={kiosk.openCallStaff} icon="🔔" title="Gọi người bán" from="from-rose-500" to="to-red-600" />,
+          <HelpCard key="help" onClick={nav.openHelp} icon="❓" title="Hướng dẫn" from="from-sky-500" to="to-blue-700" />,
+          boot?.store_map ? <HelpCard key="map" onClick={nav.openMap} icon="🗺" title="Sơ đồ cửa hàng" from="from-teal-500" to="to-emerald-700" /> : null,
+          boot?.kiosk_debt_visible ? <HelpCard key="debt" onClick={nav.openMyDebt} icon="📒" title="Công nợ của tôi" from="from-amber-400" to="to-harvest-dark" /> : null,
+        ].filter(Boolean);
+        // Strategy: fill ONE row when ≤3 (cols = count, so no lonely leftover); 4 → a tidy 2×2;
+        // ≥5 → rows of 3. Keeps cards balanced whatever the optional ones add up to.
+        const n = cards.length;
+        const cols = n <= 1 ? "grid-cols-1" : n === 2 || n === 4 ? "grid-cols-2" : "grid-cols-3";
+        return <div className={`grid ${cols} gap-4`}>{cards}</div>;
+      })()}
+
+      {/* Discreet staff entry — for the owner/staff on a shared kiosk+POS device. A customer who
+          taps it hits the login wall (or the PIN lock if a shift session is open), so it's safe to
+          show. Kept small + muted so it doesn't distract shoppers. */}
+      <div className="mt-8 text-center">
+        <a href="/pos" className="text-sm font-bold text-slate-400 underline-offset-2 hover:underline">
+          🔑 Nhân viên · Bán hàng
+        </a>
       </div>
     </div>
   );
@@ -106,6 +172,8 @@ function CategoryCard({
   title,
   sub,
   delay,
+  wide = false,
+  spanClass = "",
 }: {
   onClick: () => void;
   color: string;
@@ -113,16 +181,33 @@ function CategoryCard({
   title: string;
   sub: string;
   delay: number;
+  wide?: boolean;
+  spanClass?: string; // responsive col-span (e.g. fill the odd leftover on the 2-col grid)
 }) {
   return (
     <button
       onClick={onClick}
       style={{ background: `linear-gradient(160deg, ${color} 0%, #ffffff 130%)`, animationDelay: `${delay}ms` }}
-      className="animate-rise-in flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-3xl border border-white/60 p-4 text-center shadow-soft transition hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97]"
+      className={`animate-rise-in rounded-3xl border border-white/60 shadow-soft transition hover:-translate-y-0.5 hover:shadow-card active:scale-[0.97] ${spanClass} ${
+        wide
+          ? "col-span-2 flex min-h-[96px] flex-row items-center justify-center gap-4 p-4"
+          : "flex min-h-[140px] flex-col items-center justify-center gap-2 p-4 text-center"
+      }`}
     >
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/80 text-4xl shadow-sm">{icon}</span>
-      <span className="text-xl font-extrabold text-brand-dark">{title}</span>
-      <span className="rounded-full bg-white/70 px-3 py-0.5 text-sm font-bold text-brand-dark/70">{sub}</span>
+      <span className={`flex shrink-0 items-center justify-center rounded-full bg-white/80 shadow-sm ${wide ? "h-14 w-14 text-3xl" : "h-16 w-16 text-4xl"}`}>
+        {icon}
+      </span>
+      {wide ? (
+        <span className="flex flex-col items-start leading-tight">
+          <span className="text-xl font-extrabold text-brand-dark">{title}</span>
+          <span className="text-sm font-bold text-brand-dark/70">{sub}</span>
+        </span>
+      ) : (
+        <>
+          <span className="text-xl font-extrabold text-brand-dark">{title}</span>
+          <span className="rounded-full bg-white/70 px-3 py-0.5 text-sm font-bold text-brand-dark/70">{sub}</span>
+        </>
+      )}
     </button>
   );
 }

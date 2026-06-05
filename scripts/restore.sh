@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Restore an AgriMate site from a database backup. Run from your frappe-bench dir.
+# Restore an Cago site from a database backup. Run from your frappe-bench dir.
 #
 #   ./scripts/restore.sh mysite.local /path/to/database.sql.gz [/path/to/files.tar] [/path/to/private-files.tar]
 #
