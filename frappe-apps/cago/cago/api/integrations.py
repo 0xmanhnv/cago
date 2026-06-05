@@ -17,14 +17,16 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
-from frappe.utils.password import get_decrypted_password
 
 from cago.api.debt import _company
 from cago.utils.permissions import ensure_admin
+from cago.utils.secrets import has_secret
 
 
 def _has(field: str) -> bool:
-	return bool(frappe.db.get_value("Company", _company(), field))
+	# Truthful: a secret counts as "set" only if it is actually retrievable (encrypted in __Auth),
+	# not merely present as a stale plaintext column value from before the secrets fix.
+	return has_secret("Company", _company(), field)
 
 
 @frappe.whitelist()
