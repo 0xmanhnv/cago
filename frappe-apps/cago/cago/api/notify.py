@@ -23,14 +23,12 @@ from cago.utils.permissions import ensure_admin, ensure_internal, ensure_owner, 
 
 
 def _config():
-	from frappe.utils.password import get_decrypted_password
+	from cago.utils.secrets import get_secret
 
 	c = _company()
 	webhook = frappe.db.get_value("Company", c, "cago_notify_webhook")
-	token = None
-	if webhook:
-		token = get_decrypted_password("Company", c, "cago_notify_token", raise_exception=False)
-	return (webhook or "").strip(), (token or "").strip()
+	token = get_secret("Company", c, "cago_notify_token") if webhook else ""
+	return (webhook or "").strip(), token
 
 
 def is_configured() -> bool:
@@ -74,9 +72,10 @@ def notify_telegram(text):
 	text = (text or "").strip()
 	if not text:
 		return {"sent": False, "reason": "empty"}
+	from cago.utils.secrets import get_secret
+
 	c = _company()
-	bot = frappe.utils.password.get_decrypted_password("Company", c, "cago_telegram_bot_token", raise_exception=False) if c else None
-	bot = bot or frappe.db.get_value("Company", c, "cago_telegram_bot_token")
+	bot = get_secret("Company", c, "cago_telegram_bot_token") if c else ""
 	chat = frappe.db.get_value("Company", c, "cago_telegram_chat_id")
 	if not bot or not chat:
 		return {"sent": False, "reason": "not configured"}
@@ -141,11 +140,13 @@ def set_webhook(webhook=None, token=None):
 	"""Set the Zalo/SMS relay endpoint + bearer token — technical config, ADMIN only. Token is only
 	overwritten when a non-empty value is supplied (saving the URL alone keeps the existing token)."""
 	ensure_admin()
+	from cago.utils.secrets import set_secret
+
 	c = _company()
 	if webhook is not None:
 		frappe.db.set_value("Company", c, "cago_notify_webhook", (webhook or "").strip())
 	if token:
-		frappe.db.set_value("Company", c, "cago_notify_token", token.strip())
+		set_secret("Company", c, "cago_notify_token", token)
 	frappe.db.commit()
 	return get_notify_config()
 
@@ -155,9 +156,11 @@ def set_telegram(bot_token=None, chat_id=None):
 	"""Set the Telegram ops bot token + chat id — technical config, ADMIN only. The token is only
 	overwritten when a non-empty value is supplied (saving the chat id alone keeps the token)."""
 	ensure_admin()
+	from cago.utils.secrets import set_secret
+
 	c = _company()
 	if bot_token:
-		frappe.db.set_value("Company", c, "cago_telegram_bot_token", bot_token.strip())
+		set_secret("Company", c, "cago_telegram_bot_token", bot_token)
 	if chat_id is not None:
 		frappe.db.set_value("Company", c, "cago_telegram_chat_id", (chat_id or "").strip())
 	frappe.db.commit()

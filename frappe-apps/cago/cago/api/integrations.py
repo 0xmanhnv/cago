@@ -69,17 +69,19 @@ def set_zalo(app_id=None, oa_id=None, app_secret=None, zalopay_merchant_id=None,
 	"""ADMIN: Zalo Mini App + optional ZaloPay config. Password fields (app_secret, zalopay_key) are
 	overwritten only when a non-empty value is supplied."""
 	ensure_admin()
+	from cago.utils.secrets import set_secret
+
 	c = _company()
 	if app_id is not None:
 		frappe.db.set_value("Company", c, "cago_zalo_app_id", (app_id or "").strip())
 	if oa_id is not None:
 		frappe.db.set_value("Company", c, "cago_zalo_oa_id", (oa_id or "").strip())
 	if app_secret:
-		frappe.db.set_value("Company", c, "cago_zalo_app_secret", app_secret.strip())
+		set_secret("Company", c, "cago_zalo_app_secret", app_secret)
 	if zalopay_merchant_id is not None:
 		frappe.db.set_value("Company", c, "cago_zalopay_merchant_id", (zalopay_merchant_id or "").strip())
 	if zalopay_key:
-		frappe.db.set_value("Company", c, "cago_zalopay_key", zalopay_key.strip())
+		set_secret("Company", c, "cago_zalopay_key", zalopay_key)
 	frappe.db.commit()
 	return get_integrations()
 
