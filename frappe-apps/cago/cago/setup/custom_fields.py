@@ -185,12 +185,31 @@ def ensure_customer_fields():
 					"no_copy": 1,
 					"hidden": 1,
 				},
+				{
+					# Linked Zalo user id (set when a customer logs in via the Zalo Mini App).
+					"fieldname": "cago_zalo_id",
+					"label": "Cago Zalo ID",
+					"fieldtype": "Data",
+					"insert_after": "cago_slug",
+					"read_only": 1,
+					"no_copy": 1,
+					"hidden": 1,
+				},
+				{
+					# A customer who self-registered online (Zalo/web) is a LEAD: browse/order/cash OK,
+					# but NO buying on credit until the owner verifies them. Cleared via staff.verify_customer.
+					"fieldname": "cago_unverified",
+					"label": "Khách tự đăng ký (chưa duyệt mua chịu)",
+					"fieldtype": "Check",
+					"insert_after": "cago_zalo_id",
+					"description": "Bật tự động khi khách tự đăng ký qua Zalo/web. Chặn mua chịu cho tới khi chủ duyệt.",
+				},
 			]
 		},
 		ignore_validate=True,
 	)
 	frappe.db.commit()
-	print("Customer fields ensured: cago_debt_limit, cago_points, cago_wholesale, cago_slug")
+	print("Customer fields ensured: cago_debt_limit, cago_points, cago_wholesale, cago_slug, cago_zalo_id, cago_unverified")
 
 
 def ensure_loyalty_fields():

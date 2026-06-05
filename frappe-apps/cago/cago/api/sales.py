@@ -323,6 +323,7 @@ def credit_sale(customer, items, note=None, client_uuid=None):
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 
 	# Credit limit (rough estimate in selling units).
+	debt.ensure_not_unverified(customer)  # a self-registered lead can't buy on credit until verified
 	limit = flt(debt.effective_debt_limit(customer))
 	if limit:
 		current = flt(debt.get_customer_debt(customer)["outstanding"])
@@ -1048,6 +1049,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				from cago.debt_proof import require_proof
 
 				require_proof("debt", total - paid, debt_signature, debt_photo, debt_witness)
+				debt.ensure_not_unverified(cust)  # lead can't take the shortfall as credit
 				limit = flt(debt.effective_debt_limit(cust))
 				if limit:
 					current = _customer_outstanding(cust)
@@ -1087,6 +1089,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		from cago.debt_proof import require_proof
 
 		require_proof("debt", subtotal_all - disc, debt_signature, debt_photo, debt_witness)
+		debt.ensure_not_unverified(cust)  # a self-registered lead can't buy on credit until verified
 		limit = flt(debt.effective_debt_limit(cust))
 		if limit:
 			current = _customer_outstanding(cust)

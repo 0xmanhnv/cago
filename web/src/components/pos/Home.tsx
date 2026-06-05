@@ -76,6 +76,7 @@ const ACTIONS: Record<string, ActionDef> = {
   health: { label: "🩺 Kiểm tra dữ liệu", color: "bg-blue-600", href: "/pos/health", cap: "products" },
   aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "admin" },
   integrations: { label: "🔌 Kết nối & Kênh", color: "bg-slate-600", href: "/pos/integrations", cap: "admin" },
+  telegramlink: { label: "🔗 Liên kết Telegram", color: "bg-sky-600", href: "/pos/link-telegram", cap: null },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
   backup: { label: "💾 Sao lưu dữ liệu", color: "bg-slate-600", href: "/pos/backup", cap: "admin" },
   readiness: { label: "🚩 Sẵn sàng khai trương?", color: "bg-emerald-700", href: "/pos/readiness", cap: "owner" },
@@ -105,7 +106,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🏬 Kho & nhập hàng", keys: ["alerts", "receive", "reorder", "expiry", "receivehist"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
   { title: "📊 Báo cáo", keys: ["reports", "unsafe", "insights", "aicontent"] },
-  { title: "⚙️ Cài đặt cửa hàng", keys: ["readiness", "settings", "categories", "map", "coupons", "aisettings", "integrations", "staffadmin", "backup", "help"] },
+  { title: "⚙️ Cài đặt cửa hàng", keys: ["readiness", "settings", "categories", "map", "coupons", "aisettings", "integrations", "telegramlink", "staffadmin", "backup", "help"] },
   { title: "🖥 Màn hình & thiết bị", keys: ["cfd", "handover", "setpin"] },
 ];
 
