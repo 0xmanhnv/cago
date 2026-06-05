@@ -21,19 +21,32 @@ Setup needs an external account + a public URL, so it's wired but configured lat
 
 from __future__ import annotations
 
+import re
+
 import frappe
 
 from cago.api.debt import _company
-from cago.utils.permissions import ensure_admin
+from cago.utils.permissions import ensure_admin, ensure_internal
 
-_HELP = (
-	"<b>Cago — trợ lý cửa hàng</b>\n"
-	"Gõ một trong các lệnh:\n"
+# Sensitive owner commands (revenue / debt / digest-with-debt) — answered only in a PRIVATE chat with
+# an owner, never in the shared staff group. Operational commands are available to staff in the group.
+_OWNER_CMDS = {"/doanhthu", "/no", "/viec"}
+_STAFF_CMDS = {"/tonkho"}
+
+_HELP_OWNER = (
+	"<b>Cago — trợ lý chủ cửa hàng</b>\n"
 	"/doanhthu — doanh thu hôm nay\n"
 	"/no — khách còn nợ\n"
 	"/tonkho — hàng sắp/đang hết\n"
 	"/viec — việc cần làm hôm nay\n"
-	"/help — trợ giúp"
+	"/myid — xem Telegram ID của bạn\n"
+	"<i>Lệnh doanh thu/công nợ nhắn riêng cho bot để nhân viên không thấy.</i>"
+)
+_HELP_STAFF = (
+	"<b>Cago — trợ lý cửa hàng</b>\n"
+	"/tonkho — hàng sắp/đang hết\n"
+	"/myid — xem Telegram ID của bạn\n"
+	"<i>Doanh thu / công nợ chỉ chủ cửa hàng xem (nhắn riêng cho bot).</i>"
 )
 
 
@@ -89,14 +102,25 @@ _COMMANDS = {
 }
 
 
-def _handle(cmd: str) -> str:
-	"""Map a command word to a reply, fetching data under an elevated session (the chat-id check in
-	webhook() is the auth boundary). /start and unknown text fall back to help."""
+def _handle(cmd: str, from_id: str, is_owner: bool, in_group: bool) -> str:
+	"""Reply for one command, gated by WHO sent it:
+	- /myid → the sender's Telegram ID (so they can be added to the owner list).
+	- owner commands (revenue/debt/digest) → only an owner, and only in a PRIVATE chat (refused in the
+	  group so a reply never leaks money figures to staff).
+	- staff commands (low stock) → anyone in the allowed chat.
+	Data is fetched under an elevated session; the role check here is the authorisation boundary."""
 	from cago.utils.privileged import as_user
 
+	if cmd == "/myid":
+		return f"Telegram ID của bạn: <code>{from_id}</code>\nĐưa ID này cho quản trị để được xem doanh thu/công nợ."
+	if cmd in _OWNER_CMDS:
+		if not is_owner:
+			return "🔒 Lệnh này chỉ dành cho chủ cửa hàng. Gõ /myid rồi nhờ quản trị thêm ID của bạn (mục Kết nối & Kênh)."
+		if in_group:
+			return "📌 Để tránh lộ cho nhân viên, nhắn RIÊNG cho bot (chat 1-1) để xem doanh thu / công nợ."
 	fn = _COMMANDS.get(cmd)
 	if not fn:
-		return _HELP
+		return _HELP_OWNER if is_owner else _HELP_STAFF
 	try:
 		with as_user("Administrator"):
 			return fn()
@@ -123,15 +147,114 @@ def webhook():
 	data = (frappe.request.get_json(silent=True) or {}) if getattr(frappe, "request", None) else {}
 	msg = data.get("message") or data.get("edited_message") or {}
 	chat_id = str((msg.get("chat") or {}).get("id") or "")
-	want = str(frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "")
-	if not chat_id or (want and chat_id != want):
-		# Message from an unknown chat — ignore silently (don't confirm the bot exists to strangers).
+	from_id = str((msg.get("from") or {}).get("id") or "")
+	text = (msg.get("text") or "").strip()
+	parts = text.split(maxsplit=1)
+	cmd = (parts[0].lower().split("@")[0]) if parts else ""
+	arg = parts[1].strip() if len(parts) > 1 else ""
+
+	# Account linking: a "/start <code>" carries a one-time code minted by the in-app "Liên kết
+	# Telegram" flow — the code IS the auth, so accept it from ANY chat (the user isn't linked yet).
+	if cmd == "/start" and arg:
+		notify_telegram(_consume_link(arg, from_id), chat_id=chat_id)
 		return {"ok": True}
 
-	text = (msg.get("text") or "").strip()
-	cmd = text.split()[0].lower().split("@")[0] if text else ""
-	notify_telegram(_handle(cmd))
+	group = str(frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "")
+	owner_ids = {i.strip() for i in re.split(r"[,\s]+", frappe.db.get_value("Company", c, "cago_telegram_owner_ids") or "") if i.strip()}
+	# Prefer the linked user's REAL Cago role; fall back to the manual owner-id allowlist.
+	linked_user = frappe.db.get_value("User", {"cago_telegram_id": from_id}, "name") if from_id else None
+	is_owner = (bool(linked_user) and _is_owner_user(linked_user)) or (from_id in owner_ids)
+	in_group = bool(group) and chat_id == group
+	private_ok = chat_id == from_id and (bool(linked_user) or is_owner)
+	# Accept commands only from the configured ops group (staff context) or a linked/owner PRIVATE
+	# chat. Anything else is ignored silently.
+	if not chat_id or not (in_group or private_ok):
+		return {"ok": True}
+
+	# Reply to the chat the command came from (so an owner's private query stays private).
+	notify_telegram(_handle(cmd, from_id, is_owner, in_group), chat_id=chat_id)
 	return {"ok": True}
+
+
+def _is_owner_user(user) -> bool:
+	from cago.utils.permissions import is_owner_roles
+
+	return is_owner_roles(set(frappe.get_roles(user)))
+
+
+def _link_key(code: str) -> str:
+	return f"cago_tg_link:{code}"
+
+
+def _consume_link(code: str, from_id: str) -> str:
+	"""A user tapped the deep-link → map their Telegram id to the Cago account that minted `code`."""
+	if not from_id:
+		return "Không đọc được tài khoản Telegram của bạn."
+	user = frappe.cache().get_value(_link_key(code))
+	if not user or not frappe.db.exists("User", user):
+		return "Mã liên kết không hợp lệ hoặc đã hết hạn. Mở lại app và bấm 'Liên kết Telegram'."
+	frappe.cache().delete_value(_link_key(code))
+	# One Telegram id → one Cago user: detach it from any other account first (re-link / device change).
+	for other in frappe.get_all("User", filters={"cago_telegram_id": from_id, "name": ["!=", user]}, pluck="name"):
+		frappe.db.set_value("User", other, "cago_telegram_id", "")
+	frappe.db.set_value("User", user, "cago_telegram_id", from_id)
+	frappe.db.commit()
+	return f"✅ Đã liên kết Telegram với tài khoản <b>{user}</b>. Từ giờ lệnh hiện theo đúng quyền của bạn."
+
+
+@frappe.whitelist()
+def link_start():
+	"""Owner/staff self-link: mint a one-time code + a t.me deep link. Tapping it opens the bot, which
+	maps the sender's Telegram id to THIS user (see _consume_link)."""
+	ensure_internal()
+	user = frappe.session.user
+	code = frappe.generate_hash(length=10)
+	frappe.cache().set_value(_link_key(code), user, expires_in_sec=600)
+	bot = _bot_username()
+	return {
+		"code": code,
+		"deep_link": f"https://t.me/{bot}?start={code}" if bot else "",
+		"bot": bot or "",
+		"expires_in_sec": 600,
+	}
+
+
+@frappe.whitelist()
+def link_status():
+	"""Whether the current user's Telegram is linked (for the 'Liên kết / Huỷ' UI)."""
+	ensure_internal()
+	return {"linked": bool(frappe.db.get_value("User", frappe.session.user, "cago_telegram_id"))}
+
+
+@frappe.whitelist()
+def unlink():
+	"""Detach the current user's Telegram link."""
+	ensure_internal()
+	frappe.db.set_value("User", frappe.session.user, "cago_telegram_id", "")
+	frappe.db.commit()
+	return {"linked": False}
+
+
+def _bot_username():
+	"""The bot's @username (for building the t.me deep link), via getMe. Cached briefly."""
+	from cago.utils.secrets import get_secret
+
+	bot = get_secret("Company", _company(), "cago_telegram_bot_token")
+	if not bot:
+		return ""
+	cached = frappe.cache().get_value("cago_tg_bot_username")
+	if cached:
+		return cached
+	try:
+		import requests
+
+		r = requests.get(f"https://api.telegram.org/bot{bot}/getMe", timeout=10)
+		name = ((r.json() or {}).get("result") or {}).get("username") or ""
+		if name:
+			frappe.cache().set_value("cago_tg_bot_username", name, expires_in_sec=86400)
+		return name
+	except Exception:  # noqa: BLE001
+		return ""
 
 
 @frappe.whitelist()

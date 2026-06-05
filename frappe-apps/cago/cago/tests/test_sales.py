@@ -237,6 +237,24 @@ class TestQuickSale(FrappeTestCase):
 		self.assertTrue(r2.get("duplicate"))  # second call was a replay, not a new booking
 		self.assertAlmostEqual(flt_qty(ITEM), before - 2, places=2)  # stock down ONCE
 
+	def test_exchange_idempotent_by_client_uuid(self):
+		"""A retry of the same exchange (lost response on a flaky network) must not double-refund or
+		double-sell — both legs dedup on the shared client_uuid."""
+		from cago.api import purchasing, sales
+
+		other = "CAM-GA-THIT-25KG"
+		purchasing.receive_stock(ITEM, 10)
+		purchasing.receive_stock(other, 10)
+		orig = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 2}]), "cash")
+		uuid = frappe.generate_hash(length=20)
+		before_other = flt_qty(other)
+		args = (orig["invoice"], json.dumps([{"item_code": ITEM, "qty": 1}]), json.dumps([{"item_code": other, "qty": 1}]), "cash")
+		r1 = sales.exchange_sale(*args, client_uuid=uuid)
+		r2 = sales.exchange_sale(*args, client_uuid=uuid)
+		self.assertEqual(r1["return_invoice"], r2["return_invoice"])  # one refund, not two
+		self.assertEqual(r1["sale_invoice"], r2["sale_invoice"])  # one new sale, not two
+		self.assertAlmostEqual(flt_qty(other), before_other - 1, places=2)  # replacement sold ONCE
+
 	def test_quick_sale_posted_at_sets_posting_datetime(self):
 		"""An offline sale carries its real ring-up time so it lands in the right till-shift window."""
 		from cago.api import purchasing, sales
