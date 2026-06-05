@@ -205,16 +205,25 @@ def create_wanted_list(items, note=None, customer_name=None, customer_phone=None
 		from cago.api.notify import notify_ops
 
 		who = " · ".join(x for x in [wl.customer_name, wl.customer_phone] if x)
-		how = "🚚 Giao tận nơi" if wl.fulfilment == "Giao tận nơi" else "🏪 Nhận tại cửa hàng"
-		# A tap-to-open button straight to the order in the staff queue — needs the public URL set
-		# (Kết nối & Kênh); without it, the alert is plain text.
+		delivery = wl.fulfilment == "Giao tận nơi"
+		how = "🚚 Giao tận nơi" if delivery else "🏪 Nhận tại cửa hàng"
+		# Tap-to-ACT buttons: staff process the order right in Telegram (callback → status update in the
+		# webhook). Tapping needs the inbound webhook registered (public HTTPS). The optional "Mở đơn"
+		# link needs the public URL set (Kết nối & Kênh).
+		buttons = [
+			{"text": "✅ Xác nhận", "cb": f"wl:confirm:{wl.code}"},
+			*([{"text": "🚚 Đang giao", "cb": f"wl:deliver:{wl.code}"}] if delivery else []),
+			{"text": "✔️ Hoàn tất", "cb": f"wl:done:{wl.code}"},
+			{"text": "✖️ Huỷ", "cb": f"wl:cancel:{wl.code}"},
+		]
 		base = public_url()
-		button = {"text": "📋 Mở đơn xử lý", "url": f"{base}/pos/orders?code={wl.code}"} if base else None
+		if base:
+			buttons.append({"text": "📋 Mở đơn", "url": f"{base}/pos/orders?code={wl.code}"})
 		notify_ops(
 			f"📦 Đơn mới {wl.code} · {added} mặt hàng · {how} · {wl.payment_method}"
 			+ (f"\n👤 {who}" if who else "")
 			+ (f"\n📍 {wl.address}" if wl.address else ""),
-			button=button,
+			buttons=buttons,
 		)
 	except Exception:
 		pass

@@ -145,6 +145,10 @@ def webhook():
 		return {"ok": False}
 
 	data = (frappe.request.get_json(silent=True) or {}) if getattr(frappe, "request", None) else {}
+	# Tap-to-act buttons (Xác nhận / Đang giao / …) arrive as a callback_query, handled separately.
+	if data.get("callback_query"):
+		_handle_callback(data["callback_query"])
+		return {"ok": True}
 	msg = data.get("message") or data.get("edited_message") or {}
 	chat_id = str((msg.get("chat") or {}).get("id") or "")
 	from_id = str((msg.get("from") or {}).get("id") or "")
@@ -180,6 +184,69 @@ def _is_owner_user(user) -> bool:
 	from cago.utils.permissions import is_owner_roles
 
 	return is_owner_roles(set(frappe.get_roles(user)))
+
+
+# Tap-to-act buttons on a new-order alert: callback_data "wl:<action>:<code>" → order status.
+_CB_ACTIONS = {"confirm": "Confirmed", "deliver": "Delivering", "done": "Completed", "cancel": "Cancelled"}
+_CB_VI = {"Confirmed": "Đã xác nhận", "Delivering": "Đang giao", "Completed": "Hoàn tất", "Cancelled": "Đã huỷ"}
+
+
+def _tg_api(method, payload):
+	"""Fire-and-forget Bot API call (answerCallbackQuery / editMessageText). Never raises."""
+	from cago.utils.secrets import get_secret
+
+	bot = get_secret("Company", _company(), "cago_telegram_bot_token")
+	if not bot:
+		return
+	try:
+		import requests
+
+		requests.post(f"https://api.telegram.org/bot{bot}/{method}", json=payload, timeout=10)
+	except Exception:  # noqa: BLE001
+		pass
+
+
+def _answer_callback(cb_id, text):
+	if cb_id:
+		_tg_api("answerCallbackQuery", {"callback_query_id": cb_id, "text": text})
+
+
+def _handle_callback(cb):
+	"""A staff/owner tapped an action button on the order alert → update the order status right from
+	Telegram (no need to open the app). Gated to the ops group or a linked Cago user; reuses
+	staff.set_wanted_list_status (which also pings the customer)."""
+	cb_id = cb.get("id")
+	from_id = str((cb.get("from") or {}).get("id") or "")
+	message = cb.get("message") or {}
+	chat_id = str((message.get("chat") or {}).get("id") or "")
+	message_id = message.get("message_id")
+	parts = (cb.get("data") or "").split(":", 2)
+	if len(parts) != 3 or parts[0] != "wl":
+		return _answer_callback(cb_id, "Lệnh không hợp lệ.")
+	action, code = parts[1], parts[2]
+	# Gate: only the configured ops group or a linked Cago user (staff/owner) may act.
+	group = str(frappe.db.get_value("Company", _company(), "cago_telegram_chat_id") or "")
+	linked = frappe.db.get_value("User", {"cago_telegram_id": from_id}, "name") if from_id else None
+	if not ((group and chat_id == group) or linked):
+		return _answer_callback(cb_id, "Bạn chưa có quyền — hãy liên kết tài khoản trong app trước.")
+	status = _CB_ACTIONS.get(action)
+	if not status:
+		return _answer_callback(cb_id, "Hành động không hợp lệ.")
+	try:
+		from cago.api.staff import set_wanted_list_status
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):
+			set_wanted_list_status(code, status)
+		_answer_callback(cb_id, f"✅ {code}: {_CB_VI.get(status, status)}")
+		# Append the outcome + drop the buttons (no reply_markup) so it can't be tapped twice.
+		_tg_api("editMessageText", {
+			"chat_id": chat_id, "message_id": message_id, "parse_mode": "HTML", "disable_web_page_preview": True,
+			"text": (message.get("text") or f"Đơn {code}") + f"\n— {_CB_VI.get(status, status)} ✅ (qua Telegram)",
+		})
+	except Exception:  # noqa: BLE001
+		frappe.log_error(title="Cago telegram callback failed", message=frappe.get_traceback())
+		_answer_callback(cb_id, "Lỗi, thử lại sau.")
 
 
 def _link_key(code: str) -> str:

@@ -69,10 +69,10 @@ def send_owner(text):
 	return send_message(phone, text)
 
 
-def notify_telegram(text, chat_id=None, button=None):
+def notify_telegram(text, chat_id=None, buttons=None):
 	"""Push a message to the shop's Telegram ops chat (owner + staff) via the Bot API, or to a specific
-	`chat_id` (e.g. reply to the chat a command came from). `button` = {"text", "url"} adds a tap-to-open
-	inline button (e.g. "Mở đơn"). No-op if no bot token / chat configured. Best-effort — never raises."""
+	`chat_id` (e.g. reply to the chat a command came from). `buttons` = list of {text, url|cb} → inline
+	buttons (open a link / fire a callback). No-op if no bot token / chat configured. Never raises."""
 	text = (text or "").strip()
 	if not text:
 		return {"sent": False, "reason": "empty"}
@@ -91,8 +91,9 @@ def notify_telegram(text, chat_id=None, button=None):
 		import requests
 
 		payload = {"chat_id": chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}
-		if button and button.get("url"):
-			payload["reply_markup"] = {"inline_keyboard": [[{"text": button.get("text") or "Mở", "url": button["url"]}]]}
+		kb = _inline_keyboard(buttons)
+		if kb:
+			payload["reply_markup"] = {"inline_keyboard": kb}
 		r = requests.post(f"https://api.telegram.org/bot{bot}/sendMessage", json=payload, timeout=10)
 		ok = 200 <= r.status_code < 300
 		return {"sent": ok, "reason": "" if ok else f"HTTP {r.status_code}"}
@@ -100,11 +101,32 @@ def notify_telegram(text, chat_id=None, button=None):
 		return {"sent": False, "reason": str(e)[:120]}
 
 
-def notify_ops(text, button=None):
+def _inline_keyboard(buttons):
+	"""Build a Telegram inline_keyboard (2 buttons/row) from a flat list of
+	{text, url} (open a link) or {text, cb} (callback_data — handle in webhook). [] → no keyboard."""
+	kb, row = [], []
+	for b in buttons or []:
+		btn = {"text": b.get("text") or "Mở"}
+		if b.get("url"):
+			btn["url"] = b["url"]
+		elif b.get("cb"):
+			btn["callback_data"] = b["cb"]
+		else:
+			continue
+		row.append(btn)
+		if len(row) == 2:
+			kb.append(row)
+			row = []
+	if row:
+		kb.append(row)
+	return kb
+
+
+def notify_ops(text, buttons=None):
 	"""Broadcast an OPS alert (new remote order, call-staff, daily digest…) to the shop's channels:
-	the owner's Zalo/SMS + the Telegram ops chat. `button` = {"text","url"} adds a tap-to-open button
-	on Telegram (Zalo/SMS is plain text). Best-effort on each; returns which fired."""
-	return {"zalo": send_owner(text), "telegram": notify_telegram(text, button=button)}
+	the owner's Zalo/SMS + the Telegram ops chat. `buttons` = list of {text, url|cb} → tap-to-open /
+	tap-to-act buttons on Telegram (Zalo/SMS is plain text). Best-effort on each; returns which fired."""
+	return {"zalo": send_owner(text), "telegram": notify_telegram(text, buttons=buttons)}
 
 
 @frappe.whitelist()
