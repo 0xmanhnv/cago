@@ -462,6 +462,13 @@ def ensure_payment_fields():
 					"insert_after": "cago_telegram_webhook_secret",
 					"description": "Telegram user ID của (các) chủ — ngăn cách bởi dấu phẩy. Chỉ những ID này được xem doanh thu/công nợ qua tin nhắn riêng với bot; nhân viên trong nhóm chỉ thấy lệnh vận hành.",
 				},
+				{
+					"fieldname": "cago_notify_on_sale",
+					"label": "Báo mỗi đơn bán (Zalo/Telegram)",
+					"fieldtype": "Check",
+					"insert_after": "cago_telegram_owner_ids",
+					"description": "Bật: mỗi đơn bán xong sẽ gửi thông báo vào kênh (Zalo chủ + nhóm Telegram). Tắt: chỉ báo đơn từ xa / gọi nhân viên / nhắc việc.",
+				},
 				# Public origin + Zalo Mini App config — technical channel config (ADMIN only), edited in the
 				# "Kết nối & Kênh" screen. public_url is the one HTTPS origin reused by the Telegram webhook,
 				# Zalo, and share links. See docs/45 + cago.api.integrations.

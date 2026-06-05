@@ -21,7 +21,7 @@ export function Settings() {
   const [defLimit, setDefLimit] = useState("");
   // Owner's business contact phone only. All technical channel config (webhook/token, Telegram, Zalo)
   // lives on the admin-only "Kết nối & Kênh" screen (ConnectScreen / cago.api.integrations).
-  const [notify, setNotify] = useState({ owner_phone: "", is_admin: false });
+  const [notify, setNotify] = useState({ owner_phone: "", is_admin: false, notify_on_sale: false });
   const [cfdUrl, setCfdUrl] = useState("");
   const [cfdCopied, setCfdCopied] = useState(false);
 
@@ -58,8 +58,8 @@ export function Settings() {
     frappeCall<{ limit: number }>("cago.api.verify.get_default_debt_limit", {}, { method: "GET" })
       .then((d) => setDefLimit(String(d.limit || "")))
       .catch(() => {});
-    frappeCall<{ owner_phone: string; is_admin: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
-      .then((d) => setNotify({ owner_phone: d.owner_phone || "", is_admin: !!d.is_admin }))
+    frappeCall<{ owner_phone: string; is_admin: boolean; notify_on_sale: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
+      .then((d) => setNotify({ owner_phone: d.owner_phone || "", is_admin: !!d.is_admin, notify_on_sale: !!d.notify_on_sale }))
       .catch(() => {});
     frappeCall<{ token: string }>("cago.api.display.cfd_token", {}, { method: "GET" })
       .then((d) => setCfdUrl(d.token ? `${window.location.origin}/display?k=${d.token}` : ""))
@@ -112,6 +112,17 @@ export function Settings() {
       toast.success("Đã lưu số nhận nhắc việc.");
     } catch {
       toast.error("Lỗi: không lưu được.");
+    }
+  };
+
+  const toggleNotifyOnSale = async () => {
+    const next = !notify.notify_on_sale;
+    setNotify({ ...notify, notify_on_sale: next }); // optimistic
+    try {
+      await frappeCall("cago.api.notify.set_notify_on_sale", { on: next ? 1 : 0 });
+    } catch {
+      setNotify({ ...notify, notify_on_sale: !next });
+      toast.error("Lỗi: không đổi được.");
     }
   };
 
@@ -304,6 +315,13 @@ export function Settings() {
         <button onClick={saveNotify} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
           💾 Lưu số nhận nhắc việc
         </button>
+        <label className="mt-4 flex items-start gap-2.5 rounded-xl bg-slate-50 p-3">
+          <input type="checkbox" checked={notify.notify_on_sale} onChange={toggleNotifyOnSale} className="mt-0.5 h-5 w-5" />
+          <span>
+            <span className="font-bold">Báo Telegram/Zalo mỗi đơn bán</span>
+            <span className="block text-xs text-slate-500">Bật: mỗi đơn bán xong gửi thông báo vào nhóm Telegram + Zalo chủ. Tắt (mặc định): chỉ báo đơn từ xa / gọi nhân viên / nhắc việc.</span>
+          </span>
+        </label>
         {notify.is_admin && (
           <p className="mt-3 text-sm text-slate-400">
             ⚙️ Cấu hình kênh gửi tin Zalo/SMS, Telegram và Zalo Mini App ở màn{" "}
