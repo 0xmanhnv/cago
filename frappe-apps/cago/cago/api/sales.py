@@ -634,13 +634,20 @@ def get_returnable(invoice):
 
 
 @frappe.whitelist()
-def return_sale(invoice, lines=None):
+def return_sale(invoice, lines=None, client_uuid=None):
 	"""Trả hàng: reverse a submitted sale — stock comes back, money is refunded (or debt reduced
 	for credit sales). `lines` (JSON [{item_code, qty}]) returns only those quantities (partial,
 	e.g. 25kg of a 50kg bag); omit it to return the whole invoice. Can be called repeatedly until
-	everything is returned. Uses ERPNext make_sales_return; staff-only, privileged submit."""
+	everything is returned. Uses ERPNext make_sales_return; staff-only, privileged submit.
+
+	`client_uuid` makes a retry idempotent: a lost response on a flaky network would otherwise refund
+	twice. With it, a second call returns the already-booked refund instead of creating a new one."""
 	ensure_cap("returns")
 	ensure_lang()
+	if client_uuid:
+		dup = frappe.db.get_value("Sales Invoice", {"cago_client_uuid": client_uuid, "is_return": 1}, "name")
+		if dup:
+			return {"return_invoice": dup, "total_text": dto.format_price(abs(flt(frappe.db.get_value("Sales Invoice", dup, "grand_total"))))}
 	if not frappe.db.exists("Sales Invoice", invoice):
 		frappe.throw(_("Không tìm thấy hoá đơn."))
 	orig = frappe.db.get_value("Sales Invoice", invoice, ["docstatus", "is_return"], as_dict=True)
@@ -707,6 +714,8 @@ def return_sale(invoice, lines=None):
 		ret.flags.ignore_permissions = True
 		ret.update_stock = 1
 		ret.cago_cashier = cashier
+		if client_uuid:
+			ret.cago_client_uuid = client_uuid  # idempotency key for retry dedup
 		for it in ret.items:
 			it.allow_zero_valuation_rate = 1
 		ret.insert(ignore_permissions=True)
@@ -718,7 +727,7 @@ def return_sale(invoice, lines=None):
 
 
 @frappe.whitelist()
-def exchange_sale(invoice, return_lines, new_items, payment_mode="cash", customer=None, posted_at=None):
+def exchange_sale(invoice, return_lines, new_items, payment_mode="cash", customer=None, posted_at=None, client_uuid=None):
 	"""Đổi hàng trong một thao tác: trả lại các mặt đã chọn của hoá đơn cũ + bán các mặt mới, rồi
 	báo CHÊNH LỆCH cần thu thêm hay hoàn lại. Mỗi vế vẫn là một chứng từ chuẩn (trả hàng + bán mới)
 	nên kho và két tự khớp; phần net chỉ để nhân viên biết phải thu/trả bao nhiêu. Bán-mới đi qua
@@ -728,11 +737,15 @@ def exchange_sale(invoice, return_lines, new_items, payment_mode="cash", custome
 	new_items = frappe.parse_json(new_items) if isinstance(new_items, str) else new_items
 	if not new_items:
 		frappe.throw(_("Chưa chọn hàng đổi lấy."))
+	# Both legs share the attempt's client_uuid (with distinct suffixes) so a network-retry of the
+	# whole exchange dedups each leg instead of double-refunding + double-selling.
+	ret_uuid = f"{client_uuid}:ret" if client_uuid else None
+	sell_uuid = f"{client_uuid}:sell" if client_uuid else None
 	# Leg 1: refund the returned lines (cash back / debt reduced — return_sale handles both).
-	ret = return_sale(invoice, return_lines)
+	ret = return_sale(invoice, return_lines, client_uuid=ret_uuid)
 	refund_amt = abs(flt(frappe.db.get_value("Sales Invoice", ret["return_invoice"], "grand_total")))
 	# Leg 2: sell the replacement items (quick_sale accepts a parsed list directly).
-	sale = quick_sale(new_items, payment_mode, customer=customer, posted_at=posted_at)
+	sale = quick_sale(new_items, payment_mode, customer=customer, posted_at=posted_at, client_uuid=sell_uuid)
 	new_total = flt(sale.get("total"))
 	net = new_total - refund_amt  # > 0 → thu thêm của khách; < 0 → hoàn lại khách
 	return {

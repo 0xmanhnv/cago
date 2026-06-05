@@ -4,6 +4,7 @@ import { uomLabel } from "@/lib/uom";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
+import { newClientUuid } from "@/lib/offline/queue";
 import { toast } from "@/components/ui/toast";
 import { BackBar, money, ProductPicker } from "@/components/owner/Shared";
 
@@ -53,6 +54,7 @@ export function Exchange() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ExchangeResult | null>(null);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const cuidRef = useRef<string | null>(null); // idempotency key for the current exchange attempt
 
   const search = (val: string) => {
     setQ(val);
@@ -102,6 +104,9 @@ export function Exchange() {
     const new_items = newItems.filter((n) => n.qty > 0).map((n) => ({ item_code: n.item_code, qty: n.qty }));
     if (!return_lines.length) return toast.error("Chọn hàng trả lại (lớn hơn 0).");
     if (!new_items.length) return toast.error("Chọn hàng đổi lấy.");
+    // One idempotency key per exchange attempt, reused on a retry (lost response) so the server
+    // dedups both legs instead of double-refunding + double-selling. Cleared on success/reset.
+    if (!cuidRef.current) cuidRef.current = newClientUuid();
     setBusy(true);
     try {
       const r = await frappeCall<ExchangeResult>("cago.api.sales.exchange_sale", {
@@ -109,8 +114,10 @@ export function Exchange() {
         return_lines: JSON.stringify(return_lines),
         new_items: JSON.stringify(new_items),
         payment_mode: pay,
+        client_uuid: cuidRef.current,
       });
       setResult(r);
+      cuidRef.current = null;
     } catch (e) {
       toast.error(`Lỗi: ${e instanceof Error ? e.message : "không đổi được."}`);
     } finally {
@@ -124,6 +131,7 @@ export function Exchange() {
     setRetLines([]);
     setRetQty({});
     setNewItems([]);
+    cuidRef.current = null; // fresh idempotency key for the next exchange
     void search("");
   };
 
