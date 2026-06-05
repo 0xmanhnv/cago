@@ -20,6 +20,7 @@ from frappe import _
 from cago.api.debt import _company
 from cago.chatbot.observability import clean_phone
 from cago.utils.permissions import ensure_admin, ensure_internal, ensure_owner, is_admin
+from cago.utils.secrets import has_secret
 
 
 def _config():
@@ -119,9 +120,9 @@ def get_notify_config():
 		"is_admin": admin,
 		"webhook": (frappe.db.get_value("Company", c, "cago_notify_webhook") or "") if admin else "",
 		"has_webhook": bool(frappe.db.get_value("Company", c, "cago_notify_webhook")),
-		"has_token": bool(frappe.db.get_value("Company", c, "cago_notify_token")),
+		"has_token": has_secret("Company", c, "cago_notify_token"),
 		"telegram_chat_id": (frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "") if admin else "",
-		"has_telegram_bot": bool(frappe.db.get_value("Company", c, "cago_telegram_bot_token")),
+		"has_telegram_bot": has_secret("Company", c, "cago_telegram_bot_token"),
 	}
 
 

@@ -51,6 +51,19 @@ _ROLE = {
 	"owner": (dto.owner_dto, False),
 }
 
+_WORD_RE = re.compile(r"[a-z0-9]+")
+
+
+def _item_words(code, cache):
+	"""Whole words (accent-stripped) across an item's searchable fields — so a very short query token
+	(≤2 chars) can be required to match a WHOLE word instead of mid-word. Cached per call."""
+	if code in cache:
+		return cache[code]
+	vals = frappe.db.get_value("Item", code, dto.SEARCH_FIELDS, as_dict=True) or {}
+	words = set(_WORD_RE.findall(deterministic._norm(" ".join(str(v or "") for v in vals.values()))))
+	cache[code] = words
+	return words
+
 
 def _search_codes(message, public_only, k):
 	"""Phrase-first, then keyword search (accent-insensitive collation aware)."""
@@ -63,8 +76,17 @@ def _search_codes(message, public_only, k):
 	# don't return just the phrase's single top match and let the bot wrongly say "we don't have X".
 	# A wider per-token limit ensures each animal/topic contributes a few items.
 	scores = {}
+	word_cache: dict = {}
 	for tok in tokens:
+		# A 1–2 char token (e.g. "xe" from "xe máy", "cò" from "cám cò") is matched by a substring LIKE
+		# in the DB, which also catches it MID-word — "xe" ⊂ "xẻng" wrongly returns a shovel for a
+		# motorbike query. Require such short tokens to hit a WHOLE word; longer tokens keep the
+		# forgiving substring match (typos / partial names).
+		short = len(tok) <= 2
+		tnorm = deterministic._norm(tok)
 		for c in dto.search_item_codes(tok, public_only=public_only, limit=k):
+			if short and tnorm not in _item_words(c, word_cache):
+				continue
 			scores[c] = scores.get(c, 0) + 1
 	token_codes = [c for c, _ in sorted(scores.items(), key=lambda kv: -kv[1])]
 	merged = []

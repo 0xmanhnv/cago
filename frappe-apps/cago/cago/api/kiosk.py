@@ -237,7 +237,10 @@ def track_order(code, phone):
 		frappe.throw(_("Không tìm thấy đơn. Kiểm tra lại mã và số điện thoại."))
 	wl = frappe.get_doc("Cago Wanted List", name)
 	saved = re.sub(r"[^\d]", "", wl.customer_phone or "")
-	if not saved or saved[-8:] != phone[-8:]:
+	# Match the last 9 digits — the full significant part of a VN mobile (drops only the leading 0 /
+	# +84 prefix, which varies by how it was typed). Last-8 was loose enough that two real customers
+	# could collide and see each other's order.
+	if not saved or len(phone) < 8 or saved[-9:] != phone[-9:]:
 		frappe.throw(_("Số điện thoại không khớp đơn này."))
 	items = [
 		{
