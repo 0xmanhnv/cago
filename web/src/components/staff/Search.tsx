@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { CatThumb } from "@/components/kiosk/CatThumb";
@@ -13,28 +13,52 @@ const PAGE = 30;
 
 export function Search() {
   const router = useRouter();
-  const [q, setQ] = useState("");
+  const pathname = usePathname();
+  const sp = useSearchParams();
+  // Filters live in the URL so they survive opening a product and pressing Back: the screen
+  // re-mounts fresh on back, but the URL (and these params) is restored.
+  const [q, setQ] = useState(() => sp.get("q") || "");
   const [list, setList] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "card">("list"); // dense list by default (fast lookup)
+  const [viewMode, setViewMode] = useState<"list" | "card">(() => {
+    const v = sp.get("view");
+    return v === "card" || v === "list" ? v : "list";
+  });
   const [cats, setCats] = useState<Category[]>([]);
-  const [category, setCategory] = useState(""); // active category filter ("" = all)
-  const [recoOnly, setRecoOnly] = useState(false); // ⭐ show only "khuyên dùng"
-  const recoRef = useRef(false); // current value for the async load callbacks (avoids stale closure)
+  const [category, setCategory] = useState(() => sp.get("cat") || ""); // active category filter ("" = all)
+  const [recoOnly, setRecoOnly] = useState(() => sp.get("reco") === "1"); // ⭐ show only "khuyên dùng"
+  const recoRef = useRef(sp.get("reco") === "1"); // current value for the async load callbacks (avoids stale closure)
+  // Write the current filters to the URL (replace = no history spam) so Back restores them.
+  const syncUrl = (next: { q?: string; category?: string; recoOnly?: boolean; viewMode?: "list" | "card" }) => {
+    const p = new URLSearchParams();
+    const qq = (next.q ?? q).trim();
+    const cc = next.category ?? category;
+    const rr = next.recoOnly ?? recoOnly;
+    const vv = next.viewMode ?? viewMode;
+    if (qq) p.set("q", qq);
+    if (cc) p.set("cat", cc);
+    if (rr) p.set("reco", "1");
+    if (vv !== "list") p.set("view", vv);
+    const qs = p.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const seqRef = useRef(0); // ignore out-of-order search responses (newest wins)
 
   // Persist the list/card choice (own key — lookup vs the sell screen are different contexts).
   useEffect(() => {
+    if (sp.get("view")) return; // a view in the URL wins over the saved preference
     const v = window.localStorage?.getItem("cago_search_view");
     if (v === "list" || v === "card") setViewMode(v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const chooseView = (v: "list" | "card") => {
     setViewMode(v);
     window.localStorage?.setItem("cago_search_view", v);
+    syncUrl({ viewMode: v });
   };
 
   const run = async (query: string, cat = category) => {
@@ -64,16 +88,18 @@ export function Search() {
   };
   const pickCategory = (c: string) => {
     setCategory(c);
+    syncUrl({ category: c });
     void run(q.trim(), c);
   };
   const toggleReco = () => {
     const v = !recoOnly;
     setRecoOnly(v);
     recoRef.current = v;
+    syncUrl({ recoOnly: v });
     void run(q.trim());
   };
   useEffect(() => {
-    void run("");
+    void run(q.trim(), category);
     frappeCall<Category[]>("cago.api.staff.list_categories", {}, { method: "GET" }).then((d) => setCats(d || [])).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -111,9 +137,10 @@ export function Search() {
           autoFocus
           value={q}
           onChange={(e) => {
-            setQ(e.target.value);
+            const v = e.target.value;
+            setQ(v);
             clearTimeout(tRef.current);
-            tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
+            tRef.current = setTimeout(() => { void run(v.trim()); syncUrl({ q: v }); }, 250);
           }}
           enterKeyHint="search" placeholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
           className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"

@@ -19,6 +19,26 @@ function Approve({ q }: { q: string }) {
   const [faqOpen, setFaqOpen] = useState(false);
   const [answer, setAnswer] = useState("");
   const [busy, setBusy] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+
+  // Ask the live assistant to draft an answer (owner edits before saving). Safety is handled inside
+  // the pipeline, so a chemical/dosage question returns the standard warning, not invented advice.
+  const draft = async () => {
+    setDrafting(true);
+    try {
+      const r = await frappeCall<{ answer: string }>("cago.api.chatbot_admin.draft_faq", { question: q });
+      if (r.answer) {
+        setAnswer(r.answer);
+        toast.success("AI đã gợi ý — sửa lại cho đúng ý rồi bấm Lưu.");
+      } else {
+        toast.info("AI chưa gợi ý được câu này — bác tự viết giúp nhé.");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi.");
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   const addChip = async () => {
     setBusy(true);
@@ -53,9 +73,14 @@ function Approve({ q }: { q: string }) {
         <button onClick={() => setFaqOpen((v) => !v)} disabled={busy} className="rounded-full bg-emerald-100 px-2.5 py-1 text-sm font-bold text-emerald-700 disabled:opacity-50">📝 Viết câu trả lời (FAQ)</button>
       </div>
       {faqOpen && (
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={2} placeholder="Câu trả lời cửa hàng muốn trợ lý nói…" className="flex-1 rounded-lg border-2 border-emerald-300 p-2.5 text-sm" />
-          <button onClick={saveFaq} disabled={busy || !answer.trim()} className="shrink-0 rounded-lg bg-brand px-4 py-2 font-extrabold text-white disabled:opacity-50">Lưu</button>
+        <div className="mt-2">
+          <button onClick={draft} disabled={busy || drafting} className="mb-2 rounded-full bg-violet-100 px-3 py-1 text-sm font-bold text-violet-700 disabled:opacity-50">
+            {drafting ? "⏳ Đang soạn…" : "✨ Nhờ AI gợi ý câu trả lời"}
+          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={3} placeholder="Câu trả lời cửa hàng muốn trợ lý nói… (hoặc bấm “✨ Nhờ AI gợi ý”)" className="flex-1 rounded-lg border-2 border-emerald-300 p-2.5 text-sm" />
+            <button onClick={saveFaq} disabled={busy || !answer.trim()} className="shrink-0 rounded-lg bg-brand px-4 py-2 font-extrabold text-white disabled:opacity-50">Lưu</button>
+          </div>
         </div>
       )}
     </div>
@@ -106,7 +131,9 @@ export function AssistantInsights() {
                     {g.safety ? (
                       <span className="rounded-full bg-red-100 px-2.5 py-0.5 font-bold text-red-700">⚠️ an toàn — cần người tư vấn</span>
                     ) : (
-                      <button onClick={() => router.push(`/pos/products?q=${encodeURIComponent(g.q)}`)} className="rounded-full bg-brand-light px-2.5 py-0.5 font-bold text-brand-dark">🔎 Tìm sản phẩm để bổ sung</button>
+                      // Open Sản phẩm so the owner can search/add the missing item — don't prefill the
+                      // whole question (it isn't a product name, e.g. "Còn hàng không?" → always empty).
+                      <button onClick={() => router.push("/pos/products")} className="rounded-full bg-brand-light px-2.5 py-0.5 font-bold text-brand-dark">🔎 Mở Sản phẩm để bổ sung</button>
                     )}
                   </div>
                   {!g.safety && <Approve q={g.q} />}

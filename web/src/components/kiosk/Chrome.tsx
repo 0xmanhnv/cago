@@ -25,6 +25,7 @@ export function Chrome({ children }: { children: React.ReactNode }) {
   // matches the server HTML — see the note in store/kiosk.ts. Also read the fixed-kiosk flag +
   // track fullscreen (both are client-only, post-mount → hydration-safe).
   useEffect(() => {
+    void import("@/lib/miniapp").then((m) => m.initMiniApp()); // Telegram/Zalo Mini App host polish (no-op on plain web)
     kiosk.hydrate();
     setFixed(applyKioskUrlFlag()); // ?kiosk=1/0 in the launch URL provisions the flag (OS-controlled)
     setFsOk(!!document.documentElement.requestFullscreen && document.fullscreenEnabled);

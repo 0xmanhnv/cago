@@ -6,6 +6,8 @@ Lightweight summaries for the owner home: today's sales, low stock, best sellers
 and the debt list. Read-only.
 """
 
+import re
+
 import frappe
 from frappe.query_builder import Case, Order
 from frappe.query_builder.functions import Count, Sum
@@ -313,6 +315,25 @@ def _norm_q(q):
 	return " ".join((_norm(q) or "").split())
 
 
+_GENERIC_Q_RE = re.compile(
+	r"(còn\s*hàng|còn\s*ko|còn\s*không|hết\s*hàng|có\s*sẵn|có\s*hàng|giá\s*bao\s*nhiêu|bao\s*nhiêu\s*tiền|"
+	r"bao\s*nhiêu|nhiêu\s*tiền|ở\s*đâu|để\s*đâu|chỗ\s*nào|còn|không|\bko\b|hàng|giá|\bcó\b|sẵn|tiền|"
+	r"\bạ\b|vậy|thế|nhỉ|cho\s*hỏi|hỏi|cái\s*này|sản\s*phẩm\s*này|nó)",
+	re.IGNORECASE | re.UNICODE,
+)
+
+
+def _context_dependent(q):
+	"""True for a bare stock / price / location question that names NO product (e.g. 'còn hàng
+	không?', 'giá bao nhiêu?', 'để đâu?'). The assistant already answers these from the product the
+	customer is VIEWING (focus_item) — so they're NOT a knowledge gap and must not be turned into a
+	static FAQ (the answer changes per product). Heuristic: strip the generic words; if nothing
+	meaningful remains, it's context-dependent."""
+	s = re.sub(r"[^\w\s]", " ", q or "", flags=re.UNICODE)  # drop punctuation (keep VN letters)
+	s = _GENERIC_Q_RE.sub(" ", s)
+	return len(re.sub(r"\s+", "", s)) < 3  # no product noun left over
+
+
 @frappe.whitelist()
 def assistant_insights(days=1, limit=12):
 	"""What the assistant was asked recently, so the owner can teach it: the most-asked questions
@@ -345,7 +366,9 @@ def assistant_insights(days=1, limit=12):
 			g["safety"] += 1
 	lim = int(limit or 12)
 	top = sorted(groups.values(), key=lambda g: -g["count"])[:lim]
-	gaps = sorted([g for g in groups.values() if g["gap"]], key=lambda g: -g["gap"])[:lim]
+	# Drop context-dependent generic questions (còn hàng?/giá?/ở đâu? with no product named): the
+	# assistant answers those from the focused product, so they're not a gap to write a static FAQ for.
+	gaps = sorted([g for g in groups.values() if g["gap"] and not _context_dependent(g["sample"])], key=lambda g: -g["gap"])[:lim]
 	return {
 		"total": len(rows),
 		"top": [{"q": g["sample"], "count": g["count"]} for g in top],

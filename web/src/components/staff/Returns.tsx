@@ -203,7 +203,7 @@ export function Returns() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-bold">{s.customer_name}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${KIND[s.kind].cls}`}>{KIND[s.kind].label}</span>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${KIND[s.kind].cls}`}>{KIND[s.kind].label}</span>
                     </div>
                     <div className="text-xs text-slate-400">
                       {s.invoice} · {s.item_count} món · {s.time}

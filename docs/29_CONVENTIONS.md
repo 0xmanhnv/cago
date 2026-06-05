@@ -80,3 +80,6 @@ Hard-won rules. Follow them so we don't repeat past mistakes. Each line is a "do
 27. English identifiers (vars/functions/components); Vietnamese only for user-facing text.
 28. POS = Cago-native `/pos`. Never reintroduce POS Awesome or an external POS app. Auxiliary services
     are Python (no Go).
+29. Every owner/admin **switch must gate BOTH server (security boundary) + UI** (hide what's off — a
+    button that always shows then errors on submit is a bug). Bootstrap exposes an **owner-aware
+    effective** field, not the raw role. Registry of all switches + their gates: **docs/44**.

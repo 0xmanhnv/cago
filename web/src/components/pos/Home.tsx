@@ -75,6 +75,7 @@ const ACTIONS: Record<string, ActionDef> = {
   aicontent: { label: "✍️ Dạy trợ lý trả lời", color: "bg-violet-500", href: "/pos/assistant-content", cap: "reports" },
   health: { label: "🩺 Kiểm tra dữ liệu", color: "bg-blue-600", href: "/pos/health", cap: "products" },
   aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "admin" },
+  integrations: { label: "🔌 Kết nối & Kênh", color: "bg-slate-600", href: "/pos/integrations", cap: "admin" },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
   backup: { label: "💾 Sao lưu dữ liệu", color: "bg-slate-600", href: "/pos/backup", cap: "admin" },
   readiness: { label: "🚩 Sẵn sàng khai trương?", color: "bg-emerald-700", href: "/pos/readiness", cap: "owner" },
@@ -104,7 +105,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🏬 Kho & nhập hàng", keys: ["alerts", "receive", "reorder", "expiry", "receivehist"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
   { title: "📊 Báo cáo", keys: ["reports", "unsafe", "insights", "aicontent"] },
-  { title: "⚙️ Cài đặt cửa hàng", keys: ["readiness", "settings", "categories", "map", "coupons", "aisettings", "staffadmin", "backup", "help"] },
+  { title: "⚙️ Cài đặt cửa hàng", keys: ["readiness", "settings", "categories", "map", "coupons", "aisettings", "integrations", "staffadmin", "backup", "help"] },
   { title: "🖥 Màn hình & thiết bị", keys: ["cfd", "handover", "setpin"] },
 ];
 
@@ -137,6 +138,9 @@ export function Home() {
     const a = ACTIONS[k];
     if (!a) return false;
     if (a.kioskOnly && !kioskDevice) return false;
+    // Owner runtime kill-switch: recording debt / repayment is hidden for staff when the owner
+    // turned "Cho phép nhân viên thu nợ" off (the server also blocks it). Owner is unaffected.
+    if ((k === "recordpay" || k === "recorddebt") && !owner && !boot?.staff_can_collect_debt) return false;
     if (a.cap === null) return isInternal(boot);
     if (a.cap === "owner") return owner;
     if (a.cap === "admin") return isAdmin(boot);

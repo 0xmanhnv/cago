@@ -8,6 +8,7 @@ import { uomLabel } from "@/lib/uom";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import type { Batch } from "@/lib/types";
 import { BackBar, goBackSmart, DraftModal } from "./Shared";
+import { ProductPhotos } from "./ProductPhotos";
 import { toast } from "@/components/ui/toast";
 
 import { PageLoading } from "@/components/ui/Loading";
@@ -190,43 +191,14 @@ export function ProductEditor({ code }: { code: string }) {
         <h2 className="text-xl font-bold">Sửa: {e.cago_display_name || e.item_name}</h2>
 
         <Section title="🖼 Ảnh sản phẩm" defaultOpen>
-        {imgs.main ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imgs.main} alt="" className="max-h-56 w-full rounded-lg bg-slate-100 object-contain" />
-        ) : (
-          <div className="rounded-lg bg-slate-100 p-5 text-center text-slate-500">Chưa có ảnh — bấm &quot;Tải ảnh lên&quot;</div>
-        )}
-        <label className="mt-2 flex min-h-touch cursor-pointer items-center justify-center rounded-xl bg-teal-600 font-extrabold text-white">
-          <input type="file" accept="image/*" multiple className="hidden" onChange={(ev) => onUpload(ev.target.files)} />
-          📷 Tải ảnh lên
-        </label>
-        {imgs.images.map((u) => (
-          <div key={u} className="mt-1.5 flex items-center gap-2 rounded-lg border border-slate-200 p-1.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={u} alt="" className="h-14 w-14 rounded-lg object-cover" />
-            <div className="flex-1">
-              {u === imgs.main ? (
-                <b className="text-brand">★ Ảnh chính</b>
-              ) : (
-                <button
-                  onClick={async () => setImgs(await frappeCall<{ main?: string; images: string[] }>("cago.api.owner.set_main_image", { item_code: code, image_url: u }))}
-                  className="rounded bg-slate-200 px-2 py-1 text-sm font-bold"
-                >
-                  Đặt ảnh chính
-                </button>
-              )}
-            </div>
-            <button
-              onClick={async () => {
-                if (await confirmDialog("Xoá ảnh này?", { danger: true, confirmLabel: "Xoá" })) setImgs(await frappeCall<{ main?: string; images: string[] }>("cago.api.owner.remove_product_image", { item_code: code, image_url: u }));
-              }}
-              className="rounded bg-red-100 px-2 py-1 text-sm font-bold text-red-700"
-            >
-              Xoá
-            </button>
-          </div>
-        ))}
-
+        <ProductPhotos
+          photos={imgs.images.map((u) => ({ url: u, main: u === imgs.main }))}
+          onPick={onUpload}
+          onSetMain={async (u) => setImgs(await frappeCall<{ main?: string; images: string[] }>("cago.api.owner.set_main_image", { item_code: code, image_url: u }))}
+          onRemove={async (u) => {
+            if (await confirmDialog("Xoá ảnh này?", { danger: true, confirmLabel: "Xoá" })) setImgs(await frappeCall<{ main?: string; images: string[] }>("cago.api.owner.remove_product_image", { item_code: code, image_url: u }));
+          }}
+        />
         </Section>
 
         <Section title="🏷 Tên · giá · tồn kho" defaultOpen>
@@ -568,11 +540,11 @@ function UnitsSection({ code }: { code: string }) {
           {/* Direction — concrete wording + examples so the owner picks correctly; the live preview
               below confirms the result before saving. */}
           <div className="mt-2 text-sm text-slate-600">Đơn vị này so với <b>{uomLabel(d.stock_uom)}</b>:</div>
-          <div className="mt-1 inline-flex overflow-hidden rounded-lg border border-slate-300 text-sm font-bold">
-            <button onClick={() => setDir("perStock")} className={dir === "perStock" ? "bg-brand px-3 py-1.5 text-white" : "bg-white px-3 py-1.5 text-slate-600"}>
+          <div className="mt-1 flex w-full overflow-hidden rounded-lg border border-slate-300 text-sm font-bold">
+            <button onClick={() => setDir("perStock")} className={`flex-1 whitespace-normal px-2 py-1.5 leading-tight ${dir === "perStock" ? "bg-brand text-white" : "bg-white text-slate-600"}`}>
               Nhỏ hơn (Kg, Lạng…)
             </button>
-            <button onClick={() => setDir("perUnit")} className={dir === "perUnit" ? "bg-brand px-3 py-1.5 text-white" : "bg-white px-3 py-1.5 text-slate-600"}>
+            <button onClick={() => setDir("perUnit")} className={`flex-1 whitespace-normal px-2 py-1.5 leading-tight ${dir === "perUnit" ? "bg-brand text-white" : "bg-white text-slate-600"}`}>
               Lớn hơn (Thùng, Lốc…)
             </button>
           </div>

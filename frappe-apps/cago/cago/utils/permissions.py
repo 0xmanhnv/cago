@@ -23,6 +23,9 @@ from frappe import _
 #  - STAFF = one or more capability roles.
 ADMIN_ROLES = {"Cago Admin", "System Manager"}
 OWNER_ROLES = {"Cago Owner"} | ADMIN_ROLES
+# The accounts staff-admin must never touch/demote: the real shop owner + the ERPNext superuser.
+# `Cago Admin` is deliberately NOT here — it is a grantable technical promotion (set_staff_admin).
+PROTECTED_ROLES = {"Cago Owner", "System Manager"}
 
 # capability key -> the Frappe role that grants it.
 CAP_ROLES = {
@@ -92,6 +95,19 @@ def is_owner_roles(roles):
 	return bool(set(roles) & OWNER_ROLES)
 
 
+def is_protected_roles(roles):
+	"""True for the real owner / superuser — accounts the staff-admin screen must not edit or demote.
+	A staff promoted to `Cago Admin` is NOT protected (the owner can still manage / demote them)."""
+	return bool(set(roles) & PROTECTED_ROLES)
+
+
+def ensure_admin_role():
+	"""Make sure the `Cago Admin` Frappe role exists (POS-scoped technical tier, no raw desk). The cap
+	roles are seeded elsewhere; this one is created on first promotion. Idempotent."""
+	if not frappe.db.exists("Role", "Cago Admin"):
+		frappe.get_doc({"doctype": "Role", "role_name": "Cago Admin", "desk_access": 0}).insert(ignore_permissions=True)
+
+
 def caps_for_user_roles(roles):
 	"""Capability keys implied by an explicit role set — owner gets all; write caps add their
 	implied read caps (debt → debt_view)."""
@@ -130,10 +146,16 @@ is_staff = is_internal
 
 
 def selling_limits(user=None):
-	"""Per-staff bargaining allowance set by the owner. Owner = unlimited. Used by quick_sale
-	(for the cashier) and session.bootstrap (for the current user) — replaces the old store-wide
-	Company.cago_allow_price_edit flag."""
+	"""Bargaining allowance at the till. The store-wide master switch
+	(Company.cago_allow_price_edit, toggled in Cài đặt → "Cho phép sửa giá khi bán") gates EVERYONE:
+	when OFF, nobody — not even the owner — can edit a line price (luôn bán đúng bảng giá). When ON,
+	the owner is unlimited and each staff is allowed per their own User.cago_allow_price_edit /
+	cago_max_discount_pct. Used by quick_sale (cashier) and session.bootstrap (current user)."""
+	from cago.api import debt
+
 	user = user or frappe.session.user
+	if not frappe.db.get_value("Company", debt._company(), "cago_allow_price_edit"):
+		return {"allow_price_edit": False, "max_discount_pct": 0.0}
 	if set(frappe.get_roles(user)) & OWNER_ROLES:
 		return {"allow_price_edit": True, "max_discount_pct": 100.0}
 	return {
@@ -161,7 +183,9 @@ def sync_user_caps(user):
 		return
 	confine_to_pos(user)  # staff are limited to /pos (no raw ERPNext desk)
 	doc = frappe.get_doc("User", user)
-	if set(r.role for r in doc.roles) & OWNER_ROLES:
+	# Skip the real owner / superuser (their roles are managed elsewhere). A `Cago Admin` staff is
+	# still compiled normally so their chức danh caps stay in sync (and survive a later demotion).
+	if set(r.role for r in doc.roles) & PROTECTED_ROLES:
 		return
 	want = {CAP_ROLES[c] for c in effective_caps_for(user)}
 	have = {r.role for r in doc.roles if r.role in ALL_CAP_ROLES}

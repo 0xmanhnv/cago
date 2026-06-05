@@ -39,7 +39,7 @@ export interface CustomerRow {
 
 // The exact payload quick_sale expects (sans the offline-only client_uuid/posted_at, added on send).
 export interface SaleArgs {
-  items: { item_code: string; qty: number; uom: string; rate?: number }[];
+  items: { item_code: string; qty: number; uom: string; rate?: number; batch_no?: string; batch_allocs?: { batch: string; qty: number }[] }[];
   payment_mode?: "cash" | "bank" | "credit" | "split";
   customer?: string | null;
   discount_amount?: number;

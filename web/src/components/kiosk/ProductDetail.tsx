@@ -8,7 +8,7 @@ import { useSession } from "@/lib/session";
 import { CatThumb } from "./CatThumb";
 import { StoreMapView } from "./StoreMapView";
 import { NavButtons } from "./NavButtons";
-import { EXPIRY_LABEL, speak } from "@/lib/kioskUi";
+import { speak } from "@/lib/kioskUi";
 import type { Product, ProductCard } from "@/lib/types";
 
 import { PageLoading } from "@/components/ui/Loading";
@@ -61,7 +61,7 @@ export function ProductDetail({ code }: { code: string }) {
     );
 
   const imgs = (product.images || []).filter(Boolean);
-  const exp = product.expiry_status ? EXPIRY_LABEL[product.expiry_status] : undefined;
+  // No expiry/HSD on the kiosk — it's operational info for the owner/staff, not the customer.
   const cartQty = kiosk.cart[product.item_code]?.qty || 0;
   const totalCount = kiosk.cartCount();
   const unit = product.unit ? ` ${product.unit}` : "";
@@ -118,12 +118,6 @@ export function ProductDetail({ code }: { code: string }) {
         <div className="text-slate-500">
           Dùng cho: {product.use_cases || "-"} · {product.stock_status || ""}
         </div>
-        {exp && exp.text && (
-          <div className={`mt-2 inline-block rounded-lg border px-2.5 py-1 text-sm font-bold ${exp.cls}`}>
-            {exp.text}
-            {product.expiry_text ? ` — HSD ${product.expiry_text}` : ""}
-          </div>
-        )}
         {product.safety_notes && (
           <div className="mt-3.5 rounded-xl border border-amber-400 bg-amber-100 p-3.5 text-amber-900">⚠️ {product.safety_notes}</div>
         )}

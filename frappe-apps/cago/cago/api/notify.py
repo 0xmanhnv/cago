@@ -68,6 +68,38 @@ def send_owner(text):
 	return send_message(phone, text)
 
 
+def notify_telegram(text):
+	"""Push a message to the shop's Telegram ops chat (owner + staff) via the Bot API. No-op if no
+	bot token / chat id configured. Best-effort — never raises (an alert must not break the action)."""
+	text = (text or "").strip()
+	if not text:
+		return {"sent": False, "reason": "empty"}
+	c = _company()
+	bot = frappe.utils.password.get_decrypted_password("Company", c, "cago_telegram_bot_token", raise_exception=False) if c else None
+	bot = bot or frappe.db.get_value("Company", c, "cago_telegram_bot_token")
+	chat = frappe.db.get_value("Company", c, "cago_telegram_chat_id")
+	if not bot or not chat:
+		return {"sent": False, "reason": "not configured"}
+	try:
+		import requests
+
+		r = requests.post(
+			f"https://api.telegram.org/bot{bot}/sendMessage",
+			json={"chat_id": chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True},
+			timeout=10,
+		)
+		ok = 200 <= r.status_code < 300
+		return {"sent": ok, "reason": "" if ok else f"HTTP {r.status_code}"}
+	except Exception as e:  # noqa: BLE001 — best-effort
+		return {"sent": False, "reason": str(e)[:120]}
+
+
+def notify_ops(text):
+	"""Broadcast an OPS alert (new remote order, call-staff, daily digest…) to the shop's channels:
+	the owner's Zalo/SMS + the Telegram ops chat. Best-effort on each; returns which fired."""
+	return {"zalo": send_owner(text), "telegram": notify_telegram(text)}
+
+
 @frappe.whitelist()
 def notify_status():
 	"""UI hint: whether real sending is on, so the draft screens can show 'Gửi' vs 'Sao chép'."""
@@ -89,6 +121,8 @@ def get_notify_config():
 		"webhook": (frappe.db.get_value("Company", c, "cago_notify_webhook") or "") if admin else "",
 		"has_webhook": bool(frappe.db.get_value("Company", c, "cago_notify_webhook")),
 		"has_token": bool(frappe.db.get_value("Company", c, "cago_notify_token")),
+		"telegram_chat_id": (frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "") if admin else "",
+		"has_telegram_bot": bool(frappe.db.get_value("Company", c, "cago_telegram_bot_token")),
 	}
 
 
@@ -114,6 +148,30 @@ def set_webhook(webhook=None, token=None):
 		frappe.db.set_value("Company", c, "cago_notify_token", token.strip())
 	frappe.db.commit()
 	return get_notify_config()
+
+
+@frappe.whitelist()
+def set_telegram(bot_token=None, chat_id=None):
+	"""Set the Telegram ops bot token + chat id — technical config, ADMIN only. The token is only
+	overwritten when a non-empty value is supplied (saving the chat id alone keeps the token)."""
+	ensure_admin()
+	c = _company()
+	if bot_token:
+		frappe.db.set_value("Company", c, "cago_telegram_bot_token", bot_token.strip())
+	if chat_id is not None:
+		frappe.db.set_value("Company", c, "cago_telegram_chat_id", (chat_id or "").strip())
+	frappe.db.commit()
+	return get_notify_config()
+
+
+@frappe.whitelist()
+def telegram_test():
+	"""Send a test message to the Telegram ops chat so the admin can confirm the bot is wired."""
+	ensure_admin()
+	res = notify_telegram("✅ Cago: kết nối Telegram thành công. Cảnh báo & đơn mới sẽ gửi vào đây.")
+	if not res.get("sent"):
+		frappe.throw(_("Chưa gửi được ({0}). Kiểm tra Bot Token & Chat ID.").format(res.get("reason")))
+	return res
 
 
 @frappe.whitelist()

@@ -29,7 +29,7 @@ def _fmt(p):
 	"""One compact line per product — role-safe fields only (the DTO already excludes cost)."""
 	bits = [f"{'⭐ ' if p.get('recommended') else ''}{p.get('display_name')} [{p.get('item_code')}]"]
 	bits.append(f"giá {p.get('price_text') or 'chưa có'}")
-	bits.append(f"tồn: {p.get('stock_status') or 'không rõ'}")
+	bits.append(f"tồn: {p.get('stock_status') or 'Còn hàng'}")
 	if p.get("use_cases"):
 		bits.append(f"dùng cho {p['use_cases']}")
 	if p.get("category"):

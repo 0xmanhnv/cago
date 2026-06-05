@@ -13,10 +13,20 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
-from cago.utils.permissions import CAP_ROLES, caps_for_user_roles, ensure_owner, is_owner_roles, sync_user_caps
+from cago.utils.permissions import (
+	ADMIN_ROLES,
+	CAP_ROLES,
+	caps_for_user_roles,
+	ensure_admin_role,
+	ensure_owner,
+	is_protected_roles,
+	sync_user_caps,
+)
 from cago.utils.privileged import as_user
 
-_INTERNAL_ROLES = list(set(CAP_ROLES.values()) | {"Cago Owner"})
+# Roles that make a user show up as staff. Include Cago Admin so a promoted technical admin who has
+# no chức danh still appears (and can be demoted).
+_INTERNAL_ROLES = list(set(CAP_ROLES.values()) | {"Cago Owner", "Cago Admin"})
 
 
 def _job_roles_of(user):
@@ -30,14 +40,17 @@ def _row(user):
 		"User", user, ["full_name", "enabled", "cago_allow_price_edit", "cago_max_discount_pct", "cago_blind_shift_close"], as_dict=True
 	)
 	roles = set(frappe.get_roles(user))
-	owner = is_owner_roles(roles)
+	# Only the real owner / superuser is "protected" (un-editable). A Cago Admin staff is editable +
+	# flagged is_admin so the UI can show the technical badge + the promote/demote switch.
+	protected = is_protected_roles(roles)
 	return {
 		"user": user,
 		"full_name": info.full_name or user,
 		"enabled": bool(info.enabled),
-		"is_owner": owner,
-		"job_roles": [] if owner else _job_roles_of(user),
-		"caps": list(CAP_ROLES.keys()) if owner else sorted(caps_for_user_roles(roles)),
+		"is_owner": protected,
+		"is_admin": bool(roles & ADMIN_ROLES),
+		"job_roles": [] if protected else _job_roles_of(user),
+		"caps": list(CAP_ROLES.keys()) if protected else sorted(caps_for_user_roles(roles)),
 		"allow_price_edit": bool(info.cago_allow_price_edit),
 		"max_discount_pct": flt(info.cago_max_discount_pct),
 		"blind_shift_close": bool(info.cago_blind_shift_close),
@@ -73,7 +86,7 @@ def save_staff(user, job_roles, allow_price_edit=0, max_discount_pct=0, blind_sh
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
 		frappe.throw(_("Tài khoản không hợp lệ."))
 	doc = frappe.get_doc("User", user)
-	if is_owner_roles({r.role for r in doc.roles}):
+	if is_protected_roles({r.role for r in doc.roles}):
 		frappe.throw(_("Không chỉnh quyền của chủ cửa hàng ở đây."))
 
 	names = frappe.parse_json(job_roles) if isinstance(job_roles, str) else (job_roles or [])
@@ -84,6 +97,38 @@ def save_staff(user, job_roles, allow_price_edit=0, max_discount_pct=0, blind_sh
 	doc.cago_blind_shift_close = 1 if cint(blind_shift_close) else 0
 	doc.save(ignore_permissions=True)
 	sync_user_caps(user)  # union of the assigned chức danh → Frappe cap-roles
+	frappe.db.commit()
+	return _row(user)
+
+
+@frappe.whitelist()
+def set_staff_admin(user, on=1):
+	"""Promote / demote an employee to the technical-admin tier (`Cago Admin`) — owner-only.
+
+	Admin is NOT a chức danh (capability bundle); it is a separate tier that unlocks the technical
+	screens (🔌 Kết nối & Kênh, 🤖 cấu hình AI, 💾 sao lưu) and, since Cago Admin ⊇ Owner, full owner
+	powers. So it is granted per-person here, not via the chức danh list. The real owner / superuser
+	is protected, and the caller cannot change their own admin tier (no self-lock-out / self-elevation
+	beyond what they already are)."""
+	ensure_owner()
+	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
+		frappe.throw(_("Tài khoản không hợp lệ."))
+	if user == frappe.session.user:
+		frappe.throw(_("Không tự đổi quyền quản trị của chính mình."))
+	roles = set(frappe.get_roles(user))
+	if is_protected_roles(roles):
+		frappe.throw(_("Không đổi quyền quản trị của chủ cửa hàng."))
+	ensure_admin_role()  # make sure the Cago Admin role exists before granting it
+	want = bool(cint(on))
+	doc = frappe.get_doc("User", user)
+	has = any(r.role == "Cago Admin" for r in doc.roles)
+	if want and not has:
+		doc.append("roles", {"role": "Cago Admin"})
+		doc.save(ignore_permissions=True)
+	elif not want and has:
+		doc.set("roles", [r for r in doc.roles if r.role != "Cago Admin"])
+		doc.save(ignore_permissions=True)
+		sync_user_caps(user)  # re-confine to /pos + recompile their chức danh caps after demotion
 	frappe.db.commit()
 	return _row(user)
 
@@ -119,7 +164,7 @@ def set_staff_account(user, full_name=None, enabled=None, new_password=None):
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
 		frappe.throw(_("Tài khoản không hợp lệ."))
 	doc = frappe.get_doc("User", user)
-	if is_owner_roles({r.role for r in doc.roles}):
+	if is_protected_roles({r.role for r in doc.roles}):
 		frappe.throw(_("Không chỉnh tài khoản của chủ cửa hàng ở đây."))
 	if full_name is not None and full_name.strip():
 		doc.first_name = full_name.strip()

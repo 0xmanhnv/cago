@@ -192,45 +192,86 @@ def _replay_existing(client_uuid):
 	return _existing_sale_result(existing) if existing else None
 
 
-def _auto_batch(code, wh):
-	"""Pick a batch for a batch-tracked item so staff never sees ERPNext's raw
-	'Batch No are mandatory' at checkout. FEFO: sell the nearest-expiry lot first (correct for
-	chemicals/HSD), preferring lots that still have stock in this warehouse. Returns None for
-	non-batch items, or when the item has no batch at all (owner must create one via Nhập hàng)."""
+def _fefo_lots(code, wh):
+	"""In-stock lots for a batch-tracked item, nearest-expiry first (FEFO; undated last):
+	[(batch_name, stock_qty)]. Empty for non-batch items or when nothing is on hand."""
 	if not frappe.db.get_value("Item", code, "has_batch_no"):
-		return None
+		return []
 	try:
 		from erpnext.stock.doctype.batch.batch import get_batch_qty
 	except Exception:
-		return None
-	batches = frappe.get_all("Batch", filters={"item": code, "disabled": 0}, fields=["name", "expiry_date"])
+		return []
 	scored = []
-	for bz in batches:
+	for bz in frappe.get_all("Batch", filters={"item": code, "disabled": 0}, fields=["name", "expiry_date"]):
 		try:
 			qty = flt(get_batch_qty(bz.name, wh, code))
 		except Exception:
 			qty = 0
-		scored.append((qty, bz.expiry_date, bz.name))
-	in_stock = [s for s in scored if s[0] > 0]
-	if not in_stock:
-		# Expiry-tracked goods must sell from a real received lot (ERPNext blocks negative batch
-		# stock, and "which lot's HSD?" is unanswerable otherwise). Caller raises a friendly error.
+		if qty > 0:
+			scored.append((qty, bz.expiry_date, bz.name))
+	scored.sort(key=lambda s: (s[1] is None, str(s[1] or "9999-12-31")))
+	return [(name, qty) for (qty, _exp, name) in scored]
+
+
+def _auto_batch(code, wh):
+	"""The single FEFO lot to sell first (nearest-expiry in-stock), or None when no lot has stock."""
+	lots = _fefo_lots(code, wh)
+	return lots[0][0] if lots else None
+
+
+def _resolve_batch(chosen, code):
+	"""Resolve a staff-picked lô (Batch docname OR batch_id) to its docname, if it belongs to this
+	item and isn't disabled; else None (so callers fall back to FEFO)."""
+	chosen = (chosen or "").strip() if isinstance(chosen, str) else None
+	if not chosen:
 		return None
-	# FEFO: nearest expiry first; undated lots last.
-	in_stock.sort(key=lambda s: (s[1] is None, str(s[1] or "9999-12-31")))
-	return in_stock[0][2]
+	return frappe.db.get_value("Batch", {"name": chosen, "item": code, "disabled": 0}, "name") or frappe.db.get_value(
+		"Batch", {"batch_id": chosen, "item": code, "disabled": 0}, "name"
+	)
 
 
-def _assign_batch(row, code, wh):
-	"""Auto-assign a FEFO lot to a batch-tracked sale row, or raise a clear Vietnamese error
-	(not ERPNext's raw English) telling the owner to receive the lot first via Nhập hàng."""
+def _allocate_rows(row, code, wh, uom, stock_uom, allocs=None, chosen=None):
+	"""Split a batch-tracked sale row across lots → ONE SI row per lô. Priority:
+	  1) explicit per-lô `allocs` [{batch, qty (selling uom)}]  — staff distributes (e.g. 2+2),
+	  2) a single `chosen` lô for the whole line  — customer wants a specific lô,
+	  3) FEFO auto-fill across lots  — take the nearest-expiry lô then spill to the next (3+1).
+	Allocation is computed in STOCK units (lots are measured there) then converted back to the
+	selling uom per row, so multi-unit items (Bao/Yến…) split correctly. Non-batch items pass
+	through unchanged. Item-level oversell is already gated by _check_stock; any remainder beyond
+	on-hand lots lands on the last lô (negative batch stock is allowed for opted-in/offline sales)."""
 	if not frappe.db.get_value("Item", code, "has_batch_no"):
-		return
-	batch = _auto_batch(code, wh)
-	if not batch:
-		name = frappe.db.get_value("Item", code, "cago_display_name") or frappe.db.get_value("Item", code, "item_name") or code
-		frappe.throw(_("{0} cần nhập lô/HSD trước khi bán. Vào 'Nhập hàng' để nhập lô.").format(name))
-	row["batch_no"] = batch
+		return [row]
+	# 1) explicit per-lô allocations
+	if allocs:
+		out = []
+		for a in allocs:
+			b = _resolve_batch((a or {}).get("batch"), code)
+			q = flt((a or {}).get("qty"))
+			if b and q > 0:
+				out.append({**row, "qty": q, "batch_no": b})
+		if out:
+			return out
+	# 2) a single chosen lô for the whole line
+	b = _resolve_batch(chosen, code)
+	if b:
+		return [{**row, "batch_no": b}]
+	# 3) FEFO auto-fill across lots
+	cf = _conversion_factor(code, uom, stock_uom) or 1
+	need = flt(row["qty"]) * cf  # in stock units
+	out = []
+	for (name, lot_qty) in _fefo_lots(code, wh):
+		if need <= 1e-9:
+			break
+		take = min(lot_qty, need)
+		out.append({**row, "qty": take / cf, "batch_no": name})
+		need -= take
+	if need > 1e-9:  # oversell remainder (only reachable when oversell was allowed upstream)
+		if out:
+			out[-1] = {**out[-1], "qty": flt(out[-1]["qty"]) + need / cf}
+		else:
+			name = frappe.db.get_value("Item", code, "cago_display_name") or frappe.db.get_value("Item", code, "item_name") or code
+			frappe.throw(_("{0} cần nhập lô/HSD trước khi bán. Vào 'Nhập hàng' để nhập lô.").format(name))
+	return out
 
 
 @frappe.whitelist()
@@ -266,20 +307,18 @@ def credit_sale(customer, items, note=None, client_uuid=None):
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
 		_check_stock(code, qty, uom, stock_uom, wh)
-		rows.append(
-			{
-				"item_code": code,
-				"qty": qty,
-				"uom": uom,
-				"rate": _rate_for_uom(code, uom, stock_uom, pl),
-				"warehouse": wh,
-				# Items received without a cost have zero valuation; selling them via
-				# update_stock would otherwise fail ("Allow Zero Valuation Rate not enabled").
-				# COGS is 0 for those until a cost is recorded — owner enters cost on nhập hàng.
-				"allow_zero_valuation_rate": 1,
-			}
-		)
-		_assign_batch(rows[-1], code, wh)
+		row = {
+			"item_code": code,
+			"qty": qty,
+			"uom": uom,
+			"rate": _rate_for_uom(code, uom, stock_uom, pl),
+			"warehouse": wh,
+			# Items received without a cost have zero valuation; selling them via
+			# update_stock would otherwise fail ("Allow Zero Valuation Rate not enabled").
+			# COGS is 0 for those until a cost is recorded — owner enters cost on nhập hàng.
+			"allow_zero_valuation_rate": 1,
+		}
+		rows.extend(_allocate_rows(row, code, wh, uom, stock_uom, (it or {}).get("batch_allocs"), (it or {}).get("batch_no")))
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 
@@ -872,8 +911,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			# the catalogue price on validate and lose the bargained amount.
 			row["rate"] = new_rate
 			row["price_list_rate"] = new_rate
-		_assign_batch(row, code, wh)
-		rows.append(row)
+		rows.extend(_allocate_rows(row, code, wh, uom, stock_uom, (it or {}).get("batch_allocs"), (it or {}).get("batch_no")))
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
 	disc = flt(discount_amount)

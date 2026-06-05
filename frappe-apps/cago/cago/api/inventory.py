@@ -37,11 +37,15 @@ def _enable_batch_tracking(item_code):
 
 
 def _batch_qty(item_code, batch_no):
-	"""On-hand qty for a batch (0 until stock is wired to batches)."""
+	"""On-hand qty for a batch at the SELLING warehouse. Must pass a warehouse: with warehouse=None
+	get_batch_qty returns a per-warehouse breakdown (not a number), which flt()'d to 0 — that's why
+	per-lô qty read 0 before. Scoping to the sell warehouse mirrors sales._fefo_lots so the lô list
+	matches what's actually sellable."""
 	try:
 		from erpnext.stock.doctype.batch.batch import get_batch_qty
 
-		return flt(get_batch_qty(batch_no=batch_no, item_code=item_code))
+		wh = dto.selling_warehouse()
+		return flt(get_batch_qty(batch_no, wh, item_code)) if wh else flt(get_batch_qty(batch_no=batch_no, item_code=item_code))
 	except Exception:
 		return 0
 
@@ -84,14 +88,25 @@ def list_batches(item_code):
 
 
 @frappe.whitelist()
-def add_batch(item_code, batch_id, expiry_date=None, manufacturing_date=None):
-	"""Record a new batch (and enable batch tracking on the item if needed)."""
+def add_batch(item_code, batch_id=None, expiry_date=None, manufacturing_date=None):
+	"""Record a new batch (and enable batch tracking on the item if needed).
+
+	`batch_id` may be left blank: the owner just enters the HSD and the lô code is auto-generated
+	from it (LO-ddmmyy) so they never have to invent a code. Receiving the same HSD again reuses
+	that lô (it IS the same goods) instead of erroring."""
 	ensure_cap("stock")
 	if not frappe.db.exists("Item", item_code):
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	batch_id = (batch_id or "").strip()
 	if not batch_id:
-		frappe.throw(_("Nhập mã lô."))
+		# Auto code from the HSD (else today's receive date). Same HSD = same lô → reuse it.
+		batch_id = "LO-" + getdate(expiry_date or nowdate()).strftime("%d%m%y")
+		existing = frappe.db.get_value(
+			"Batch", {"batch_id": batch_id, "item": item_code},
+			["name", "batch_id", "expiry_date", "manufacturing_date"], as_dict=True,
+		)
+		if existing:
+			return _batch_row(frappe._dict({**existing, "item": item_code}))
 	_enable_batch_tracking(item_code)
 	if frappe.db.exists("Batch", {"batch_id": batch_id, "item": item_code}):
 		frappe.throw(_("Lô này đã tồn tại cho sản phẩm."))

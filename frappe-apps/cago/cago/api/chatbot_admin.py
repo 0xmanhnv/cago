@@ -79,6 +79,21 @@ def add_faq(question, answer):
 
 
 @frappe.whitelist()
+def draft_faq(question):
+	"""AI-suggest an FAQ answer for an unanswered question (the owner reviews/edits before saving).
+	Reuses the LIVE assistant pipeline (safety → store-facts → tool-calling agent), so a chemical /
+	dosage question gets the standard safety reply instead of invented advice — never bypasses it."""
+	ensure_cap("reports")
+	q = (question or "").strip()
+	if not q:
+		frappe.throw(_("Thiếu câu hỏi."))
+	from cago.chatbot.orchestrator import ask
+
+	res = ask("owner", q) or {}
+	return {"answer": (res.get("answer_text") or "").strip(), "needs_human": bool(res.get("needs_staff_help"))}
+
+
+@frappe.whitelist()
 def add_chip(label, context="general"):
 	"""Approve-from-insights: turn a real question into a tappable suggestion chip."""
 	ensure_cap("reports")

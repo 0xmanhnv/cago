@@ -19,6 +19,10 @@ export interface ProductCard {
   stock_auto?: boolean; // true = on-hand is tracked (so 0 means really out of stock)
   actual_stock_qty?: number | null; // real on-hand in stock units (null when not tracked)
   allow_oversell?: boolean; // item may be sold beyond stock (default false → blocked at the till)
+  expiry_text?: string | null; // near-expiry flag on lot-tracked items (staff/owner sell screen)
+  expiry_status?: ExpiryStatus;
+  has_batch?: boolean; // lot-tracked → the till shows which lô (FEFO) will be sold
+  unit?: string; // stock uom → label the exact on-hand count
 }
 
 export interface Product {
@@ -52,6 +56,8 @@ export interface Product {
   local_names?: string | null;
   selling_price?: number;
   actual_stock_qty?: number;
+  has_batch?: boolean; // lot-tracked → show the per-lô list (HSD) on the detail
+
   shelf_location?: string | null;
   staff_advice?: string | null;
   crop_or_animal_targets?: string | null;

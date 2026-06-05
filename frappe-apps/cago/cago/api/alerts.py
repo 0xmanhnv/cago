@@ -60,7 +60,7 @@ def daily_owner_digest():
 			pass  # an in-app notice failing must not stop the outbound send
 	from cago.api import notify
 
-	notify.send_owner(text)  # no-op when no webhook/owner phone is configured
+	notify.notify_ops(text)  # no-op when no webhook/owner phone is configured
 	frappe.db.commit()
 
 

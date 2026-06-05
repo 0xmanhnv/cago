@@ -7,6 +7,8 @@ no buying price, no customer/debt data). Customers can browse and submit a wante
 list which staff later fulfils.
 """
 
+import re
+
 import frappe
 from frappe import _
 from frappe.query_builder.functions import Count
@@ -154,7 +156,7 @@ def related_products(item_code, limit=8):
 
 
 @frappe.whitelist(allow_guest=True)
-def create_wanted_list(items, note=None):
+def create_wanted_list(items, note=None, customer_name=None, customer_phone=None, fulfilment=None, address=None, payment_method=None):
 	"""Create a wanted list from kiosk selections; return its lookup code.
 
 	`items` is a JSON list of {item_code, qty}. Only kiosk-visible items are kept.
@@ -172,6 +174,12 @@ def create_wanted_list(items, note=None):
 	wl = frappe.new_doc("Cago Wanted List")
 	wl.status = "New"
 	wl.note = (note or "")[:MAX_NOTE_LEN]
+	# Optional contact + fulfilment so the seller can call back / deliver (remote orders).
+	wl.customer_name = (customer_name or "").strip()[:100]
+	wl.customer_phone = re.sub(r"[^\d+]", "", (customer_phone or ""))[:20]
+	wl.fulfilment = "Giao tận nơi" if (fulfilment or "").strip() in ("Giao tận nơi", "delivery", "1") else "Nhận tại cửa hàng"
+	wl.address = (address or "").strip()[:300] if wl.fulfilment == "Giao tận nơi" else ""
+	wl.payment_method = (payment_method or "").strip() if (payment_method or "").strip() in ("Trả khi nhận (COD)", "Chuyển khoản", "Ghi nợ") else "Trả khi nhận (COD)"
 	wl.expires_at = add_to_date(now_datetime(), days=2)
 
 	added = 0
@@ -190,4 +198,62 @@ def create_wanted_list(items, note=None):
 
 	wl.insert(ignore_permissions=True)
 	frappe.db.commit()
+
+	# Tell the shop (owner Zalo + Telegram ops chat) a new order came in — best-effort, never blocks.
+	try:
+		from cago.api.notify import notify_ops
+
+		who = " · ".join(x for x in [wl.customer_name, wl.customer_phone] if x)
+		how = "🚚 Giao tận nơi" if wl.fulfilment == "Giao tận nơi" else "🏪 Nhận tại cửa hàng"
+		notify_ops(f"📦 Đơn mới {wl.code} · {added} mặt hàng · {how} · {wl.payment_method}" + (f"\n👤 {who}" if who else "") + (f"\n📍 {wl.address}" if wl.address else ""))
+	except Exception:
+		pass
+
 	return {"code": wl.code, "count": added}
+
+
+_WANTED_STATUS_VI = {
+	"New": "Mới gửi — chờ người bán xác nhận",
+	"Confirmed": "Đã xác nhận — đang chuẩn bị hàng",
+	"Delivering": "Đang giao",
+	"Processing": "Đang xử lý",
+	"Completed": "Đã xong / đã giao",
+	"Cancelled": "Đã huỷ",
+	"Expired": "Quá hạn",
+}
+
+
+@frappe.whitelist(allow_guest=True)
+def track_order(code, phone):
+	"""Public order tracking: a customer enters their order code + the phone they left, and sees the
+	status + items. The phone must match (last 8 digits) so a code alone can't leak someone's order."""
+	from cago.utils.ratelimit import rate_guard
+
+	rate_guard("track", limit=30, seconds=60)
+	code = (code or "").strip()
+	phone = re.sub(r"[^\d]", "", phone or "")
+	name = frappe.db.get_value("Cago Wanted List", {"code": code}, "name") if code else None
+	if not name or not phone:
+		frappe.throw(_("Không tìm thấy đơn. Kiểm tra lại mã và số điện thoại."))
+	wl = frappe.get_doc("Cago Wanted List", name)
+	saved = re.sub(r"[^\d]", "", wl.customer_phone or "")
+	if not saved or saved[-8:] != phone[-8:]:
+		frappe.throw(_("Số điện thoại không khớp đơn này."))
+	items = [
+		{
+			"display_name": frappe.db.get_value("Item", r.item_code, "cago_display_name")
+			or frappe.db.get_value("Item", r.item_code, "item_name")
+			or r.item_code,
+			"qty": r.qty,
+		}
+		for r in wl.items
+	]
+	return {
+		"code": wl.code,
+		"status": wl.status,
+		"status_text": _WANTED_STATUS_VI.get(wl.status, wl.status),
+		"fulfilment": wl.fulfilment,
+		"payment_method": wl.payment_method,
+		"created": str(wl.creation)[:16],
+		"items": items,
+	}

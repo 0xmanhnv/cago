@@ -14,6 +14,7 @@ interface Staff {
   full_name: string;
   enabled: boolean;
   is_owner: boolean;
+  is_admin: boolean;
   job_roles: { name: string; title: string }[];
   caps: Cap[];
   allow_price_edit: boolean;
@@ -87,6 +88,32 @@ export function StaffAdmin() {
         toast.success(`Đã lưu cho ${name}.`);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Lỗi: không lưu được.");
+      } finally {
+        setBusy(false);
+      }
+    };
+    // Admin tier is granted per-person (not a chức danh): it's a separate, sensitive promotion that
+    // unlocks the technical screens (Kết nối & Kênh / cấu hình AI / sao lưu) + full owner powers.
+    const toggleAdmin = async () => {
+      if (busy || !editStaff) return;
+      const turningOn = !editStaff.is_admin;
+      const msg = turningOn
+        ? `${editStaff.full_name} sẽ xem & sửa được cấu hình kỹ thuật (kênh Zalo/Telegram, khoá AI, sao lưu) và có toàn quyền như chủ. Chỉ cấp cho người bạn thật sự tin tưởng.`
+        : `${editStaff.full_name} sẽ mất quyền truy cập các màn cấu hình kỹ thuật.`;
+      const ok = await confirmDialog(msg, {
+        title: turningOn ? "Cấp quyền Quản trị kỹ thuật?" : "Thu quyền Quản trị kỹ thuật?",
+        confirmLabel: turningOn ? "Cấp quyền" : "Thu quyền",
+        danger: turningOn,
+      });
+      if (!ok) return;
+      setBusy(true);
+      try {
+        const row = await frappeCall<Staff>("cago.api.staff_admin.set_staff_admin", { user: editStaff.user, on: turningOn ? 1 : 0 });
+        setEditStaff(row);
+        await reload();
+        toast.success(turningOn ? "Đã cấp quyền quản trị." : "Đã thu quyền quản trị.");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Lỗi: không đổi được quyền.");
       } finally {
         setBusy(false);
       }
@@ -167,6 +194,23 @@ export function StaffAdmin() {
               <span className="block text-xs text-slate-500">Nhân viên đếm két rồi nhập, không thấy số máy tính ra — chống gian lận. Chủ vẫn thấy chênh lệch ở Sổ quỹ.</span>
             </span>
           </label>
+
+          {/* Technical-admin promotion — separate from chức danh, applied immediately (not via Lưu). */}
+          <div className={`mt-3 rounded-xl border-2 p-3 ${editStaff.is_admin ? "border-slate-700 bg-slate-50" : "border-slate-200 bg-white"}`}>
+            <div className="flex items-start justify-between gap-3">
+              <span>
+                <span className="font-bold">⚙️ Quản trị kỹ thuật{editStaff.is_admin ? " — đang bật" : ""}</span>
+                <span className="block text-xs text-slate-500">Mở các màn cấu hình kỹ thuật (Kết nối &amp; Kênh, cấu hình AI, sao lưu) và toàn quyền như chủ. Chỉ cấp cho người thật sự tin tưởng.</span>
+              </span>
+              <button
+                onClick={toggleAdmin}
+                disabled={busy}
+                className={`min-h-touch shrink-0 rounded-xl px-4 font-extrabold disabled:opacity-50 ${editStaff.is_admin ? "border-2 border-slate-600 text-slate-700" : "bg-slate-700 text-white"}`}
+              >
+                {editStaff.is_admin ? "Thu quyền" : "Cấp quyền"}
+              </button>
+            </div>
+          </div>
 
           <button onClick={save} disabled={busy} className="mt-4 min-h-touch w-full rounded-xl bg-brand text-lg font-extrabold text-white disabled:opacity-50">
             {busy ? "Đang lưu..." : "Lưu"}

@@ -10,6 +10,8 @@ import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/
 import { PageLoading } from "@/components/ui/Loading";
 const STATUS_VI: Record<string, string> = {
   New: "Mới",
+  Confirmed: "Đã xác nhận",
+  Delivering: "Đang giao",
   Processing: "Đang xử lý",
   Completed: "Hoàn tất",
   Expired: "Hết hạn",
@@ -25,7 +27,14 @@ interface WantedItem {
   amount_text?: string;
   is_chemical?: boolean;
 }
-interface WantedList {
+interface Contact {
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  fulfilment?: string | null;
+  address?: string | null;
+  payment_method?: string | null;
+}
+interface WantedList extends Contact {
   code: string;
   status: string;
   is_expired?: boolean;
@@ -35,7 +44,7 @@ interface WantedList {
   total_text?: string;
   items: WantedItem[];
 }
-interface WantedSummary {
+interface WantedSummary extends Contact {
   code: string;
   status: string;
   item_count: number;
@@ -173,6 +182,20 @@ export function Wanted() {
             </div>
           )}
           {wl.note && <div className="mt-2 rounded-lg bg-slate-50 p-2 text-slate-600">📝 {wl.note}</div>}
+          {/* Contact + fulfilment (remote orders): seller calls back / prepares delivery. */}
+          {(wl.customer_name || wl.customer_phone || wl.fulfilment === "Giao tận nơi") && (
+            <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-sm">
+              <span className="font-bold text-slate-700">
+                {wl.fulfilment === "Giao tận nơi" ? "🚚 Giao tận nơi" : "🏪 Nhận tại cửa hàng"}
+                {wl.customer_name ? ` · 👤 ${wl.customer_name}` : ""}
+              </span>
+              {wl.customer_phone && (
+                <a href={`tel:${wl.customer_phone}`} className="ml-2 font-bold text-brand underline">📞 {wl.customer_phone}</a>
+              )}
+              {wl.fulfilment === "Giao tận nơi" && wl.address && <div className="mt-0.5 text-slate-600">📍 {wl.address}</div>}
+              {wl.payment_method && <div className="mt-0.5 font-bold text-slate-700">💳 {wl.payment_method}</div>}
+            </div>
+          )}
 
           {/* Line items: prominent qty, shelf location for picking, chemical chip, line total. */}
           <div className="mt-3">
@@ -213,26 +236,30 @@ export function Wanted() {
             {busy ? "Đang xử lý..." : "🛒 Bán / thu tiền cho đơn này"}
           </button>
 
-          {/* Status as a segmented control — the current state is clearly highlighted, the other is the action. */}
+          {/* Order lifecycle — tapping a step also sends the customer a Zalo/SMS update if they left a
+              phone (remote orders feel like real tracking). "Đang giao" shows for delivery orders. */}
           {wl.status !== "Cancelled" && wl.status !== "Completed" && (
             <div className="mt-2.5">
-              <div className="mb-1 text-sm font-bold text-slate-500">Trạng thái soạn hàng</div>
-              <div className="flex gap-2">
+              <div className="mb-1 text-sm font-bold text-slate-500">Trạng thái đơn {wl.customer_phone ? <span className="font-normal text-slate-400">· đổi sẽ báo Zalo cho khách</span> : null}</div>
+              <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => setStatus("Processing")}
-                  disabled={busy || wl.status === "Processing"}
-                  className={`min-h-[48px] flex-1 rounded-xl font-bold ${
-                    wl.status === "Processing" ? "bg-blue-600 text-white ring-2 ring-blue-300" : "border-2 border-slate-300 bg-white text-slate-700"
-                  }`}
+                  onClick={() => setStatus("Confirmed")}
+                  disabled={busy || wl.status === "Confirmed"}
+                  className={`min-h-[48px] flex-1 rounded-xl font-bold ${wl.status === "Confirmed" ? "bg-blue-600 text-white ring-2 ring-blue-300" : "border-2 border-slate-300 bg-white text-slate-700"}`}
                 >
-                  ⏳ Đang xử lý
+                  ✅ Xác nhận
                 </button>
-                <button
-                  onClick={completeOrder}
-                  disabled={busy}
-                  className="min-h-[48px] flex-1 rounded-xl border-2 border-emerald-300 bg-white font-bold text-emerald-700"
-                >
-                  ✅ Đánh dấu hoàn tất
+                {wl.fulfilment === "Giao tận nơi" && (
+                  <button
+                    onClick={() => setStatus("Delivering")}
+                    disabled={busy || wl.status === "Delivering"}
+                    className={`min-h-[48px] flex-1 rounded-xl font-bold ${wl.status === "Delivering" ? "bg-amber-500 text-white ring-2 ring-amber-300" : "border-2 border-slate-300 bg-white text-slate-700"}`}
+                  >
+                    🚚 Đang giao
+                  </button>
+                )}
+                <button onClick={completeOrder} disabled={busy} className="min-h-[48px] flex-1 rounded-xl border-2 border-emerald-300 bg-white font-bold text-emerald-700">
+                  ✅ Hoàn tất
                 </button>
               </div>
             </div>
@@ -305,8 +332,12 @@ export function Wanted() {
                     <span className="font-bold">{o.code}</span>
                     <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold">{STATUS_VI[o.status] || o.status}</span>
                     {o.is_expired && <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">quá hạn</span>}
+                    {o.fulfilment === "Giao tận nơi" && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-brand-dark">🚚 Giao</span>}
                   </div>
                   <div className="truncate text-slate-600">{o.summary}</div>
+                  {(o.customer_name || o.customer_phone) && (
+                    <div className="truncate text-xs font-semibold text-brand-dark">👤 {o.customer_name || ""}{o.customer_phone ? ` · 📞 ${o.customer_phone}` : ""}</div>
+                  )}
                   <div className="text-xs text-slate-400">
                     {o.item_count} mặt hàng · {o.time || o.created}
                   </div>

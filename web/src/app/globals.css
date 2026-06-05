@@ -134,9 +134,9 @@ body {
   @media (prefers-reduced-motion: reduce) {
     .animate-shake { animation: none; }
   }
-  /* Toast: slide up from the bottom edge + fade in. */
+  /* Toast: slide down from the top edge + fade in (iPhone-banner style). */
   @keyframes toast-in {
-    from { opacity: 0; transform: translateY(14px) scale(0.97); }
+    from { opacity: 0; transform: translateY(-14px) scale(0.97); }
     to { opacity: 1; transform: none; }
   }
   .animate-toast-in {

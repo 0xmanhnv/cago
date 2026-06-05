@@ -188,15 +188,32 @@ def expiry_status(expiry_date):
 
 
 def nearest_expiry(item_code):
-	"""Earliest batch expiry date for an item (may be in the past), or None."""
-	row = frappe.get_all(
+	"""Expiry of the lot that would actually be sold next (FEFO): the earliest-expiring batch that
+	STILL HAS STOCK at the selling warehouse. Each receive makes a new Batch, so a sold-out old lô
+	must NOT drag the product to 'sắp hết hạn' when the on-hand stock is a newer lô with a later
+	date — mirrors how cago.api.sales._auto_batch picks the lot at checkout. None when no in-stock
+	dated lot (so the detail simply shows no HSD rather than a stale one)."""
+	batches = frappe.get_all(
 		"Batch",
-		filters={"item": item_code, "expiry_date": ["is", "set"]},
-		fields=["expiry_date"],
+		filters={"item": item_code, "disabled": 0, "expiry_date": ["is", "set"]},
+		fields=["name", "expiry_date"],
 		order_by="expiry_date asc",
-		limit=1,
 	)
-	return row[0].expiry_date if row else None
+	if not batches:
+		return None
+	try:
+		from erpnext.stock.doctype.batch.batch import get_batch_qty
+	except Exception:
+		return batches[0].expiry_date  # can't measure per-lot qty → keep prior (earliest) behaviour
+	wh = selling_warehouse()
+	for b in batches:  # already nearest-expiry first
+		try:
+			qty = flt(get_batch_qty(b.name, wh, item_code)) if wh else flt(get_batch_qty(batch_no=b.name, item_code=item_code))
+		except Exception:
+			qty = 0
+		if qty > 0:
+			return b.expiry_date
+	return None
 
 
 def _expiry_dto(item_code):
@@ -257,10 +274,12 @@ def bin_qty_map(codes):
 
 
 def stock_status_for(item, qty):
-	"""Displayed stock status: auto from real qty + reorder level when cago_stock_auto,
-	else the owner's manual status. (qty is on-hand in the stock UOM.)"""
+	"""Displayed stock status: auto from real qty + reorder level when cago_stock_auto, else the
+	owner's manual status. Items that don't need counting (auto off, no manual status set — dây,
+	đinh, dịch vụ…) default to "Còn hàng" (always available, no number) so the kiosk/assistant never
+	shows the confusing "tồn kho không rõ". (qty is on-hand in the stock UOM.)"""
 	if not _get(item, "cago_stock_auto"):
-		return _get(item, "cago_stock_status_manual")
+		return _get(item, "cago_stock_status_manual") or "Còn hàng"
 	reorder = flt(_get(item, "cago_reorder_level"))
 	if flt(qty) <= 0:
 		return "Hết hàng"
@@ -314,6 +333,7 @@ LIST_FIELDS = [
 	"cago_is_chemical",
 	"cago_safety_notes",
 	"cago_kiosk_sort_order",
+	"has_batch_no",
 ]
 
 
@@ -444,13 +464,22 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 	# on-hand only needed for auto-status items, but one grouped query is cheap
 	qty_map = bin_qty_map([r.name for r in rows if r.get("cago_stock_auto")])
 	bs = set(best_seller_codes())  # cached; for the 🔥 badge
+	# Near-expiry flag for the sell screen — only for lot-tracked items (most aren't), so the list
+	# stays cheap. Never for the kiosk (customers don't see HSD).
+	exp_map = {}
+	if audience != "public":
+		for r in rows:
+			if r.get("has_batch_no"):
+				exp = nearest_expiry(r.name)
+				if exp:
+					exp_map[r.name] = {"expiry_text": format_date_vi(exp), "expiry_status": expiry_status(exp)}
 	return [
-		_list_dto(r, _rate_for(prices.get(r.name) or {}, r.stock_uom), audience, cat_meta, qty_map, bs)
+		_list_dto(r, _rate_for(prices.get(r.name) or {}, r.stock_uom), audience, cat_meta, qty_map, bs, exp_map)
 		for r in rows
 	]
 
 
-def _list_dto(r, rate, audience, cat_meta=None, qty_map=None, bs_set=None):
+def _list_dto(r, rate, audience, cat_meta=None, qty_map=None, bs_set=None, exp_map=None):
 	meta = (cat_meta or {}).get(r.item_group) or category_meta(r.item_group)
 	out = {
 		"item_code": r.name,
@@ -488,8 +517,11 @@ def _list_dto(r, rate, audience, cat_meta=None, qty_map=None, bs_set=None):
 				# Whether this item may be sold beyond stock (default off) — the till uses it to decide
 				# between a "Vẫn bán?" confirm (allowed) and a hard block (not allowed).
 				"allow_oversell": bool(r.get("cago_allow_oversell")),
+				"has_batch": bool(r.get("has_batch_no")),  # lot-tracked → till shows the lô that'll sell
+				"unit": r.stock_uom,  # so the till can label the exact on-hand count (Còn N <đơn vị>)
 			}
 		)
+		out.update((exp_map or {}).get(r.name, {}))  # near-expiry flag (lot-tracked items only)
 	return out
 
 
@@ -593,7 +625,8 @@ def public_dto(item):
 		"recommended": bool(_get(item, "cago_recommended")),
 		"best_seller": item.name in set(best_seller_codes()),
 		"safety_notes": safety_warning_for(item),
-		**_expiry_dto(item.name),
+		# No expiry on the kiosk: HSD is operational — for the owner (handle/clear stock) and staff
+		# (sell the nearest-expiry lot first). Customers don't need it. Kept in staff_dto/owner_dto.
 		**({"sale_units": sale_units(item)} if _get(item, "cago_show_retail_on_kiosk") else {}),
 	}
 
@@ -617,6 +650,7 @@ def staff_dto(item):
 		"stock_status": stock_status_for(item, qty),
 		"actual_stock_qty": qty,
 		"stock_auto": bool(_get(item, "cago_stock_auto")),
+		"has_batch": bool(_get(item, "has_batch_no")),  # show the per-lô list (HSD) to staff/owner
 		"allow_oversell": bool(_get(item, "cago_allow_oversell")),
 		"shelf_location": item.cago_shelf_location,
 		"public_description": item.cago_public_description,

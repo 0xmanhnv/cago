@@ -58,15 +58,17 @@ export function ReceiveStock() {
   };
 
   const addBatch = async () => {
-    if (!code || !newBatch.id.trim()) {
-      toast.error("Nhập mã lô.");
+    if (!code) return;
+    // Code is optional — if blank, enter just the HSD and the server auto-generates LO-ddmmyy.
+    if (!newBatch.id.trim() && !newBatch.hsd) {
+      toast.error("Nhập hạn dùng (hoặc mã lô).");
       return;
     }
     setBusy(true);
     try {
-      await frappeCall("cago.api.inventory.add_batch", { item_code: code, batch_id: newBatch.id.trim(), expiry_date: newBatch.hsd || null });
+      const b = await frappeCall<{ batch_id: string }>("cago.api.inventory.add_batch", { item_code: code, batch_id: newBatch.id.trim() || null, expiry_date: newBatch.hsd || null });
       await refreshStock();
-      setBatch(newBatch.id.trim());
+      setBatch(b.batch_id);
       setNewBatch({ id: "", hsd: "" });
       setAdding(false);
     } catch (e) {
@@ -155,10 +157,16 @@ export function ReceiveStock() {
               <button onClick={() => setAdding((v) => !v)} className="rounded-lg border-2 border-dashed border-teal-400 px-3 py-2 text-sm font-bold text-teal-700">➕ Lô mới</button>
             </div>
             {adding && (
-              <div className="mt-2 flex flex-wrap items-end gap-2">
-                <input value={newBatch.id} onChange={(e) => setNewBatch({ ...newBatch, id: e.target.value })} placeholder="Mã lô" className="rounded-lg border-2 border-emerald-300 p-2.5" />
-                <input type="date" value={newBatch.hsd} onChange={(e) => setNewBatch({ ...newBatch, hsd: e.target.value })} className="rounded-lg border-2 border-emerald-300 p-2.5" />
-                <button onClick={addBatch} disabled={busy} className="rounded-lg bg-teal-600 px-4 py-2.5 font-bold text-white disabled:opacity-50">Lưu lô</button>
+              <div className="mt-2">
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex flex-col text-xs font-bold text-slate-500">Hạn dùng (HSD)
+                    <input type="date" value={newBatch.hsd} onChange={(e) => setNewBatch({ ...newBatch, hsd: e.target.value })} className="mt-0.5 rounded-lg border-2 border-emerald-300 p-2.5 text-base font-normal text-slate-800" />
+                  </label>
+                  <label className="flex flex-col text-xs font-bold text-slate-500">Mã lô <span className="font-normal text-slate-400">(tự sinh nếu trống)</span>
+                    <input value={newBatch.id} onChange={(e) => setNewBatch({ ...newBatch, id: e.target.value })} placeholder="LO-…" className="mt-0.5 rounded-lg border-2 border-emerald-200 p-2.5 text-base font-normal text-slate-800" />
+                  </label>
+                  <button onClick={addBatch} disabled={busy} className="rounded-lg bg-teal-600 px-4 py-2.5 font-bold text-white disabled:opacity-50">Lưu lô</button>
+                </div>
               </div>
             )}
           </div>

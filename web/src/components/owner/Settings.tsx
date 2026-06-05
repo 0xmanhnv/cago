@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { frappeCall } from "@/lib/api";
 import { BackBar, goBackSmart } from "./Shared";
 import { toast } from "@/components/ui/toast";
@@ -17,7 +18,9 @@ export function Settings() {
   const [expiryDays, setExpiryDays] = useState("");
   const [proof, setProof] = useState({ debt_mode: "optional", debt_min: "", repay_mode: "optional", repay_min: "" });
   const [defLimit, setDefLimit] = useState("");
-  const [notify, setNotify] = useState({ owner_phone: "", webhook: "", token: "", has_token: false, has_webhook: false, is_admin: false });
+  // Owner's business contact phone only. All technical channel config (webhook/token, Telegram, Zalo)
+  // lives on the admin-only "Kết nối & Kênh" screen (ConnectScreen / cago.api.integrations).
+  const [notify, setNotify] = useState({ owner_phone: "", is_admin: false });
   const [cfdUrl, setCfdUrl] = useState("");
   const [cfdCopied, setCfdCopied] = useState(false);
 
@@ -54,8 +57,8 @@ export function Settings() {
     frappeCall<{ limit: number }>("cago.api.verify.get_default_debt_limit", {}, { method: "GET" })
       .then((d) => setDefLimit(String(d.limit || "")))
       .catch(() => {});
-    frappeCall<{ owner_phone: string; webhook: string; has_token: boolean; has_webhook: boolean; is_admin: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
-      .then((d) => setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token, has_webhook: !!d.has_webhook, is_admin: !!d.is_admin }))
+    frappeCall<{ owner_phone: string; is_admin: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" })
+      .then((d) => setNotify({ owner_phone: d.owner_phone || "", is_admin: !!d.is_admin }))
       .catch(() => {});
     frappeCall<{ token: string }>("cago.api.display.cfd_token", {}, { method: "GET" })
       .then((d) => setCfdUrl(d.token ? `${window.location.origin}/display?k=${d.token}` : ""))
@@ -103,20 +106,9 @@ export function Settings() {
 
   const saveNotify = async () => {
     try {
-      // owner_phone is a business field (owner). webhook + token are technical relay config (admin) —
-      // saved via a separate admin endpoint, only when the current user is an admin.
+      // owner_phone is the only business field here; channels are on the admin Kết nối & Kênh screen.
       await frappeCall("cago.api.notify.set_notify_config", { owner_phone: notify.owner_phone });
-      let d;
-      if (notify.is_admin) {
-        d = await frappeCall<{ owner_phone: string; webhook: string; has_token: boolean; has_webhook: boolean; is_admin: boolean }>("cago.api.notify.set_webhook", {
-          webhook: notify.webhook,
-          ...(notify.token ? { token: notify.token } : {}),
-        });
-      } else {
-        d = await frappeCall<{ owner_phone: string; webhook: string; has_token: boolean; has_webhook: boolean; is_admin: boolean }>("cago.api.notify.get_notify_config", {}, { method: "GET" });
-      }
-      setNotify({ owner_phone: d.owner_phone || "", webhook: d.webhook || "", token: "", has_token: !!d.has_token, has_webhook: !!d.has_webhook, is_admin: !!d.is_admin });
-      toast.success("Đã lưu cài đặt nhắn tin.");
+      toast.success("Đã lưu số nhận nhắc việc.");
     } catch {
       toast.error("Lỗi: không lưu được.");
     }
@@ -163,10 +155,11 @@ export function Settings() {
     <div className="mx-auto max-w-[760px] xl:max-w-[1100px]">
       <BackBar onBack={() => goBackSmart(router)} title="CÀI ĐẶT CỬA HÀNG" />
 
-      {/* On desktop the settings cards flow into 2 columns (items-start = independent heights) so a
-          wide screen isn't one narrow strip; phones/tablets keep a single column. */}
-      <div className="xl:grid xl:grid-cols-2 xl:gap-x-4 xl:items-start">
-      <div className="mt-4 rounded-xl bg-white p-4">
+      {/* On desktop the settings cards flow into 2 masonry COLUMNS (not a grid) so short cards don't
+          leave a big gap below them when paired with a taller card in the same grid row; phones/
+          tablets keep a single column. Each card is break-inside-avoid so it never splits. */}
+      <div className="xl:columns-2 xl:gap-4">
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
         <h2 className="font-extrabold text-brand-dark">📒 Hạn mức nợ mặc định</h2>
         <p className="mt-1 text-sm text-slate-500">Áp dụng cho khách CHƯA đặt hạn mức riêng. Vượt mức thì không cho ghi nợ thêm. Để 0 = không giới hạn.</p>
         <input
@@ -179,7 +172,7 @@ export function Settings() {
         <button onClick={saveDefLimit} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">💾 Lưu hạn mức mặc định</button>
       </div>
 
-      <div className="mt-4 rounded-xl bg-white p-4">
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
         <h2 className="font-extrabold text-brand-dark">✍️ Xác nhận nợ (số nợ số hoá)</h2>
         <p className="mt-1 text-sm text-slate-500">Yêu cầu khách ký / điểm chỉ / chụp ảnh khi ghi nợ hoặc khi trả nợ — thay cho việc ký sổ giấy.</p>
         {([
@@ -227,7 +220,7 @@ export function Settings() {
         </button>
       </div>
 
-      <div className="mt-4 rounded-xl bg-white p-4">
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
         <div className="font-extrabold">Khách tự xem công nợ trên kiosk</div>
         <p className="text-slate-500">Khi bật: khách nhập SĐT ở kiosk, người bán bấm xác nhận, rồi khách xem được nợ của mình.</p>
         <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
@@ -236,7 +229,7 @@ export function Settings() {
         </label>
       </div>
 
-      <div className="mt-4 rounded-xl bg-white p-4">
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
         <div className="font-extrabold">Cho phép sửa giá khi bán (mặc cả)</div>
         <p className="text-slate-500">Khi bật: lúc bán, người bán được sửa đơn giá từng mặt hàng (bớt giá cho khách). Khi tắt: luôn bán đúng bảng giá.</p>
         <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
@@ -245,7 +238,7 @@ export function Settings() {
         </label>
       </div>
 
-      <div className="mt-4 rounded-xl bg-white p-4">
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
         <div className="font-extrabold">Cho phép nhân viên thu nợ khách</div>
         <p className="text-slate-500">Khi bật: nhân viên được ghi &quot;Khách trả nợ&quot; — tiền vào sổ quỹ ca của nhân viên đó và hệ thống ghi rõ ai thu. Khi tắt: chỉ chủ thu nợ.</p>
         <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
@@ -254,7 +247,7 @@ export function Settings() {
         </label>
       </div>
 
-      <div className="mt-4 rounded-xl bg-white p-4">
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
         <div className="font-extrabold">⭐ Tích điểm khách hàng</div>
         <p className="text-slate-500">Để trống = dùng mặc định (mua 10.000đ được 1 điểm; 1 điểm đổi được 1.000đ khi mua hàng).</p>
         <label className="mt-3 block font-bold text-slate-700">Mua bao nhiêu đồng = 1 điểm</label>
@@ -283,7 +276,7 @@ export function Settings() {
         </button>
       </div>
 
-      <div className="mt-4 rounded-xl bg-white p-4">
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
         <div className="font-extrabold">⏰ Cảnh báo cận hạn (HSD)</div>
         <p className="text-slate-500">Sản phẩm còn hạn dùng ≤ số ngày này sẽ hiện &quot;sắp hết hạn&quot;. Để trống = mặc định 60 ngày.</p>
         <input
@@ -298,33 +291,26 @@ export function Settings() {
         </button>
       </div>
 
-      <div id="notify" className="mt-4 scroll-mt-20 rounded-xl bg-white p-4">
-        <div className="font-extrabold">📩 Nhắn tin Zalo/SMS (tuỳ chọn)</div>
+      <div id="notify" className="mt-4 scroll-mt-20 break-inside-avoid rounded-xl bg-white p-4">
+        <div className="font-extrabold">📩 Nhắc việc cho chủ</div>
         <p className="text-slate-500">
-          Số của chủ để nhận nhắc việc hằng ngày (hết hàng / cận hạn / công nợ). Muốn gửi tin cho khách
-          ngay trong app, dán đường dẫn dịch vụ gửi tin (webhook nhận {"{phone, text}"}). Để trống = chỉ soạn nháp để sao chép.
+          Số của chủ để nhận nhắc việc hằng ngày (hết hàng / cận hạn / công nợ) qua Zalo/SMS — khi kênh gửi
+          tin đã được bật.
         </p>
         <label className="mt-3 block font-bold text-slate-700">Số điện thoại chủ (nhận nhắc việc)</label>
         <input value={notify.owner_phone} onChange={(e) => setNotify({ ...notify, owner_phone: e.target.value })} inputMode="tel" placeholder="VD: 0912345678" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-        {notify.is_admin ? (
-          // Technical relay config — only an admin (kỹ thuật) sees the endpoint + token.
-          <>
-            <label className="mt-3 block font-bold text-slate-700">⚙️ Webhook gửi tin (quản trị kỹ thuật)</label>
-            <input value={notify.webhook} onChange={(e) => setNotify({ ...notify, webhook: e.target.value })} placeholder="https://..." className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-            <label className="mt-3 block font-bold text-slate-700">Token (tuỳ chọn){notify.has_token ? " — đã lưu" : ""}</label>
-            <input value={notify.token} onChange={(e) => setNotify({ ...notify, token: e.target.value })} placeholder={notify.has_token ? "•••••• (để trống nếu giữ nguyên)" : "Bearer token"} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-          </>
-        ) : (
+        <button onClick={saveNotify} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
+          💾 Lưu số nhận nhắc việc
+        </button>
+        {notify.is_admin && (
           <p className="mt-3 text-sm text-slate-400">
-            {notify.has_webhook ? "✅ Kênh gửi tin đã được quản trị kỹ thuật cấu hình." : "ℹ️ Kênh gửi tin (webhook) do quản trị kỹ thuật cấu hình."}
+            ⚙️ Cấu hình kênh gửi tin Zalo/SMS, Telegram và Zalo Mini App ở màn{" "}
+            <Link href="/pos/integrations" className="font-bold text-brand underline">🔌 Kết nối & Kênh</Link> (quản trị).
           </p>
         )}
-        <button onClick={saveNotify} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
-          💾 Lưu cài đặt nhắn tin
-        </button>
       </div>
 
-      <div className="mt-4 rounded-xl bg-white p-4">
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
         <div className="font-extrabold">🖥 Màn hình phụ cho khách</div>
         <p className="text-slate-500">
           Để hiện giỏ hàng + tổng tiền + QR cho khách xem. Trên <b>cùng máy bán</b> (màn mở rộng): bấm nút

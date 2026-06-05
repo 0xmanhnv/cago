@@ -412,6 +412,72 @@ def ensure_payment_fields():
 					"insert_after": "cago_notify_webhook",
 					"description": "Tùy chọn: token Bearer gửi kèm tới webhook nhắn tin.",
 				},
+				{
+					"fieldname": "cago_telegram_bot_token",
+					"label": "Cago Telegram Bot Token",
+					"fieldtype": "Password",
+					"insert_after": "cago_notify_token",
+					"description": "Tùy chọn: token bot Telegram (từ @BotFather) — đẩy cảnh báo/đơn mới vào nhóm vận hành & nhận lệnh.",
+				},
+				{
+					"fieldname": "cago_telegram_chat_id",
+					"label": "Cago Telegram Chat ID",
+					"fieldtype": "Data",
+					"insert_after": "cago_telegram_bot_token",
+					"description": "Tùy chọn: chat/nhóm Telegram nhận cảnh báo & đơn mới (chủ + nhân viên).",
+				},
+				{
+					"fieldname": "cago_telegram_webhook_secret",
+					"label": "Cago Telegram Webhook Secret",
+					"fieldtype": "Password",
+					"insert_after": "cago_telegram_chat_id",
+					"description": "Tự sinh khi đăng ký webhook — xác thực update đến từ Telegram.",
+				},
+				# Public origin + Zalo Mini App config — technical channel config (ADMIN only), edited in the
+				# "Kết nối & Kênh" screen. public_url is the one HTTPS origin reused by the Telegram webhook,
+				# Zalo, and share links. See docs/45 + cago.api.integrations.
+				{
+					"fieldname": "cago_public_url",
+					"label": "Cago Public URL",
+					"fieldtype": "Data",
+					"insert_after": "cago_telegram_webhook_secret",
+					"description": "Địa chỉ công khai HTTPS của app (vd https://cuahang.example.com) — dùng cho webhook Telegram, Zalo, link chia sẻ.",
+				},
+				{
+					"fieldname": "cago_zalo_app_id",
+					"label": "Cago Zalo App ID",
+					"fieldtype": "Data",
+					"insert_after": "cago_public_url",
+					"description": "Tùy chọn: App ID của Zalo Mini App (Zalo for Developers).",
+				},
+				{
+					"fieldname": "cago_zalo_oa_id",
+					"label": "Cago Zalo OA ID",
+					"fieldtype": "Data",
+					"insert_after": "cago_zalo_app_id",
+					"description": "Tùy chọn: Official Account (OA) ID của cửa hàng trên Zalo.",
+				},
+				{
+					"fieldname": "cago_zalo_app_secret",
+					"label": "Cago Zalo App Secret",
+					"fieldtype": "Password",
+					"insert_after": "cago_zalo_oa_id",
+					"description": "Tùy chọn: App Secret Zalo — dùng phía server để đổi token lấy số ĐT đã xác thực.",
+				},
+				{
+					"fieldname": "cago_zalopay_merchant_id",
+					"label": "Cago ZaloPay Merchant ID",
+					"fieldtype": "Data",
+					"insert_after": "cago_zalo_app_secret",
+					"description": "Tùy chọn: Merchant ID ZaloPay (nếu dùng thanh toán online qua Zalo).",
+				},
+				{
+					"fieldname": "cago_zalopay_key",
+					"label": "Cago ZaloPay Key",
+					"fieldtype": "Password",
+					"insert_after": "cago_zalopay_merchant_id",
+					"description": "Tùy chọn: khóa ký ZaloPay (server-side).",
+				},
 				# AI / trợ lý config — owner-editable in the app so provider/model/fallback can change
 				# live (no redeploy). Read by cago.chatbot.config with precedence env > here > site_config.
 				{"fieldname": "cago_llm_provider", "label": "Cago LLM Provider", "fieldtype": "Data", "insert_after": "cago_notify_token", "description": "openai | anthropic | gemini | deterministic"},

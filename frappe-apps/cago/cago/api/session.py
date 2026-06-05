@@ -88,9 +88,16 @@ def _loyalty_redeem_vnd():
 
 
 def _staff_can_collect_debt():
-	"""Whether THIS user may record customer debt repayments — now the `debt` capability.
-	UI hint only; debt.record_repayment re-checks via ensure_cap('debt')."""
-	return has_cap("debt")
+	"""Whether the CURRENT user may record customer debt / repayments at the till. Owner always;
+	staff only when the owner's runtime kill-switch (Company.cago_staff_can_collect_debt) is on —
+	mirrors debt.ensure_can_collect_debt so the UI can HIDE the tiles instead of erroring on submit
+	(don't return has_cap here: that's the role, not the owner's toggle)."""
+	from cago.utils.permissions import is_owner
+
+	if is_owner():
+		return True
+	company = _company()
+	return bool(company and frappe.db.get_value("Company", company, "cago_staff_can_collect_debt"))
 
 
 # --------------------------------------------------------------------------- #

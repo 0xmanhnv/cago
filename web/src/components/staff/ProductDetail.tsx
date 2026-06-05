@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import type { Product } from "@/lib/types";
+import { goBackSmart } from "@/components/owner/Shared";
+import type { Product, Batch } from "@/lib/types";
 
 import { PageLoading } from "@/components/ui/Loading";
 function Row({ k, v }: { k: string; v: React.ReactNode }) {
@@ -11,6 +12,35 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
     <div className="flex justify-between gap-3 border-b border-slate-100 py-2">
       <span className="text-slate-500">{k}</span>
       <b className="text-right">{v}</b>
+    </div>
+  );
+}
+
+// Per-lô list for lot-tracked products: which lô to sell first (FEFO) + its HSD, so staff push
+// the soon-to-expire goods. Only in-stock lots; the earliest non-expired is flagged "Bán trước".
+function LotList({ code }: { code: string }) {
+  const [lots, setLots] = useState<Batch[] | null>(null);
+  useEffect(() => {
+    frappeCall<Batch[]>("cago.api.inventory.list_batches", { item_code: code }, { method: "GET" })
+      .then(setLots)
+      .catch(() => setLots([]));
+  }, [code]);
+  // Only lots that still have stock (sold-out lots are hidden).
+  const shown = (lots || []).filter((b) => (b.qty ?? 0) > 0);
+  if (!shown.length) return null;
+  return (
+    <div className="mt-3.5">
+      <div className="font-bold">Lô hàng còn <span className="font-normal text-slate-400">(bán lô gần hết hạn trước)</span></div>
+      <div className="mt-1 space-y-1">
+        {shown.map((b) => (
+          <div key={b.batch_id} className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-sm ${b.sell_first ? "border-amber-400 bg-amber-50" : "border-slate-200"}`}>
+            <span className="min-w-0 truncate font-bold">{b.batch_id}{b.sell_first ? " · 👉 Bán trước" : ""}</span>
+            <span className={`shrink-0 ${b.expiry_status === "expired" ? "font-bold text-red-600" : b.expiry_status === "near" ? "font-bold text-amber-700" : "text-slate-500"}`}>
+              {b.expiry_text ? `HSD ${b.expiry_text}` : "—"}{(b.qty ?? 0) > 0 ? ` · còn ${b.qty}` : ""}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -56,6 +86,7 @@ export function ProductInfo({ p }: { p: Product }) {
           v={`${p.expiry_text}${p.expiry_status === "expired" ? " (đã hết hạn)" : p.expiry_status === "near" ? " (sắp hết hạn)" : ""}`}
         />
       )}
+      {p.has_batch && <LotList code={p.item_code} />}
       {p.staff_advice && (
         <>
           <div className="mt-3.5 font-bold">Tư vấn</div>
@@ -94,7 +125,7 @@ export function ProductDetail({ code }: { code: string }) {
     return (
       <div className="rounded-xl border border-amber-400 bg-amber-100 p-4 text-amber-900">
         Không tải được sản phẩm.{" "}
-        <button onClick={() => router.push("/pos/search")} className="underline">
+        <button onClick={() => goBackSmart(router, "/pos/search")} className="underline">
           Quay lại
         </button>
       </div>
@@ -103,7 +134,7 @@ export function ProductDetail({ code }: { code: string }) {
   return (
     <div>
       <div className="mb-3.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/pos/search")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
+        <button onClick={() => goBackSmart(router, "/pos/search")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
           ‹ Quay lại
         </button>
       </div>

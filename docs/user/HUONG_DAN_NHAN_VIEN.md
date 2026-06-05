@@ -19,6 +19,10 @@ Dành cho nhân viên đứng quầy. Mọi thao tác đều ở màn **/pos**. 
 6. Bật **Tự in phiếu** nếu muốn in mỗi đơn.
 
 > ⭐ Sản phẩm có dấu **⭐** là hàng cửa hàng **khuyên dùng** — ưu tiên giới thiệu cho khách.
+>
+> ⏳ Sản phẩm có nhãn **"Sắp hết hạn"** (vàng) hoặc **"Đã hết hạn"** (đỏ): ưu tiên **bán lô gần hết hạn trước**. Bấm vào sản phẩm xem **"Lô hàng còn"** — lô ghi **👉 Bán trước** là lô nên bán trước.
+> Hàng theo lô trong giỏ hiện dòng **"🏷 Lô: …"** — mặc định **tự bán lô gần hết hạn trước**, và **nếu lô đó không đủ thì tự lấy tiếp lô kế** (vd lô 1 còn 3, bán 4 → 3 ở lô 1 + 1 ở lô 2). Lô **đã hết hàng không hiện ra**.
+> Cần khác đi (khách không lấy lô sắp hết, hoặc muốn mỗi lô vài cái) → bấm **"Chia lô"**, nhập số lượng cho từng lô (tổng phải bằng số lượng bán).
 
 ## 3. Khách hàng & ghi nợ
 - Chọn khách trong bảng thanh toán (👤). Khách cũ gõ tên/xóm để tìm.

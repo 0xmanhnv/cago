@@ -284,7 +284,9 @@ export function CustomerLedger({ customer }: { customer: string }) {
   const router = useRouter();
   type Ledger = { customer_name: string; phone?: string; outstanding_text: string; overpaid?: boolean; points?: number; wholesale?: boolean; entries: LedgerEntry[] };
   const { boot } = useSession();
-  const canEdit = hasCap(boot, "debt"); // staff with only debt_view see the ledger but can't record
+  // Need the debt cap AND the owner's runtime "thu nợ" toggle (staff_can_collect_debt is already
+  // owner-aware = true for the owner). Staff see the ledger but the record buttons hide when off.
+  const canEdit = hasCap(boot, "debt") && !!boot?.staff_can_collect_debt;
   const [d, setD] = useState<Ledger | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const [statement, setStatement] = useState<string | null>(null);

@@ -210,7 +210,7 @@ export function Assistant({
         {history.map((m, i) =>
           m.who === "user" ? (
             <div key={m.id ?? i} className="my-2 text-right">
-              <span className="inline-block max-w-[85%] rounded-2xl bg-brand px-4 py-2.5 text-left text-white">
+              <span className="inline-block max-w-[85%] whitespace-pre-line break-words rounded-2xl bg-brand px-4 py-2.5 text-left text-white">
                 {m.text}
               </span>
             </div>

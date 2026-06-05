@@ -279,7 +279,7 @@ export function ProductList() {
           })}
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
           {visible.map((p, i) => {
             const out = !inStock(p);
             return (

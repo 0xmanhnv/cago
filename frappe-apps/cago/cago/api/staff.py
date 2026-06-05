@@ -13,7 +13,7 @@ from frappe.utils import cint, flt, format_datetime, get_datetime, now_datetime
 from cago.utils import dto
 from cago.utils.permissions import ensure_cap, ensure_internal
 
-WANTED_STATUSES = ("New", "Processing", "Completed", "Expired", "Cancelled")
+WANTED_STATUSES = ("New", "Confirmed", "Delivering", "Processing", "Completed", "Expired", "Cancelled")
 
 
 @frappe.whitelist()
@@ -28,7 +28,7 @@ def list_wanted_lists(include_done=0):
 	rows = frappe.get_all(
 		"Cago Wanted List",
 		filters=filters,
-		fields=["name", "code", "status", "note", "creation", "expires_at"],
+		fields=["name", "code", "status", "note", "creation", "expires_at", "customer_name", "customer_phone", "fulfilment", "address", "payment_method"],
 		order_by="creation desc",
 		limit=50,
 	)
@@ -58,6 +58,11 @@ def list_wanted_lists(include_done=0):
 				"total_qty": total_qty,
 				"summary": summary,
 				"note": r.note,
+				"customer_name": r.customer_name,
+				"customer_phone": r.customer_phone,
+				"fulfilment": r.fulfilment,
+				"address": r.address,
+				"payment_method": r.payment_method,
 				"created": format_datetime(r.creation, "dd/MM HH:mm"),
 				"date_group": group,
 				"time": format_datetime(r.creation, "HH:mm"),
@@ -193,6 +198,11 @@ def get_wanted_list(code):
 		"code": wl.code,
 		"status": wl.status,
 		"note": wl.note,
+		"customer_name": wl.customer_name,
+		"customer_phone": wl.customer_phone,
+		"fulfilment": wl.fulfilment,
+		"address": wl.address,
+		"payment_method": wl.payment_method,
 		"created": format_datetime(wl.creation, "HH:mm · dd/MM/yyyy"),
 		"item_count": len(items),
 		"total_text": dto.format_price(total),
@@ -202,15 +212,30 @@ def get_wanted_list(code):
 	}
 
 
+_WANTED_NOTIFY = {
+	"Confirmed": "đã được xác nhận, cửa hàng đang chuẩn bị hàng",
+	"Delivering": "đang trên đường giao tới bác",
+	"Completed": "đã hoàn tất. Cảm ơn bác!",
+	"Cancelled": "đã huỷ. Bác liên hệ cửa hàng nếu cần thêm",
+}
+
+
 @frappe.whitelist()
 def set_wanted_list_status(code, status):
-	"""Staff marks a wanted list as Đang xử lý / Hoàn tất (or back to Mới)."""
+	"""Staff moves an order through its lifecycle (Mới → Đã xác nhận → Đang giao → Hoàn tất / Huỷ).
+	On a customer-visible step, send the customer a Zalo/SMS update (best-effort) if they left a
+	phone — so remote orders feel like real order tracking."""
 	ensure_internal()
 	if status not in WANTED_STATUSES:
 		frappe.throw(_("Trạng thái không hợp lệ."))
 	name = _wanted_name(code)
 	frappe.db.set_value("Cago Wanted List", name, "status", status)
 	frappe.db.commit()
+	phone = frappe.db.get_value("Cago Wanted List", name, "customer_phone")
+	if phone and status in _WANTED_NOTIFY:
+		from cago.api.notify import send_message
+
+		send_message(phone, f"Đơn {code} {_WANTED_NOTIFY[status]}.")
 	return {"code": code, "status": status}
 
 

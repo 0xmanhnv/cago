@@ -124,7 +124,7 @@ def reply(role, message, products):
 
 	if _has(m, STOCK):
 		def stock_txt(x):
-			s = x.get("stock_status") or "không rõ"
+			s = x.get("stock_status") or "Còn hàng"
 			if x.get("actual_stock_qty") is not None and x.get("stock_auto"):
 				s += f" (còn {x.get('actual_stock_qty')})"
 			return _line(x, f"— {s}")

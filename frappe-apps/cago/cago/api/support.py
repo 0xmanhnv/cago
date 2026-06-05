@@ -125,7 +125,7 @@ def _notify_staff(doc):
 			bits.append(f"💬 {doc.question}")
 		if doc.note:
 			bits.append(f"📝 {doc.note}")
-		notify.send_owner("\n".join(bits))
+		notify.notify_ops("\n".join(bits))
 	except Exception:
 		pass
 
@@ -268,5 +268,5 @@ def expire_stale_requests():
 		doc.status = "expired"
 		doc.save(ignore_permissions=True)
 		_broadcast(doc)
-		notify.send_owner(f"⚠️ Khách gọi nhân viên ở {doc.kiosk_label} chưa ai xử lý ({doc.reason}). Nhờ cô xem giúp ạ.")
+		notify.notify_ops(f"⚠️ Khách gọi nhân viên ở {doc.kiosk_label} chưa ai xử lý ({doc.reason}). Nhờ cô xem giúp ạ.")
 	frappe.db.commit()

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FrappeError, frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { CategoryNav } from "@/components/ui/CategoryNav";
+import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { ProductInfo } from "@/components/staff/ProductDetail";
 import { confirmDialog } from "@/components/ui/dialog";
@@ -13,7 +14,7 @@ import { toast } from "@/components/ui/toast";
 import { uomLabel } from "@/lib/uom";
 import { Spinner } from "@/components/ui/Loading";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
-import type { ProductCard, Product, Category } from "@/lib/types";
+import type { ProductCard, Product, Category, Batch } from "@/lib/types";
 import { useOnline } from "@/lib/offline/useOnline";
 import { type SaleArgs, type SaleDisplay } from "@/lib/offline/db";
 import { findByBarcodeLocal, getProductLocal, refreshCatalog, searchCatalogLocal, searchCustomersLocal } from "@/lib/offline/catalog";
@@ -198,6 +199,126 @@ function printProvisional(
   }
 }
 
+// Only lots that still have stock are ever shown/used (sold-out lots are hidden) — matches the
+// server's FEFO, which also ignores empty lots.
+function inStockLots(lots: Batch[]) {
+  return lots.filter((b) => (b.qty ?? 0) > 0);
+}
+const lotSum = (a?: Record<string, number>) => Object.values(a || {}).reduce((s, q) => s + (q || 0), 0);
+// FEFO distribution of `qty` across in-stock lots (server order is already nearest-expiry first):
+// fill each lô up to its on-hand, spill the rest to the next; any oversell remainder on the last lô.
+// (Counts shown in the lô's own unit — exact for single-unit batch goods, the usual case.)
+function fefoFill(lots: Batch[], qty: number): Record<string, number> {
+  // Fill each lô only up to its real on-hand (never invent stock): the sum caps at total available.
+  // If qty exceeds the total, the shortfall is surfaced as "vượt tồn" — not piled onto a lô.
+  const out: Record<string, number> = {};
+  let need = qty;
+  for (const b of inStockLots(lots)) {
+    if (need <= 1e-9) break;
+    const take = Math.min(b.qty ?? 0, need);
+    if (take > 0) out[b.batch] = take;
+    need -= take;
+  }
+  return out;
+}
+
+// Lot handling for a batch-tracked line in the cart. Default = FEFO (auto split across lots,
+// nearest-expiry first), so "đang bán lô nào" is shown and the server fills the next lô when the
+// first runs short. "Chia lô" lets staff set how many from each lô (e.g. customer won't take the
+// near-expiry one, or wants 2+2). Sold-out lots never appear.
+function LotPicker({
+  code, lineQty, manual, alloc, onLoaded, onToggleManual, onSetAlloc,
+}: {
+  code: string;
+  lineQty: number;
+  manual: boolean;
+  alloc: Record<string, number>;
+  onLoaded: (code: string, lots: Batch[]) => void;
+  onToggleManual: (code: string, on: boolean, lots: Batch[]) => void;
+  onSetAlloc: (code: string, batch: string, qty: number) => void;
+}) {
+  const [lots, setLots] = useState<Batch[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    frappeCall<Batch[]>("cago.api.inventory.list_batches", { item_code: code }, { method: "GET" })
+      .then((l) => { if (!alive) return; const arr = l || []; setLots(arr); onLoaded(code, arr); })
+      .catch(() => {});
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+  const shown = inStockLots(lots || []);
+  if (!shown.length) return null; // offline or no in-stock lot → server auto-FEFO; nothing to show
+
+  const totalQty = shown.reduce((s, b) => s + (b.qty ?? 0), 0);
+  const over = lineQty > totalQty + 1e-6; // selling more than all lots hold
+  const overWarn = over ? (
+    <div className="mt-1 rounded bg-red-50 px-2 py-1 text-xs font-bold text-red-600">⚠ Vượt tồn — chỉ còn {trim(totalQty)}, đang bán {trim(lineQty)} (thiếu {trim(lineQty - totalQty)}). Giảm số lượng hoặc nhập thêm hàng.</div>
+  ) : null;
+
+  if (!manual) {
+    // Show every in-stock lô with how much it has left, and how many of each the FEFO split will
+    // sell (nearest-expiry first, spilling to the next) — staff sees total + per-lô + what's sold.
+    const auto = fefoFill(shown, lineQty);
+    return (
+      <div className="mt-1.5">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-bold text-slate-500">🏷 Lô · tổng còn {trim(totalQty)} · bán tự động</span>
+          {shown.length > 1 && (
+            <button onClick={() => onToggleManual(code, true, shown)} className="rounded-lg border border-slate-300 px-2 py-0.5 font-bold text-slate-600">Chia lô</button>
+          )}
+        </div>
+        <div className="mt-0.5 space-y-0.5">
+          {shown.map((b) => (
+            <div key={b.batch} className="flex items-center justify-between gap-2 text-sm">
+              <span className="min-w-0 truncate text-slate-600">{b.batch_id}{b.expiry_text ? ` · HSD ${b.expiry_text}` : ""} <span className="text-slate-400">· còn {trim(b.qty)}</span></span>
+              {(auto[b.batch] || 0) > 0 && <span className="shrink-0 font-bold text-brand">bán {trim(auto[b.batch])}</span>}
+            </div>
+          ))}
+        </div>
+        {overWarn}
+      </div>
+    );
+  }
+
+  const sum = lotSum(alloc);
+  return (
+    <div className="mt-1.5 rounded-lg border border-slate-200 p-2">
+      <div className="mb-1 flex items-center justify-between text-xs font-bold">
+        <span className={over ? "text-red-600" : "text-slate-500"}>🏷 Chia lô · tổng còn {trim(totalQty)} · đang bán {trim(sum)}</span>
+        <button onClick={() => onToggleManual(code, false, shown)} className="text-slate-500 underline">Tự động</button>
+      </div>
+      <div className="space-y-1">
+        {shown.map((b) => {
+          const max = b.qty ?? 0; // can't allocate more from a lô than it has on hand
+          const cur = alloc[b.batch] || 0;
+          const atMax = cur >= max;
+          return (
+              <div key={b.batch} className="flex items-center gap-2 text-sm">
+                <span className="min-w-0 flex-1 truncate">{b.batch_id}{b.expiry_text ? ` · HSD ${b.expiry_text}` : ""} <span className="text-slate-400">(còn {trim(max)})</span></span>
+                <button onClick={() => onSetAlloc(code, b.batch, Math.max(0, cur - 1))} className="h-9 w-9 shrink-0 rounded bg-slate-200 text-xl font-bold">−</button>
+                <input
+                  inputMode="numeric"
+                  value={String(trim(cur))}
+                  onChange={(e) => onSetAlloc(code, b.batch, Math.min(max, Math.max(0, Number(e.target.value.replace(/[^\d.]/g, "")) || 0)))}
+                  onFocus={(e) => e.target.select()}
+                  className="h-9 w-14 shrink-0 rounded border-2 border-emerald-300 text-center text-base font-bold"
+                />
+                <button
+                  onClick={() => onSetAlloc(code, b.batch, Math.min(max, cur + 1))}
+                  disabled={atMax}
+                  className={`h-9 w-9 shrink-0 rounded text-xl font-bold text-white ${atMax ? "bg-slate-300" : "bg-brand"}`}
+                >
+                  ＋
+                </button>
+              </div>
+          );
+        })}
+      </div>
+      {overWarn}
+    </div>
+  );
+}
+
 export function Checkout() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -219,12 +340,22 @@ export function Checkout() {
   // instantly on scroll-up — so staff find/filter without scrolling to the very top.
   const [hideBar, setHideBar] = useState(false);
   const [showTop, setShowTop] = useState(false); // back-to-top FAB after scrolling down
+  // Barcode entry is secondary (most rural sales are by name), so it hides behind a toggle to free
+  // a full row above the product list; shops with a hardware scanner just leave it open.
+  const [scanOpen, setScanOpen] = useState(false);
+  const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay
   useEffect(() => {
     let last = window.scrollY;
     let ticking = false;
     const apply = () => {
       ticking = false;
       const y = Math.max(0, window.scrollY);
+      // Never hide the bar while a field is focused: when the keyboard opens, iOS scrolls the
+      // focused input into view (a scroll event), which would otherwise slide the search bar — and
+      // the very input being typed into — up off-screen under the status bar.
+      const el = document.activeElement;
+      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
+      if (typing) { setHideBar(false); last = y; setShowTop(y > 600); return; }
       if (y < 90) setHideBar(false);
       else if (y > last + 12) setHideBar(true);
       else if (y < last - 12) setHideBar(false);
@@ -243,6 +374,32 @@ export function Checkout() {
   const [q, setQ] = useState("");
   const [lines, setLines] = useState<Record<string, Line>>({});
   const [meta, setMeta] = useState<Record<string, Meta>>({});
+  // Per-lô handling for batch-tracked goods. Default = auto FEFO (no manual alloc → server splits
+  // nearest-expiry first). "Chia lô" lets staff set qty per lô (sent as batch_allocs when the split
+  // matches the line qty, else the server auto-FEFOs).
+  const [lotManual, setLotManual] = useState<Record<string, boolean>>({});
+  const [lotAlloc, setLotAlloc] = useState<Record<string, Record<string, number>>>({});
+  const onLotsLoaded = () => {};
+  const toggleLotManual = (code: string, on: boolean, lots: Batch[]) => {
+    setLotManual((s) => ({ ...s, [code]: on }));
+    if (on) {
+      // Seed with the real FEFO split (fill nearest-expiry lô, spill to next) so it starts correct
+      // (e.g. lô1 ×100, lô2 ×21) — not all on one lô — then staff tweaks. Line total = its sum.
+      const seeded = fefoFill(lots, lines[code]?.qty || 0);
+      setLotAlloc((s) => ({ ...s, [code]: seeded }));
+      const sum = Object.values(seeded).reduce((a, b) => a + (b || 0), 0);
+      setLines((l) => (l[code] ? { ...l, [code]: { ...l[code], qty: sum } } : l));
+    } else {
+      setLotAlloc((s) => { const c = { ...s }; delete c[code]; return c; });
+    }
+  };
+  const setLotAllocQty = (code: string, batch: string, qty: number) => {
+    const next = { ...(lotAlloc[code] || {}), [batch]: qty };
+    setLotAlloc((s) => ({ ...s, [code]: next }));
+    // In split mode the lô quantities ARE the source of truth → the line total follows their sum.
+    const sum = Object.values(next).reduce((a, b) => a + (b || 0), 0);
+    setLines((l) => (l[code] ? { ...l, [code]: { ...l[code], qty: sum } } : l));
+  };
   const [cust, setCust] = useState<Cust | null>(null); // null = Khách lẻ
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<SaleResult | null>(null);
@@ -418,6 +575,21 @@ export function Checkout() {
 
   // Out of stock only matters for items that actually track on-hand (stock_auto).
   const cardOOS = (p: ProductCard) => !!p.stock_auto && (p.actual_stock_qty ?? 0) <= 0;
+  // Exact on-hand for the shelf: "Còn N <đơn vị>" when tracked, else the manual status text.
+  const stockText = (p: ProductCard, m?: Meta) => {
+    if (cardOOS(p)) return "⚠ Hết hàng";
+    const qty = p.stock_auto && p.actual_stock_qty != null ? p.actual_stock_qty : m?.stock_auto ? m.stock_qty : null;
+    if (qty == null) return p.stock_status || "";
+    return `Còn ${trim(qty)} ${uomLabel(m?.stock_uom || p.unit || "")}`.trim();
+  };
+  // Near-expiry flag on lot-tracked items (backend only sets it for those) — so staff push the
+  // soon-to-expire lô first. Amber = sắp hết hạn, red = đã hết hạn.
+  const expFlag = (p: ProductCard) =>
+    p.expiry_status === "near" || p.expiry_status === "expired" ? (
+      <div className={`mt-0.5 inline-block rounded px-1.5 py-0.5 text-[11px] font-bold ${p.expiry_status === "expired" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
+        {p.expiry_status === "expired" ? "⛔ Đã hết hạn" : "⏳ Sắp hết hạn"}{p.expiry_text ? ` · ${p.expiry_text}` : ""}
+      </div>
+    ) : null;
   const lineOOS = (code: string) => {
     const m = meta[code];
     return !!m?.stock_auto && (m.stock_qty ?? 0) <= 0;
@@ -698,7 +870,14 @@ export function Checkout() {
 
   // Build the quick_sale payload + a display snapshot (for the receipt / pending list) from the cart.
   const buildSale = (payment_mode: PayMode, payments?: { mode: "cash" | "bank"; amount: number }[]): { args: SaleArgs; display: SaleDisplay } => {
-    const items = cartCodes.map((c) => ({ item_code: c, qty: lines[c].qty, uom: lines[c].uom, rate: allowPriceEdit ? lines[c].rate : undefined }));
+    const items = cartCodes.map((c) => {
+      // Send a manual lô split only when it exactly matches the line qty; otherwise let the server
+      // auto-FEFO (nearest-expiry lô first, spilling to the next).
+      const a = lotAlloc[c];
+      const useAlloc = lotManual[c] && a && Math.abs(lotSum(a) - lines[c].qty) < 1e-6;
+      const batch_allocs = useAlloc ? Object.entries(a).filter(([, q]) => (q || 0) > 0).map(([batch, qty]) => ({ batch, qty })) : undefined;
+      return { item_code: c, qty: lines[c].qty, uom: lines[c].uom, rate: allowPriceEdit ? lines[c].rate : undefined, batch_allocs };
+    });
     const dispLines = cartCodes.map((c) => {
       const price = linePrice(c);
       return { name: nameOf(c), qty: lines[c].qty, uom: labelOf(c, lines[c].uom), rate_text: money(price), amount_text: money(price * lines[c].qty) };
@@ -988,9 +1167,9 @@ export function Checkout() {
           ‹ Trang chủ
         </button>
         <div className="min-w-0 flex-1">
+          {/* Cashier name moved into the shift strip (below) — it belongs with the shift it's
+              attributed to, and keeps this title row to a clean single line. */}
           <div className="text-2xl font-bold leading-tight">BÁN HÀNG</div>
-          {/* Who's at the till — so the cashier (and shift attribution) is always clear. */}
-          {boot?.full_name && <div className="truncate text-xs font-semibold text-slate-500">👤 {boot.full_name}</div>}
         </div>
         <button onClick={openReprint} className="rounded-xl bg-slate-200 px-3 py-3 font-bold text-slate-700">
           🖨 In lại
@@ -1002,7 +1181,7 @@ export function Checkout() {
         )}
       </div>
 
-      <ShiftBar refreshKey={shiftRefresh} onState={setShiftState} />
+      <ShiftBar refreshKey={shiftRefresh} onState={setShiftState} cashier={boot?.full_name} />
 
       {openShiftFor && (
         <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => { setOpenShiftFor(false); pendingPayRef.current = null; }}>
@@ -1077,6 +1256,9 @@ export function Checkout() {
         />
       )}
 
+      {/* Camera barcode scanner — stays open for scan-add-scan; each decode adds via findBarcode. */}
+      {camOpen && <BarcodeScanner title="Quét thêm vào giỏ" onScan={(c) => void findBarcode(c)} onClose={() => setCamOpen(false)} />}
+
       {preview && (
         <ProductPreview
           code={preview}
@@ -1117,29 +1299,45 @@ export function Checkout() {
         className="sticky top-0 z-20 -mx-4 mb-3 bg-[#eef9f0]/95 px-4 py-2 backdrop-blur-sm transition-transform duration-300 will-change-transform"
         style={{ transform: hideBar ? "translateY(-130%)" : "translateY(0)" }}
       >
-        <div className="flex flex-col gap-2 sm:flex-row">
+        {/* Search + barcode toggle on one row — both are "find a product", and keeping the toggle
+            here (not in the chips row) leaves the category chips full width on a narrow phone. */}
+        <div className="flex items-center gap-2">
           <input
-            autoFocus
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
               clearTimeout(tRef.current);
               tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
             }}
-            enterKeyHint="search" placeholder="🔎 Tìm theo tên, công dụng... (để trống xem tất cả)"
-            className="w-full rounded-xl border-2 border-slate-300 p-3.5 text-lg sm:flex-1"
+            enterKeyHint="search" placeholder="🔎 Tìm theo tên, công dụng..."
+            className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
           />
-          <input
-            placeholder="⌨ Quét/nhập mã vạch rồi Enter"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                void findBarcode((e.target as HTMLInputElement).value);
-                (e.target as HTMLInputElement).value = "";
-              }
-            }}
-            className="w-full rounded-xl border-2 border-emerald-300 p-3 text-base sm:w-72"
-          />
+          <button
+            onClick={() => setScanOpen((v) => !v)}
+            aria-label="Quét mã vạch"
+            className={`shrink-0 whitespace-nowrap rounded-xl border-2 px-3 py-3.5 text-sm font-bold ${scanOpen ? "border-brand bg-brand text-white" : "border-emerald-300 bg-white text-emerald-700"}`}
+          >
+            ▮▮ Mã vạch
+          </button>
         </div>
+        {/* Barcode field only when toggled on (keeps the common name-search uncluttered): a hardware
+            USB/BT scanner types here + Enter; "📷 Quét bằng camera" uses the phone camera instead. */}
+        {scanOpen && (
+          <div className="mt-2 flex gap-2">
+            <input
+              autoFocus
+              placeholder="⌨ Quét/nhập mã vạch rồi Enter"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void findBarcode((e.target as HTMLInputElement).value);
+                  (e.target as HTMLInputElement).value = "";
+                }
+              }}
+              className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base"
+            />
+            <button onClick={() => setCamOpen(true)} className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-600 px-3 py-3 text-base font-bold text-white">📷 Camera</button>
+          </div>
+        )}
         {/* category chips (scrollable) + product count + List/Card toggle */}
         <div className="mt-2 flex items-center gap-2">
           <div className="min-w-0 flex-1">
@@ -1184,12 +1382,13 @@ export function Checkout() {
                     <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-snug">{p.display_name}</button>
                     <div className="mt-0.5 text-base font-extrabold text-brand">{p.price_text}</div>
                     <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                      {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${uomLabel(m.stock_uom)}` : null) || p.stock_status}
+                      {stockText(p, m)}
                     </div>
+                    {expFlag(p)}
                     {!line && (
                       <button
                         onClick={() => add(p.item_code, p)}
-                        className={`mt-3 min-h-touch w-full rounded-lg text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
+                        className={`mt-auto min-h-touch w-full rounded-lg text-lg font-bold ${cardOOS(p) ? "border-2 border-red-300 bg-red-50 text-red-600" : "bg-brand text-white"}`}
                       >
                         {cardOOS(p) ? "Vẫn bán" : "＋ Thêm"}
                       </button>
@@ -1206,8 +1405,9 @@ export function Checkout() {
                       <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.display_name}</button>
                       <div className="text-sm font-bold text-brand">{p.price_text}</div>
                       <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                        {cardOOS(p) ? "⚠ Hết hàng" : (m?.stock_auto ? `Còn ${trim(m.stock_qty)} ${uomLabel(m.stock_uom)}` : null) || p.stock_status}
+                        {stockText(p, m)}
                       </div>
+                      {expFlag(p)}
                     </div>
                     {!line && (
                       <button
@@ -1238,24 +1438,52 @@ export function Checkout() {
                         ))}
                       </div>
                     )}
-                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <button onClick={() => setQty(p.item_code, line.qty - 1)} className="h-11 w-11 shrink-0 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
-                        <button
-                          onClick={() => setKeypad(p.item_code)}
-                          title="Bấm để nhập số lượng"
-                          className="h-11 w-14 shrink-0 rounded-lg border-2 border-emerald-300 text-center text-xl font-extrabold"
-                        >
-                          {trim(line.qty)}
-                        </button>
-                        <button onClick={() => setQty(p.item_code, line.qty + 1)} className="h-11 w-11 shrink-0 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
-                        <span className="truncate text-slate-500">{labelOf(p.item_code, line.uom)}</span>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-3">
-                        <span className="font-extrabold text-brand">{money(linePrice(p.item_code) * line.qty)}</span>
-                        <button onClick={() => setQty(p.item_code, 0)} className="rounded-lg bg-red-50 px-2.5 py-1 text-sm font-bold text-red-600">Bỏ</button>
-                      </div>
-                    </div>
+                    {/* Stepper + unit; total + Bỏ. On the narrow CARD (2-col) these stack onto two
+                        rows so the total/Bỏ never overflow the card; on the wide LIST/panel they
+                        sit on one stable row. */}
+                    {(() => {
+                      // In split mode the per-lô steppers drive the qty (total = their sum), so the
+                      // line shows the total read-only instead of a stepper that would desync.
+                      const stepper = lotManual[p.item_code] ? (
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">Σ lô: {trim(line.qty)} {labelOf(p.item_code, line.uom)}</span>
+                        </div>
+                      ) : (
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <button onClick={() => setQty(p.item_code, line.qty - 1)} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
+                          <button
+                            onClick={() => setKeypad(p.item_code)}
+                            title="Bấm để nhập số lượng"
+                            className="h-11 w-14 rounded-lg border-2 border-emerald-300 text-center text-xl font-extrabold"
+                          >
+                            {trim(line.qty)}
+                          </button>
+                          <button onClick={() => setQty(p.item_code, line.qty + 1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
+                        </div>
+                      );
+                      const unit = lotManual[p.item_code] ? <span className="min-w-0 flex-1" /> : <span className="min-w-0 flex-1 truncate text-sm text-slate-500">{labelOf(p.item_code, line.uom)}</span>;
+                      const total = <span className="shrink-0 whitespace-nowrap text-lg font-extrabold text-brand">{money(linePrice(p.item_code) * line.qty)}</span>;
+                      const remove = <button onClick={() => setQty(p.item_code, 0)} className="shrink-0 rounded-lg bg-red-50 px-2.5 py-1.5 text-sm font-bold text-red-600">Bỏ</button>;
+                      return viewMode === "card" ? (
+                        <>
+                          <div className="flex items-center gap-1.5">{stepper}{unit}</div>
+                          <div className="mt-1.5 flex items-center justify-between gap-2">{total}{remove}</div>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2">{stepper}{unit}{total}{remove}</div>
+                      );
+                    })()}
+                    {p.has_batch && (
+                      <LotPicker
+                        code={p.item_code}
+                        lineQty={line.qty}
+                        manual={!!lotManual[p.item_code]}
+                        alloc={lotAlloc[p.item_code] || {}}
+                        onLoaded={onLotsLoaded}
+                        onToggleManual={toggleLotManual}
+                        onSetAlloc={setLotAllocQty}
+                      />
+                    )}
                     {allowPriceEdit && (
                       <div className="mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-sm">
                         <span className="whitespace-nowrap text-slate-500">Đơn giá:</span>
@@ -1286,7 +1514,7 @@ export function Checkout() {
         {loadingMore && <div className="py-4 text-center text-slate-400">Đang tải thêm...</div>}
       </div>
 
-      {showTop && (
+      {showTop && !panelOpen && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label="Lên đầu trang"
@@ -1351,7 +1579,7 @@ export function Checkout() {
                               <button onClick={() => setKeypad(c)} title="Bấm để nhập số lượng" className="h-11 w-14 rounded-lg border-2 border-emerald-300 text-center text-lg font-extrabold">{trim(ln.qty)}</button>
                               <button onClick={() => setQty(c, ln.qty + 1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
                             </div>
-                            <div className="w-[80px] shrink-0 text-right text-base font-extrabold text-brand">{money(linePrice(c) * ln.qty)}</div>
+                            <div className="min-w-[84px] shrink-0 whitespace-nowrap text-right text-base font-extrabold text-brand">{money(linePrice(c) * ln.qty)}</div>
                             <button onClick={() => setQty(c, 0)} aria-label="Bỏ" className="shrink-0 rounded-lg bg-red-50 px-2 py-1 text-sm font-bold text-red-600">✕</button>
                           </div>
                           {/* Multi-unit items: switch Kg / Yến / Bao right in the cart (changes the price). */}
@@ -1432,6 +1660,8 @@ export function Checkout() {
                             </div>
                           </div>
                           {discountMode === "percent" && disc > 0 && <div className="text-right text-xs text-amber-700">= giảm {money(disc)}</div>}
+                          {/* Per-staff cap hint (server also enforces in quick_sale) so the cashier knows the limit upfront. */}
+                          {!!boot?.max_discount_pct && boot.max_discount_pct < 100 && <div className="text-right text-xs text-slate-400">Bạn được giảm tối đa {trim(boot.max_discount_pct)}%</div>}
                         </>
                       )}
                       {online ? (
@@ -1800,7 +2030,7 @@ interface CloseResult {
 }
 const num = (s: string) => parseInt((s || "").replace(/[^\d]/g, ""), 10) || 0;
 
-function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open: boolean) => void }) {
+function ShiftBar({ refreshKey, onState, cashier }: { refreshKey: number; onState?: (open: boolean) => void; cashier?: string }) {
   const [shift, setShift] = useState<ShiftState | null>(null);
   const [mode, setMode] = useState<"none" | "open" | "close" | "mv">("none");
   const [opening, setOpening] = useState("");
@@ -1811,6 +2041,9 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
   const [mvKind, setMvKind] = useState<"Nộp quỹ" | "Rút quỹ" | "Chi vặt">("Rút quỹ");
   const [mvAmt, setMvAmt] = useState("");
   const [mvReason, setMvReason] = useState("");
+  // The shift card is secondary while selling, so it collapses to a slim one-line strip (status +
+  // expected cash) and expands on tap for the detail + Quỹ/Đóng ca — reclaiming room for products.
+  const [det, setDet] = useState(false);
   useLockBodyScroll(mode !== "none" || !!closed); // lock background while a shift sheet/result is open
 
   const apply = (s: ShiftState) => {
@@ -1885,23 +2118,31 @@ function ShiftBar({ refreshKey, onState }: { refreshKey: number; onState?: (open
           🟢 Mở ca bán hàng (đếm tiền đầu ca)
         </button>
       ) : (
-        <div className="flex items-center justify-between gap-2 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-2.5">
-          <div className="min-w-0 text-sm">
-            <div className="font-bold text-emerald-800">🟢 Ca mở · {shift.opened_at}</div>
-            {/* Blind close hides the expected figure (anti-fraud); the cashier just sees the shift is open. */}
-            {shift.blind ? (
-              <div className="text-xs text-emerald-700/80">Đầu ca {shift.opening_text} · đếm két khi đóng ca</div>
-            ) : (
-              <>
-                <div className="text-emerald-800">💰 Dự kiến trong két: <b>{shift.expected_text}</b></div>
-                <div className="text-xs text-emerald-700/80">Đầu ca {shift.opening_text} · Tiền mặt trong ca {shift.cash_sales_text}</div>
-              </>
-            )}
-          </div>
-          <div className="flex shrink-0 gap-1.5">
-            <button onClick={() => setMode("mv")} className="rounded-lg bg-amber-500 px-2.5 py-2 text-sm font-bold text-white">💵 Quỹ</button>
-            <button onClick={() => setMode("close")} className="rounded-lg bg-red-600 px-3 py-2 font-bold text-white">🔴 Đóng ca</button>
-          </div>
+        <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50">
+          {/* Slim one-line strip: status + (unless blind) expected cash. Tap to expand. */}
+          <button onClick={() => setDet((v) => !v)} className="flex w-full items-center justify-between gap-2 p-2.5 text-left">
+            <span className="min-w-0 truncate text-sm font-bold text-emerald-800">
+              🟢 Ca mở{shift.blind ? "" : <> · 💰 Dự kiến két <b>{shift.expected_text}</b></>}
+            </span>
+            <span className="shrink-0 text-emerald-700">{det ? "▴ Thu gọn" : "▾ Chi tiết"}</span>
+          </button>
+          {det && (
+            <div className="flex items-end justify-between gap-2 border-t border-emerald-200 px-2.5 pb-2.5 pt-2">
+              <div className="min-w-0 text-xs text-emerald-700/90">
+                <div>Mở lúc {shift.opened_at}{cashier ? ` · 👤 ${cashier}` : ""}</div>
+                {/* Blind close hides the expected figure (anti-fraud); cashier only sees it's open. */}
+                {shift.blind ? (
+                  <div>Đầu ca {shift.opening_text} · đếm két khi đóng ca</div>
+                ) : (
+                  <div>Đầu ca {shift.opening_text} · Tiền mặt trong ca {shift.cash_sales_text}</div>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <button onClick={() => setMode("mv")} className="rounded-lg bg-amber-500 px-2.5 py-2 text-sm font-bold text-white">💵 Quỹ</button>
+                <button onClick={() => setMode("close")} className="rounded-lg bg-red-600 px-3 py-2 font-bold text-white">🔴 Đóng ca</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

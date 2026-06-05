@@ -14,12 +14,22 @@ Bán hàng · Tra sản phẩm · Trả / Đổi hàng · Khách đã chọn · 
 ### 📦 Sản phẩm  (gộp: tra giá · thêm · sửa)
 - Vào **📦 Sản phẩm** → gõ tìm để **xem giá**, bấm vào hàng để **sửa** (giá, ảnh, mô tả, đơn vị…),
   hoặc **➕ Thêm sản phẩm mới**.
+- Khi thêm: chọn **ảnh** (chụp ngay cũng được), **đơn vị** (chọn trong danh sách hoặc "➕ Đơn vị
+  khác…" để thêm mới), và **tồn kho** để **Tự động theo tồn thực** (mặc định — đỡ phải tự đặt
+  trạng thái).
+- **📦 Quản lý theo lô / hạn dùng**: bật cho **thuốc · hóa chất · cám có hạn** (tự gợi ý bật khi
+  tick "hóa chất/thuốc"). Bật rồi thì **mỗi lần nhập là một lô riêng có HSD**, hệ thống **cảnh báo
+  lô sắp hết hạn** và khi bán **tự ưu tiên lô gần hết hạn trước**. Hàng không hết hạn (dụng cụ…)
+  thì **không cần bật** — để tồn chung cho gọn.
 - Link nhanh trong đó: **⭐ Hàng khuyên dùng** (đánh dấu hàng để trợ lý ưu tiên gợi ý), **🏷 In tem
   giá**, **🗂 Loại hàng**, **🩺 Kiểm tra dữ liệu** (tìm hàng trùng / thiếu giá / thiếu ảnh).
 
 ### 🏬 Kho & nhập hàng
 Nhập hàng (có "⚡ nhập nhiều mặt cùng lúc") · Gợi ý nhập hàng · Lô & hạn dùng · Lịch sử nhập ·
 Cảnh báo hôm nay.
+- **Hàng quản lý theo lô**: khi nhập chỉ cần **chọn lô có sẵn** hoặc **➕ Lô mới → nhập HSD** (mã
+  lô **để trống sẽ tự sinh** theo hạn dùng, vd `LO-010726`; nhập lại đúng HSD đó sẽ **dồn vào lô
+  cũ**). Hàng đã hết hạn → loại khỏi kho; sắp hết hạn → bán sớm/giảm giá (xem **Cảnh báo hôm nay**).
 
 ### 📒 Công nợ & sổ quỹ
 - **Công nợ khách**: xem ai đang nợ → mở một khách → **thu tiền / ghi nợ ngay trong sổ**, nhắc nợ

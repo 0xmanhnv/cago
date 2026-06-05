@@ -430,6 +430,13 @@ EDITABLE_FIELDS = (
 _CHECKBOX_FIELDS = ("cago_is_chemical", "cago_is_public_visible", "cago_stock_auto", "cago_allow_oversell", "cago_recommended", "disabled")
 STOCK_STATUS_OPTIONS = ["Còn nhiều", "Còn hàng", "Còn ít", "Hết hàng", "Sắp nhập"]
 QUALITY_OPTIONS = ["Phổ thông", "Trung cấp", "Cao cấp"]
+# Common Vietnamese retail units for an agri shop. Frappe ships ~100 default physics/imperial
+# UOMs (Ampere, Acre, Bar…) that are meaningless to a rural owner, so the product form must NOT
+# dump every enabled UOM — it offers these curated units plus any unit the shop already uses.
+COMMON_UOMS = [
+	"Bao", "Gói", "Chai", "Lọ", "Cái", "Hộp", "Túi", "Thùng", "Lốc",
+	"Bình", "Can", "Cuộn", "Bó", "Vỉ", "Đôi", "Bộ", "Kg", "Lạng", "Lít",
+]
 
 
 @frappe.whitelist()
@@ -525,7 +532,13 @@ def get_product_meta():
 		pluck="name",
 		order_by="name asc",
 	)
-	uoms = frappe.get_all("UOM", filters={"enabled": 1}, pluck="name", order_by="name asc")
+	# Curated Vietnamese units first, then any unit the shop actually uses on its products — never
+	# the full list of Frappe default UOMs (Ampere, Acre…), which only confuse the owner.
+	used = frappe.get_all("Item", filters={"is_sales_item": 1}, pluck="stock_uom") or []
+	uoms = []
+	for u in [*COMMON_UOMS, *sorted({x for x in used if x and x != "Nos"})]:
+		if u and u not in uoms:
+			uoms.append(u)
 	return {
 		"item_groups": groups,
 		"uoms": uoms or ["Bao", "Gói", "Chai", "Cái", "Kg"],
@@ -565,6 +578,11 @@ def create_product(data):
 	item.is_stock_item = 1
 	item.is_sales_item = 1
 	item.cago_stock_auto = 1  # default: tự tính tồn theo số thật (owner can turn off per item)
+	# Opt-in lot/expiry tracking (chemicals, feed, perishables): each receive becomes its own lô
+	# with an HSD, sold FEFO. Only set at creation — before any stock exists — so ERPNext allows it.
+	if str(data.get("cago_has_batch") or "") in ("1", "true", "True", "on", "yes"):
+		item.has_batch_no = 1
+		item.create_new_batch = 1  # let a lô be created at receive time
 	for field in EDITABLE_FIELDS:
 		if field in data and field != "item_name":
 			val = data[field]
