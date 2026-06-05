@@ -21,19 +21,32 @@ Setup needs an external account + a public URL, so it's wired but configured lat
 
 from __future__ import annotations
 
+import re
+
 import frappe
 
 from cago.api.debt import _company
 from cago.utils.permissions import ensure_admin
 
-_HELP = (
-	"<b>Cago — trợ lý cửa hàng</b>\n"
-	"Gõ một trong các lệnh:\n"
+# Sensitive owner commands (revenue / debt / digest-with-debt) — answered only in a PRIVATE chat with
+# an owner, never in the shared staff group. Operational commands are available to staff in the group.
+_OWNER_CMDS = {"/doanhthu", "/no", "/viec"}
+_STAFF_CMDS = {"/tonkho"}
+
+_HELP_OWNER = (
+	"<b>Cago — trợ lý chủ cửa hàng</b>\n"
 	"/doanhthu — doanh thu hôm nay\n"
 	"/no — khách còn nợ\n"
 	"/tonkho — hàng sắp/đang hết\n"
 	"/viec — việc cần làm hôm nay\n"
-	"/help — trợ giúp"
+	"/myid — xem Telegram ID của bạn\n"
+	"<i>Lệnh doanh thu/công nợ nhắn riêng cho bot để nhân viên không thấy.</i>"
+)
+_HELP_STAFF = (
+	"<b>Cago — trợ lý cửa hàng</b>\n"
+	"/tonkho — hàng sắp/đang hết\n"
+	"/myid — xem Telegram ID của bạn\n"
+	"<i>Doanh thu / công nợ chỉ chủ cửa hàng xem (nhắn riêng cho bot).</i>"
 )
 
 
@@ -89,14 +102,25 @@ _COMMANDS = {
 }
 
 
-def _handle(cmd: str) -> str:
-	"""Map a command word to a reply, fetching data under an elevated session (the chat-id check in
-	webhook() is the auth boundary). /start and unknown text fall back to help."""
+def _handle(cmd: str, from_id: str, is_owner: bool, in_group: bool) -> str:
+	"""Reply for one command, gated by WHO sent it:
+	- /myid → the sender's Telegram ID (so they can be added to the owner list).
+	- owner commands (revenue/debt/digest) → only an owner, and only in a PRIVATE chat (refused in the
+	  group so a reply never leaks money figures to staff).
+	- staff commands (low stock) → anyone in the allowed chat.
+	Data is fetched under an elevated session; the role check here is the authorisation boundary."""
 	from cago.utils.privileged import as_user
 
+	if cmd == "/myid":
+		return f"Telegram ID của bạn: <code>{from_id}</code>\nĐưa ID này cho quản trị để được xem doanh thu/công nợ."
+	if cmd in _OWNER_CMDS:
+		if not is_owner:
+			return "🔒 Lệnh này chỉ dành cho chủ cửa hàng. Gõ /myid rồi nhờ quản trị thêm ID của bạn (mục Kết nối & Kênh)."
+		if in_group:
+			return "📌 Để tránh lộ cho nhân viên, nhắn RIÊNG cho bot (chat 1-1) để xem doanh thu / công nợ."
 	fn = _COMMANDS.get(cmd)
 	if not fn:
-		return _HELP
+		return _HELP_OWNER if is_owner else _HELP_STAFF
 	try:
 		with as_user("Administrator"):
 			return fn()
@@ -123,14 +147,20 @@ def webhook():
 	data = (frappe.request.get_json(silent=True) or {}) if getattr(frappe, "request", None) else {}
 	msg = data.get("message") or data.get("edited_message") or {}
 	chat_id = str((msg.get("chat") or {}).get("id") or "")
-	want = str(frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "")
-	if not chat_id or (want and chat_id != want):
-		# Message from an unknown chat — ignore silently (don't confirm the bot exists to strangers).
+	from_id = str((msg.get("from") or {}).get("id") or "")
+	group = str(frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "")
+	owner_ids = {i.strip() for i in re.split(r"[,\s]+", frappe.db.get_value("Company", c, "cago_telegram_owner_ids") or "") if i.strip()}
+	is_owner = bool(from_id) and from_id in owner_ids
+	in_group = bool(group) and chat_id == group
+	# Accept commands only from the configured ops group (staff context) or from an owner's PRIVATE
+	# chat with the bot (owner context). Anything else is ignored silently.
+	if not chat_id or not (in_group or (is_owner and chat_id == from_id)):
 		return {"ok": True}
 
 	text = (msg.get("text") or "").strip()
 	cmd = text.split()[0].lower().split("@")[0] if text else ""
-	notify_telegram(_handle(cmd))
+	# Reply to the chat the command came from (so an owner's private query stays private).
+	notify_telegram(_handle(cmd, from_id, is_owner, in_group), chat_id=chat_id)
 	return {"ok": True}
 
 

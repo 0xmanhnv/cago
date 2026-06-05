@@ -25,6 +25,7 @@ const baseConfig = {
   notify_webhook: "",
   has_notify_token: false,
   telegram_chat_id: "",
+  telegram_owner_ids: "",
   has_telegram_bot: false,
   has_telegram_webhook: false,
   zalo_app_id: "",

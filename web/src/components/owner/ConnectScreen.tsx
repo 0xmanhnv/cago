@@ -14,6 +14,7 @@ interface Cfg {
   notify_webhook: string;
   has_notify_token: boolean;
   telegram_chat_id: string;
+  telegram_owner_ids: string;
   has_telegram_bot: boolean;
   has_telegram_webhook: boolean;
   zalo_app_id: string;
@@ -73,12 +74,13 @@ export function ConnectScreen() {
 
   const saveTelegram = () =>
     run("tg", async () => {
-      const d = await frappeCall<{ telegram_chat_id: string; has_telegram_bot: boolean }>("cago.api.notify.set_telegram", {
+      const d = await frappeCall<{ telegram_chat_id: string; telegram_owner_ids: string; has_telegram_bot: boolean }>("cago.api.notify.set_telegram", {
         ...(botToken ? { bot_token: botToken } : {}),
         chat_id: c.telegram_chat_id,
+        owner_ids: c.telegram_owner_ids,
       });
       setBotToken("");
-      set({ telegram_chat_id: d.telegram_chat_id || "", has_telegram_bot: !!d.has_telegram_bot });
+      set({ telegram_chat_id: d.telegram_chat_id || "", telegram_owner_ids: d.telegram_owner_ids || "", has_telegram_bot: !!d.has_telegram_bot });
       toast.success("Đã lưu cấu hình Telegram.");
     });
 
@@ -159,6 +161,9 @@ export function ConnectScreen() {
         <input value={botToken} onChange={(e) => setBotToken(e.target.value)} placeholder={c.has_telegram_bot ? SECRET_PH : "123456:ABC-DEF…"} className={inputCls} />
         <label className={label}>Chat ID (nhóm nhận tin)</label>
         <input value={c.telegram_chat_id} onChange={(e) => set({ telegram_chat_id: e.target.value })} placeholder="VD: -1001234567890" className={inputCls} />
+        <label className={label}>Telegram ID của chủ (xem doanh thu/công nợ)</label>
+        <input value={c.telegram_owner_ids} onChange={(e) => set({ telegram_owner_ids: e.target.value })} placeholder="VD: 123456789, 987654321" className={inputCls} />
+        <p className="mt-1 text-xs text-slate-500">Chỉ những ID này được xem doanh thu/công nợ (nhắn riêng cho bot). Nhân viên trong nhóm chỉ thấy lệnh vận hành. Chủ gõ <code>/myid</code> trong bot để lấy ID.</p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <button onClick={saveTelegram} disabled={!!busy} className="min-h-touch flex-1 rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">
             {busy === "tg" ? "Đang lưu…" : "💾 Lưu Telegram"}

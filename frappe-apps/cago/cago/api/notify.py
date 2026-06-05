@@ -67,9 +67,10 @@ def send_owner(text):
 	return send_message(phone, text)
 
 
-def notify_telegram(text):
-	"""Push a message to the shop's Telegram ops chat (owner + staff) via the Bot API. No-op if no
-	bot token / chat id configured. Best-effort — never raises (an alert must not break the action)."""
+def notify_telegram(text, chat_id=None):
+	"""Push a message to the shop's Telegram ops chat (owner + staff) via the Bot API, or to a specific
+	`chat_id` (e.g. reply to the chat a command came from). No-op if no bot token / chat configured.
+	Best-effort — never raises (an alert must not break the action)."""
 	text = (text or "").strip()
 	if not text:
 		return {"sent": False, "reason": "empty"}
@@ -77,7 +78,9 @@ def notify_telegram(text):
 
 	c = _company()
 	bot = get_secret("Company", c, "cago_telegram_bot_token") if c else ""
-	chat = frappe.db.get_value("Company", c, "cago_telegram_chat_id")
+	# Default to the shop ops group; a command reply passes the originating chat so a private
+	# owner query (doanh thu / công nợ) is answered in the DM, never broadcast to the staff group.
+	chat = chat_id or frappe.db.get_value("Company", c, "cago_telegram_chat_id")
 	if not bot or not chat:
 		return {"sent": False, "reason": "not configured"}
 	try:
@@ -123,6 +126,7 @@ def get_notify_config():
 		"has_token": has_secret("Company", c, "cago_notify_token"),
 		"telegram_chat_id": (frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "") if admin else "",
 		"has_telegram_bot": has_secret("Company", c, "cago_telegram_bot_token"),
+		"telegram_owner_ids": (frappe.db.get_value("Company", c, "cago_telegram_owner_ids") or "") if admin else "",
 	}
 
 
@@ -153,9 +157,11 @@ def set_webhook(webhook=None, token=None):
 
 
 @frappe.whitelist()
-def set_telegram(bot_token=None, chat_id=None):
-	"""Set the Telegram ops bot token + chat id — technical config, ADMIN only. The token is only
-	overwritten when a non-empty value is supplied (saving the chat id alone keeps the token)."""
+def set_telegram(bot_token=None, chat_id=None, owner_ids=None):
+	"""Set the Telegram ops bot token + chat id + owner Telegram IDs — technical config, ADMIN only.
+	`owner_ids` (comma/space-separated Telegram user IDs) are who may run the sensitive owner commands
+	(doanh thu / công nợ) in a private chat — staff in the group only get operational commands. Token
+	is only overwritten when a non-empty value is supplied."""
 	ensure_admin()
 	from cago.utils.secrets import set_secret
 
@@ -164,6 +170,8 @@ def set_telegram(bot_token=None, chat_id=None):
 		set_secret("Company", c, "cago_telegram_bot_token", bot_token)
 	if chat_id is not None:
 		frappe.db.set_value("Company", c, "cago_telegram_chat_id", (chat_id or "").strip())
+	if owner_ids is not None:
+		frappe.db.set_value("Company", c, "cago_telegram_owner_ids", (owner_ids or "").strip())
 	frappe.db.commit()
 	return get_notify_config()
 

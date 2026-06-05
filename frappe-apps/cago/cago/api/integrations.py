@@ -42,6 +42,7 @@ def get_integrations():
 		"has_notify_token": _has("cago_notify_token"),
 		# Telegram ops bot
 		"telegram_chat_id": get("cago_telegram_chat_id"),
+		"telegram_owner_ids": get("cago_telegram_owner_ids"),
 		"has_telegram_bot": _has("cago_telegram_bot_token"),
 		"has_telegram_webhook": _has("cago_telegram_webhook_secret"),
 		# Zalo Mini App
