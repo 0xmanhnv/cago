@@ -1133,3 +1133,60 @@ def webhook_info():
 		"pending": info.get("pending_update_count", 0),
 		"last_error": info.get("last_error_message", ""),
 	}
+
+
+@frappe.whitelist()
+def diagnostics():
+	"""ADMIN: a one-glance Telegram setup checklist — exactly what's configured vs missing, so the owner
+	can see WHY the bot isn't responding (this would have caught every 'bot im lặng' incident). Combines
+	static config (token / public url / owner / group) with the LIVE webhook status from Telegram."""
+	ensure_admin()
+	from cago.api.integrations import public_url as stored_public_url
+	from cago.utils.permissions import is_owner_roles
+	from cago.utils.secrets import get_secret, has_secret
+
+	c = _company()
+	has_bot = has_secret("Company", c, "cago_telegram_bot_token")
+	base = (stored_public_url() or "").rstrip("/")
+	expected_hook = f"{base}/api/method/cago.api.telegram.webhook" if base else ""
+	chat_id = (frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "").strip()
+	owner_ids = (frappe.db.get_value("Company", c, "cago_telegram_owner_ids") or "").strip()
+	linked_owners = [
+		u.name
+		for u in frappe.get_all("User", filters={"cago_telegram_id": ["!=", ""]}, fields=["name"])
+		if is_owner_roles(set(frappe.get_roles(u.name)))
+	]
+	owner_ready = bool(owner_ids or linked_owners)
+
+	# Live webhook status from Telegram (best-effort — never raise).
+	hook_url, hook_err, hook_pending = "", "", 0
+	if has_bot:
+		try:
+			import requests
+
+			bot = get_secret("Company", c, "cago_telegram_bot_token")
+			info = (requests.get(f"https://api.telegram.org/bot{bot}/getWebhookInfo", timeout=10).json() or {}).get("result", {})
+			hook_url = info.get("url", "")
+			hook_err = info.get("last_error_message", "")
+			hook_pending = info.get("pending_update_count", 0)
+		except Exception:  # noqa: BLE001
+			pass
+	hook_ok = bool(hook_url) and (not expected_hook or hook_url == expected_hook) and not hook_err
+
+	def chk(key, ok, label, hint="", optional=False):
+		return {"key": key, "ok": bool(ok), "label": label, "hint": hint, "optional": optional}
+
+	checks = [
+		chk("bot_token", has_bot, "Bot Token", "Tạo bot ở @BotFather (/newbot) rồi dán Token."),
+		chk("public_url", bool(base), "Địa chỉ công khai HTTPS", "Nhập ở mục 🌐 Địa chỉ công khai phía trên."),
+		chk("webhook", hook_ok, "Webhook đang nhận lệnh", hook_err or (f"Bấm 'Đăng ký nhận lệnh' (sẽ trỏ tới {expected_hook})" if expected_hook else "Cần địa chỉ công khai trước.")),
+		chk("owner", owner_ready, "Chủ xem được doanh thu/công nợ", "Thêm Telegram ID của chủ, hoặc chủ tự liên kết trong app."),
+		chk("group", bool(chat_id), "Nhóm vận hành (đơn mới / cảnh báo)", "Thêm Chat ID nhóm (tuỳ chọn).", optional=True),
+	]
+	return {
+		"checks": checks,
+		"expected_hook": expected_hook,
+		"webhook": {"url": hook_url, "pending": hook_pending, "last_error": hook_err},
+		"linked_owners": len(linked_owners),
+		"ready": all(x["ok"] for x in checks if not x["optional"]),
+	}

@@ -32,6 +32,19 @@ interface HookInfo {
   error?: string;
 }
 
+interface DiagCheck {
+  key: string;
+  ok: boolean;
+  label: string;
+  hint?: string;
+  optional?: boolean;
+}
+interface Diag {
+  checks: DiagCheck[];
+  ready: boolean;
+  expected_hook?: string;
+}
+
 const SECRET_PH = "•••••• (để trống nếu giữ nguyên)";
 
 export function ConnectScreen() {
@@ -44,11 +57,14 @@ export function ConnectScreen() {
   const [zaloSecret, setZaloSecret] = useState("");
   const [zalopayKey, setZalopayKey] = useState("");
   const [hook, setHook] = useState<HookInfo | null>(null);
+  const [diag, setDiag] = useState<Diag | null>(null);
 
   const load = () => frappeCall<Cfg>("cago.api.integrations.get_integrations", {}, { method: "GET" }).then(setC).catch(() => {});
+  const refreshDiag = () => frappeCall<Diag>("cago.api.telegram.diagnostics", {}, { method: "GET" }).then(setDiag).catch(() => {});
   useEffect(() => {
     void load();
     frappeCall<HookInfo>("cago.api.telegram.webhook_info", {}, { method: "GET" }).then(setHook).catch(() => {});
+    void refreshDiag();
   }, []);
   if (!c) return <PageLoading />;
 
@@ -76,6 +92,7 @@ export function ConnectScreen() {
     run("public", async () => {
       setC(await frappeCall<Cfg>("cago.api.integrations.set_public_url", { public_url: c.public_url }));
       toast.success("Đã lưu địa chỉ công khai.");
+      void refreshDiag();
     });
 
   const saveTelegram = () =>
@@ -88,6 +105,7 @@ export function ConnectScreen() {
       setBotToken("");
       set({ telegram_chat_id: d.telegram_chat_id || "", telegram_owner_ids: d.telegram_owner_ids || "", has_telegram_bot: !!d.has_telegram_bot });
       toast.success("Đã lưu cấu hình Telegram.");
+      void refreshDiag();
     });
 
   const testTelegram = () =>
@@ -103,6 +121,7 @@ export function ConnectScreen() {
       setHook(info);
       set({ has_telegram_webhook: true });
       toast.success(`Đã đăng ký nhận lệnh: ${r.url}`);
+      void refreshDiag();
     });
 
   const saveZalo = () =>
@@ -157,8 +176,37 @@ export function ConnectScreen() {
 
       {/* 1. Telegram ops bot. */}
       <div className="mt-4 rounded-xl bg-white p-4">
-        <div className="font-extrabold">🤖 Telegram cửa hàng (vận hành)</div>
-        <p className="text-slate-500">
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-extrabold">🤖 Telegram cửa hàng (vận hành)</div>
+          {diag && (
+            <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${diag.ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
+              {diag.ready ? "✅ Sẵn sàng" : "⚠️ Chưa xong"}
+            </span>
+          )}
+        </div>
+
+        {/* Setup checklist — exactly what's done vs missing (catches "bot im lặng"). */}
+        {diag && (
+          <div className="mt-2 rounded-lg bg-slate-50 p-3">
+            <div className="mb-1 flex items-center justify-between">
+              <div className="text-sm font-bold text-slate-700">Trạng thái kết nối</div>
+              <button onClick={refreshDiag} className="text-xs font-bold text-brand">↻ Kiểm tra lại</button>
+            </div>
+            <ul className="space-y-1.5">
+              {diag.checks.map((ck) => (
+                <li key={ck.key} className="text-sm">
+                  <span className={ck.ok ? "text-emerald-700" : ck.optional ? "text-slate-400" : "text-amber-700"}>
+                    {ck.ok ? "✅" : ck.optional ? "○" : "⚠️"} {ck.label}
+                    {ck.optional && !ck.ok ? " (tuỳ chọn)" : ""}
+                  </span>
+                  {!ck.ok && ck.hint ? <div className="ml-5 text-xs text-slate-500">{ck.hint}</div> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <p className="mt-3 text-slate-500">
           Tạo bot ở <b>@BotFather</b> (gõ <code>/newbot</code>) lấy <b>Bot Token</b>. Tạo nhóm Telegram cho
           cửa hàng, thêm bot vào, lấy <b>Chat ID</b> nhóm. Xong: đơn mới & nhắc việc tự gửi vào nhóm; nhắn
           <code> /doanhthu</code> <code>/no</code> <code>/tonkho</code> <code>/viec</code> để hỏi nhanh.
