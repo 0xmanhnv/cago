@@ -12,8 +12,12 @@ let inited = false;
 interface TgWebApp {
   ready?: () => void;
   expand?: () => void;
+  platform?: string; // "unknown" when the SDK is loaded outside Telegram
+  initData?: string; // signed query string — verified server-side for one-tap login
   initDataUnsafe?: { user?: { first_name?: string; last_name?: string; username?: string } };
 }
+
+let tgInitData = "";
 
 /** Run once on app open (client-only, idempotent). Detects the host + grabs whatever identity the
  * host offers for prefilling the order form. Safe no-op on a plain browser. */
@@ -22,10 +26,14 @@ export function initMiniApp(): Host {
   inited = true;
   try {
     const tg = (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram?.WebApp;
-    if (tg && typeof tg.ready === "function") {
+    // The SDK is loaded on every page, so window.Telegram.WebApp also exists on a plain browser — only
+    // treat this as a real Telegram Mini App when Telegram actually handed us initData / a known platform.
+    const inTelegram = !!tg && (!!tg.initData || (!!tg.platform && tg.platform !== "unknown"));
+    if (inTelegram && tg) {
       host = "telegram";
-      tg.ready();
+      tg.ready?.();
       tg.expand?.(); // use the full height inside Telegram
+      tgInitData = tg.initData || ""; // for server-verified one-tap login (miniapp_login)
       const u = tg.initDataUnsafe?.user;
       if (u) user = { name: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username };
       return host;
@@ -46,4 +54,21 @@ export function miniAppHost(): Host {
 /** Identity the host offered (Telegram user name today). Used to prefill the order form. */
 export function miniAppUser(): { name?: string; phone?: string } | null {
   return user;
+}
+
+/** Telegram's signed initData string (empty unless we're inside a Telegram Mini App). The backend
+ * verifies its HMAC to log the linked user in with one tap — never trust it without that check.
+ * Re-reads window each call: the SDK loads afterInteractive, so it may arrive AFTER initMiniApp's
+ * first (idempotent) run — without this re-read the value would be locked empty and one-tap login
+ * would silently never fire. */
+export function telegramInitData(): string {
+  if (!tgInitData && typeof window !== "undefined") {
+    try {
+      const tg = (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram?.WebApp;
+      if (tg?.initData) tgInitData = tg.initData;
+    } catch {
+      /* ignore */
+    }
+  }
+  return tgInitData;
 }

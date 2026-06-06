@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
 import { PwaRegister } from "@/components/PwaRegister";
@@ -32,6 +33,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="vi" className={beVietnam.variable}>
       <body>
+        {/* Telegram Mini App SDK — provides window.Telegram.WebApp (initData for one-tap login,
+            full-screen expand). afterInteractive (NOT beforeInteractive) so it never blocks first
+            paint — the in-shop kiosk must boot offline, and this is a cross-origin script the service
+            worker can't cache; offline it just fails silently. The login screen polls briefly for
+            initData to absorb the load delay. Outside Telegram it's an inert stub (we gate on real
+            initData / platform, see miniapp.ts). */}
+        <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" />
         <PwaRegister />
         <Providers>{children}</Providers>
       </body>

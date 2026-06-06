@@ -86,6 +86,17 @@ def link_customer(phone, zalo_id=None, name=None) -> str:
 	return doc.name
 
 
+@frappe.whitelist()
+def oa_status():
+	"""For the 'Liên kết mạng xã hội' hub: whether the shop's Zalo Official Account is configured (so the
+	UI can offer a 'Theo dõi Zalo OA' link) without exposing the app secret. Internal users only."""
+	from cago.utils.permissions import ensure_internal
+
+	ensure_internal()
+	oa = frappe.db.get_value("Company", _company(), "cago_zalo_oa_id") or ""
+	return {"configured": bool(oa), "oa_id": oa}
+
+
 @frappe.whitelist(allow_guest=True)
 def login(access_token=None, phone_token=None, zalo_id=None, name=None):
 	"""Zalo Mini App → log the customer in: resolve their verified phone, find-or-create the Customer,

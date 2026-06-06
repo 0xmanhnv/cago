@@ -125,7 +125,21 @@ def _notify_staff(doc):
 			bits.append(f"💬 {doc.question}")
 		if doc.note:
 			bits.append(f"📝 {doc.note}")
-		notify.notify_ops("\n".join(bits))
+		# Tap-to-act on Telegram: a staff member claims ("Tôi xử lý") / closes ("Đã xong") the request
+		# right from the chat (callbacks handled in cago.api.telegram). The "Mở" link needs the public URL.
+		buttons = [
+			{"text": "🙋 Tôi xử lý", "cb": f"sup:accept:{doc.name}"},
+			{"text": "✅ Đã xong", "cb": f"sup:resolve:{doc.name}"},
+		]
+		try:
+			from cago.api.integrations import public_url
+
+			base = public_url()
+			if base:
+				buttons.append({"text": "📋 Mở", "url": f"{base}/pos/support"})
+		except Exception:  # noqa: BLE001
+			pass
+		notify.notify_ops("\n".join(bits), buttons=buttons)
 	except Exception:
 		pass
 
