@@ -32,7 +32,11 @@ export default function LoginPage() {
     if (typeof window === "undefined") return "";
     try {
       const n = new URLSearchParams(window.location.search).get("next") || "";
-      return n.startsWith("/") && !n.startsWith("//") ? n : "";
+      // Same-origin path only: a single leading "/", NOT "//" or "/\" (protocol-relative → off-origin),
+      // and no control chars. Defeats ?next=//evil.com, /\evil.com, "/\t//evil".
+      const ctrl = Array.from(n).some((ch) => ch.charCodeAt(0) < 0x20);
+      if (!n.startsWith("/") || n.startsWith("//") || n.startsWith("/\\") || ctrl) return "";
+      return n;
     } catch {
       return "";
     }
@@ -65,6 +69,15 @@ export default function LoginPage() {
       } catch {
         /* ignore */
       }
+      // Already signed in (the session cookie survived the previous Mini App open / page load)? → go
+      // straight in, NO re-login UI. This is what makes the session "persist" across opens; we only
+      // fall through to Telegram one-tap login when there's genuinely no session.
+      const existing = await reload();
+      if (cancelled) return;
+      if (existing && !existing.is_guest) {
+        router.replace(isInternal(existing) ? safeNext() || "/pos" : "/");
+        return;
+      }
       initMiniApp();
       // The Telegram SDK loads afterInteractive, so initData may not be ready on the first tick — poll
       // briefly (≈2.5s, generous for a rural connection) before deciding this is a normal web visitor.
@@ -78,7 +91,7 @@ export default function LoginPage() {
       setAutoTrying(true);
       try {
         const r = await frappeCall<{ ok: boolean }>("cago.api.telegram.miniapp_login", { init_data: initData });
-        if (r?.ok) {
+        if (r?.ok && !cancelled) {
           // miniapp_login only succeeds for a LINKED user, and only internal users can ever link → /pos
           // (or the requested screen) directly; don't route via a possibly-null boot.
           await reload();

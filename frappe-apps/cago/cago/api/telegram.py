@@ -287,7 +287,10 @@ def webhook():
 
 	from cago.utils.secrets import get_secret
 
-	c = _company()
+	try:
+		c = _company()  # throws if no Company yet → bail (don't 500, Telegram would retry-spam)
+	except Exception:  # noqa: BLE001
+		return {"ok": False}
 	secret = get_secret("Company", c, "cago_telegram_webhook_secret") if c else ""
 	# No secret configured → bot isn't wired; bail before touching the request (also keeps this callable
 	# from a non-HTTP context). With a secret, Telegram must echo it back in the header.
@@ -1213,9 +1216,10 @@ def diagnostics():
 	]
 	owner_ready = bool(owner_ids or linked_owners)
 
-	# Live webhook status from Telegram (best-effort — never raise).
+	# Live webhook status from Telegram (best-effort — never raise). Skip the network call under tests so
+	# the suite never hits a real channel even if accidentally run on a configured site.
 	hook_url, hook_err, hook_pending = "", "", 0
-	if has_bot:
+	if has_bot and not frappe.flags.in_test:
 		try:
 			import requests
 

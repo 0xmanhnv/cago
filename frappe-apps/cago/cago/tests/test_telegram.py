@@ -126,6 +126,7 @@ class TestTelegramOrderCallback(FrappeTestCase):
 
 		company = _company()
 		wl = self._make_order()
+		prev_chat = frappe.db.get_value("Company", company, "cago_telegram_chat_id")  # save → restore (non-destructive on live)
 		frappe.db.set_value("Company", company, "cago_telegram_chat_id", "TESTGRP")
 		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "tgstaff1")
 		try:
@@ -139,7 +140,7 @@ class TestTelegramOrderCallback(FrappeTestCase):
 			telegram._handle_callback({"id": "c2", "from": {"id": "tgstaff1"}, "message": {"chat": {"id": "TESTGRP"}, "message_id": 1, "text": "x"}, "data": f"wl:done:{wl.code}"})
 			self.assertEqual(frappe.db.get_value("Cago Wanted List", wl.name, "status"), "Completed")
 		finally:
-			frappe.db.set_value("Company", company, "cago_telegram_chat_id", "")
+			frappe.db.set_value("Company", company, "cago_telegram_chat_id", prev_chat or "")
 			frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
 			frappe.delete_doc("Cago Wanted List", wl.name, force=1, ignore_permissions=True)
 
@@ -402,10 +403,13 @@ class TestTelegramMiniAppLink(FrappeTestCase):
 
 	def setUp(self):
 		from cago.api.debt import _company
-		from cago.utils.secrets import set_secret
+		from cago.utils.secrets import get_secret, set_secret
 
 		self.company = _company()
 		self.bot = "999:MINIAPP-LINK-TEST"
+		# Save + RESTORE the real token rather than blanking it — so this is non-destructive even if the
+		# suite is ever run on a configured site (the documented never-run-on-live hazard).
+		self._prev_bot = get_secret("Company", self.company, "cago_telegram_bot_token")
 		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)  # clean start
 		set_secret("Company", self.company, "cago_telegram_bot_token", self.bot)
 		frappe.db.commit()
@@ -414,7 +418,7 @@ class TestTelegramMiniAppLink(FrappeTestCase):
 		from cago.utils.secrets import set_secret
 
 		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
-		set_secret("Company", self.company, "cago_telegram_bot_token", "")
+		set_secret("Company", self.company, "cago_telegram_bot_token", self._prev_bot or "")
 		frappe.db.commit()
 
 	def _signed(self, fields):
