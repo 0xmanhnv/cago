@@ -184,14 +184,23 @@ _APP_PATHS = {
 def _open_app_button(cmd, in_group):
 	"""A '📲 Mở app' button to the relevant screen — only when the public URL is set. In a private chat
 	it's a Web App button (opens INSIDE Telegram like a mini-app, no 'open link?' prompt); in a group
-	Web App buttons aren't allowed, so fall back to a normal link."""
+	Web App buttons aren't allowed, so fall back to a normal link.
+
+	CRITICAL: the Web App button opens **/login** (the auto-login entry), NOT the target screen directly.
+	Telegram passes its signed launch data in the URL hash (#tgWebAppData=…); if we opened /pos while
+	signed out, the /pos→/login redirect would DROP that hash → initData empty → no one-tap login. /login
+	reads initData first, signs in, then routes to `next`. (Plain link in a group keeps the direct path.)"""
+	from urllib.parse import quote
+
 	from cago.api.integrations import public_url
 
 	base = public_url()
 	if not base:
 		return None
-	url = f"{base}{_APP_PATHS.get(cmd, '/pos')}"
-	return {"text": "📲 Mở app", "url": url} if in_group else {"text": "📲 Mở app", "webapp": url}
+	path = _APP_PATHS.get(cmd, "/pos")
+	if in_group:
+		return {"text": "📲 Mở app", "url": f"{base}{path}"}
+	return {"text": "📲 Mở app", "webapp": f"{base}/login?next={quote(path, safe='/')}"}
 
 
 def _report_actions(cmd, is_owner):
@@ -883,9 +892,10 @@ def _check_init_data(init_data, bot):
 	received = pairs.pop("hash", "")
 	if not received:
 		return False, {}, "no_hash"
-	# `signature` (Telegram's newer Ed25519 third-party-validation field) is excluded from the HMAC
-	# data-check string just like `hash` — otherwise a client that sends it would fail verification.
-	pairs.pop("signature", None)
+	# data_check = ALL remaining fields except `hash` (the long-standing bot-HMAC algorithm). The newer
+	# Ed25519 `signature` field, when present, IS part of this set — Telegram's `hash` is computed over
+	# everything-except-hash. (Excluding `signature` here was wrong and broke real Mini App logins;
+	# verified empirically against live initData.)
 	data_check = "\n".join(f"{k}={pairs[k]}" for k in sorted(pairs))
 	secret_key = hmac.new(b"WebAppData", bot.encode(), hashlib.sha256).digest()
 	calc = hmac.new(secret_key, data_check.encode(), hashlib.sha256).hexdigest()
@@ -1063,16 +1073,23 @@ def set_webhook(public_url=None):
 	forwards messages here. Generates + stores a fresh secret token. `public_url` is the app's public
 	HTTPS origin (e.g. https://shop.example.com) — Telegram requires HTTPS. Needs a configured bot."""
 	ensure_admin()
-	from cago.utils.secrets import get_secret, set_secret
-
-	c = _company()
-	bot = get_secret("Company", c, "cago_telegram_bot_token")
-	if not bot:
-		frappe.throw("Chưa có Bot Token. Nhập Bot Token Telegram trước.")
 	# Default to the shop's stored public origin (Kết nối & Kênh) so the UI can register with one click.
 	from cago.api.integrations import public_url as stored_public_url
 
-	origin = ((public_url or "").strip() or stored_public_url()).rstrip("/")
+	origin = ((public_url or "").strip() or stored_public_url() or "").rstrip("/")
+	return _register_webhook(origin)
+
+
+def _register_webhook(origin):
+	"""Register the Telegram webhook for `origin` (generate + store a fresh secret, set allowed_updates,
+	refresh the command menu). Raises (frappe.throw) on any problem so the manual admin caller can show
+	it. Shared by set_webhook (manual) and ensure_webhook_registered (auto self-heal)."""
+	from cago.utils.secrets import get_secret, set_secret
+
+	c = _company()
+	bot = get_secret("Company", c, "cago_telegram_bot_token") if c else ""
+	if not bot:
+		frappe.throw("Chưa có Bot Token. Nhập Bot Token Telegram trước.")
 	if not origin.startswith("https://"):
 		frappe.throw("Cần địa chỉ công khai HTTPS (vd: https://cuahang.example.com).")
 	secret = _gen_secret()
@@ -1095,6 +1112,44 @@ def set_webhook(public_url=None):
 	frappe.db.commit()
 	_set_bot_commands()  # populate the "/" command menu + Menu button so users don't have to memorise
 	return {"ok": True, "url": hook, "result": body.get("description", "")}
+
+
+def ensure_webhook_registered():
+	"""Self-heal hook (after_migrate = each deploy, + hourly): if the bot + a public HTTPS URL are
+	configured but the webhook is missing / pointing elsewhere / erroring, (re)register it to the STORED
+	public URL. No-op + never raises otherwise — must not break a deploy or the scheduler. Skips the
+	re-register (no secret churn) when the webhook is already correct + healthy.
+
+	NOTE: this re-points to the STORED public_url — it cannot recover a CHANGED public URL (e.g. an
+	ephemeral trycloudflare tunnel that got a new address). For that, public_url must be updated first;
+	a stable named tunnel / domain is the real fix."""
+	if frappe.flags.in_test:
+		return
+	try:
+		from cago.api.integrations import public_url as stored_public_url
+		from cago.utils.secrets import get_secret, has_secret
+
+		c = _company()
+		if not c or not get_secret("Company", c, "cago_telegram_bot_token"):
+			return
+		origin = (stored_public_url() or "").rstrip("/")
+		if not origin.startswith("https://"):
+			return
+		expected = f"{origin}/api/method/cago.api.telegram.webhook"
+		bot = get_secret("Company", c, "cago_telegram_bot_token")
+		try:
+			import requests
+
+			info = (requests.get(f"https://api.telegram.org/bot{bot}/getWebhookInfo", timeout=10).json() or {}).get("result", {})
+		except Exception:  # noqa: BLE001
+			info = {}
+		# Already registered to the right URL, healthy, and our secret is stored → leave it alone.
+		if info.get("url") == expected and not info.get("last_error") and has_secret("Company", c, "cago_telegram_webhook_secret"):
+			return
+		_register_webhook(origin)
+		frappe.logger("cago.telegram").info(f"Auto-registered Telegram webhook → {expected}")
+	except Exception:  # noqa: BLE001 — best-effort; must never break migrate/scheduler
+		frappe.log_error(title="Cago ensure_webhook_registered", message=frappe.get_traceback())
 
 
 def _set_bot_commands():

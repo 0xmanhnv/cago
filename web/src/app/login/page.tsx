@@ -26,9 +26,21 @@ export default function LoginPage() {
   const [linking, setLinking] = useState(false);
   const bootRef = useRef<Awaited<ReturnType<typeof reload>> | null>(null);
 
+  // Optional post-login destination from the Telegram "Mở app" deep link (?next=/pos/reports). Only
+  // same-origin paths ("/…", not "//…") are honored — no open-redirect.
+  const safeNext = () => {
+    if (typeof window === "undefined") return "";
+    try {
+      const n = new URLSearchParams(window.location.search).get("next") || "";
+      return n.startsWith("/") && !n.startsWith("//") ? n : "";
+    } catch {
+      return "";
+    }
+  };
+
   const finish = (b: Awaited<ReturnType<typeof reload>>) => {
-    // Any back-of-house user (holds a capability) → unified /pos; customers/guests → kiosk.
-    router.push(isInternal(b) ? "/pos" : "/");
+    // Any back-of-house user (holds a capability) → unified /pos (or the requested screen); else kiosk.
+    router.push(isInternal(b) ? safeNext() || "/pos" : "/");
   };
 
   // Navigate after a manual login / link offer, tolerant of a null cached boot (re-bootstrap so a
@@ -68,9 +80,9 @@ export default function LoginPage() {
         const r = await frappeCall<{ ok: boolean }>("cago.api.telegram.miniapp_login", { init_data: initData });
         if (r?.ok) {
           // miniapp_login only succeeds for a LINKED user, and only internal users can ever link → /pos
-          // directly (don't route via a possibly-null boot, which would mis-send them to the kiosk).
+          // (or the requested screen) directly; don't route via a possibly-null boot.
           await reload();
-          router.push("/pos");
+          router.push(safeNext() || "/pos");
           return;
         }
       } catch {

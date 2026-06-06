@@ -51,6 +51,18 @@ export function miniAppHost(): Host {
   return host;
 }
 
+/** True if the Telegram WebApp SDK object is present (we're running inside Telegram), regardless of
+ * whether initData was populated — used to distinguish "not in Telegram" from "in Telegram but no
+ * initData" when diagnosing one-tap login. */
+export function inTelegramHost(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return !!(window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram?.WebApp;
+  } catch {
+    return false;
+  }
+}
+
 /** Identity the host offered (Telegram user name today). Used to prefill the order form. */
 export function miniAppUser(): { name?: string; phone?: string } | null {
   return user;
