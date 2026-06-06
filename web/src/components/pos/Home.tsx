@@ -76,7 +76,7 @@ const ACTIONS: Record<string, ActionDef> = {
   health: { label: "🩺 Kiểm tra dữ liệu", color: "bg-blue-600", href: "/pos/health", cap: "products" },
   aisettings: { label: "🤖 Cấu hình trợ lý AI", color: "bg-slate-600", href: "/pos/ai-settings", cap: "admin" },
   integrations: { label: "🔌 Kết nối & Kênh", color: "bg-slate-600", href: "/pos/integrations", cap: "admin" },
-  telegramlink: { label: "🔗 Liên kết Telegram", color: "bg-sky-600", href: "/pos/link-telegram", cap: null },
+  telegramlink: { label: "🔗 Liên kết mạng xã hội", color: "bg-sky-600", href: "/pos/link-telegram", cap: null },
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
   backup: { label: "💾 Sao lưu dữ liệu", color: "bg-slate-600", href: "/pos/backup", cap: "admin" },
   readiness: { label: "🚩 Sẵn sàng khai trương?", color: "bg-emerald-700", href: "/pos/readiness", cap: "owner" },
