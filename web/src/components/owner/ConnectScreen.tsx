@@ -178,15 +178,16 @@ export function ConnectScreen() {
       <div className="mt-4 rounded-xl bg-white p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="font-extrabold">🤖 Telegram cửa hàng (vận hành)</div>
-          {diag && (
+          {diag?.checks?.length ? (
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${diag.ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
               {diag.ready ? "✅ Sẵn sàng" : "⚠️ Chưa xong"}
             </span>
-          )}
+          ) : null}
         </div>
 
-        {/* Setup checklist — exactly what's done vs missing (catches "bot im lặng"). */}
-        {diag && (
+        {/* Setup checklist — exactly what's done vs missing (catches "bot im lặng"). Guard on checks
+            being a real array so a partial/empty diagnostics response can't crash the settings screen. */}
+        {diag?.checks?.length ? (
           <div className="mt-2 rounded-lg bg-slate-50 p-3">
             <div className="mb-1 flex items-center justify-between">
               <div className="text-sm font-bold text-slate-700">Trạng thái kết nối</div>
@@ -204,7 +205,7 @@ export function ConnectScreen() {
               ))}
             </ul>
           </div>
-        )}
+        ) : null}
 
         <p className="mt-3 text-slate-500">
           Tạo bot ở <b>@BotFather</b> (gõ <code>/newbot</code>) lấy <b>Bot Token</b>. Tạo nhóm Telegram cho
