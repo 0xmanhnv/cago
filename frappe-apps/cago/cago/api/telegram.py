@@ -421,7 +421,8 @@ def set_webhook(public_url=None):
 
 		r = requests.post(
 			f"https://api.telegram.org/bot{bot}/setWebhook",
-			json={"url": hook, "secret_token": secret, "allowed_updates": ["message"]},
+			# callback_query is REQUIRED for the inline buttons (menu shortcuts + order actions) to work.
+			json={"url": hook, "secret_token": secret, "allowed_updates": ["message", "callback_query"]},
 			timeout=10,
 		)
 		body = r.json()
