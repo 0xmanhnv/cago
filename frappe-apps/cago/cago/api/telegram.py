@@ -117,15 +117,35 @@ def _menu(is_owner, in_group):
 	return [{"text": "📦 Tồn kho", "cb": "cmd:tonkho"}]
 
 
+_REPORT_CMDS = {"/doanhthu", "/no", "/tonkho", "/viec"}
+# Each report view deep-links to the matching app screen (needs the public URL set).
+_APP_PATHS = {"/doanhthu": "/pos/reports", "/no": "/pos/debt", "/tonkho": "/pos/low-stock", "/viec": "/pos"}
+
+
+def _open_app_button(cmd):
+	"""A '📲 Mở app' URL button to the relevant screen — only when the public URL is configured."""
+	from cago.api.integrations import public_url
+
+	base = public_url()
+	return {"text": "📲 Mở app", "url": f"{base}{_APP_PATHS.get(cmd, '/pos')}"} if base else None
+
+
 def _buttons_for(cmd, is_owner, in_group):
-	"""Per-reply inline buttons: command-specific extras (revenue period switch) + the shortcut menu."""
-	btns = []
-	if cmd == "/doanhthu" and is_owner and not in_group:
-		btns += [
-			{"text": "Hôm nay", "cb": "cmd:doanhthu:today"}, {"text": "Tuần", "cb": "cmd:doanhthu:week"},
-			{"text": "Tháng", "cb": "cmd:doanhthu:month"},
-		]
-	return btns + _menu(is_owner, in_group)
+	"""Per-reply inline buttons. On the MENU/welcome → the shortcut grid (drill in). On a REPORT view →
+	its extras (revenue period switch) + 📲 Mở app + ⬅️ Menu. So it reads like a small app."""
+	app = _open_app_button(cmd)
+	if cmd in _REPORT_CMDS:
+		btns = []
+		if cmd == "/doanhthu" and is_owner and not in_group:
+			btns += [
+				{"text": "Hôm nay", "cb": "cmd:doanhthu:today"}, {"text": "Tuần", "cb": "cmd:doanhthu:week"},
+				{"text": "Tháng", "cb": "cmd:doanhthu:month"},
+			]
+		if app:
+			btns.append(app)
+		btns.append({"text": "⬅️ Menu", "cb": "cmd:menu"})
+		return btns
+	return _menu(is_owner, in_group) + ([app] if app else [])
 
 
 def _welcome(is_owner, in_group):
@@ -268,7 +288,9 @@ def _handle_cmd_callback(cb):
 	period = parts[2] if len(parts) > 2 else "today"
 	is_owner, in_group, _linked, _ = _context(from_id, chat_id)
 	cmd = "/" + name
-	if name == "doanhthu" and is_owner and not in_group:
+	if name == "menu":  # ⬅️ Menu → back to the welcome + shortcut grid
+		text = _welcome(is_owner, in_group)
+	elif name == "doanhthu" and is_owner and not in_group:
 		try:
 			text = _reply_doanhthu(period)
 		except Exception:  # noqa: BLE001

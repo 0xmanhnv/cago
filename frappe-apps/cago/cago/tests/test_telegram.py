@@ -38,15 +38,22 @@ class TestTelegramCommandGating(FrappeTestCase):
 		self.assertNotIn("chỉ dành cho chủ", r)
 		self.assertNotIn("nhắn RIÊNG", r)
 
-	def test_menu_is_role_aware(self):
-		"""Owner (private) gets the full shortcut menu + revenue period buttons; staff/group only ops."""
-		owner = telegram._buttons_for("/doanhthu", is_owner=True, in_group=False)
-		cbs = [b.get("cb") for b in owner]
-		self.assertIn("cmd:doanhthu:week", cbs)  # period switch
-		self.assertIn("cmd:no", cbs)  # owner shortcut
-		staff = telegram._buttons_for("/tonkho", is_owner=False, in_group=True)
-		staff_cbs = [b.get("cb") for b in staff]
-		self.assertEqual(staff_cbs, ["cmd:tonkho"])  # no money shortcuts for staff
+	def test_menu_is_role_aware_and_report_has_back(self):
+		"""Menu = shortcut grid (drill in); a report view = its extras + a ⬅️ Menu back button. (Only
+		look at callback buttons — the optional 📲 Mở app URL button depends on public_url config.)"""
+		cbs = lambda cmd, o, g: [b["cb"] for b in telegram._buttons_for(cmd, o, g) if b.get("cb")]
+		# Owner menu (welcome) → full shortcut grid
+		self.assertIn("cmd:no", cbs("/menu", True, False))
+		self.assertIn("cmd:doanhthu", cbs("/menu", True, False))
+		# Owner revenue view → period switch + Back, NOT the other shortcuts
+		dt = cbs("/doanhthu", True, False)
+		self.assertIn("cmd:doanhthu:week", dt)
+		self.assertIn("cmd:menu", dt)  # ⬅️ Menu back
+		self.assertNotIn("cmd:no", dt)
+		# Staff menu → only the ops shortcut (callback-wise)
+		self.assertEqual(cbs("/menu", False, True), ["cmd:tonkho"])
+		# Any report view always offers a way back
+		self.assertIn("cmd:menu", cbs("/no", True, False))
 		self.assertIn("trợ lý", telegram._welcome(True, False).lower())
 
 
