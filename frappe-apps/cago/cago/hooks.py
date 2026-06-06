@@ -22,7 +22,10 @@ home_page = "login"
 # Schema setup — keep custom fields in sync on every install / migrate so a fresh
 # deploy always has the full Cago schema (no manual ensure_* runs needed).
 # ---------------------------------------------------------------------------
-after_migrate = ["cago.setup.custom_fields.setup_all_fields"]
+# After every deploy (migrate): re-point the Telegram webhook at the current public URL if the bot is
+# configured — so a redeploy / dropped webhook self-heals without a manual "Đăng ký nhận lệnh". No-op
+# when unconfigured; never fails the migrate. (See also the hourly self-heal in scheduler_events.)
+after_migrate = ["cago.setup.custom_fields.setup_all_fields", "cago.api.telegram.ensure_webhook_registered"]
 after_install = ["cago.setup.custom_fields.setup_all_fields"]
 
 # A fresh login clears any pending POS PIN lock for the new session (escape hatch: forgot the PIN →
@@ -37,6 +40,11 @@ scheduler_events = {
 	"daily": [
 		"cago.setup.backup.daily",
 		"cago.api.alerts.daily_owner_digest",  # push "việc hôm nay" (low stock / near-expiry / debt)
+	],
+	"hourly": [
+		# Self-heal the Telegram webhook between deploys (e.g. a plain container restart, or Telegram
+		# dropped it): re-register only if it has drifted/errored. Can't recover a CHANGED public URL.
+		"cago.api.telegram.ensure_webhook_registered",
 	],
 	"cron": {
 		# Expire support requests nobody accepted in time → ping the owner (minimal escalation).

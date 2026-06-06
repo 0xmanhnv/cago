@@ -126,6 +126,7 @@ class TestTelegramOrderCallback(FrappeTestCase):
 
 		company = _company()
 		wl = self._make_order()
+		prev_chat = frappe.db.get_value("Company", company, "cago_telegram_chat_id")  # save → restore (non-destructive on live)
 		frappe.db.set_value("Company", company, "cago_telegram_chat_id", "TESTGRP")
 		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "tgstaff1")
 		try:
@@ -139,7 +140,7 @@ class TestTelegramOrderCallback(FrappeTestCase):
 			telegram._handle_callback({"id": "c2", "from": {"id": "tgstaff1"}, "message": {"chat": {"id": "TESTGRP"}, "message_id": 1, "text": "x"}, "data": f"wl:done:{wl.code}"})
 			self.assertEqual(frappe.db.get_value("Cago Wanted List", wl.name, "status"), "Completed")
 		finally:
-			frappe.db.set_value("Company", company, "cago_telegram_chat_id", "")
+			frappe.db.set_value("Company", company, "cago_telegram_chat_id", prev_chat or "")
 			frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
 			frappe.delete_doc("Cago Wanted List", wl.name, force=1, ignore_permissions=True)
 
@@ -343,15 +344,16 @@ class TestTelegramMiniAppLogin(FrappeTestCase):
 		self.assertFalse(ok)
 		self.assertEqual(reason, "stale")
 
-	def test_signature_field_excluded_from_check(self):
-		"""A newer Telegram `signature` field (Ed25519 3rd-party validation) must be excluded from the
-		HMAC data-check like `hash` — otherwise a client that sends it would fail verification."""
+	def test_signature_field_is_part_of_hash(self):
+		"""Telegram's `hash` is computed over ALL fields except `hash` — so the newer Ed25519 `signature`
+		field, when present, IS included in the data-check (verified against real Mini App initData).
+		Excluding it broke real logins."""
 		import time
 
 		bot = "123456:TEST-BOT-TOKEN"
-		fields = {"auth_date": str(int(time.time())), "user": '{"id":7}'}
-		init = self._signed(bot, fields) + "&signature=Zm9vYmFy"  # hash signed over auth_date+user only
-		ok, user, reason = telegram._check_init_data(init, bot)
+		# signature is part of the signed set → include it in `fields` before signing
+		fields = {"auth_date": str(int(time.time())), "user": '{"id":7}', "signature": "Zm9vYmFy"}
+		ok, user, reason = telegram._check_init_data(self._signed(bot, fields), bot)
 		self.assertTrue(ok, reason)
 		self.assertEqual(str(user.get("id")), "7")
 
@@ -369,6 +371,10 @@ class TestTelegramDiagnostics(FrappeTestCase):
 		for c in d["checks"]:
 			self.assertIn("ok", c)
 			self.assertIn("label", c)
+
+	def test_ensure_webhook_registered_safe_under_test(self):
+		# the after_migrate / hourly self-heal must never hit Telegram or raise during tests
+		self.assertIsNone(telegram.ensure_webhook_registered())
 
 
 class TestTelegramInline(FrappeTestCase):
@@ -397,10 +403,13 @@ class TestTelegramMiniAppLink(FrappeTestCase):
 
 	def setUp(self):
 		from cago.api.debt import _company
-		from cago.utils.secrets import set_secret
+		from cago.utils.secrets import get_secret, set_secret
 
 		self.company = _company()
 		self.bot = "999:MINIAPP-LINK-TEST"
+		# Save + RESTORE the real token rather than blanking it — so this is non-destructive even if the
+		# suite is ever run on a configured site (the documented never-run-on-live hazard).
+		self._prev_bot = get_secret("Company", self.company, "cago_telegram_bot_token")
 		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)  # clean start
 		set_secret("Company", self.company, "cago_telegram_bot_token", self.bot)
 		frappe.db.commit()
@@ -409,7 +418,7 @@ class TestTelegramMiniAppLink(FrappeTestCase):
 		from cago.utils.secrets import set_secret
 
 		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
-		set_secret("Company", self.company, "cago_telegram_bot_token", "")
+		set_secret("Company", self.company, "cago_telegram_bot_token", self._prev_bot or "")
 		frappe.db.commit()
 
 	def _signed(self, fields):

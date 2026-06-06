@@ -239,7 +239,13 @@ export function ConnectScreen() {
                 <code className="flex-1 break-all rounded-md bg-white px-2 py-1.5 font-mono text-xs text-slate-700 ring-1 ring-slate-200">{webhookUrl}</code>
                 <button
                   onClick={() => {
-                    navigator.clipboard?.writeText(webhookUrl).then(
+                    // navigator.clipboard is undefined over plain HTTP / older WebViews → guard before .then
+                    const cb = navigator.clipboard;
+                    if (!cb?.writeText) {
+                      toast.error("Trình duyệt không hỗ trợ sao chép — chọn và copy tay nhé.");
+                      return;
+                    }
+                    cb.writeText(webhookUrl).then(
                       () => toast.success("Đã sao chép đường dẫn webhook."),
                       () => toast.error("Không sao chép được."),
                     );
