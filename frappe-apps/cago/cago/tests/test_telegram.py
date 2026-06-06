@@ -356,6 +356,26 @@ class TestTelegramMiniAppLogin(FrappeTestCase):
 		self.assertEqual(str(user.get("id")), "7")
 
 
+class TestTelegramInline(FrappeTestCase):
+	"""Inline 'tra giá' ("@bot cám") is role-gated: only a recognized internal user gets product results;
+	anyone else gets an empty list + a 'link your account' prompt."""
+
+	def test_unrecognized_gets_link_prompt_no_results(self):
+		results, switch = telegram._build_inline("cám", None)
+		self.assertEqual(results, [])
+		self.assertTrue(switch)
+
+	def test_recognized_internal_user_gets_results(self):
+		results, switch = telegram._build_inline("xẻng", "Administrator")  # owner-tier internal user
+		self.assertIsNone(switch)
+		self.assertIsInstance(results, list)
+
+	def test_short_query_returns_nothing(self):
+		results, switch = telegram._build_inline("a", "Administrator")
+		self.assertEqual(results, [])
+		self.assertIsNone(switch)
+
+
 class TestTelegramMiniAppLink(FrappeTestCase):
 	"""In-app link: while in the Telegram Mini App and signed in, link the CURRENT Telegram to the
 	logged-in account — the strongest path (verified initData + authenticated session, no bearer code)."""

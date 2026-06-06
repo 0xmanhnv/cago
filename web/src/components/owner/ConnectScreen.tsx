@@ -54,6 +54,12 @@ export function ConnectScreen() {
 
   const set = (patch: Partial<Cfg>) => setC({ ...c, ...patch });
 
+  // The webhook URL "Đăng ký nhận lệnh" will register with Telegram = the public origin + the fixed
+  // endpoint path. Shown as a copyable suggestion (also usable to set the webhook by hand if needed).
+  const webhookUrl = c.public_url
+    ? `${c.public_url.replace(/\/+$/, "")}/api/method/cago.api.telegram.webhook`
+    : "";
+
   // Each section saves on its own so a half-filled form elsewhere can't block the part you finished.
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
@@ -175,7 +181,31 @@ export function ConnectScreen() {
         {/* Inbound commands need the public webhook registered with Telegram. */}
         <div className="mt-3 rounded-lg bg-slate-50 p-3">
           <div className="text-sm font-bold text-slate-700">Nhận lệnh (/doanhthu…) — cần đăng ký webhook</div>
-          <p className="text-sm text-slate-500">Dùng địa chỉ công khai ở trên. Cần Bot Token + HTTPS công khai.</p>
+          <p className="text-sm text-slate-500">Bấm để đăng ký tự động (dùng địa chỉ công khai ở trên). Cần Bot Token + HTTPS công khai.</p>
+
+          {/* Suggested webhook URL — what "Đăng ký" will register; copyable for manual setup / verification. */}
+          {c.public_url ? (
+            <div className="mt-2">
+              <div className="text-xs font-bold text-slate-500">Đường dẫn webhook (gợi ý)</div>
+              <div className="mt-1 flex items-center gap-2">
+                <code className="flex-1 break-all rounded-md bg-white px-2 py-1.5 font-mono text-xs text-slate-700 ring-1 ring-slate-200">{webhookUrl}</code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(webhookUrl).then(
+                      () => toast.success("Đã sao chép đường dẫn webhook."),
+                      () => toast.error("Không sao chép được."),
+                    );
+                  }}
+                  className="shrink-0 rounded-md border-2 border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-600"
+                >
+                  📋 Sao chép
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-amber-700">Nhập <b>Địa chỉ công khai</b> ở trên để có đường dẫn webhook.</p>
+          )}
+
           <button onClick={registerHook} disabled={!!busy || !c.has_telegram_bot || !c.public_url} className="mt-2 min-h-touch w-full rounded-xl bg-slate-600 font-extrabold text-white disabled:opacity-50">
             {busy === "tghook" ? "Đang đăng ký…" : "🔗 Đăng ký nhận lệnh"}
           </button>
