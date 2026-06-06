@@ -278,12 +278,16 @@ class TestQuickSale(FrappeTestCase):
 	def test_quick_sale_posted_at_sets_posting_datetime(self):
 		"""An offline sale carries its real ring-up time so it lands in the right till-shift window."""
 		from cago.api import purchasing, sales
+		from frappe.utils import add_to_date, now_datetime
 		from frappe.utils.data import get_time
 
 		purchasing.receive_stock(ITEM, 10)
-		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", posted_at="2026-05-30 08:15:00")
+		# A timestamp safely INSIDE the honoured window [now−7d, now+5min] — relative to now so it can't
+		# age out of range as time passes (a hardcoded date would).
+		day = add_to_date(now_datetime(), days=-2).strftime("%Y-%m-%d")
+		r = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", posted_at=f"{day} 08:15:00")
 		si = frappe.get_doc("Sales Invoice", r["invoice"])
-		self.assertEqual(str(si.posting_date), "2026-05-30")
+		self.assertEqual(str(si.posting_date), day)
 		tt = get_time(str(si.posting_time))
 		self.assertEqual((tt.hour, tt.minute), (8, 15))
 

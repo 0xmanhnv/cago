@@ -38,6 +38,17 @@ class TestTelegramCommandGating(FrappeTestCase):
 		self.assertNotIn("chỉ dành cho chủ", r)
 		self.assertNotIn("nhắn RIÊNG", r)
 
+	def test_menu_is_role_aware(self):
+		"""Owner (private) gets the full shortcut menu + revenue period buttons; staff/group only ops."""
+		owner = telegram._buttons_for("/doanhthu", is_owner=True, in_group=False)
+		cbs = [b.get("cb") for b in owner]
+		self.assertIn("cmd:doanhthu:week", cbs)  # period switch
+		self.assertIn("cmd:no", cbs)  # owner shortcut
+		staff = telegram._buttons_for("/tonkho", is_owner=False, in_group=True)
+		staff_cbs = [b.get("cb") for b in staff]
+		self.assertEqual(staff_cbs, ["cmd:tonkho"])  # no money shortcuts for staff
+		self.assertIn("trợ lý", telegram._welcome(True, False).lower())
+
 
 class TestTelegramAccountLink(FrappeTestCase):
 	def tearDown(self):

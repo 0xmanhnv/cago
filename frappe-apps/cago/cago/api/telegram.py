@@ -56,11 +56,15 @@ def _gen_secret() -> str:
 	return frappe.generate_hash(length=32)
 
 
-def _reply_doanhthu() -> str:
+_PERIODS = {"today": "hôm nay", "week": "tuần này", "month": "tháng này"}
+
+
+def _reply_doanhthu(period="today") -> str:
 	from cago.api import reports
 
-	s = reports.period_summary("today")
-	return f"💰 <b>Doanh thu hôm nay</b>\n{s['sales_total_text']} · {s['invoice_count']} hoá đơn"
+	period = period if period in _PERIODS else "today"
+	s = reports.period_summary(period)
+	return f"💰 <b>Doanh thu {_PERIODS[period]}</b>\n{s['sales_total_text']} · {s['invoice_count']} hoá đơn"
 
 
 def _reply_no() -> str:
@@ -100,6 +104,34 @@ _COMMANDS = {
 	"/tonkho": _reply_tonkho,
 	"/viec": _reply_viec,
 }
+
+
+def _menu(is_owner, in_group):
+	"""Tappable shortcut buttons under every reply — so the owner navigates without typing. Role/
+	context aware: the owner's sensitive shortcuts only in a private chat (not the staff group)."""
+	if is_owner and not in_group:
+		return [
+			{"text": "💰 Doanh thu", "cb": "cmd:doanhthu"}, {"text": "📒 Công nợ", "cb": "cmd:no"},
+			{"text": "📦 Tồn kho", "cb": "cmd:tonkho"}, {"text": "🗓 Việc", "cb": "cmd:viec"},
+		]
+	return [{"text": "📦 Tồn kho", "cb": "cmd:tonkho"}]
+
+
+def _buttons_for(cmd, is_owner, in_group):
+	"""Per-reply inline buttons: command-specific extras (revenue period switch) + the shortcut menu."""
+	btns = []
+	if cmd == "/doanhthu" and is_owner and not in_group:
+		btns += [
+			{"text": "Hôm nay", "cb": "cmd:doanhthu:today"}, {"text": "Tuần", "cb": "cmd:doanhthu:week"},
+			{"text": "Tháng", "cb": "cmd:doanhthu:month"},
+		]
+	return btns + _menu(is_owner, in_group)
+
+
+def _welcome(is_owner, in_group):
+	if is_owner and not in_group:
+		return "👋 <b>Cago — trợ lý chủ cửa hàng</b>\nBấm nút bên dưới để xem nhanh, hoặc gõ lệnh. Doanh thu/công nợ chỉ hiện ở chat riêng này nên nhân viên không thấy."
+	return "👋 <b>Cago — trợ lý cửa hàng</b>\nBấm 📦 Tồn kho bên dưới, hoặc gõ /tonkho /myid.\n<i>Doanh thu/công nợ chỉ chủ xem (nhắn riêng cho bot).</i>"
 
 
 def _handle(cmd: str, from_id: str, is_owner: bool, in_group: bool) -> str:
@@ -163,21 +195,30 @@ def webhook():
 		notify_telegram(_consume_link(arg, from_id), chat_id=chat_id)
 		return {"ok": True}
 
-	group = str(frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "")
-	owner_ids = {i.strip() for i in re.split(r"[,\s]+", frappe.db.get_value("Company", c, "cago_telegram_owner_ids") or "") if i.strip()}
-	# Prefer the linked user's REAL Cago role; fall back to the manual owner-id allowlist.
-	linked_user = frappe.db.get_value("User", {"cago_telegram_id": from_id}, "name") if from_id else None
-	is_owner = (bool(linked_user) and _is_owner_user(linked_user)) or (from_id in owner_ids)
-	in_group = bool(group) and chat_id == group
-	private_ok = chat_id == from_id and (bool(linked_user) or is_owner)
+	is_owner, in_group, _linked, private_ok = _context(from_id, chat_id)
 	# Accept commands only from the configured ops group (staff context) or a linked/owner PRIVATE
 	# chat. Anything else is ignored silently.
 	if not chat_id or not (in_group or private_ok):
 		return {"ok": True}
 
-	# Reply to the chat the command came from (so an owner's private query stays private).
-	notify_telegram(_handle(cmd, from_id, is_owner, in_group), chat_id=chat_id)
+	# /start (no link code) and /menu open the friendly button menu; everything else is a command.
+	text = _welcome(is_owner, in_group) if cmd in ("/start", "/menu") else _handle(cmd, from_id, is_owner, in_group)
+	# Reply to the chat the command came from (private stays private) + tappable shortcut menu.
+	notify_telegram(text, chat_id=chat_id, buttons=_buttons_for(cmd, is_owner, in_group))
 	return {"ok": True}
+
+
+def _context(from_id, chat_id):
+	"""Resolve who is talking to the bot: their Cago role (linked user's real role, else the manual
+	owner-id allowlist) + whether it's the ops group or a valid private chat."""
+	c = _company()
+	group = str(frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "")
+	owner_ids = {i.strip() for i in re.split(r"[,\s]+", frappe.db.get_value("Company", c, "cago_telegram_owner_ids") or "") if i.strip()}
+	linked = frappe.db.get_value("User", {"cago_telegram_id": from_id}, "name") if from_id else None
+	is_owner = (bool(linked) and _is_owner_user(linked)) or (from_id in owner_ids)
+	in_group = bool(group) and chat_id == group
+	private_ok = chat_id == from_id and (bool(linked) or is_owner)
+	return is_owner, in_group, linked, private_ok
 
 
 def _is_owner_user(user) -> bool:
@@ -211,10 +252,41 @@ def _answer_callback(cb_id, text):
 		_tg_api("answerCallbackQuery", {"callback_query_id": cb_id, "text": text})
 
 
+def _handle_cmd_callback(cb):
+	"""A menu shortcut button (cmd:doanhthu / cmd:no / cmd:doanhthu:week …) was tapped → run that
+	command and EDIT the message in place into a live dashboard (result + the menu again), gated by
+	the tapper's role exactly like a typed command."""
+	from cago.api.notify import _inline_keyboard
+
+	cb_id = cb.get("id")
+	from_id = str((cb.get("from") or {}).get("id") or "")
+	message = cb.get("message") or {}
+	chat_id = str((message.get("chat") or {}).get("id") or "")
+	message_id = message.get("message_id")
+	parts = (cb.get("data") or "").split(":")
+	name = parts[1] if len(parts) > 1 else ""
+	period = parts[2] if len(parts) > 2 else "today"
+	is_owner, in_group, _linked, _ = _context(from_id, chat_id)
+	cmd = "/" + name
+	if name == "doanhthu" and is_owner and not in_group:
+		try:
+			text = _reply_doanhthu(period)
+		except Exception:  # noqa: BLE001
+			text = "Xin lỗi, chưa lấy được số liệu."
+	else:
+		text = _handle(cmd, from_id, is_owner, in_group)
+	_tg_api("editMessageText", {
+		"chat_id": chat_id, "message_id": message_id, "parse_mode": "HTML", "disable_web_page_preview": True,
+		"text": text, "reply_markup": {"inline_keyboard": _inline_keyboard(_buttons_for(cmd, is_owner, in_group))},
+	})
+	_answer_callback(cb_id, "✅")
+
+
 def _handle_callback(cb):
-	"""A staff/owner tapped an action button on the order alert → update the order status right from
-	Telegram (no need to open the app). Gated to the ops group or a linked Cago user; reuses
-	staff.set_wanted_list_status (which also pings the customer)."""
+	"""A staff/owner tapped a button → run a menu command (cmd:…) or update an order's status (wl:…).
+	Gated to the ops group or a linked Cago user; order actions reuse staff.set_wanted_list_status."""
+	if (cb.get("data") or "").startswith("cmd:"):
+		return _handle_cmd_callback(cb)
 	cb_id = cb.get("id")
 	from_id = str((cb.get("from") or {}).get("id") or "")
 	message = cb.get("message") or {}
@@ -359,7 +431,21 @@ def set_webhook(public_url=None):
 		frappe.throw(f"Telegram từ chối: {body.get('description', 'lỗi không rõ')}")
 	set_secret("Company", c, "cago_telegram_webhook_secret", secret)
 	frappe.db.commit()
+	_set_bot_commands()  # populate the "/" command menu + Menu button so users don't have to memorise
 	return {"ok": True, "url": hook, "result": body.get("description", "")}
+
+
+def _set_bot_commands():
+	"""Register the bot's command list with Telegram so users get the "/" menu + a tappable Menu
+	button. The list is general (all commands shown); the per-role gating is still enforced on use."""
+	_tg_api("setMyCommands", {"commands": [
+		{"command": "menu", "description": "☰ Menu nhanh (bấm nút)"},
+		{"command": "doanhthu", "description": "💰 Doanh thu"},
+		{"command": "no", "description": "📒 Khách còn nợ"},
+		{"command": "tonkho", "description": "📦 Hàng sắp/đang hết"},
+		{"command": "viec", "description": "🗓 Việc hôm nay"},
+		{"command": "myid", "description": "🆔 Telegram ID của tôi"},
+	]})
 
 
 @frappe.whitelist()
