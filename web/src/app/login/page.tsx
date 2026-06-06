@@ -30,11 +30,19 @@ export default function LoginPage() {
   // Telegram with a signed initData; the backend verifies it and starts a session for the linked
   // account — no password. Falls through to the normal form if not linked / not in Telegram.
   useEffect(() => {
-    initMiniApp();
-    const initData = telegramInitData();
-    if (!initData) return;
-    setAutoTrying(true);
+    let cancelled = false;
     (async () => {
+      initMiniApp();
+      // The Telegram SDK loads afterInteractive, so initData may not be ready on the first tick — poll
+      // briefly (≈2.5s, generous for a rural connection) before deciding this is a normal web visitor.
+      let initData = telegramInitData();
+      for (let i = 0; i < 10 && !initData && !cancelled; i++) {
+        await new Promise((r) => setTimeout(r, 250));
+        initMiniApp();
+        initData = telegramInitData();
+      }
+      if (cancelled || !initData) return; // not in Telegram → keep the normal login form
+      setAutoTrying(true);
       try {
         const r = await frappeCall<{ ok: boolean }>("cago.api.telegram.miniapp_login", { init_data: initData });
         if (r?.ok) {
@@ -44,8 +52,11 @@ export default function LoginPage() {
       } catch {
         /* fall through to the manual form */
       }
-      setAutoTrying(false);
+      if (!cancelled) setAutoTrying(false);
     })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

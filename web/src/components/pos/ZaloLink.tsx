@@ -25,7 +25,7 @@ export function ZaloLink() {
       </p>
       {oa === null ? (
         <div className="mt-3 text-slate-400">Đang kiểm tra…</div>
-      ) : oa.configured ? (
+      ) : oa.configured && oa.oa_id ? (
         <>
           <a
             href={`https://zalo.me/${oa.oa_id}`}

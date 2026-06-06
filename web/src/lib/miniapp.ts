@@ -57,7 +57,18 @@ export function miniAppUser(): { name?: string; phone?: string } | null {
 }
 
 /** Telegram's signed initData string (empty unless we're inside a Telegram Mini App). The backend
- * verifies its HMAC to log the linked user in with one tap — never trust it without that check. */
+ * verifies its HMAC to log the linked user in with one tap — never trust it without that check.
+ * Re-reads window each call: the SDK loads afterInteractive, so it may arrive AFTER initMiniApp's
+ * first (idempotent) run — without this re-read the value would be locked empty and one-tap login
+ * would silently never fire. */
 export function telegramInitData(): string {
+  if (!tgInitData && typeof window !== "undefined") {
+    try {
+      const tg = (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram?.WebApp;
+      if (tg?.initData) tgInitData = tg.initData;
+    } catch {
+      /* ignore */
+    }
+  }
   return tgInitData;
 }

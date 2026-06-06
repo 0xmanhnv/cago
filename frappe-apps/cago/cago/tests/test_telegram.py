@@ -84,24 +84,35 @@ class TestTelegramOrderCallback(FrappeTestCase):
 		return wl
 
 	def test_action_button_updates_status_and_gates(self):
+		"""Order actions require a LINKED INTERNAL user — a stranger (or a linked non-staff) can't act;
+		raw ops-group membership is no longer enough."""
 		from cago.api.debt import _company
 
 		company = _company()
 		wl = self._make_order()
 		frappe.db.set_value("Company", company, "cago_telegram_chat_id", "TESTGRP")
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "tgstaff1")
 		try:
-			# from a stranger chat (not the group, not linked) → rejected, status unchanged
-			telegram._handle_callback({"id": "c0", "from": {"id": "1"}, "message": {"chat": {"id": "OTHER"}, "message_id": 1, "text": "x"}, "data": f"wl:confirm:{wl.code}"})
+			# from a stranger (Telegram id not linked to any user), even in the ops group → rejected
+			telegram._handle_callback({"id": "c0", "from": {"id": "99"}, "message": {"chat": {"id": "TESTGRP"}, "message_id": 1, "text": "x"}, "data": f"wl:confirm:{wl.code}"})
 			self.assertEqual(frappe.db.get_value("Cago Wanted List", wl.name, "status"), "New")
-			# from the configured ops group → confirmed
-			telegram._handle_callback({"id": "c1", "from": {"id": "1"}, "message": {"chat": {"id": "TESTGRP"}, "message_id": 1, "text": "x"}, "data": f"wl:confirm:{wl.code}"})
+			# from a LINKED internal user (Administrator = System Manager) → confirmed
+			telegram._handle_callback({"id": "c1", "from": {"id": "tgstaff1"}, "message": {"chat": {"id": "TESTGRP"}, "message_id": 1, "text": "x"}, "data": f"wl:confirm:{wl.code}"})
 			self.assertEqual(frappe.db.get_value("Cago Wanted List", wl.name, "status"), "Confirmed")
 			# done
-			telegram._handle_callback({"id": "c2", "from": {"id": "1"}, "message": {"chat": {"id": "TESTGRP"}, "message_id": 1, "text": "x"}, "data": f"wl:done:{wl.code}"})
+			telegram._handle_callback({"id": "c2", "from": {"id": "tgstaff1"}, "message": {"chat": {"id": "TESTGRP"}, "message_id": 1, "text": "x"}, "data": f"wl:done:{wl.code}"})
 			self.assertEqual(frappe.db.get_value("Cago Wanted List", wl.name, "status"), "Completed")
 		finally:
 			frappe.db.set_value("Company", company, "cago_telegram_chat_id", "")
+			frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
 			frappe.delete_doc("Cago Wanted List", wl.name, force=1, ignore_permissions=True)
+
+	def test_is_internal_user_gate(self):
+		"""The order-action gate helper: only an enabled staff/owner user counts as internal."""
+		self.assertTrue(telegram._is_internal_user("Administrator"))  # System Manager
+		self.assertFalse(telegram._is_internal_user("Guest"))  # no Cago role
+		self.assertFalse(telegram._is_internal_user(None))
+		self.assertFalse(telegram._is_internal_user("nobody@nowhere.invalid"))
 
 
 class TestTelegramAccessGate(FrappeTestCase):

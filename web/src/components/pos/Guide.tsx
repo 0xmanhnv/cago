@@ -72,6 +72,18 @@ const TOPICS: Topic[] = [
     ],
   },
   {
+    icon: "📱",
+    title: "Telegram & liên kết tài khoản",
+    steps: [
+      "Liên kết 1 lần: trang chủ → 🔗 Liên kết mạng xã hội → 'Liên kết Telegram' → bấm Start trong bot.",
+      "Sau khi liên kết, nhắn cho bot để xem nhanh: /menu (bảng nút), /doanhthu, /no (khách nợ), /tonkho (hàng sắp hết). Doanh thu & công nợ chỉ hiện ở chat riêng nên nhân viên không thấy.",
+      "Bấm '📲 Mở app' trong bot để mở thẳng app — không phải nhập lại mật khẩu.",
+      "Có đơn đặt từ xa / khách gọi: bot báo kèm nút Xác nhận / Đang giao / Hoàn tất để xử lý ngay trong Telegram.",
+      "Nhắc nợ và duyệt khách mua chịu: bot có nút bấm và hỏi xác nhận (hiện rõ tên khách) trước khi gửi/duyệt.",
+      "Chưa liên kết thì bot không cho xem số liệu — nhắn /myid để lấy mã rồi nhờ chủ thêm, hoặc liên kết trong app.",
+    ],
+  },
+  {
     icon: "🤖",
     title: "Trợ lý & cài đặt",
     steps: [

@@ -393,6 +393,16 @@ def _is_owner_user(user) -> bool:
 	return is_owner_roles(set(frappe.get_roles(user)))
 
 
+def _is_internal_user(user) -> bool:
+	"""An enabled Cago staff/owner/admin User (holds an owner or capability role). Used to gate order
+	actions: a linked account that is NOT internal (or is disabled) must not drive order status."""
+	from cago.utils.permissions import ALL_CAP_ROLES, OWNER_ROLES
+
+	if not user or not frappe.db.get_value("User", user, "enabled"):
+		return False
+	return bool(set(frappe.get_roles(user)) & (OWNER_ROLES | ALL_CAP_ROLES))
+
+
 # Tap-to-act buttons on a new-order alert: callback_data "wl:<action>:<code>" → order status.
 _CB_ACTIONS = {"confirm": "Confirmed", "deliver": "Delivering", "done": "Completed", "cancel": "Cancelled"}
 _CB_VI = {"Confirmed": "Đã xác nhận", "Delivering": "Đang giao", "Completed": "Hoàn tất", "Cancelled": "Đã huỷ"}
@@ -514,6 +524,8 @@ def _handle_debt_remind(cb, slug):
 	cb_id, is_owner = _owner_gate(cb)
 	if not is_owner:
 		return _answer_callback(cb_id, "Chỉ chủ cửa hàng.")
+	if not (cb.get("message") or {}).get("message_id"):  # stale (>48h): the confirm buttons can't be
+		return _answer_callback(cb_id, "Tin quá cũ — gõ /no để làm lại.")  # removed → avoid double-send
 	try:
 		from cago.api.debt import get_customer_debt
 		from cago.api.notify import send_message
@@ -568,6 +580,8 @@ def _handle_lead_verify(cb, slug):
 	cb_id, is_owner = _owner_gate(cb)
 	if not is_owner:
 		return _answer_callback(cb_id, "Chỉ chủ cửa hàng.")
+	if not (cb.get("message") or {}).get("message_id"):  # stale (>48h) → buttons can't be removed
+		return _answer_callback(cb_id, "Tin quá cũ — gõ /duyet để làm lại.")
 	try:
 		from cago.api.debt import verify_customer
 		from cago.customer import resolve_customer
@@ -607,14 +621,17 @@ def _handle_callback(cb):
 	if len(parts) != 3 or parts[0] != "wl":
 		return _answer_callback(cb_id, "Lệnh không hợp lệ.")
 	action, code = parts[1], parts[2]
-	# Gate: only the configured ops group or a linked Cago user (staff/owner) may act.
-	group = str(frappe.db.get_value("Company", _company(), "cago_telegram_chat_id") or "")
+	# Gate: order actions are a staff/owner operation → require a linked INTERNAL user. Raw ops-group
+	# membership or a linked non-staff/disabled account is NOT enough (a linked customer-lead must not
+	# be able to confirm/cancel orders). Matches the _route recognition gate.
 	linked = frappe.db.get_value("User", {"cago_telegram_id": from_id}, "name") if from_id else None
-	if not ((group and chat_id == group) or linked):
-		return _answer_callback(cb_id, "Bạn chưa có quyền — hãy liên kết tài khoản trong app trước.")
+	if not (linked and _is_internal_user(linked)):
+		return _answer_callback(cb_id, "Bạn chưa có quyền — hãy liên kết tài khoản nhân viên trong app trước.")
 	status = _CB_ACTIONS.get(action)
 	if not status:
 		return _answer_callback(cb_id, "Hành động không hợp lệ.")
+	if not message_id:  # stale (>48h) message → the button-removal edit can't run, so refuse to re-act
+		return _answer_callback(cb_id, "Tin quá cũ — mở lại đơn trong app để xử lý.")
 	try:
 		from cago.api.staff import set_wanted_list_status
 		from cago.utils.privileged import as_user
@@ -680,13 +697,16 @@ def _check_init_data(init_data, bot):
 	calc = hmac.new(secret_key, data_check.encode(), hashlib.sha256).hexdigest()
 	if not hmac.compare_digest(calc, received):
 		return False, {}, "bad_sig"
-	# Replay guard: Telegram recommends rejecting initData older than ~24h.
+	# Replay guard: require a fresh auth_date — reject missing/zero, a far-future stamp (clock-skew
+	# tolerance 5 min), or anything older than ~24h. A signature with no auth_date would otherwise be
+	# valid forever.
 	try:
 		auth_date = int(pairs.get("auth_date") or 0)
-		if auth_date and (int(time.time()) - auth_date) > 86400:
-			return False, {}, "stale"
 	except Exception:  # noqa: BLE001
-		pass
+		auth_date = 0
+	now = int(time.time())
+	if auth_date <= 0 or auth_date > now + 300 or (now - auth_date) > 86400:
+		return False, {}, "stale"
 	try:
 		user = _json.loads(pairs.get("user") or "{}")
 	except Exception:  # noqa: BLE001
@@ -708,20 +728,24 @@ def miniapp_login(init_data=None):
 	linked to that Telegram id — no password. Returns {ok:false, reason} (→ the app shows the normal
 	login form) when the signature is bad/stale, the bot isn't configured, or the account isn't linked
 	yet. Only a LINKED Telegram account logs in, so this can't impersonate an arbitrary user."""
-	ok, tg_user, reason = _verify_init_data(init_data)
-	if not ok:
-		return {"ok": False, "reason": reason}
-	tg_id = str(tg_user.get("id") or "")
-	user = frappe.db.get_value("User", {"cago_telegram_id": tg_id}, "name") if tg_id else None
-	if not user:
-		return {"ok": False, "reason": "not_linked"}
-	if not frappe.db.get_value("User", user, "enabled"):
-		return {"ok": False, "reason": "disabled"}
-	# Establish a real Frappe session (sets the sid cookie) for the linked user.
-	frappe.local.login_manager.user = user
-	frappe.local.login_manager.post_login()
-	frappe.db.commit()
-	return {"ok": True, "user": user}
+	try:
+		ok, tg_user, reason = _verify_init_data(init_data)
+		if not ok:
+			return {"ok": False, "reason": reason}
+		tg_id = str(tg_user.get("id") or "")
+		user = frappe.db.get_value("User", {"cago_telegram_id": tg_id}, "name") if tg_id else None
+		if not user:
+			return {"ok": False, "reason": "not_linked"}
+		if not frappe.db.get_value("User", user, "enabled"):
+			return {"ok": False, "reason": "disabled"}
+		# Establish a real Frappe session (sets the sid cookie) for the linked user.
+		frappe.local.login_manager.user = user
+		frappe.local.login_manager.post_login()
+		frappe.db.commit()
+		return {"ok": True, "user": user}
+	except Exception:  # noqa: BLE001 — always return JSON so the app falls back to the password form
+		frappe.log_error(title="Cago miniapp_login failed", message=frappe.get_traceback())
+		return {"ok": False, "reason": "error"}
 
 
 @frappe.whitelist()
