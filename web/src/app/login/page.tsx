@@ -37,6 +37,12 @@ export default function LoginPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Respect a deliberate logout: don't auto-login the still-linked user straight back in.
+      try {
+        if (sessionStorage.getItem("cago_skip_autologin")) return;
+      } catch {
+        /* ignore */
+      }
       initMiniApp();
       // The Telegram SDK loads afterInteractive, so initData may not be ready on the first tick — poll
       // briefly (≈2.5s, generous for a rural connection) before deciding this is a normal web visitor.
@@ -74,6 +80,11 @@ export default function LoginPage() {
     setErr("");
     try {
       await login(usr.trim(), pwd);
+      try {
+        sessionStorage.removeItem("cago_skip_autologin"); // chose to sign in → re-enable auto-login next time
+      } catch {
+        /* ignore */
+      }
       const b = await reload(); // establishes session + fresh CSRF for any follow-up POST
       bootRef.current = b;
       // In the Telegram Mini App and not yet linked → offer to bind this Telegram (skippable).

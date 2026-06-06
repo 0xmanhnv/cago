@@ -107,6 +107,14 @@ export async function logout() {
     headers: { "X-Frappe-CSRF-Token": csrfToken },
   });
   csrfToken = ""; // stale after session ends; a fresh guest token is fetched on next bootstrap
+  // Deliberate logout must STICK: inside a Telegram Mini App the user is still linked, so the /login
+  // screen would otherwise auto-login them straight back in. Flag it (session-scoped: cleared when the
+  // Mini App is closed/reopened, so a fresh open still auto-logs in) so /login shows the form instead.
+  try {
+    sessionStorage.setItem("cago_skip_autologin", "1");
+  } catch {
+    /* sessionStorage unavailable — ignore */
+  }
   // Clear the per-user offline caches (catalog + customers) so the next user on a shared tablet
   // can't read them. Dynamic import avoids a static api↔offline cycle; the sale queue is kept.
   try {
