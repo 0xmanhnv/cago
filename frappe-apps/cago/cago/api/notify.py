@@ -132,6 +132,28 @@ def notify_ops(text, buttons=None):
 	return {"zalo": send_owner(text), "telegram": notify_telegram(text, buttons=buttons)}
 
 
+def _owner_telegram_chats():
+	"""Telegram chat ids of the shop OWNERS (each owner's private DM, chat_id == their Telegram id):
+	the manual owner-id allowlist + every linked User holding an owner role. For sensitive pushes that
+	must reach the owner privately and NOT the shared staff group."""
+	import re
+
+	from cago.utils.permissions import is_owner_roles
+
+	c = _company()
+	ids = {i.strip() for i in re.split(r"[,\s]+", frappe.db.get_value("Company", c, "cago_telegram_owner_ids") or "") if i.strip()}
+	for u in frappe.get_all("User", filters={"cago_telegram_id": ["!=", ""]}, fields=["name", "cago_telegram_id"]):
+		if is_owner_roles(set(frappe.get_roles(u.name))):
+			ids.add(u.cago_telegram_id)
+	return {i for i in ids if i}
+
+
+def notify_owner_telegram(text, buttons=None):
+	"""Send a Telegram message to each shop owner's PRIVATE chat — for sensitive digests (shift close,
+	revenue) that must not go to the staff ops group. Best-effort; no-op if no owner is linked."""
+	return [notify_telegram(text, chat_id=chat, buttons=buttons) for chat in _owner_telegram_chats()]
+
+
 @frappe.whitelist()
 def notify_status():
 	"""UI hint: whether real sending is on, so the draft screens can show 'Gửi' vs 'Sao chép'."""

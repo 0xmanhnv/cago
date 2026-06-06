@@ -205,6 +205,59 @@ class TestTelegramConfirmActions(FrappeTestCase):
 		self.assertEqual(frappe.db.get_value("Customer", self.cust, "cago_unverified"), 1)
 
 
+class TestTelegramSupportAction(FrappeTestCase):
+	"""'🙋 Tôi xử lý' / '✅ Đã xong' on a call-staff alert claims/resolves the request AS the linked
+	staff member; a stranger (no linked internal account) cannot."""
+
+	def setUp(self):
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "tgsup1")
+		doc = frappe.new_doc("Cago Support Request")
+		doc.status = "pending"
+		doc.reason = "Cần tư vấn"
+		doc.kiosk_label = "Kệ A"
+		doc.insert(ignore_permissions=True)
+		self.req = doc.name
+		frappe.db.commit()
+
+	def tearDown(self):
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+		frappe.delete_doc("Cago Support Request", self.req, force=1, ignore_permissions=True)
+
+	def _cb(self, from_id, data):
+		return {"id": "x", "from": {"id": from_id}, "message": {"chat": {"id": "g"}, "message_id": 1, "text": "Khách cần hỗ trợ"}, "data": data}
+
+	def test_stranger_cannot_claim(self):
+		telegram._handle_callback(self._cb("99999", f"sup:accept:{self.req}"))
+		self.assertEqual(frappe.db.get_value("Cago Support Request", self.req, "status"), "pending")
+
+	def test_linked_staff_claims_and_resolves(self):
+		telegram._handle_callback(self._cb("tgsup1", f"sup:accept:{self.req}"))
+		self.assertEqual(frappe.db.get_value("Cago Support Request", self.req, "status"), "accepted")
+		telegram._handle_callback(self._cb("tgsup1", f"sup:resolve:{self.req}"))
+		self.assertEqual(frappe.db.get_value("Cago Support Request", self.req, "status"), "resolved")
+
+
+class TestOwnerTelegramTargets(FrappeTestCase):
+	"""Sensitive pushes (shift close) go to each OWNER's private chat — the allowlist + linked owner
+	users — and never the shared staff group."""
+
+	def test_owner_chats_include_allowlist_and_linked_owner(self):
+		from cago.api import notify
+		from cago.api.debt import _company
+
+		company = _company()
+		prev = frappe.db.get_value("Company", company, "cago_telegram_owner_ids")
+		frappe.db.set_value("Company", company, "cago_telegram_owner_ids", "55501")
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "55502")  # owner-role user
+		try:
+			chats = notify._owner_telegram_chats()
+			self.assertIn("55501", chats)  # manual allowlist
+			self.assertIn("55502", chats)  # linked owner user
+		finally:
+			frappe.db.set_value("Company", company, "cago_telegram_owner_ids", prev or "")
+			frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+
+
 class TestTelegramMiniAppLogin(FrappeTestCase):
 	"""The Mini App one-tap login verifies Telegram's signed initData with the bot token (HMAC). A
 	tampered/forged signature must be rejected — only a genuine Telegram signature logs anyone in."""

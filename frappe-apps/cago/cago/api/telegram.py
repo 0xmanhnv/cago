@@ -597,6 +597,45 @@ def _handle_lead_verify(cb, slug):
 		_answer_callback(cb_id, "Lỗi, thử lại.")
 
 
+def _handle_support_action(cb, action, name):
+	"""🙋 Tôi xử lý / ✅ Đã xong on a call-staff alert → claim/resolve the request AS the linked staff
+	member (so it records who took it + respects their cap). Requires a linked internal user."""
+	cb_id = cb.get("id")
+	from_id = str((cb.get("from") or {}).get("id") or "")
+	linked = frappe.db.get_value("User", {"cago_telegram_id": from_id}, "name") if from_id else None
+	if not (linked and _is_internal_user(linked)):
+		return _answer_callback(cb_id, "Hãy liên kết tài khoản nhân viên trong app trước.")
+	if action not in ("accept", "resolve"):
+		return _answer_callback(cb_id, "Hành động không hợp lệ.")
+	if not (cb.get("message") or {}).get("message_id"):
+		return _answer_callback(cb_id, "Tin quá cũ — mở /pos/support trong app.")
+	try:
+		from cago.api import support
+		from cago.utils.privileged import as_user
+
+		with as_user(linked):
+			view = support.accept_request(name) if action == "accept" else support.resolve_request(name)
+		who = frappe.utils.get_fullname(linked)
+		base = (cb.get("message") or {}).get("text") or "Khách cần hỗ trợ"
+		if action == "accept":
+			# Claimed → show who's handling it + leave only the "Đã xong" + Mở buttons.
+			btns = [{"text": "✅ Đã xong", "cb": f"sup:resolve:{name}"}]
+			from cago.api.integrations import public_url
+
+			b = public_url()
+			if b:
+				btns.append({"text": "📋 Mở", "url": f"{b}/pos/support"})
+			_edit_message(cb, base + f"\n— 🙋 {who} đang xử lý", btns)
+			_answer_callback(cb_id, "✅ Bạn đang xử lý")
+		else:
+			_edit_message(cb, base + f"\n— ✅ {who} đã xử lý xong", [])
+			_answer_callback(cb_id, "✅ Đã xong")
+		_ = view
+	except Exception:  # noqa: BLE001
+		frappe.log_error(title="Cago telegram support action", message=frappe.get_traceback())
+		_answer_callback(cb_id, "Lỗi, thử lại.")
+
+
 def _handle_callback(cb):
 	"""A staff/owner tapped a button → run a menu command (cmd:…) or update an order's status (wl:…).
 	Gated to the ops group or a linked Cago user; order actions reuse staff.set_wanted_list_status."""
@@ -612,6 +651,10 @@ def _handle_callback(cb):
 		return _handle_lead_verify(cb, data.split(":", 2)[2])
 	if data.startswith("lead:verify:"):
 		return _confirm_lead_verify(cb, data.split(":", 2)[2])
+	if data.startswith("sup:"):
+		parts = data.split(":", 2)
+		if len(parts) == 3:
+			return _handle_support_action(cb, parts[1], parts[2])
 	cb_id = cb.get("id")
 	from_id = str((cb.get("from") or {}).get("id") or "")
 	message = cb.get("message") or {}

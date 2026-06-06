@@ -244,4 +244,25 @@ def close_shift(counted_cash, payouts=0, note=None):
 	doc.status = "Closed"
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
+	_notify_shift_close(doc)
 	return {"open": False, **_shift_dto(doc)}
+
+
+def _notify_shift_close(doc):
+	"""Push a private shift-close digest to the owner's Telegram (cash sales + drawer reconciliation).
+	Owner-only channel — the staff group never sees the cash figures. Best-effort, never blocks the close."""
+	try:
+		from cago.api.notify import notify_owner_telegram
+		from cago.utils import dto
+
+		who = frappe.utils.get_fullname(doc.cashier) or doc.cashier
+		diff = flt(doc.difference)
+		recon = "✅ Khớp két" if abs(diff) < 1 else (f"⚠️ Thừa {dto.format_price(diff)}" if diff > 0 else f"⚠️ Thiếu {dto.format_price(-diff)}")
+		notify_owner_telegram(
+			f"🌙 <b>Đóng ca</b> — {who}\n"
+			f"💵 Tiền mặt bán: {dto.format_price(flt(doc.cash_sales))}\n"
+			f"🧮 Dự kiến két: {dto.format_price(flt(doc.expected_cash))} · Đếm: {dto.format_price(flt(doc.counted_cash))}\n"
+			f"{recon}"
+		)
+	except Exception:  # noqa: BLE001
+		pass
