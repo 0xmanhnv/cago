@@ -166,6 +166,7 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
   const [list, setList] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay
+  const router = useRouter();
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const run = async (q: string) => {
     setLoading(true);
@@ -206,9 +207,10 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
         // with the green theme-color status-bar tint so it reads like a native app's top bar (KiotViet
         // does the same with orange). Body below stays light. Preview via the `accent` prop (Tra giá).
         <div className="-mx-4 -mt-4 mb-3 rounded-b-3xl bg-brand px-4 pb-3.5 pt-5 text-white shadow-md">
-          <div className="mb-3 flex items-center gap-3">
-            <button onClick={onBack} className="rounded-xl bg-white/20 px-3 py-1.5 font-bold text-white">‹ Quay lại</button>
-            <div className="text-xl font-extrabold">{title}</div>
+          <div className="mb-3 flex items-center gap-2.5">
+            <button onClick={onBack} className="shrink-0 rounded-xl bg-white/20 px-3 py-1.5 font-bold text-white">‹ Quay lại</button>
+            <div className="flex-1 truncate text-xl font-extrabold">{title}</div>
+            <button onClick={() => router.push("/pos")} aria-label="Về trang chủ" className="shrink-0 rounded-xl bg-white/20 px-3 py-2 text-lg leading-none text-white">🏠</button>
           </div>
           <input
             autoFocus
@@ -222,7 +224,7 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
               onKeyDown={onBarcodeKey}
               className="min-w-0 flex-1 rounded-xl border-0 bg-white p-3 text-base text-slate-800 placeholder:text-slate-400"
             />
-            <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 rounded-xl bg-white/25 px-3 text-base font-bold text-white">📷</button>
+            <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 rounded-xl bg-white px-3.5 text-base font-bold text-brand-dark shadow-sm">📷</button>
           </div>
         </div>
       ) : (

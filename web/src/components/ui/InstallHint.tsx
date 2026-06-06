@@ -22,7 +22,8 @@ export function InstallHint() {
         window.matchMedia?.("(display-mode: standalone)").matches ||
         (window.navigator as unknown as { standalone?: boolean }).standalone === true;
       const inTelegram = !!(window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData;
-      if (standalone || inTelegram) return; // already app-like / hosted by Telegram → no nudge
+      const fixedKiosk = localStorage.getItem("cago_fixed_kiosk") === "1"; // shop's shared in-store tablet
+      if (standalone || inTelegram || fixedKiosk) return; // already app-like / Telegram / fixed kiosk → no nudge
       if (localStorage.getItem("cago_install_off")) return;
 
       const ua = navigator.userAgent;

@@ -63,7 +63,7 @@ export function Labels() {
     w.print();
   };
 
-  if (picking) return <ProductPicker title="Chọn sản phẩm in tem" onBack={() => setPicking(false)} onPick={add} />;
+  if (picking) return <ProductPicker title="Chọn sản phẩm in tem" accent onBack={() => setPicking(false)} onPick={add} />;
 
   return (
     <div>

@@ -135,7 +135,7 @@ export function Exchange() {
     void search("");
   };
 
-  if (picking) return <ProductPicker title="Chọn hàng đổi lấy" onBack={() => setPicking(false)} onPick={addNew} />;
+  if (picking) return <ProductPicker title="Chọn hàng đổi lấy" accent onBack={() => setPicking(false)} onPick={addNew} />;
 
   return (
     <div className="pb-10">

@@ -112,7 +112,7 @@ export function ReceiveStock() {
   if (!code) {
     return (
       <div className="mx-auto max-w-[760px]">
-        <ProductPicker title="NHẬP HÀNG" onBack={() => goBackSmart(router)} onPick={pick} />
+        <ProductPicker title="NHẬP HÀNG" accent onBack={() => goBackSmart(router)} onPick={pick} />
         <button onClick={() => router.push("/pos/bulk")} className="mt-3 w-full rounded-xl border-2 border-teal-300 bg-white py-3 font-extrabold text-teal-700">
           ⚡ Nhập nhiều mặt cùng lúc (nhập loạt) →
         </button>
