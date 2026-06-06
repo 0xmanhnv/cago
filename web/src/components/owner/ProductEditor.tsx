@@ -8,6 +8,7 @@ import { uomLabel } from "@/lib/uom";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import type { Batch } from "@/lib/types";
 import { BackBar, goBackSmart, DraftModal } from "./Shared";
+import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
 import { ProductPhotos } from "./ProductPhotos";
 import { toast } from "@/components/ui/toast";
 
@@ -63,6 +64,24 @@ function EditField({ label, k, data, set, type = "text" }: FieldProps & { type?:
         onChange={(ev) => set(k, ev.target.value)}
         className="w-full rounded-lg border-2 border-emerald-300 p-2.5 text-base"
       />
+    </label>
+  );
+}
+// Like EditField but with a 📷 camera-scan button that fills the value (scan the product's own barcode).
+function BarcodeField({ label, k, data, set }: FieldProps) {
+  const [cam, setCam] = useState(false);
+  return (
+    <label className="mt-3 block">
+      <span className="mb-1 block font-bold text-slate-700">{label}</span>
+      <div className="flex gap-2">
+        <input
+          value={(data[k] as string) ?? ""}
+          onChange={(ev) => set(k, ev.target.value)}
+          className="min-w-0 flex-1 rounded-lg border-2 border-emerald-300 p-2.5 text-base"
+        />
+        <button type="button" onClick={() => setCam(true)} aria-label="Quét bằng camera" className="shrink-0 rounded-lg bg-emerald-600 px-3 text-base font-bold text-white">📷</button>
+      </div>
+      {cam && <BarcodeScanner onScan={(c) => { set(k, c); setCam(false); }} onClose={() => setCam(false)} />}
     </label>
   );
 }
@@ -203,7 +222,7 @@ export function ProductEditor({ code }: { code: string }) {
 
         <Section title="🏷 Tên · giá · tồn kho" defaultOpen>
         <EditField label="Tên hiển thị" k="cago_display_name" data={data} set={set} />
-        <EditField label="Mã vạch (barcode — quét/nhập)" k="barcode" data={data} set={set} />
+        <BarcodeField label="Mã vạch (barcode — quét/nhập)" k="barcode" data={data} set={set} />
         <EditField label="Giá bán (đồng)" k="selling_price" type="number" data={data} set={set} />
         <EditSelect label="Tồn kho hiển thị (khi không tự tính)" k="cago_stock_status_manual" opts={e.stock_status_options || []} data={data} set={set} />
         <EditCheck label="Tự tính tồn theo số thật (đã nhập hàng)" k="cago_stock_auto" data={data} set={set} />

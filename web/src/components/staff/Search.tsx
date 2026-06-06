@@ -7,6 +7,7 @@ import { toast } from "@/components/ui/toast";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
 import type { ProductCard, Category } from "@/lib/types";
 
 const PAGE = 30;
@@ -27,6 +28,7 @@ export function Search() {
     return v === "card" || v === "list" ? v : "list";
   });
   const [cats, setCats] = useState<Category[]>([]);
+  const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay
   const [category, setCategory] = useState(() => sp.get("cat") || ""); // active category filter ("" = all)
   const [recoOnly, setRecoOnly] = useState(() => sp.get("reco") === "1"); // ⭐ show only "khuyên dùng"
   const recoRef = useRef(sp.get("reco") === "1"); // current value for the async load callbacks (avoids stale closure)
@@ -148,16 +150,28 @@ export function Search() {
       </div>
       {/* Barcode is rarely typed by hand (a scanner fires keystrokes + Enter), so it stays a
           slim, muted secondary field rather than competing with the name search. */}
-      <input
-        placeholder="⌨ Hoặc quét mã vạch..."
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            void findBarcode((e.target as HTMLInputElement).value);
-            (e.target as HTMLInputElement).value = "";
-          }
-        }}
-        className="mb-2.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm"
-      />
+      <div className="mb-2.5 flex gap-2">
+        <input
+          placeholder="⌨ Hoặc quét mã vạch..."
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              void findBarcode((e.target as HTMLInputElement).value);
+              (e.target as HTMLInputElement).value = "";
+            }
+          }}
+          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm"
+        />
+        <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 rounded-xl bg-emerald-600 px-3 text-base font-bold text-white">📷</button>
+      </div>
+      {camOpen && (
+        <BarcodeScanner
+          onScan={(c) => {
+            setCamOpen(false);
+            void findBarcode(c);
+          }}
+          onClose={() => setCamOpen(false)}
+        />
+      )}
       {/* ⭐ "recommended only" filter — show just the items the owner flagged as khuyên dùng. */}
       <div className="mb-2.5">
         <button

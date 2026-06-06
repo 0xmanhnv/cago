@@ -7,6 +7,7 @@ import { confirmDialog, alertDialog } from "@/components/ui/dialog";
 import { copyText, formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import { Sheet } from "@/components/ui/Sheet";
 import { CatThumb } from "@/components/kiosk/CatThumb";
+import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
 import type { ProductCard } from "@/lib/types";
 
 import { PageLoading } from "@/components/ui/Loading";
@@ -163,6 +164,7 @@ export function DraftModal({
 export function ProductPicker({ title, onBack, onPick }: { title: string; onBack: () => void; onPick: (code: string) => void }) {
   const [list, setList] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const run = async (q: string) => {
     setLoading(true);
@@ -198,16 +200,29 @@ export function ProductPicker({ title, onBack, onPick }: { title: string; onBack
         placeholder="Tên, tên hay gọi, màu bao..."
         className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
       />
-      <input
-        placeholder="⌨ Quét/nhập mã vạch rồi Enter"
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            void findBarcode((e.target as HTMLInputElement).value);
-            (e.target as HTMLInputElement).value = "";
-          }
-        }}
-        className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3 text-base"
-      />
+      {/* USB/BT scanner types here + Enter; "📷" opens the phone camera (BarcodeScanner). */}
+      <div className="mb-2 flex gap-2">
+        <input
+          placeholder="⌨ Quét/nhập mã vạch rồi Enter"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              void findBarcode((e.target as HTMLInputElement).value);
+              (e.target as HTMLInputElement).value = "";
+            }
+          }}
+          className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base"
+        />
+        <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-base font-bold text-white">📷</button>
+      </div>
+      {camOpen && (
+        <BarcodeScanner
+          onScan={(c) => {
+            setCamOpen(false);
+            void findBarcode(c);
+          }}
+          onClose={() => setCamOpen(false)}
+        />
+      )}
       <div className="text-xl font-bold text-brand-dark">{title}</div>
       {loading ? (
         <PageLoading />
