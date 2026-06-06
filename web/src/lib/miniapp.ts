@@ -12,8 +12,11 @@ let inited = false;
 interface TgWebApp {
   ready?: () => void;
   expand?: () => void;
+  initData?: string; // signed query string — verified server-side for one-tap login
   initDataUnsafe?: { user?: { first_name?: string; last_name?: string; username?: string } };
 }
+
+let tgInitData = "";
 
 /** Run once on app open (client-only, idempotent). Detects the host + grabs whatever identity the
  * host offers for prefilling the order form. Safe no-op on a plain browser. */
@@ -26,6 +29,7 @@ export function initMiniApp(): Host {
       host = "telegram";
       tg.ready();
       tg.expand?.(); // use the full height inside Telegram
+      tgInitData = tg.initData || ""; // for server-verified one-tap login (miniapp_login)
       const u = tg.initDataUnsafe?.user;
       if (u) user = { name: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username };
       return host;
@@ -46,4 +50,10 @@ export function miniAppHost(): Host {
 /** Identity the host offered (Telegram user name today). Used to prefill the order form. */
 export function miniAppUser(): { name?: string; phone?: string } | null {
   return user;
+}
+
+/** Telegram's signed initData string (empty unless we're inside a Telegram Mini App). The backend
+ * verifies its HMAC to log the linked user in with one tap — never trust it without that check. */
+export function telegramInitData(): string {
+  return tgInitData;
 }

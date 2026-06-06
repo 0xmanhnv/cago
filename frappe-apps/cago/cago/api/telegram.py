@@ -75,9 +75,10 @@ def _reply_no() -> str:
 		return "📒 Không có khách nào còn nợ. 🎉"
 	top = rows[:10]
 	total = sum(r["outstanding"] for r in rows)
-	lines = [f"• {r['customer_name']}{(' (' + r['village'] + ')') if r.get('village') else ''}: {r['outstanding_text']}" for r in top]
+	lines = [f"{i + 1}. {r['customer_name']}{(' · ' + r['village']) if r.get('village') else ''} — {r['outstanding_text']}" for i, r in enumerate(top)]
 	more = f"\n… và {len(rows) - len(top)} khách khác" if len(rows) > len(top) else ""
-	return f"📒 <b>Khách còn nợ</b> — tổng {reports.dto.format_price(total)}\n" + "\n".join(lines) + more
+	hint = "\n<i>Bấm 🔔 Nhắc 1–5 để gửi tin nhắc nợ (có xác nhận trước khi gửi).</i>" if top else ""
+	return f"📒 <b>Khách còn nợ</b> — tổng {reports.dto.format_price(total)}\n" + "\n".join(lines) + more + hint
 
 
 def _reply_tonkho() -> str:
@@ -124,8 +125,8 @@ def _reply_leads() -> str:
 	rows = frappe.get_all("Customer", filters={"cago_unverified": 1}, fields=["customer_name", "mobile_no", "cago_slug"], limit=20)
 	if not rows:
 		return "✅ Không có khách nào chờ duyệt mua chịu."
-	lines = [f"• {r.customer_name}{(' · ' + r.mobile_no) if r.mobile_no else ''}" for r in rows[:20]]
-	return "🪪 <b>Khách tự đăng ký — chờ duyệt mua chịu</b>\n" + "\n".join(lines) + "\n<i>Bấm nút bên dưới để duyệt.</i>"
+	lines = [f"{i + 1}. {r.customer_name}{(' · ' + r.mobile_no) if r.mobile_no else ''}" for i, r in enumerate(rows[:20])]
+	return "🪪 <b>Khách tự đăng ký — chờ duyệt mua chịu</b>\n" + "\n".join(lines) + "\n<i>Bấm ✅ Duyệt 1–5 để duyệt (có xác nhận trước).</i>"
 
 
 def _reply_product(query) -> str:
@@ -205,11 +206,13 @@ def _report_actions(cmd, is_owner):
 			if cmd == "/no":
 				from cago.api import reports
 
-				for r in (reports.debt_list() or [])[:5]:
-					btns.append({"text": f"🔔 Nhắc {(r['customer_name'] or '')[:12]}", "cb": f"debt:remind:{r['slug']}"})
+				# Numbered to match the "1. 2. 3…" rows in the message — a short label never gets
+				# truncated by Telegram's button width, and the confirm step shows the full name anyway.
+				for i, r in enumerate((reports.debt_list() or [])[:5]):
+					btns.append({"text": f"🔔 Nhắc {i + 1}", "cb": f"debt:remind:{r['slug']}"})
 			else:  # /duyet
-				for c in frappe.get_all("Customer", filters={"cago_unverified": 1}, fields=["customer_name", "cago_slug"], limit=5):
-					btns.append({"text": f"✅ Duyệt {(c.customer_name or '')[:12]}", "cb": f"lead:verify:{c.cago_slug}"})
+				for i, c in enumerate(frappe.get_all("Customer", filters={"cago_unverified": 1}, fields=["customer_name", "cago_slug"], limit=5)):
+					btns.append({"text": f"✅ Duyệt {i + 1}", "cb": f"lead:verify:{c.cago_slug}"})
 	except Exception:  # noqa: BLE001
 		pass
 	return btns
@@ -417,8 +420,53 @@ def _owner_gate(cb):
 	return cb_id, is_owner
 
 
+def _edit_message(cb, text, buttons):
+	"""Replace the tapped message's text + buttons in place (confirm prompt / outcome)."""
+	from cago.api.notify import _inline_keyboard
+
+	message = cb.get("message") or {}
+	_tg_api("editMessageText", {
+		"chat_id": str((message.get("chat") or {}).get("id") or ""),
+		"message_id": message.get("message_id"),
+		"parse_mode": "HTML", "disable_web_page_preview": True, "text": text,
+		"reply_markup": {"inline_keyboard": _inline_keyboard(buttons)},
+	})
+
+
+# A confirm step before any action that changes data / sends a message: the first tap shows the full
+# details + an explicit Đồng ý / Thôi, only the second tap (the "!" variant) actually runs it. Telegram
+# inline buttons fire on a single tap with no native confirm, so we do it ourselves — and it doubles as
+# the place to show the FULL customer name (button labels are short + can be truncated by Telegram).
+def _confirm_debt_remind(cb, slug):
+	"""First tap on 🔔 Nhắc → confirm prompt (full name + amount) before sending the reminder."""
+	cb_id, is_owner = _owner_gate(cb)
+	if not is_owner:
+		return _answer_callback(cb_id, "Chỉ chủ cửa hàng.")
+	try:
+		from cago.api.debt import get_customer_debt
+		from cago.customer import resolve_customer
+		from cago.utils import dto
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):
+			cust = resolve_customer(slug)
+			nm = frappe.db.get_value("Customer", cust, "customer_name")
+			phone = frappe.db.get_value("Customer", cust, "mobile_no")
+			bal = get_customer_debt(cust)["outstanding"]
+		if not phone:
+			return _answer_callback(cb_id, "Khách chưa có số điện thoại.")
+		_edit_message(
+			cb,
+			f"🔔 <b>Gửi tin nhắc nợ?</b>\n👤 {nm}\n📱 {phone}\n💵 Còn nợ <b>{dto.format_price(bal)}</b>\n\n<i>Tin sẽ gửi qua Zalo/SMS tới khách.</i>",
+			[{"text": "✅ Gửi nhắc", "cb": f"debt:remind!:{slug}"}, {"text": "✖️ Thôi", "cb": "cmd:no"}],
+		)
+		_answer_callback(cb_id, "")
+	except Exception:  # noqa: BLE001
+		_answer_callback(cb_id, "Lỗi, thử lại.")
+
+
 def _handle_debt_remind(cb, slug):
-	"""🔔 Nhắc <khách>: send the customer a debt reminder over the Zalo/SMS relay (owner-only)."""
+	"""Confirmed 🔔 Nhắc: send the customer a debt reminder over the Zalo/SMS relay (owner-only)."""
 	cb_id, is_owner = _owner_gate(cb)
 	if not is_owner:
 		return _answer_callback(cb_id, "Chỉ chủ cửa hàng.")
@@ -437,24 +485,56 @@ def _handle_debt_remind(cb, slug):
 			if not phone:
 				return _answer_callback(cb_id, "Khách chưa có số điện thoại.")
 			res = send_message(phone, f"Cửa hàng Minh Tuyết: bác {nm} còn nợ {dto.format_price(bal)}. Khi nào tiện bác ghé trả giúp ạ, cảm ơn bác!")
-		_answer_callback(cb_id, f"✅ Đã nhắc {nm}" if res.get("sent") else "Chưa gửi được (chưa bật kênh gửi tin).")
+		if res.get("sent"):
+			_edit_message(cb, f"✅ <b>Đã gửi tin nhắc nợ</b>\n👤 {nm} — {dto.format_price(bal)}", [{"text": "📒 Công nợ", "cb": "cmd:no"}, {"text": "⬅️ Menu", "cb": "cmd:menu"}])
+			_answer_callback(cb_id, "✅ Đã gửi")
+		else:
+			_edit_message(cb, "⚠️ <b>Chưa gửi được</b>\nChưa bật kênh gửi tin (Zalo/SMS). Vào <i>Kết nối &amp; Kênh</i> để bật.", [{"text": "⬅️ Menu", "cb": "cmd:menu"}])
+			_answer_callback(cb_id, "Chưa bật kênh gửi tin")
 	except Exception:  # noqa: BLE001
 		frappe.log_error(title="Cago telegram debt remind", message=frappe.get_traceback())
 		_answer_callback(cb_id, "Lỗi, thử lại.")
 
 
+def _confirm_lead_verify(cb, slug):
+	"""First tap on ✅ Duyệt → confirm prompt (full name) before approving the lead for credit."""
+	cb_id, is_owner = _owner_gate(cb)
+	if not is_owner:
+		return _answer_callback(cb_id, "Chỉ chủ cửa hàng.")
+	try:
+		from cago.customer import resolve_customer
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):
+			cust = resolve_customer(slug)
+			nm = frappe.db.get_value("Customer", cust, "customer_name")
+			phone = frappe.db.get_value("Customer", cust, "mobile_no")
+		_edit_message(
+			cb,
+			f"✅ <b>Duyệt cho mua chịu?</b>\n👤 {nm}{(' · ' + phone) if phone else ''}\n\n<i>Sau khi duyệt, khách này được phép mua ghi nợ. Chỉ duyệt khi bác biết rõ khách.</i>",
+			[{"text": "✅ Đồng ý duyệt", "cb": f"lead:verify!:{slug}"}, {"text": "✖️ Thôi", "cb": "cmd:duyet"}],
+		)
+		_answer_callback(cb_id, "")
+	except Exception:  # noqa: BLE001
+		_answer_callback(cb_id, "Lỗi, thử lại.")
+
+
 def _handle_lead_verify(cb, slug):
-	"""✅ Duyệt <khách>: approve a self-registered lead for buying on credit (owner-only)."""
+	"""Confirmed ✅ Duyệt: approve a self-registered lead for buying on credit (owner-only)."""
 	cb_id, is_owner = _owner_gate(cb)
 	if not is_owner:
 		return _answer_callback(cb_id, "Chỉ chủ cửa hàng.")
 	try:
 		from cago.api.debt import verify_customer
+		from cago.customer import resolve_customer
 		from cago.utils.privileged import as_user
 
 		with as_user("Administrator"):
+			cust = resolve_customer(slug)
+			nm = frappe.db.get_value("Customer", cust, "customer_name")
 			verify_customer(slug)
-		_answer_callback(cb_id, "✅ Đã duyệt cho mua chịu")
+		_edit_message(cb, f"✅ <b>Đã duyệt cho mua chịu</b>\n👤 {nm}", [{"text": "🪪 Chờ duyệt", "cb": "cmd:duyet"}, {"text": "⬅️ Menu", "cb": "cmd:menu"}])
+		_answer_callback(cb_id, "✅ Đã duyệt")
 	except Exception:  # noqa: BLE001
 		_answer_callback(cb_id, "Lỗi, thử lại.")
 
@@ -465,10 +545,15 @@ def _handle_callback(cb):
 	data = cb.get("data") or ""
 	if data.startswith("cmd:"):
 		return _handle_cmd_callback(cb)
-	if data.startswith("debt:remind:"):
+	# "!" = the confirmed second tap (actually run it); without "!" = first tap (show confirm prompt).
+	if data.startswith("debt:remind!:"):
 		return _handle_debt_remind(cb, data.split(":", 2)[2])
-	if data.startswith("lead:verify:"):
+	if data.startswith("debt:remind:"):
+		return _confirm_debt_remind(cb, data.split(":", 2)[2])
+	if data.startswith("lead:verify!:"):
 		return _handle_lead_verify(cb, data.split(":", 2)[2])
+	if data.startswith("lead:verify:"):
+		return _confirm_lead_verify(cb, data.split(":", 2)[2])
 	cb_id = cb.get("id")
 	from_id = str((cb.get("from") or {}).get("id") or "")
 	message = cb.get("message") or {}
@@ -521,6 +606,78 @@ def _consume_link(code: str, from_id: str) -> str:
 	frappe.db.set_value("User", user, "cago_telegram_id", from_id)
 	frappe.db.commit()
 	return f"✅ Đã liên kết Telegram với tài khoản <b>{user}</b>. Từ giờ lệnh hiện theo đúng quyền của bạn."
+
+
+def _check_init_data(init_data, bot):
+	"""Pure HMAC check of Telegram Mini App `initData` against a given bot token. Returns
+	(ok, user_dict, reason). The signature is computed with the bot token, so a valid hash PROVES the
+	data came from Telegram for THIS bot and wasn't forged — this is the auth, no password needed.
+	Algorithm (per Telegram docs): secret = HMAC_SHA256("WebAppData", bot_token);
+	hash == HMAC_SHA256(secret, "\\n".join sorted "key=value" excluding hash). Also rejects stale data."""
+	import hashlib
+	import hmac
+	import json as _json
+	import time
+	from urllib.parse import parse_qsl
+
+	if not init_data:
+		return False, {}, "empty"
+	if not bot:
+		return False, {}, "no_bot"
+	try:
+		pairs = dict(parse_qsl(init_data, keep_blank_values=True))
+	except Exception:  # noqa: BLE001
+		return False, {}, "parse"
+	received = pairs.pop("hash", "")
+	if not received:
+		return False, {}, "no_hash"
+	data_check = "\n".join(f"{k}={pairs[k]}" for k in sorted(pairs))
+	secret_key = hmac.new(b"WebAppData", bot.encode(), hashlib.sha256).digest()
+	calc = hmac.new(secret_key, data_check.encode(), hashlib.sha256).hexdigest()
+	if not hmac.compare_digest(calc, received):
+		return False, {}, "bad_sig"
+	# Replay guard: Telegram recommends rejecting initData older than ~24h.
+	try:
+		auth_date = int(pairs.get("auth_date") or 0)
+		if auth_date and (int(time.time()) - auth_date) > 86400:
+			return False, {}, "stale"
+	except Exception:  # noqa: BLE001
+		pass
+	try:
+		user = _json.loads(pairs.get("user") or "{}")
+	except Exception:  # noqa: BLE001
+		user = {}
+	return True, user, ""
+
+
+def _verify_init_data(init_data):
+	"""_check_init_data against the shop's configured bot token (read from the encrypted secret)."""
+	from cago.utils.secrets import get_secret
+
+	return _check_init_data(init_data, get_secret("Company", _company(), "cago_telegram_bot_token"))
+
+
+@frappe.whitelist(allow_guest=True)
+def miniapp_login(init_data=None):
+	"""One-tap login from inside the Telegram Mini App. The WebApp passes Telegram's signed `init_data`;
+	we verify its HMAC against the bot token (un-forgeable) and start a real session for the Cago user
+	linked to that Telegram id — no password. Returns {ok:false, reason} (→ the app shows the normal
+	login form) when the signature is bad/stale, the bot isn't configured, or the account isn't linked
+	yet. Only a LINKED Telegram account logs in, so this can't impersonate an arbitrary user."""
+	ok, tg_user, reason = _verify_init_data(init_data)
+	if not ok:
+		return {"ok": False, "reason": reason}
+	tg_id = str(tg_user.get("id") or "")
+	user = frappe.db.get_value("User", {"cago_telegram_id": tg_id}, "name") if tg_id else None
+	if not user:
+		return {"ok": False, "reason": "not_linked"}
+	if not frappe.db.get_value("User", user, "enabled"):
+		return {"ok": False, "reason": "disabled"}
+	# Establish a real Frappe session (sets the sid cookie) for the linked user.
+	frappe.local.login_manager.user = user
+	frappe.local.login_manager.post_login()
+	frappe.db.commit()
+	return {"ok": True, "user": user}
 
 
 @frappe.whitelist()

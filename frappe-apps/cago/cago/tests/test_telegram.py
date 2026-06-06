@@ -102,3 +102,102 @@ class TestTelegramOrderCallback(FrappeTestCase):
 		finally:
 			frappe.db.set_value("Company", company, "cago_telegram_chat_id", "")
 			frappe.delete_doc("Cago Wanted List", wl.name, force=1, ignore_permissions=True)
+
+
+class TestTelegramConfirmActions(FrappeTestCase):
+	"""Data-changing buttons (duyệt mua chịu / nhắc nợ) must take TWO taps — the first only shows a
+	confirm, the second actually runs it — so a mis-tap can't approve credit or fire a message."""
+
+	def setUp(self):
+		from cago.api.debt import _company
+
+		self.company = _company()
+		self._prev_owner_ids = frappe.db.get_value("Company", self.company, "cago_telegram_owner_ids")
+		# Make Telegram id "9001" an owner so the callback passes the owner gate.
+		frappe.db.set_value("Company", self.company, "cago_telegram_owner_ids", "9001")
+		cust = frappe.new_doc("Customer")
+		cust.customer_name = "KH Tele Confirm Test"
+		cust.customer_type = "Individual"
+		g = frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
+		t = frappe.db.get_value("Territory", {"is_group": 0}, "name")
+		if g:
+			cust.customer_group = g
+		if t:
+			cust.territory = t
+		cust.cago_unverified = 1
+		cust.insert(ignore_permissions=True)
+		self.cust = cust.name
+		self.slug = frappe.db.get_value("Customer", cust.name, "cago_slug") or cust.name
+		frappe.db.commit()
+
+	def tearDown(self):
+		frappe.db.set_value("Company", self.company, "cago_telegram_owner_ids", self._prev_owner_ids or "")
+		frappe.delete_doc("Customer", self.cust, force=1, ignore_permissions=True)
+
+	def _cb(self, data):
+		# A private chat (chat id == sender id) from the owner-listed Telegram id.
+		return {"id": "x", "from": {"id": "9001"}, "message": {"chat": {"id": "9001"}, "message_id": 1, "text": "x"}, "data": data}
+
+	def test_verify_requires_explicit_confirm(self):
+		# First tap (no "!") = confirm prompt only → lead is still unverified.
+		telegram._handle_callback(self._cb(f"lead:verify:{self.slug}"))
+		self.assertEqual(frappe.db.get_value("Customer", self.cust, "cago_unverified"), 1)
+		# Confirmed tap ("!") = actually approves.
+		telegram._handle_callback(self._cb(f"lead:verify!:{self.slug}"))
+		self.assertEqual(frappe.db.get_value("Customer", self.cust, "cago_unverified"), 0)
+
+	def test_verify_blocked_for_non_owner(self):
+		# A non-owner (Telegram id not in the owner list, not the group) cannot approve.
+		cb = {"id": "x", "from": {"id": "7777"}, "message": {"chat": {"id": "7777"}, "message_id": 1, "text": "x"}, "data": f"lead:verify!:{self.slug}"}
+		telegram._handle_callback(cb)
+		self.assertEqual(frappe.db.get_value("Customer", self.cust, "cago_unverified"), 1)
+
+
+class TestTelegramMiniAppLogin(FrappeTestCase):
+	"""The Mini App one-tap login verifies Telegram's signed initData with the bot token (HMAC). A
+	tampered/forged signature must be rejected — only a genuine Telegram signature logs anyone in."""
+
+	def _signed(self, bot, fields):
+		import hashlib
+		import hmac
+		from urllib.parse import urlencode
+
+		data_check = "\n".join(f"{k}={fields[k]}" for k in sorted(fields))
+		secret = hmac.new(b"WebAppData", bot.encode(), hashlib.sha256).digest()
+		h = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
+		return urlencode({**fields, "hash": h})
+
+	def test_valid_signature_accepted(self):
+		import time
+
+		bot = "123456:TEST-BOT-TOKEN"
+		fields = {"auth_date": str(int(time.time())), "query_id": "AAabc", "user": '{"id":424242,"first_name":"Tét"}'}
+		ok, user, reason = telegram._check_init_data(self._signed(bot, fields), bot)
+		self.assertTrue(ok, reason)
+		self.assertEqual(str(user.get("id")), "424242")
+
+	def test_tampered_signature_rejected(self):
+		import time
+		from urllib.parse import urlencode
+
+		bot = "123456:TEST-BOT-TOKEN"
+		fields = {"auth_date": str(int(time.time())), "user": '{"id":1}'}
+		forged = urlencode({**fields, "hash": "deadbeefdeadbeef"})
+		ok, _user, reason = telegram._check_init_data(forged, bot)
+		self.assertFalse(ok)
+		self.assertEqual(reason, "bad_sig")
+
+	def test_wrong_token_rejected(self):
+		import time
+
+		fields = {"auth_date": str(int(time.time())), "user": '{"id":1}'}
+		signed = self._signed("123456:REAL", fields)
+		ok, _user, _reason = telegram._check_init_data(signed, "123456:ATTACKER")
+		self.assertFalse(ok)
+
+	def test_stale_initdata_rejected(self):
+		bot = "123456:TEST-BOT-TOKEN"
+		fields = {"auth_date": "1000000000", "user": '{"id":1}'}  # year 2001 → far past the 24h window
+		ok, _user, reason = telegram._check_init_data(self._signed(bot, fields), bot)
+		self.assertFalse(ok)
+		self.assertEqual(reason, "stale")
