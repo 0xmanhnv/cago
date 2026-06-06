@@ -102,12 +102,15 @@ def notify_telegram(text, chat_id=None, buttons=None):
 
 
 def _inline_keyboard(buttons):
-	"""Build a Telegram inline_keyboard (2 buttons/row) from a flat list of
-	{text, url} (open a link) or {text, cb} (callback_data — handle in webhook). [] → no keyboard."""
+	"""Build a Telegram inline_keyboard (2 buttons/row) from a flat list of {text, …}:
+	{url} opens a link · {webapp} opens a Web App INSIDE Telegram (private chats only) · {cb}
+	callback_data (handled in the webhook). [] → no keyboard."""
 	kb, row = [], []
 	for b in buttons or []:
 		btn = {"text": b.get("text") or "Mở"}
-		if b.get("url"):
+		if b.get("webapp"):
+			btn["web_app"] = {"url": b["webapp"]}
+		elif b.get("url"):
 			btn["url"] = b["url"]
 		elif b.get("cb"):
 			btn["callback_data"] = b["cb"]

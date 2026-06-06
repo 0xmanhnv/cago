@@ -50,8 +50,8 @@ class TestTelegramCommandGating(FrappeTestCase):
 		self.assertIn("cmd:doanhthu:week", dt)
 		self.assertIn("cmd:menu", dt)  # ⬅️ Menu back
 		self.assertNotIn("cmd:no", dt)
-		# Staff menu → only the ops shortcut (callback-wise)
-		self.assertEqual(cbs("/menu", False, True), ["cmd:tonkho"])
+		# Staff menu → only operational shortcuts (no money)
+		self.assertEqual(cbs("/menu", False, True), ["cmd:tonkho", "cmd:nhaphang"])
 		# Any report view always offers a way back
 		self.assertIn("cmd:menu", cbs("/no", True, False))
 		self.assertIn("trợ lý", telegram._welcome(True, False).lower())

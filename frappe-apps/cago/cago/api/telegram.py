@@ -30,8 +30,8 @@ from cago.utils.permissions import ensure_admin, ensure_internal
 
 # Sensitive owner commands (revenue / debt / digest-with-debt) — answered only in a PRIVATE chat with
 # an owner, never in the shared staff group. Operational commands are available to staff in the group.
-_OWNER_CMDS = {"/doanhthu", "/no", "/viec"}
-_STAFF_CMDS = {"/tonkho"}
+_OWNER_CMDS = {"/doanhthu", "/no", "/viec", "/banchay", "/duyet"}
+_STAFF_CMDS = {"/tonkho", "/nhaphang"}
 
 _HELP_OWNER = (
 	"<b>Cago — trợ lý chủ cửa hàng</b>\n"
@@ -98,11 +98,63 @@ def _reply_viec() -> str:
 	return digest_text() or "✅ Hôm nay không có việc gì gấp."
 
 
+def _reply_topsell() -> str:
+	from cago.api import reports
+
+	rows = reports.best_sellers(limit=10) or []
+	if not rows:
+		return "🏆 Chưa có dữ liệu bán chạy."
+	lines = [f"{i + 1}. {r.get('display_name') or r.get('item_code')} — {r.get('qty_text') or r.get('sold') or ''}" for i, r in enumerate(rows[:10])]
+	return "🏆 <b>Bán chạy</b>\n" + "\n".join(lines)
+
+
+def _reply_reorder() -> str:
+	from cago.api import purchasing
+
+	rows = purchasing.reorder_suggestions() or []
+	if not rows:
+		return "🛒 Chưa cần nhập thêm — tồn kho ổn."
+	top = rows[:15]
+	lines = [f"• {r.get('display_name') or r.get('item_code')} — còn {r.get('qty', r.get('actual_qty', ''))}{(' · gợi ý nhập ' + str(r['suggest'])) if r.get('suggest') else ''}" for r in top]
+	more = f"\n… và {len(rows) - len(top)} mặt hàng khác" if len(rows) > len(top) else ""
+	return "🛒 <b>Gợi ý nhập hàng</b>\n" + "\n".join(lines) + more
+
+
+def _reply_leads() -> str:
+	rows = frappe.get_all("Customer", filters={"cago_unverified": 1}, fields=["customer_name", "mobile_no", "cago_slug"], limit=20)
+	if not rows:
+		return "✅ Không có khách nào chờ duyệt mua chịu."
+	lines = [f"• {r.customer_name}{(' · ' + r.mobile_no) if r.mobile_no else ''}" for r in rows[:20]]
+	return "🪪 <b>Khách tự đăng ký — chờ duyệt mua chịu</b>\n" + "\n".join(lines) + "\n<i>Bấm nút bên dưới để duyệt.</i>"
+
+
+def _reply_product(query) -> str:
+	"""Quick price/stock/shelf lookup for staff — type a product name, get the essentials + safety."""
+	from cago.utils import dto
+
+	cards = dto.list_dtos(query, audience="staff", limit=5) or []
+	if not cards:
+		return f"🔎 Không tìm thấy “{query}”. Thử tên khác / biệt danh nhé."
+	out = []
+	for c in cards[:5]:
+		bits = [f"<b>{c.get('display_name')}</b> — {c.get('price_text', '')}"]
+		extra = " · ".join(x for x in [c.get("stock_status"), (("Kệ " + c["shelf_location"]) if c.get("shelf_location") else None)] if x)
+		if extra:
+			bits.append(extra)
+		if c.get("is_chemical"):
+			bits.append("⚠️ Hoá chất — đọc kỹ nhãn, để xa trẻ em/vật nuôi.")
+		out.append("\n".join(bits))
+	return "🔎 <b>Kết quả</b>\n" + "\n\n".join(out)
+
+
 _COMMANDS = {
 	"/doanhthu": _reply_doanhthu,
 	"/no": _reply_no,
 	"/tonkho": _reply_tonkho,
 	"/viec": _reply_viec,
+	"/banchay": _reply_topsell,
+	"/nhaphang": _reply_reorder,
+	"/duyet": _reply_leads,
 }
 
 
@@ -113,29 +165,62 @@ def _menu(is_owner, in_group):
 		return [
 			{"text": "💰 Doanh thu", "cb": "cmd:doanhthu"}, {"text": "📒 Công nợ", "cb": "cmd:no"},
 			{"text": "📦 Tồn kho", "cb": "cmd:tonkho"}, {"text": "🗓 Việc", "cb": "cmd:viec"},
+			{"text": "🏆 Bán chạy", "cb": "cmd:banchay"}, {"text": "🛒 Nhập hàng", "cb": "cmd:nhaphang"},
+			{"text": "🪪 Chờ duyệt", "cb": "cmd:duyet"},
 		]
-	return [{"text": "📦 Tồn kho", "cb": "cmd:tonkho"}]
+	return [{"text": "📦 Tồn kho", "cb": "cmd:tonkho"}, {"text": "🛒 Nhập hàng", "cb": "cmd:nhaphang"}]
 
 
-_REPORT_CMDS = {"/doanhthu", "/no", "/tonkho", "/viec"}
+_REPORT_CMDS = {"/doanhthu", "/no", "/tonkho", "/viec", "/banchay", "/nhaphang", "/duyet"}
 # Each report view deep-links to the matching app screen (needs the public URL set).
-_APP_PATHS = {"/doanhthu": "/pos/reports", "/no": "/pos/debt", "/tonkho": "/pos/low-stock", "/viec": "/pos"}
+_APP_PATHS = {
+	"/doanhthu": "/pos/reports", "/no": "/pos/debt", "/tonkho": "/pos/low-stock", "/viec": "/pos",
+	"/banchay": "/pos/reports", "/nhaphang": "/pos/reorder", "/duyet": "/pos/debt",
+}
 
 
-def _open_app_button(cmd):
-	"""A '📲 Mở app' URL button to the relevant screen — only when the public URL is configured."""
+def _open_app_button(cmd, in_group):
+	"""A '📲 Mở app' button to the relevant screen — only when the public URL is set. In a private chat
+	it's a Web App button (opens INSIDE Telegram like a mini-app, no 'open link?' prompt); in a group
+	Web App buttons aren't allowed, so fall back to a normal link."""
 	from cago.api.integrations import public_url
 
 	base = public_url()
-	return {"text": "📲 Mở app", "url": f"{base}{_APP_PATHS.get(cmd, '/pos')}"} if base else None
+	if not base:
+		return None
+	url = f"{base}{_APP_PATHS.get(cmd, '/pos')}"
+	return {"text": "📲 Mở app", "url": url} if in_group else {"text": "📲 Mở app", "webapp": url}
+
+
+def _report_actions(cmd, is_owner):
+	"""Data-driven action buttons under a report: 🔔 Nhắc <khách> on /no, ✅ Duyệt <khách> on /duyet
+	(top 5). Runs elevated because the webhook itself is a Guest request."""
+	if not is_owner or cmd not in ("/no", "/duyet"):
+		return []
+	from cago.utils.privileged import as_user
+
+	btns = []
+	try:
+		with as_user("Administrator"):
+			if cmd == "/no":
+				from cago.api import reports
+
+				for r in (reports.debt_list() or [])[:5]:
+					btns.append({"text": f"🔔 Nhắc {(r['customer_name'] or '')[:12]}", "cb": f"debt:remind:{r['slug']}"})
+			else:  # /duyet
+				for c in frappe.get_all("Customer", filters={"cago_unverified": 1}, fields=["customer_name", "cago_slug"], limit=5):
+					btns.append({"text": f"✅ Duyệt {(c.customer_name or '')[:12]}", "cb": f"lead:verify:{c.cago_slug}"})
+	except Exception:  # noqa: BLE001
+		pass
+	return btns
 
 
 def _buttons_for(cmd, is_owner, in_group):
 	"""Per-reply inline buttons. On the MENU/welcome → the shortcut grid (drill in). On a REPORT view →
-	its extras (revenue period switch) + 📲 Mở app + ⬅️ Menu. So it reads like a small app."""
-	app = _open_app_button(cmd)
+	action buttons (nhắc nợ / duyệt) + extras (revenue period) + 📲 Mở app + ⬅️ Menu — reads like an app."""
+	app = _open_app_button(cmd, in_group)
 	if cmd in _REPORT_CMDS:
-		btns = []
+		btns = _report_actions(cmd, is_owner)
 		if cmd == "/doanhthu" and is_owner and not in_group:
 			btns += [
 				{"text": "Hôm nay", "cb": "cmd:doanhthu:today"}, {"text": "Tuần", "cb": "cmd:doanhthu:week"},
@@ -222,10 +307,29 @@ def webhook():
 		return {"ok": True}
 
 	# /start (no link code) and /menu open the friendly button menu; everything else is a command.
-	text = _welcome(is_owner, in_group) if cmd in ("/start", "/menu") else _handle(cmd, from_id, is_owner, in_group)
+	# /start //menu → welcome; a /command → its handler; plain text → quick product lookup (tra giá).
+	if cmd in ("/start", "/menu"):
+		reply = _welcome(is_owner, in_group)
+	elif cmd.startswith("/"):
+		reply = _handle(cmd, from_id, is_owner, in_group)
+	else:
+		reply = _lookup_product(text)
 	# Reply to the chat the command came from (private stays private) + tappable shortcut menu.
-	notify_telegram(text, chat_id=chat_id, buttons=_buttons_for(cmd, is_owner, in_group))
+	notify_telegram(reply, chat_id=chat_id, buttons=_buttons_for(cmd, is_owner, in_group))
 	return {"ok": True}
+
+
+def _lookup_product(query):
+	"""Plain text in the bot = a quick price/stock/shelf lookup (elevated; webhook is a Guest request)."""
+	from cago.utils.privileged import as_user
+
+	if not query:
+		return _HELP_STAFF
+	try:
+		with as_user("Administrator"):
+			return _reply_product(query)
+	except Exception:  # noqa: BLE001
+		return "Xin lỗi, chưa tra được. Thử tên khác nhé."
 
 
 def _context(from_id, chat_id):
@@ -304,17 +408,73 @@ def _handle_cmd_callback(cb):
 	_answer_callback(cb_id, "✅")
 
 
+def _owner_gate(cb):
+	"""(cb_id, ok): an action button (remind/verify) is owner-only."""
+	cb_id = cb.get("id")
+	from_id = str((cb.get("from") or {}).get("id") or "")
+	chat_id = str(((cb.get("message") or {}).get("chat") or {}).get("id") or "")
+	is_owner, _g, _l, _p = _context(from_id, chat_id)
+	return cb_id, is_owner
+
+
+def _handle_debt_remind(cb, slug):
+	"""🔔 Nhắc <khách>: send the customer a debt reminder over the Zalo/SMS relay (owner-only)."""
+	cb_id, is_owner = _owner_gate(cb)
+	if not is_owner:
+		return _answer_callback(cb_id, "Chỉ chủ cửa hàng.")
+	try:
+		from cago.api.debt import get_customer_debt
+		from cago.api.notify import send_message
+		from cago.customer import resolve_customer
+		from cago.utils import dto
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):
+			cust = resolve_customer(slug)
+			phone = frappe.db.get_value("Customer", cust, "mobile_no")
+			nm = frappe.db.get_value("Customer", cust, "customer_name")
+			bal = get_customer_debt(cust)["outstanding"]
+			if not phone:
+				return _answer_callback(cb_id, "Khách chưa có số điện thoại.")
+			res = send_message(phone, f"Cửa hàng Minh Tuyết: bác {nm} còn nợ {dto.format_price(bal)}. Khi nào tiện bác ghé trả giúp ạ, cảm ơn bác!")
+		_answer_callback(cb_id, f"✅ Đã nhắc {nm}" if res.get("sent") else "Chưa gửi được (chưa bật kênh gửi tin).")
+	except Exception:  # noqa: BLE001
+		frappe.log_error(title="Cago telegram debt remind", message=frappe.get_traceback())
+		_answer_callback(cb_id, "Lỗi, thử lại.")
+
+
+def _handle_lead_verify(cb, slug):
+	"""✅ Duyệt <khách>: approve a self-registered lead for buying on credit (owner-only)."""
+	cb_id, is_owner = _owner_gate(cb)
+	if not is_owner:
+		return _answer_callback(cb_id, "Chỉ chủ cửa hàng.")
+	try:
+		from cago.api.debt import verify_customer
+		from cago.utils.privileged import as_user
+
+		with as_user("Administrator"):
+			verify_customer(slug)
+		_answer_callback(cb_id, "✅ Đã duyệt cho mua chịu")
+	except Exception:  # noqa: BLE001
+		_answer_callback(cb_id, "Lỗi, thử lại.")
+
+
 def _handle_callback(cb):
 	"""A staff/owner tapped a button → run a menu command (cmd:…) or update an order's status (wl:…).
 	Gated to the ops group or a linked Cago user; order actions reuse staff.set_wanted_list_status."""
-	if (cb.get("data") or "").startswith("cmd:"):
+	data = cb.get("data") or ""
+	if data.startswith("cmd:"):
 		return _handle_cmd_callback(cb)
+	if data.startswith("debt:remind:"):
+		return _handle_debt_remind(cb, data.split(":", 2)[2])
+	if data.startswith("lead:verify:"):
+		return _handle_lead_verify(cb, data.split(":", 2)[2])
 	cb_id = cb.get("id")
 	from_id = str((cb.get("from") or {}).get("id") or "")
 	message = cb.get("message") or {}
 	chat_id = str((message.get("chat") or {}).get("id") or "")
 	message_id = message.get("message_id")
-	parts = (cb.get("data") or "").split(":", 2)
+	parts = data.split(":", 2)
 	if len(parts) != 3 or parts[0] != "wl":
 		return _answer_callback(cb_id, "Lệnh không hợp lệ.")
 	action, code = parts[1], parts[2]
