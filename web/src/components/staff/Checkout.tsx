@@ -1541,7 +1541,7 @@ export function Checkout() {
               never dims). */}
           {payOpen && !desktop && <div className={`fixed inset-0 z-10 bg-black/30 ${payClosing ? "animate-fade-out" : "animate-fade-in"}`} onClick={closePay} aria-hidden />}
           {/* Phone/tablet: fixed slide-up sheet. PC (xl): a normal sticky card in the right column. */}
-          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.08)] xl:sticky xl:inset-x-auto xl:bottom-auto xl:top-4 xl:z-auto xl:rounded-2xl xl:border xl:shadow-card">
+          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_12px_rgba(0,0,0,0.08)] xl:sticky xl:inset-x-auto xl:bottom-auto xl:top-4 xl:z-auto xl:rounded-2xl xl:border xl:pb-0 xl:shadow-card">
             <div className="mx-auto max-w-[960px]">
               {!panelOpen ? (
                 // COLLAPSED — one slim row. Keeps the product list visible so staff can keep

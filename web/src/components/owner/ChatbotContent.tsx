@@ -106,7 +106,7 @@ export function ChatbotContent() {
         <AddBtn onClick={() => set({ synonyms: [...d.synonyms, { intent_group: "overview", term: "" }] })} />
       </Section>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white p-3">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button onClick={save} disabled={saving} className="mx-auto block w-full max-w-2xl rounded-xl bg-brand py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
           {saving ? "Đang lưu…" : "💾 Lưu tất cả"}
         </button>

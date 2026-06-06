@@ -32,6 +32,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#16a34a",
+  // Let the app paint edge-to-edge INCLUDING behind the iOS status bar / Dynamic Island so a colored
+  // top bar reaches the very top (no white strip). Content then uses env(safe-area-inset-*) to stay
+  // clear of the notch/home-indicator. Insets are 0 on non-notch devices → no change there.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

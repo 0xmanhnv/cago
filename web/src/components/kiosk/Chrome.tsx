@@ -55,7 +55,7 @@ export function Chrome({ children }: { children: React.ReactNode }) {
   // 900px is right for a tablet; the in-store kiosk runs on a big screen, so widen on xl/2xl
   // (the grids add columns to fill it) instead of stranding content in a narrow centred column.
   return (
-    <div className="mx-auto max-w-[900px] px-4 pb-24 pt-4 text-[#14271b] xl:max-w-[1320px] 2xl:max-w-[1600px]">
+    <div className="mx-auto max-w-[900px] px-4 pb-24 pt-[max(1rem,env(safe-area-inset-top))] text-[#14271b] xl:max-w-[1320px] 2xl:max-w-[1600px]">
       {/* Fixed kiosk only: one-tap fullscreen (browsers require a user gesture, so it can't be
           auto). Hides the browser chrome — pairs with the OS-level lockdown. */}
       {fixed && fsOk && !isFs && (
@@ -73,7 +73,7 @@ export function Chrome({ children }: { children: React.ReactNode }) {
       {showCartBar && (
         <button
           onClick={nav.openCart}
-          className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-between bg-brand-dark px-5 py-3.5 text-lg font-extrabold text-white"
+          className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-between bg-brand-dark px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] text-lg font-extrabold text-white"
         >
           <span>🧺 Đã chọn: {cartCount} sản phẩm</span>
           <span>Xem &amp; gửi →</span>

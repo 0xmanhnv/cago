@@ -67,6 +67,18 @@ body {
   min-height: 100vh;
 }
 
+/* Edge-to-edge top app-bar (the green "đỉnh liền màu" header). With viewport-fit=cover the page paints
+   behind the iOS status bar / Dynamic Island; these pull the bar up to the very top (cancelling the
+   page wrapper's top padding) and fill the notch area green, keeping the bar's content below the notch.
+   Authored here (not inline Tailwind) so the calc() spacing is guaranteed valid. Insets are 0 on
+   non-notch devices → identical to before. */
+.appbar-pull {
+  margin-top: calc(max(1rem, env(safe-area-inset-top)) * -1);
+}
+.appbar-padtop {
+  padding-top: calc(env(safe-area-inset-top) + 1.25rem);
+}
+
 /* iOS Safari auto-zooms when a focused form control has font-size < 16px — and often fails to zoom
    back out when the keyboard hides, leaving the layout shifted. Several screens use Tailwind text-sm
    (14px) / text-xs inputs. Force ALL form controls to ≥16px on touch devices so NO input anywhere can

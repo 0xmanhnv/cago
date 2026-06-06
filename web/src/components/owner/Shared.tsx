@@ -206,7 +206,7 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
         // App-bar "đỉnh liền màu": a solid brand-green bar reaching the screen's top edge — it merges
         // with the green theme-color status-bar tint so it reads like a native app's top bar (KiotViet
         // does the same with orange). Body below stays light. Preview via the `accent` prop (Tra giá).
-        <div className="-mx-4 -mt-4 mb-3 rounded-b-3xl bg-brand px-4 pb-3.5 pt-5 text-white shadow-md">
+        <div className="appbar-pull appbar-padtop -mx-4 mb-3 rounded-b-3xl bg-brand px-4 pb-3.5 text-white shadow-md">
           <div className="mb-3 flex items-center gap-2.5">
             <button onClick={onBack} className="shrink-0 rounded-xl bg-white/20 px-3 py-1.5 font-bold text-white">‹ Quay lại</button>
             <div className="flex-1 truncate text-xl font-extrabold">{title}</div>
