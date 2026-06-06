@@ -705,8 +705,10 @@ def _consume_link(code: str, from_id: str) -> str:
 		return "Mã liên kết không hợp lệ hoặc đã hết hạn. Mở lại app và bấm 'Liên kết Telegram'."
 	frappe.cache().delete_value(_link_key(code))
 	# One Telegram id → one Cago user: detach it from any other account first (re-link / device change).
+	# Detach to NULL, never "" — cago_telegram_id is UNIQUE, and MySQL allows many NULLs but only one ""
+	# (two detached users at "" would collide → IntegrityError).
 	for other in frappe.get_all("User", filters={"cago_telegram_id": from_id, "name": ["!=", user]}, pluck="name"):
-		frappe.db.set_value("User", other, "cago_telegram_id", "")
+		frappe.db.set_value("User", other, "cago_telegram_id", None)
 	frappe.db.set_value("User", user, "cago_telegram_id", from_id)
 	frappe.db.commit()
 	return f"✅ Đã liên kết Telegram với tài khoản <b>{user}</b>. Từ giờ lệnh hiện theo đúng quyền của bạn."
@@ -819,7 +821,8 @@ def link_status():
 def unlink():
 	"""Detach the current user's Telegram link."""
 	ensure_internal()
-	frappe.db.set_value("User", frappe.session.user, "cago_telegram_id", "")
+	# NULL, not "" — cago_telegram_id is UNIQUE and MySQL rejects a second "" (see _consume_link).
+	frappe.db.set_value("User", frappe.session.user, "cago_telegram_id", None)
 	frappe.db.commit()
 	return {"linked": False}
 

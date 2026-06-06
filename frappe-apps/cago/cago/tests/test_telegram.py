@@ -59,19 +59,49 @@ class TestTelegramCommandGating(FrappeTestCase):
 
 class TestTelegramAccountLink(FrappeTestCase):
 	def tearDown(self):
-		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
+		frappe.db.set_value("User", "Guest", "cago_telegram_id", None)
+
+	def _link(self, user, from_id):
+		code = frappe.generate_hash(length=10)
+		frappe.cache().set_value(telegram._link_key(code), user, expires_in_sec=600)
+		return telegram._consume_link(code, from_id)
 
 	def test_link_by_code_maps_telegram_id_to_user(self):
-		code = frappe.generate_hash(length=10)
-		frappe.cache().set_value(telegram._link_key(code), "Administrator", expires_in_sec=600)
-		msg = telegram._consume_link(code, "777888")
+		msg = self._link("Administrator", "777888")
 		self.assertIn("liên kết", msg.lower())
 		self.assertEqual(frappe.db.get_value("User", "Administrator", "cago_telegram_id"), "777888")
-		# code is single-use — a replay no longer links
+
+	def test_link_code_is_single_use(self):
+		code = frappe.generate_hash(length=10)
+		frappe.cache().set_value(telegram._link_key(code), "Administrator", expires_in_sec=600)
+		telegram._consume_link(code, "777888")
+		# replay of the SAME code no longer links
 		self.assertIn("không hợp lệ", telegram._consume_link(code, "777888").lower())
 
 	def test_invalid_code_rejected(self):
 		self.assertIn("không hợp lệ", telegram._consume_link("nope-not-real", "123").lower())
+
+	def test_telegram_id_relinks_and_moves_to_new_account(self):
+		"""A Telegram id already linked to user A CAN be re-linked to user B — it MOVES: B gets it and A
+		is auto-detached, so one Telegram id maps to exactly ONE system account (also enforced by the
+		unique constraint, which the detach-first step keeps from throwing)."""
+		self._link("Administrator", "313131")
+		self.assertEqual(frappe.db.get_value("User", "Administrator", "cago_telegram_id"), "313131")
+		# same Telegram id, different account → moves
+		self._link("Guest", "313131")
+		self.assertEqual(frappe.db.get_value("User", "Guest", "cago_telegram_id"), "313131")
+		# old account is detached to NULL (not "" — that would collide on the UNIQUE index)
+		self.assertFalse(frappe.db.get_value("User", "Administrator", "cago_telegram_id"))
+
+	def test_user_keeps_only_one_telegram_id(self):
+		"""Linking a SECOND Telegram id to the same account overwrites the first (the field holds one
+		value) — an account can't accumulate multiple Telegram logins."""
+		self._link("Administrator", "111aaa")
+		self._link("Administrator", "222bbb")
+		self.assertEqual(frappe.db.get_value("User", "Administrator", "cago_telegram_id"), "222bbb")
+		# the old Telegram id now maps to nobody
+		self.assertFalse(frappe.db.get_value("User", {"cago_telegram_id": "111aaa"}, "name"))
 
 
 class TestTelegramOrderCallback(FrappeTestCase):
@@ -104,7 +134,7 @@ class TestTelegramOrderCallback(FrappeTestCase):
 			self.assertEqual(frappe.db.get_value("Cago Wanted List", wl.name, "status"), "Completed")
 		finally:
 			frappe.db.set_value("Company", company, "cago_telegram_chat_id", "")
-			frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+			frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
 			frappe.delete_doc("Cago Wanted List", wl.name, force=1, ignore_permissions=True)
 
 	def test_is_internal_user_gate(self):
@@ -129,12 +159,12 @@ class TestTelegramAccessGate(FrappeTestCase):
 		self._prev_ids = frappe.db.get_value("Company", self.company, "cago_telegram_owner_ids")
 		frappe.db.set_value("Company", self.company, "cago_telegram_chat_id", "OPSGRP")
 		frappe.db.set_value("Company", self.company, "cago_telegram_owner_ids", "")
-		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
 
 	def tearDown(self):
 		frappe.db.set_value("Company", self.company, "cago_telegram_chat_id", self._prev_chat or "")
 		frappe.db.set_value("Company", self.company, "cago_telegram_owner_ids", self._prev_ids or "")
-		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
 
 	def test_unlinked_group_member_is_asked_to_link(self):
 		reply, _b = telegram._route("/tonkho", "/tonkho", "55", "OPSGRP")
@@ -220,7 +250,7 @@ class TestTelegramSupportAction(FrappeTestCase):
 		frappe.db.commit()
 
 	def tearDown(self):
-		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
 		frappe.delete_doc("Cago Support Request", self.req, force=1, ignore_permissions=True)
 
 	def _cb(self, from_id, data):
@@ -255,7 +285,7 @@ class TestOwnerTelegramTargets(FrappeTestCase):
 			self.assertIn("55502", chats)  # linked owner user
 		finally:
 			frappe.db.set_value("Company", company, "cago_telegram_owner_ids", prev or "")
-			frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+			frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
 
 
 class TestTelegramMiniAppLogin(FrappeTestCase):
