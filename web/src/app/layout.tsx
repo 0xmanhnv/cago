@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#16a34a",
+  themeColor: "rgb(22, 163, 74)", // rgb() form (== #16a34a) — some iOS Safari builds tint the status bar more reliably with rgb() than hex
   // Let the app paint edge-to-edge INCLUDING behind the iOS status bar / Dynamic Island so a colored
   // top bar reaches the very top (no white strip). Content then uses env(safe-area-inset-*) to stay
   // clear of the notch/home-indicator. Insets are 0 on non-notch devices → no change there.
