@@ -19,15 +19,24 @@ export function TelegramLink() {
   const [st, setSt] = useState<LinkState | null>(null);
   const [deepLink, setDeepLink] = useState("");
   const [busy, setBusy] = useState(false);
+  const [acting, setActing] = useState(false); // an explicit action in flight → block double-submit
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Monotonic generation: every state write captures it, and only the LATEST write applies — so a slow
+  // background poll can't clobber a just-completed action (e.g. revert "unlinked" back to "linked").
+  const gen = useRef(0);
+  const apply = (s: LinkState) => {
+    gen.current += 1;
+    setSt(s);
+  };
 
   const refresh = useCallback(async () => {
+    const g = ++gen.current;
     try {
       const d = await frappeCall<LinkState>("cago.api.telegram.link_status", {}, { method: "GET" });
-      setSt(d);
+      if (g === gen.current) setSt(d); // ignore if a newer write happened while this was in flight
       return d;
     } catch {
-      setSt({ linked: false });
+      if (g === gen.current) setSt({ linked: false });
       return null;
     }
   }, []);
@@ -42,6 +51,7 @@ export function TelegramLink() {
   }, [refresh]);
 
   const link = async () => {
+    if (busy) return;
     setBusy(true);
     try {
       const d = await frappeCall<{ deep_link: string }>("cago.api.telegram.link_start", {});
@@ -59,35 +69,45 @@ export function TelegramLink() {
   };
 
   const confirm = async () => {
+    if (acting) return;
+    setActing(true);
     try {
-      const d = await frappeCall<LinkState>("cago.api.telegram.confirm_link", {});
-      setSt(d);
+      apply(await frappeCall<LinkState>("cago.api.telegram.confirm_link", {}));
       setDeepLink("");
       toast.success("Đã xác nhận liên kết Telegram.");
     } catch {
       toast.error("Yêu cầu đã hết hạn. Bấm Liên kết lại nhé.");
       refresh();
+    } finally {
+      setActing(false);
     }
   };
 
   const reject = async () => {
+    if (acting) return;
+    setActing(true);
     try {
-      const d = await frappeCall<LinkState>("cago.api.telegram.reject_link", {});
-      setSt(d);
+      apply(await frappeCall<LinkState>("cago.api.telegram.reject_link", {}));
       toast.success("Đã từ chối yêu cầu liên kết.");
     } catch {
       toast.error("Lỗi, thử lại.");
+    } finally {
+      setActing(false);
     }
   };
 
   const unlink = async () => {
+    if (acting) return;
+    setActing(true);
     try {
       await frappeCall("cago.api.telegram.unlink", {});
       setDeepLink("");
-      await refresh();
+      apply({ linked: false });
       toast.success("Đã huỷ liên kết Telegram.");
     } catch {
       toast.error("Lỗi: không huỷ được.");
+    } finally {
+      setActing(false);
     }
   };
 
@@ -109,10 +129,10 @@ export function TelegramLink() {
           </div>
           <div className="mt-1 text-sm text-amber-800">Chỉ xác nhận nếu chính bạn vừa bấm liên kết trong Telegram.</div>
           <div className="mt-3 flex gap-2">
-            <button onClick={confirm} className="min-h-touch flex-1 rounded-xl bg-brand font-extrabold text-white">
+            <button onClick={confirm} disabled={acting} className="min-h-touch flex-1 rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">
               ✅ Xác nhận liên kết
             </button>
-            <button onClick={reject} className="min-h-touch rounded-xl border-2 border-red-300 px-4 font-bold text-red-600">
+            <button onClick={reject} disabled={acting} className="min-h-touch rounded-xl border-2 border-red-300 px-4 font-bold text-red-600 disabled:opacity-50">
               Từ chối
             </button>
           </div>
@@ -121,7 +141,7 @@ export function TelegramLink() {
         <div className="mt-3">
           <div className="flex items-center gap-3">
             <span className="font-bold text-emerald-700">✅ Đã liên kết {st.handle}</span>
-            <button onClick={unlink} className="rounded-lg border-2 border-red-300 px-3 py-1.5 text-sm font-bold text-red-600">
+            <button onClick={unlink} disabled={acting} className="rounded-lg border-2 border-red-300 px-3 py-1.5 text-sm font-bold text-red-600 disabled:opacity-50">
               Huỷ liên kết
             </button>
           </div>

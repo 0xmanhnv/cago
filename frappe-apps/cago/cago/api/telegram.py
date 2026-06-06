@@ -290,6 +290,10 @@ def webhook():
 	if data.get("callback_query"):
 		_handle_callback(data["callback_query"])
 		return {"ok": True}
+	# Inline mode: "@bot cám" typed in ANY chat → tra giá nhanh (recognized staff only).
+	if data.get("inline_query"):
+		_handle_inline_query(data["inline_query"])
+		return {"ok": True}
 	msg = data.get("message") or data.get("edited_message") or {}
 	chat_id = str((msg.get("chat") or {}).get("id") or "")
 	from_id = str((msg.get("from") or {}).get("id") or "")
@@ -301,7 +305,12 @@ def webhook():
 	# Account linking: a "/start <code>" carries a one-time code minted by the in-app "Liên kết
 	# Telegram" flow — the code IS the auth, so accept it from ANY chat (the user isn't linked yet).
 	if cmd == "/start" and arg:
-		notify_telegram(_consume_link(arg, from_id), chat_id=chat_id)
+		try:
+			reply = _consume_link(arg, from_id)
+		except Exception:  # noqa: BLE001 — a bind hiccup must never 500 the webhook (Telegram would retry)
+			frappe.log_error(title="Cago telegram link failed", message=frappe.get_traceback())
+			reply = "Chưa liên kết được, bác thử lại sau ít phút nhé."
+		notify_telegram(reply, chat_id=chat_id)
 		return {"ok": True}
 
 	reply, buttons = _route(cmd, text, from_id, chat_id)
@@ -373,6 +382,70 @@ def _lookup_product(query):
 			return _reply_product(query)
 	except Exception:  # noqa: BLE001
 		return "Xin lỗi, chưa tra được. Thử tên khác nhé."
+
+
+def _build_inline(query, linked):
+	"""Build inline-query results (tra giá nhanh "@bot cám" in any chat). Returns (results, switch_pm):
+	only a RECOGNIZED internal staff/owner gets product results (price/stock is staff info) — anyone else
+	gets an empty list + a 'link your account' button. The inserted message is share-safe (name + price +
+	stock + chemical safety; NO cost/margin, NO shelf location)."""
+	if not (linked and _is_internal_user(linked)):
+		return [], "Liên kết tài khoản để tra giá"
+	if not query or len(query) < 2:
+		return [], None
+	from cago.api.integrations import public_url
+	from cago.utils import dto
+	from cago.utils.privileged import as_user
+
+	with as_user("Administrator"):
+		cards = dto.list_dtos(query, audience="staff", limit=12) or []
+	base = public_url()
+	results = []
+	for i, c in enumerate(cards[:12]):
+		name = c.get("display_name") or c.get("item_code")
+		price = c.get("price_text", "")
+		stock = c.get("stock_status") or ""
+		msg = f"<b>{name}</b>" + (f"\n💵 {price}" if price else "") + (f"\n📦 {stock}" if stock else "")
+		if c.get("is_chemical"):
+			msg += "\n⚠️ Hoá chất — đọc kỹ nhãn, để xa trẻ em/vật nuôi."
+		result = {
+			"type": "article",
+			"id": str(i),
+			"title": f"{name}{(' — ' + price) if price else ''}",
+			"description": " · ".join(x for x in [price, stock] if x) or "Xem chi tiết",
+			"input_message_content": {"message_text": msg, "parse_mode": "HTML"},
+		}
+		img = c.get("image")
+		if img and base and img.startswith("/"):
+			result["thumbnail_url"] = base + img
+		elif img and str(img).startswith("http"):
+			result["thumbnail_url"] = img
+		results.append(result)
+	return results, None
+
+
+def _answer_inline(qid, results, switch_pm=None):
+	"""answerInlineQuery — short cache, personalised (results are role-gated). switch_pm shows a button
+	above the results that opens the bot in a private chat (to link)."""
+	payload = {"inline_query_id": qid, "results": results, "cache_time": 5, "is_personal": True}
+	if switch_pm:
+		payload["switch_pm_text"] = switch_pm
+		payload["switch_pm_parameter"] = "link"
+	_tg_api("answerInlineQuery", payload)
+
+
+def _handle_inline_query(iq):
+	"""Inbound inline query → role-gated product lookup. Never raises (webhook must return fast)."""
+	qid = iq.get("id")
+	from_id = str((iq.get("from") or {}).get("id") or "")
+	query = (iq.get("query") or "").strip()
+	try:
+		linked = frappe.db.get_value("User", {"cago_telegram_id": from_id, "enabled": 1}, "name") if from_id else None
+		results, switch_pm = _build_inline(query, linked)
+		_answer_inline(qid, results, switch_pm)
+	except Exception:  # noqa: BLE001
+		frappe.log_error(title="Cago telegram inline", message=frappe.get_traceback())
+		_answer_inline(qid, [])
 
 
 def _context(from_id, chat_id):
@@ -747,11 +820,15 @@ def _bind_telegram(user, tg_id):
 	_notify_in_app(user, f"Tài khoản của bạn vừa liên kết Telegram {_mask_tg(tg_id)}. Nếu không phải bạn, hãy gỡ ngay trong app.")
 	frappe.db.commit()
 	# If THIS account had a different Telegram before, warn that old device — it's the channel a real
-	# owner would still be watching if someone replaced their link.
+	# owner would still be watching if someone replaced their link. Best-effort: the bind is already
+	# durable (committed above), so a send failure here must NOT surface as failure to the caller.
 	if prev and str(prev) != str(tg_id):
-		from cago.api.notify import notify_telegram
+		try:
+			from cago.api.notify import notify_telegram
 
-		notify_telegram("⚠️ Liên kết Telegram của tài khoản này vừa được thay bằng thiết bị khác. Nếu không phải bạn, hãy mở app kiểm tra ngay.", chat_id=prev)
+			notify_telegram("⚠️ Liên kết Telegram của tài khoản này vừa được thay bằng thiết bị khác. Nếu không phải bạn, hãy mở app kiểm tra ngay.", chat_id=prev)
+		except Exception:  # noqa: BLE001
+			pass
 
 
 def _pending_key(user) -> str:
@@ -806,6 +883,9 @@ def _check_init_data(init_data, bot):
 	received = pairs.pop("hash", "")
 	if not received:
 		return False, {}, "no_hash"
+	# `signature` (Telegram's newer Ed25519 third-party-validation field) is excluded from the HMAC
+	# data-check string just like `hash` — otherwise a client that sends it would fail verification.
+	pairs.pop("signature", None)
 	data_check = "\n".join(f"{k}={pairs[k]}" for k in sorted(pairs))
 	secret_key = hmac.new(b"WebAppData", bot.encode(), hashlib.sha256).digest()
 	calc = hmac.new(secret_key, data_check.encode(), hashlib.sha256).hexdigest()
@@ -1002,8 +1082,8 @@ def set_webhook(public_url=None):
 
 		r = requests.post(
 			f"https://api.telegram.org/bot{bot}/setWebhook",
-			# callback_query is REQUIRED for the inline buttons (menu shortcuts + order actions) to work.
-			json={"url": hook, "secret_token": secret, "allowed_updates": ["message", "callback_query"]},
+			# callback_query = inline buttons (menu/order actions); inline_query = "@bot cám" tra-giá in any chat.
+			json={"url": hook, "secret_token": secret, "allowed_updates": ["message", "callback_query", "inline_query"]},
 			timeout=10,
 		)
 		body = r.json()

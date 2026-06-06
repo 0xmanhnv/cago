@@ -343,6 +343,38 @@ class TestTelegramMiniAppLogin(FrappeTestCase):
 		self.assertFalse(ok)
 		self.assertEqual(reason, "stale")
 
+	def test_signature_field_excluded_from_check(self):
+		"""A newer Telegram `signature` field (Ed25519 3rd-party validation) must be excluded from the
+		HMAC data-check like `hash` — otherwise a client that sends it would fail verification."""
+		import time
+
+		bot = "123456:TEST-BOT-TOKEN"
+		fields = {"auth_date": str(int(time.time())), "user": '{"id":7}'}
+		init = self._signed(bot, fields) + "&signature=Zm9vYmFy"  # hash signed over auth_date+user only
+		ok, user, reason = telegram._check_init_data(init, bot)
+		self.assertTrue(ok, reason)
+		self.assertEqual(str(user.get("id")), "7")
+
+
+class TestTelegramInline(FrappeTestCase):
+	"""Inline 'tra giá' ("@bot cám") is role-gated: only a recognized internal user gets product results;
+	anyone else gets an empty list + a 'link your account' prompt."""
+
+	def test_unrecognized_gets_link_prompt_no_results(self):
+		results, switch = telegram._build_inline("cám", None)
+		self.assertEqual(results, [])
+		self.assertTrue(switch)
+
+	def test_recognized_internal_user_gets_results(self):
+		results, switch = telegram._build_inline("xẻng", "Administrator")  # owner-tier internal user
+		self.assertIsNone(switch)
+		self.assertIsInstance(results, list)
+
+	def test_short_query_returns_nothing(self):
+		results, switch = telegram._build_inline("a", "Administrator")
+		self.assertEqual(results, [])
+		self.assertIsNone(switch)
+
 
 class TestTelegramMiniAppLink(FrappeTestCase):
 	"""In-app link: while in the Telegram Mini App and signed in, link the CURRENT Telegram to the

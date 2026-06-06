@@ -255,13 +255,19 @@ def _notify_shift_close(doc):
 		from cago.api.notify import notify_owner_telegram
 		from cago.utils import dto
 
+		# format_price returns "Liên hệ" for 0 (it's a product-price helper) — wrong in a cash digest,
+		# where 0 must read as "0đ". money() shows a real amount, "0đ" for zero.
+		def money(x):
+			x = flt(x)
+			return dto.format_price(x) if x else "0đ"
+
 		who = frappe.utils.get_fullname(doc.cashier) or doc.cashier
 		diff = flt(doc.difference)
-		recon = "✅ Khớp két" if abs(diff) < 1 else (f"⚠️ Thừa {dto.format_price(diff)}" if diff > 0 else f"⚠️ Thiếu {dto.format_price(-diff)}")
+		recon = "✅ Khớp két" if abs(diff) < 1 else (f"⚠️ Thừa {money(diff)}" if diff > 0 else f"⚠️ Thiếu {money(-diff)}")
 		notify_owner_telegram(
 			f"🌙 <b>Đóng ca</b> — {who}\n"
-			f"💵 Tiền mặt bán: {dto.format_price(flt(doc.cash_sales))}\n"
-			f"🧮 Dự kiến két: {dto.format_price(flt(doc.expected_cash))} · Đếm: {dto.format_price(flt(doc.counted_cash))}\n"
+			f"💵 Tiền mặt bán: {money(doc.cash_sales)}\n"
+			f"🧮 Dự kiến két: {money(doc.expected_cash)} · Đếm: {money(doc.counted_cash)}\n"
 			f"{recon}"
 		)
 	except Exception:  # noqa: BLE001
