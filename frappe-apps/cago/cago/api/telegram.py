@@ -437,8 +437,13 @@ def _handle_cmd_callback(cb):
 	if name == "menu":  # ⬅️ Menu → back to the welcome + shortcut grid
 		text = _welcome(is_owner, in_group)
 	elif name == "doanhthu" and is_owner and not in_group:
+		from cago.utils.privileged import as_user
+
 		try:
-			text = _reply_doanhthu(period)
+			# Elevate: the webhook is a Guest request, so the revenue query needs Administrator (exactly
+			# like a typed /doanhthu does inside _handle). Without this the period buttons errored.
+			with as_user("Administrator"):
+				text = _reply_doanhthu(period)
 		except Exception:  # noqa: BLE001
 			text = "Xin lỗi, chưa lấy được số liệu."
 	else:

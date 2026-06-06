@@ -12,6 +12,7 @@ let inited = false;
 interface TgWebApp {
   ready?: () => void;
   expand?: () => void;
+  platform?: string; // "unknown" when the SDK is loaded outside Telegram
   initData?: string; // signed query string — verified server-side for one-tap login
   initDataUnsafe?: { user?: { first_name?: string; last_name?: string; username?: string } };
 }
@@ -25,9 +26,12 @@ export function initMiniApp(): Host {
   inited = true;
   try {
     const tg = (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram?.WebApp;
-    if (tg && typeof tg.ready === "function") {
+    // The SDK is loaded on every page, so window.Telegram.WebApp also exists on a plain browser — only
+    // treat this as a real Telegram Mini App when Telegram actually handed us initData / a known platform.
+    const inTelegram = !!tg && (!!tg.initData || (!!tg.platform && tg.platform !== "unknown"));
+    if (inTelegram && tg) {
       host = "telegram";
-      tg.ready();
+      tg.ready?.();
       tg.expand?.(); // use the full height inside Telegram
       tgInitData = tg.initData || ""; // for server-verified one-tap login (miniapp_login)
       const u = tg.initDataUnsafe?.user;

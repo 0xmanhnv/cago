@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
 import { PwaRegister } from "@/components/PwaRegister";
@@ -31,6 +32,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi" className={beVietnam.variable}>
+      <head>
+        {/* Telegram Mini App SDK — provides window.Telegram.WebApp (initData for one-tap login,
+            full-screen expand). Loaded before hydration so it's ready when the login effect runs;
+            outside Telegram it's an inert stub (we gate on real initData, see miniapp.ts). */}
+        <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+      </head>
       <body>
         <PwaRegister />
         <Providers>{children}</Providers>
