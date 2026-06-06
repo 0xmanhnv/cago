@@ -301,7 +301,12 @@ def webhook():
 	# Account linking: a "/start <code>" carries a one-time code minted by the in-app "Liên kết
 	# Telegram" flow — the code IS the auth, so accept it from ANY chat (the user isn't linked yet).
 	if cmd == "/start" and arg:
-		notify_telegram(_consume_link(arg, from_id), chat_id=chat_id)
+		try:
+			reply = _consume_link(arg, from_id)
+		except Exception:  # noqa: BLE001 — a bind hiccup must never 500 the webhook (Telegram would retry)
+			frappe.log_error(title="Cago telegram link failed", message=frappe.get_traceback())
+			reply = "Chưa liên kết được, bác thử lại sau ít phút nhé."
+		notify_telegram(reply, chat_id=chat_id)
 		return {"ok": True}
 
 	reply, buttons = _route(cmd, text, from_id, chat_id)
@@ -747,11 +752,15 @@ def _bind_telegram(user, tg_id):
 	_notify_in_app(user, f"Tài khoản của bạn vừa liên kết Telegram {_mask_tg(tg_id)}. Nếu không phải bạn, hãy gỡ ngay trong app.")
 	frappe.db.commit()
 	# If THIS account had a different Telegram before, warn that old device — it's the channel a real
-	# owner would still be watching if someone replaced their link.
+	# owner would still be watching if someone replaced their link. Best-effort: the bind is already
+	# durable (committed above), so a send failure here must NOT surface as failure to the caller.
 	if prev and str(prev) != str(tg_id):
-		from cago.api.notify import notify_telegram
+		try:
+			from cago.api.notify import notify_telegram
 
-		notify_telegram("⚠️ Liên kết Telegram của tài khoản này vừa được thay bằng thiết bị khác. Nếu không phải bạn, hãy mở app kiểm tra ngay.", chat_id=prev)
+			notify_telegram("⚠️ Liên kết Telegram của tài khoản này vừa được thay bằng thiết bị khác. Nếu không phải bạn, hãy mở app kiểm tra ngay.", chat_id=prev)
+		except Exception:  # noqa: BLE001
+			pass
 
 
 def _pending_key(user) -> str:
@@ -806,6 +815,9 @@ def _check_init_data(init_data, bot):
 	received = pairs.pop("hash", "")
 	if not received:
 		return False, {}, "no_hash"
+	# `signature` (Telegram's newer Ed25519 third-party-validation field) is excluded from the HMAC
+	# data-check string just like `hash` — otherwise a client that sends it would fail verification.
+	pairs.pop("signature", None)
 	data_check = "\n".join(f"{k}={pairs[k]}" for k in sorted(pairs))
 	secret_key = hmac.new(b"WebAppData", bot.encode(), hashlib.sha256).digest()
 	calc = hmac.new(secret_key, data_check.encode(), hashlib.sha256).hexdigest()

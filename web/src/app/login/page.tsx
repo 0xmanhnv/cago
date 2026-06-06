@@ -31,15 +31,25 @@ export default function LoginPage() {
     router.push(isInternal(b) ? "/pos" : "/");
   };
 
+  // Navigate after a manual login / link offer, tolerant of a null cached boot (re-bootstrap so a
+  // transient bootstrap failure right after login can never strand the user on the offer screen).
+  const proceed = async () => {
+    const b = bootRef.current ?? (await reload());
+    finish(b);
+  };
+
   // One-tap login when opened as a Telegram Mini App: the bot's "Mở app" button opens us inside
   // Telegram with a signed initData; the backend verifies it and starts a session for the linked
   // account — no password. Falls through to the normal form if not linked / not in Telegram.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Respect a deliberate logout: don't auto-login the still-linked user straight back in.
+      // Respect a deliberate logout: don't auto-login the still-linked user straight back in — but only
+      // briefly (a Mini App WebView may persist, so a permanent skip could block auto-login forever).
       try {
-        if (sessionStorage.getItem("cago_skip_autologin")) return;
+        const t = Number(sessionStorage.getItem("cago_skip_autologin") || 0);
+        if (t && Date.now() - t < 30_000) return; // recent logout → show the form
+        if (t) sessionStorage.removeItem("cago_skip_autologin"); // stale → resume auto-login
       } catch {
         /* ignore */
       }
@@ -57,7 +67,10 @@ export default function LoginPage() {
       try {
         const r = await frappeCall<{ ok: boolean }>("cago.api.telegram.miniapp_login", { init_data: initData });
         if (r?.ok) {
-          finish(await reload());
+          // miniapp_login only succeeds for a LINKED user, and only internal users can ever link → /pos
+          // directly (don't route via a possibly-null boot, which would mis-send them to the kiosk).
+          await reload();
+          router.push("/pos");
           return;
         }
       } catch {
@@ -108,6 +121,7 @@ export default function LoginPage() {
   };
 
   const doLink = async () => {
+    if (linking) return;
     setLinking(true);
     try {
       await frappeCall("cago.api.telegram.link_current_telegram", { init_data: telegramInitData() });
@@ -115,7 +129,7 @@ export default function LoginPage() {
     } catch {
       toast.error("Chưa liên kết được — bạn có thể làm sau trong mục Liên kết mạng xã hội.");
     }
-    if (bootRef.current) finish(bootRef.current);
+    await proceed();
   };
 
   if (autoTrying) {
@@ -146,7 +160,7 @@ export default function LoginPage() {
             {linking ? "Đang liên kết…" : "🔗 Liên kết ngay"}
           </button>
           <button
-            onClick={() => bootRef.current && finish(bootRef.current)}
+            onClick={proceed}
             disabled={linking}
             className="mt-2 min-h-[48px] w-full rounded-xl font-bold text-slate-500 disabled:opacity-60"
           >

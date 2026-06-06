@@ -108,10 +108,11 @@ export async function logout() {
   });
   csrfToken = ""; // stale after session ends; a fresh guest token is fetched on next bootstrap
   // Deliberate logout must STICK: inside a Telegram Mini App the user is still linked, so the /login
-  // screen would otherwise auto-login them straight back in. Flag it (session-scoped: cleared when the
-  // Mini App is closed/reopened, so a fresh open still auto-logs in) so /login shows the form instead.
+  // screen would otherwise auto-login them straight back in. Stamp the logout TIME (not a boolean): a
+  // Mini App WebView may not be torn down on close, so a permanent flag could block auto-login forever —
+  // instead /login skips auto-login only briefly after a logout, then resumes. A manual login clears it.
   try {
-    sessionStorage.setItem("cago_skip_autologin", "1");
+    sessionStorage.setItem("cago_skip_autologin", String(Date.now()));
   } catch {
     /* sessionStorage unavailable — ignore */
   }

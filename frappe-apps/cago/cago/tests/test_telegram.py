@@ -343,6 +343,18 @@ class TestTelegramMiniAppLogin(FrappeTestCase):
 		self.assertFalse(ok)
 		self.assertEqual(reason, "stale")
 
+	def test_signature_field_excluded_from_check(self):
+		"""A newer Telegram `signature` field (Ed25519 3rd-party validation) must be excluded from the
+		HMAC data-check like `hash` — otherwise a client that sends it would fail verification."""
+		import time
+
+		bot = "123456:TEST-BOT-TOKEN"
+		fields = {"auth_date": str(int(time.time())), "user": '{"id":7}'}
+		init = self._signed(bot, fields) + "&signature=Zm9vYmFy"  # hash signed over auth_date+user only
+		ok, user, reason = telegram._check_init_data(init, bot)
+		self.assertTrue(ok, reason)
+		self.assertEqual(str(user.get("id")), "7")
+
 
 class TestTelegramMiniAppLink(FrappeTestCase):
 	"""In-app link: while in the Telegram Mini App and signed in, link the CURRENT Telegram to the
