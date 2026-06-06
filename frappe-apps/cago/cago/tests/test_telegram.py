@@ -104,6 +104,47 @@ class TestTelegramOrderCallback(FrappeTestCase):
 			frappe.delete_doc("Cago Wanted List", wl.name, force=1, ignore_permissions=True)
 
 
+class TestTelegramAccessGate(FrappeTestCase):
+	"""The bot reveals store data ONLY to a recognized sender (a linked Cago user or an owner-listed id).
+	An un-linked person — even sitting in the ops group — is asked to link first; group membership alone
+	must not expose stock / nhập-hàng / figures. /myid always works (it's the bootstrap to get linked).
+	These cases mutate nothing committed, so they roll back cleanly (unlike the commit-heavy classes)."""
+
+	def setUp(self):
+		from cago.api.debt import _company
+
+		self.company = _company()
+		self._prev_chat = frappe.db.get_value("Company", self.company, "cago_telegram_chat_id")
+		self._prev_ids = frappe.db.get_value("Company", self.company, "cago_telegram_owner_ids")
+		frappe.db.set_value("Company", self.company, "cago_telegram_chat_id", "OPSGRP")
+		frappe.db.set_value("Company", self.company, "cago_telegram_owner_ids", "")
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+
+	def tearDown(self):
+		frappe.db.set_value("Company", self.company, "cago_telegram_chat_id", self._prev_chat or "")
+		frappe.db.set_value("Company", self.company, "cago_telegram_owner_ids", self._prev_ids or "")
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "")
+
+	def test_unlinked_group_member_is_asked_to_link(self):
+		reply, _b = telegram._route("/tonkho", "/tonkho", "55", "OPSGRP")
+		self.assertIn("chưa liên kết", reply.lower())
+
+	def test_linked_user_in_group_gets_data(self):
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", "55")
+		reply, _b = telegram._route("/tonkho", "/tonkho", "55", "OPSGRP")
+		self.assertIsNotNone(reply)
+		self.assertNotIn("chưa liên kết", reply.lower())
+
+	def test_myid_works_before_recognition(self):
+		# A brand-new person in a private chat (unrecognized) can still get their id to link / be added.
+		reply, _b = telegram._route("/myid", "/myid", "9999", "9999")
+		self.assertIn("9999", reply)
+
+	def test_unrecognized_private_chat_is_silent(self):
+		reply, _b = telegram._route("/no", "/no", "9999", "9999")
+		self.assertIsNone(reply)
+
+
 class TestTelegramConfirmActions(FrappeTestCase):
 	"""Data-changing buttons (duyệt mua chịu / nhắc nợ) must take TWO taps — the first only shows a
 	confirm, the second actually runs it — so a mis-tap can't approve credit or fire a message."""

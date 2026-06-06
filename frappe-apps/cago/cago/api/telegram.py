@@ -303,23 +303,62 @@ def webhook():
 		notify_telegram(_consume_link(arg, from_id), chat_id=chat_id)
 		return {"ok": True}
 
-	is_owner, in_group, _linked, private_ok = _context(from_id, chat_id)
-	# Accept commands only from the configured ops group (staff context) or a linked/owner PRIVATE
-	# chat. Anything else is ignored silently.
-	if not chat_id or not (in_group or private_ok):
-		return {"ok": True}
+	reply, buttons = _route(cmd, text, from_id, chat_id)
+	if reply is not None:
+		# Reply to the chat the command came from (private stays private) + tappable shortcut menu.
+		notify_telegram(reply, chat_id=chat_id, buttons=buttons)
+	return {"ok": True}
 
-	# /start (no link code) and /menu open the friendly button menu; everything else is a command.
-	# /start //menu → welcome; a /command → its handler; plain text → quick product lookup (tra giá).
+
+def _route(cmd, text, from_id, chat_id):
+	"""Decide the bot's reply (text, buttons) for an inbound message, AFTER the secret check. Returns
+	(None, None) to stay silent. Two gates:
+	1. Only the configured ops group or a valid private chat is answered at all.
+	2. Only a RECOGNIZED sender — one whose Telegram id is LINKED to a Cago user, or is in the owner
+	   allowlist — sees any store data. An un-linked person (even sitting in the ops group) is asked to
+	   link first; group membership alone no longer reveals stock / nhập-hàng / any figures.
+	/myid is always allowed (it's how a new person gets the id to link / be added)."""
+	is_owner, in_group, linked, private_ok = _context(from_id, chat_id)
+	is_private = bool(chat_id) and chat_id == from_id
+	# /myid is always answerable from a direct chat or the ops group — it only echoes the sender's own
+	# id, and it's the bootstrap for getting linked / added to the owner list (works before recognition).
+	if cmd == "/myid" and (is_private or in_group):
+		return _handle("/myid", from_id, is_owner, in_group), None
+	if not chat_id or not (in_group or private_ok):
+		return None, None
+	# private_ok already implies linked/owner, so an unrecognized sender can only be an un-linked
+	# member of the ops group → prompt them to link instead of showing data.
+	if not (bool(linked) or is_owner):
+		return _link_prompt(), _link_buttons(in_group)
+	# /start (no code) and /menu → the friendly button menu; a /command → its handler; plain text →
+	# quick product lookup (tra giá).
 	if cmd in ("/start", "/menu"):
 		reply = _welcome(is_owner, in_group)
 	elif cmd.startswith("/"):
 		reply = _handle(cmd, from_id, is_owner, in_group)
 	else:
 		reply = _lookup_product(text)
-	# Reply to the chat the command came from (private stays private) + tappable shortcut menu.
-	notify_telegram(reply, chat_id=chat_id, buttons=_buttons_for(cmd, is_owner, in_group))
-	return {"ok": True}
+	return reply, _buttons_for(cmd, is_owner, in_group)
+
+
+def _link_prompt():
+	return (
+		"🔒 <b>Bạn chưa liên kết tài khoản Cago</b>\n"
+		"Nên chưa xem được số liệu cửa hàng (tồn kho, nhập hàng, doanh thu…).\n"
+		"Mở app Cago → <b>🔗 Liên kết Telegram</b> để dùng trợ lý.\n"
+		"<i>Gõ /myid để xem ID Telegram của bạn.</i>"
+	)
+
+
+def _link_buttons(in_group):
+	"""A '📲 Mở app' button to the self-link screen — Web App in a private chat, a link in a group."""
+	from cago.api.integrations import public_url
+
+	base = public_url()
+	if not base:
+		return []
+	url = f"{base}/pos/link-telegram"
+	return [{"text": "📲 Mở app", "url": url} if in_group else {"text": "📲 Mở app", "webapp": url}]
 
 
 def _lookup_product(query):
