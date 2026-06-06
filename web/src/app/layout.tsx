@@ -25,7 +25,11 @@ export const metadata: Metadata = {
   // iOS "Thêm vào Màn hình chính" → opens STANDALONE (no Safari bars, own icon, themed status bar) =
   // feels like a real native app. statusBarStyle "default" keeps the bar opaque + content below it, so
   // no edge-to-edge / safe-area work is needed (kept deliberately simple, like KiotViet's e-menu).
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Minh Tuyết" },
+  // black-translucent → in the INSTALLED standalone app the content paints UNDER the status bar, so our
+  // green app-bar fills behind it to the very top (light status-bar text on green). The safe-area padding
+  // keeps content clear of the notch. (In a plain Safari TAB the status-bar strip is iOS-controlled and
+  // not reliably paintable from a web page — the true "green to the top" is the installed experience.)
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Minh Tuyết" },
 };
 
 export const viewport: Viewport = {
