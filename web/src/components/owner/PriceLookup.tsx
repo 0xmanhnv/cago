@@ -37,6 +37,7 @@ export function PriceLookup() {
   return (
     <ProductPicker
       title="TRA GIÁ"
+      accent
       onBack={() => goBackSmart(router)}
       onPick={async (code) => {
         const d = await frappeCall<Product>("cago.api.owner.get_product", { item_code: code }, { method: "GET" });

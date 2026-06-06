@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
@@ -161,7 +162,7 @@ export function DraftModal({
 }
 
 /** Product search + list; calls onPick(item_code). */
-export function ProductPicker({ title, onBack, onPick }: { title: string; onBack: () => void; onPick: (code: string) => void }) {
+export function ProductPicker({ title, onBack, onPick, accent = false }: { title: string; onBack: () => void; onPick: (code: string) => void; accent?: boolean }) {
   const [list, setList] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay
@@ -188,32 +189,62 @@ export function ProductPicker({ title, onBack, onPick }: { title: string; onBack
     if (r.item_code) onPick(r.item_code);
     else await alertDialog("Không tìm thấy sản phẩm với mã vạch này.");
   };
+  const onSearch = (e: ChangeEvent<HTMLInputElement>) => {
+    clearTimeout(tRef.current);
+    tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
+  };
+  const onBarcodeKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      void findBarcode((e.target as HTMLInputElement).value);
+      (e.target as HTMLInputElement).value = "";
+    }
+  };
   return (
     <div>
-      <BackBar onBack={onBack} />
-      <input
-        autoFocus
-        onChange={(e) => {
-          clearTimeout(tRef.current);
-          tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
-        }}
-        placeholder="Tên, tên hay gọi, màu bao..."
-        className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
-      />
-      {/* USB/BT scanner types here + Enter; "📷" opens the phone camera (BarcodeScanner). */}
-      <div className="mb-2 flex gap-2">
-        <input
-          placeholder="⌨ Quét/nhập mã vạch rồi Enter"
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              void findBarcode((e.target as HTMLInputElement).value);
-              (e.target as HTMLInputElement).value = "";
-            }
-          }}
-          className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base"
-        />
-        <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-base font-bold text-white">📷</button>
-      </div>
+      {accent ? (
+        // App-bar "đỉnh liền màu": a solid brand-green bar reaching the screen's top edge — it merges
+        // with the green theme-color status-bar tint so it reads like a native app's top bar (KiotViet
+        // does the same with orange). Body below stays light. Preview via the `accent` prop (Tra giá).
+        <div className="-mx-4 -mt-4 mb-3 rounded-b-3xl bg-brand px-4 pb-3.5 pt-5 text-white shadow-md">
+          <div className="mb-3 flex items-center gap-3">
+            <button onClick={onBack} className="rounded-xl bg-white/20 px-3 py-1.5 font-bold text-white">‹ Quay lại</button>
+            <div className="text-xl font-extrabold">{title}</div>
+          </div>
+          <input
+            autoFocus
+            onChange={onSearch}
+            placeholder="🔎 Tên, tên hay gọi, màu bao..."
+            className="w-full rounded-xl border-0 bg-white p-3.5 text-lg text-slate-800 placeholder:text-slate-400"
+          />
+          <div className="mt-2 flex gap-2">
+            <input
+              placeholder="⌨ Quét/nhập mã vạch rồi Enter"
+              onKeyDown={onBarcodeKey}
+              className="min-w-0 flex-1 rounded-xl border-0 bg-white p-3 text-base text-slate-800 placeholder:text-slate-400"
+            />
+            <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 rounded-xl bg-white/25 px-3 text-base font-bold text-white">📷</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <BackBar onBack={onBack} />
+          <input
+            autoFocus
+            onChange={onSearch}
+            placeholder="Tên, tên hay gọi, màu bao..."
+            className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
+          />
+          {/* USB/BT scanner types here + Enter; "📷" opens the phone camera (BarcodeScanner). */}
+          <div className="mb-2 flex gap-2">
+            <input
+              placeholder="⌨ Quét/nhập mã vạch rồi Enter"
+              onKeyDown={onBarcodeKey}
+              className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base"
+            />
+            <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-base font-bold text-white">📷</button>
+          </div>
+        </>
+      )}
       {camOpen && (
         <BarcodeScanner
           onScan={(c) => {
@@ -223,7 +254,7 @@ export function ProductPicker({ title, onBack, onPick }: { title: string; onBack
           onClose={() => setCamOpen(false)}
         />
       )}
-      <div className="text-xl font-bold text-brand-dark">{title}</div>
+      {!accent && <div className="text-xl font-bold text-brand-dark">{title}</div>}
       {loading ? (
         <PageLoading />
       ) : list.length === 0 ? (
