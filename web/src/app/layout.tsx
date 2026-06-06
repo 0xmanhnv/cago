@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
 import { PwaRegister } from "@/components/PwaRegister";
+import { InstallHint } from "@/components/ui/InstallHint";
 
 // Friendly, highly-legible Vietnamese typeface; self-hosted by next/font so the kiosk works offline.
 // Only the weights actually used on first paint (400 body / 700 bold / 800 extrabold). Loading the
@@ -21,6 +22,10 @@ export const metadata: Metadata = {
   description: "Cửa hàng vật tư nông nghiệp Minh Tuyết — tra giá, xem sản phẩm, hỏi trợ lý",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  // iOS "Thêm vào Màn hình chính" → opens STANDALONE (no Safari bars, own icon, themed status bar) =
+  // feels like a real native app. statusBarStyle "default" keeps the bar opaque + content below it, so
+  // no edge-to-edge / safe-area work is needed (kept deliberately simple, like KiotViet's e-menu).
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Minh Tuyết" },
 };
 
 export const viewport: Viewport = {
@@ -42,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="afterInteractive" />
         <PwaRegister />
         <Providers>{children}</Providers>
+        <InstallHint />
       </body>
     </html>
   );

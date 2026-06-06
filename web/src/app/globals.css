@@ -11,6 +11,9 @@ html,
 body {
   color: var(--foreground);
   -webkit-tap-highlight-color: transparent;
+  /* Don't let iOS auto-inflate text on rotate / reader heuristics — keep the app's own sizes (native feel). */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Always reserve the scrollbar gutter so the layout doesn't shift left/right when a page
