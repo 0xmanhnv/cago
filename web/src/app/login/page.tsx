@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall, login } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { isInternal } from "@/lib/caps";
 import { initMiniApp, telegramInitData } from "@/lib/miniapp";
+import { toast } from "@/components/ui/toast";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,9 +20,13 @@ export default function LoginPage() {
   // Inside the Telegram Mini App we try a password-less login first; show a spinner, not the form,
   // until that resolves so a linked owner/staff never sees the password box at all.
   const [autoTrying, setAutoTrying] = useState(false);
+  // After a manual login INSIDE Telegram, offer to link this Telegram to the account just signed in —
+  // the strongest link (verified initData + the password proves ownership; no bearer code needed).
+  const [offerLink, setOfferLink] = useState(false);
+  const [linking, setLinking] = useState(false);
+  const bootRef = useRef<Awaited<ReturnType<typeof reload>> | null>(null);
 
-  const goHome = async () => {
-    const b = await reload();
+  const finish = (b: Awaited<ReturnType<typeof reload>>) => {
     // Any back-of-house user (holds a capability) → unified /pos; customers/guests → kiosk.
     router.push(isInternal(b) ? "/pos" : "/");
   };
@@ -46,7 +51,7 @@ export default function LoginPage() {
       try {
         const r = await frappeCall<{ ok: boolean }>("cago.api.telegram.miniapp_login", { init_data: initData });
         if (r?.ok) {
-          await goHome();
+          finish(await reload());
           return;
         }
       } catch {
@@ -69,11 +74,37 @@ export default function LoginPage() {
     setErr("");
     try {
       await login(usr.trim(), pwd);
-      await goHome();
+      const b = await reload(); // establishes session + fresh CSRF for any follow-up POST
+      bootRef.current = b;
+      // In the Telegram Mini App and not yet linked → offer to bind this Telegram (skippable).
+      if (telegramInitData()) {
+        try {
+          const ls = await frappeCall<{ linked: boolean }>("cago.api.telegram.link_status", {}, { method: "GET" });
+          if (!ls.linked) {
+            setOfferLink(true);
+            setBusy(false);
+            return;
+          }
+        } catch {
+          /* link offer is best-effort — just proceed */
+        }
+      }
+      finish(b);
     } catch {
       setErr("Sai tài khoản hoặc mật khẩu. Bác kiểm tra lại nhé.");
       setBusy(false);
     }
+  };
+
+  const doLink = async () => {
+    setLinking(true);
+    try {
+      await frappeCall("cago.api.telegram.link_current_telegram", { init_data: telegramInitData() });
+      toast.success("Đã liên kết Telegram. Lần sau mở app từ Telegram khỏi đăng nhập.");
+    } catch {
+      toast.error("Chưa liên kết được — bạn có thể làm sau trong mục Liên kết mạng xã hội.");
+    }
+    if (bootRef.current) finish(bootRef.current);
   };
 
   if (autoTrying) {
@@ -82,6 +113,35 @@ export default function LoginPage() {
         <div className="text-center text-3xl font-black text-brand">🌾 {brand}</div>
         <div className="h-9 w-9 animate-spin rounded-full border-4 border-emerald-200 border-t-brand" />
         <div className="text-slate-500">Đang đăng nhập qua Telegram…</div>
+      </div>
+    );
+  }
+
+  if (offerLink) {
+    return (
+      <div className="flex min-h-[90vh] items-center justify-center p-5">
+        <div className="w-full max-w-[420px] rounded-2xl bg-white p-7 text-center shadow-xl">
+          <div className="text-4xl">🔗</div>
+          <div className="mt-2 text-xl font-extrabold text-slate-800">Liên kết Telegram này?</div>
+          <p className="mt-2 text-slate-500">
+            Liên kết tài khoản với Telegram bạn đang dùng để lần sau mở app từ Telegram <b>khỏi nhập mật khẩu</b>,
+            và nhận lệnh trợ lý đúng quyền của bạn.
+          </p>
+          <button
+            onClick={doLink}
+            disabled={linking}
+            className="mt-5 min-h-[56px] w-full rounded-xl bg-brand text-lg font-extrabold text-white disabled:opacity-60"
+          >
+            {linking ? "Đang liên kết…" : "🔗 Liên kết ngay"}
+          </button>
+          <button
+            onClick={() => bootRef.current && finish(bootRef.current)}
+            disabled={linking}
+            className="mt-2 min-h-[48px] w-full rounded-xl font-bold text-slate-500 disabled:opacity-60"
+          >
+            Để sau
+          </button>
+        </div>
       </div>
     );
   }

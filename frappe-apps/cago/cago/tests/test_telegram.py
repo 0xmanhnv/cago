@@ -61,46 +61,52 @@ class TestTelegramAccountLink(FrappeTestCase):
 	def tearDown(self):
 		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
 		frappe.db.set_value("User", "Guest", "cago_telegram_id", None)
+		frappe.cache().delete_value(telegram._pending_key("Administrator"))
+		frappe.db.commit()  # the code under test commits, so the cleanup must too (else it rolls back)
 
-	def _link(self, user, from_id):
+	def _mint(self, user):
 		code = frappe.generate_hash(length=10)
 		frappe.cache().set_value(telegram._link_key(code), user, expires_in_sec=600)
-		return telegram._consume_link(code, from_id)
+		return code
 
-	def test_link_by_code_maps_telegram_id_to_user(self):
-		msg = self._link("Administrator", "777888")
-		self.assertIn("liên kết", msg.lower())
+	def test_owner_link_requires_in_app_confirmation(self):
+		"""Step-up for owner-tier accounts: redeeming the code does NOT bind — it's held PENDING until
+		confirmed from the logged-in app, so a stranger who intercepted the code can't finish the link."""
+		msg = telegram._consume_link(self._mint("Administrator"), "777888")  # Administrator = owner-tier
+		self.assertIn("xác nhận", msg.lower())
+		self.assertFalse(frappe.db.get_value("User", "Administrator", "cago_telegram_id"))  # NOT bound
+		self.assertEqual(frappe.cache().get_value(telegram._pending_key("Administrator")), "777888")
+		# confirm from the app (session.user == Administrator in tests) → now bound
+		telegram.confirm_link()
 		self.assertEqual(frappe.db.get_value("User", "Administrator", "cago_telegram_id"), "777888")
 
+	def test_reject_clears_pending_without_binding(self):
+		telegram._consume_link(self._mint("Administrator"), "777888")
+		telegram.reject_link()
+		self.assertFalse(frappe.cache().get_value(telegram._pending_key("Administrator")))
+		self.assertFalse(frappe.db.get_value("User", "Administrator", "cago_telegram_id"))
+
 	def test_link_code_is_single_use(self):
-		code = frappe.generate_hash(length=10)
-		frappe.cache().set_value(telegram._link_key(code), "Administrator", expires_in_sec=600)
+		code = self._mint("Administrator")
 		telegram._consume_link(code, "777888")
-		# replay of the SAME code no longer links
 		self.assertIn("không hợp lệ", telegram._consume_link(code, "777888").lower())
 
 	def test_invalid_code_rejected(self):
 		self.assertIn("không hợp lệ", telegram._consume_link("nope-not-real", "123").lower())
 
-	def test_telegram_id_relinks_and_moves_to_new_account(self):
-		"""A Telegram id already linked to user A CAN be re-linked to user B — it MOVES: B gets it and A
-		is auto-detached, so one Telegram id maps to exactly ONE system account (also enforced by the
-		unique constraint, which the detach-first step keeps from throwing)."""
-		self._link("Administrator", "313131")
+	def test_bind_moves_telegram_to_new_account(self):
+		"""The low-level bind (staff immediate-link / owner confirm): a Telegram id already on account A
+		MOVES to B (A auto-detached to NULL — "" would collide on the UNIQUE index). One id ↔ one account."""
+		telegram._bind_telegram("Administrator", "313131")
 		self.assertEqual(frappe.db.get_value("User", "Administrator", "cago_telegram_id"), "313131")
-		# same Telegram id, different account → moves
-		self._link("Guest", "313131")
+		telegram._bind_telegram("Guest", "313131")
 		self.assertEqual(frappe.db.get_value("User", "Guest", "cago_telegram_id"), "313131")
-		# old account is detached to NULL (not "" — that would collide on the UNIQUE index)
 		self.assertFalse(frappe.db.get_value("User", "Administrator", "cago_telegram_id"))
 
-	def test_user_keeps_only_one_telegram_id(self):
-		"""Linking a SECOND Telegram id to the same account overwrites the first (the field holds one
-		value) — an account can't accumulate multiple Telegram logins."""
-		self._link("Administrator", "111aaa")
-		self._link("Administrator", "222bbb")
+	def test_bind_keeps_one_id_per_account(self):
+		telegram._bind_telegram("Administrator", "111aaa")
+		telegram._bind_telegram("Administrator", "222bbb")  # overwrites
 		self.assertEqual(frappe.db.get_value("User", "Administrator", "cago_telegram_id"), "222bbb")
-		# the old Telegram id now maps to nobody
 		self.assertFalse(frappe.db.get_value("User", {"cago_telegram_id": "111aaa"}, "name"))
 
 
@@ -336,3 +342,51 @@ class TestTelegramMiniAppLogin(FrappeTestCase):
 		ok, _user, reason = telegram._check_init_data(self._signed(bot, fields), bot)
 		self.assertFalse(ok)
 		self.assertEqual(reason, "stale")
+
+
+class TestTelegramMiniAppLink(FrappeTestCase):
+	"""In-app link: while in the Telegram Mini App and signed in, link the CURRENT Telegram to the
+	logged-in account — the strongest path (verified initData + authenticated session, no bearer code)."""
+
+	def setUp(self):
+		from cago.api.debt import _company
+		from cago.utils.secrets import set_secret
+
+		self.company = _company()
+		self.bot = "999:MINIAPP-LINK-TEST"
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)  # clean start
+		set_secret("Company", self.company, "cago_telegram_bot_token", self.bot)
+		frappe.db.commit()
+
+	def tearDown(self):
+		from cago.utils.secrets import set_secret
+
+		frappe.db.set_value("User", "Administrator", "cago_telegram_id", None)
+		set_secret("Company", self.company, "cago_telegram_bot_token", "")
+		frappe.db.commit()
+
+	def _signed(self, fields):
+		import hashlib
+		import hmac
+		from urllib.parse import urlencode
+
+		dc = "\n".join(f"{k}={fields[k]}" for k in sorted(fields))
+		secret = hmac.new(b"WebAppData", self.bot.encode(), hashlib.sha256).digest()
+		h = hmac.new(secret, dc.encode(), hashlib.sha256).hexdigest()
+		return urlencode({**fields, "hash": h})
+
+	def test_valid_initdata_links_session_user(self):
+		import time
+
+		init = self._signed({"auth_date": str(int(time.time())), "user": '{"id":424299}'})
+		telegram.link_current_telegram(init)  # session.user == Administrator in tests
+		self.assertEqual(frappe.db.get_value("User", "Administrator", "cago_telegram_id"), "424299")
+
+	def test_bad_signature_is_rejected(self):
+		import time
+		from urllib.parse import urlencode
+
+		bad = urlencode({"auth_date": str(int(time.time())), "user": '{"id":1}', "hash": "deadbeef"})
+		with self.assertRaises(Exception):
+			telegram.link_current_telegram(bad)
+		self.assertFalse(frappe.db.get_value("User", "Administrator", "cago_telegram_id"))

@@ -24,6 +24,7 @@ from __future__ import annotations
 import re
 
 import frappe
+from frappe import _
 
 from cago.api.debt import _company
 from cago.utils.permissions import ensure_admin, ensure_internal
@@ -380,7 +381,8 @@ def _context(from_id, chat_id):
 	c = _company()
 	group = str(frappe.db.get_value("Company", c, "cago_telegram_chat_id") or "")
 	owner_ids = {i.strip() for i in re.split(r"[,\s]+", frappe.db.get_value("Company", c, "cago_telegram_owner_ids") or "") if i.strip()}
-	linked = frappe.db.get_value("User", {"cago_telegram_id": from_id}, "name") if from_id else None
+	# Only an ENABLED linked user counts — a disabled account's stale link must not drive the bot.
+	linked = frappe.db.get_value("User", {"cago_telegram_id": from_id, "enabled": 1}, "name") if from_id else None
 	is_owner = (bool(linked) and _is_owner_user(linked)) or (from_id in owner_ids)
 	in_group = bool(group) and chat_id == group
 	private_ok = chat_id == from_id and (bool(linked) or is_owner)
@@ -696,21 +698,88 @@ def _link_key(code: str) -> str:
 	return f"cago_tg_link:{code}"
 
 
+def _mask_tg(tg_id) -> str:
+	"""Show only the last 4 digits of a Telegram id in UI/notifications (don't echo the full id)."""
+	s = str(tg_id or "")
+	return ("•••" + s[-4:]) if len(s) >= 4 else (s or "—")
+
+
+def _audit_link(user, message):
+	"""Append a permanent entry to the user's timeline — a queryable audit trail of link/unlink events
+	(who, what, when). Best-effort; never breaks the link itself."""
+	try:
+		frappe.get_doc({
+			"doctype": "Comment", "comment_type": "Info", "reference_doctype": "User",
+			"reference_name": user, "content": f"[Cago Telegram] {message}",
+		}).insert(ignore_permissions=True)
+	except Exception:  # noqa: BLE001
+		pass
+
+
+def _notify_in_app(user, subject):
+	"""Drop an in-app Notification Log to a user (the bell) so an account owner SEES a link change even
+	if their messaging channel isn't the one that changed. Best-effort."""
+	try:
+		frappe.get_doc({
+			"doctype": "Notification Log", "for_user": user, "type": "Alert",
+			"subject": subject, "document_type": "User", "document_name": user,
+		}).insert(ignore_permissions=True)
+	except Exception:  # noqa: BLE001
+		pass
+
+
+def _bind_telegram(user, tg_id):
+	"""Atomically bind a Telegram id to `user`: detach the id from any OTHER account (NULL, never "" —
+	UNIQUE index), record the bind + timestamp, audit, and alert any account whose link just changed.
+	The bind itself is the security boundary; the alerts make a hijack VISIBLE (detect & respond)."""
+	from frappe.utils import now_datetime
+
+	prev = frappe.db.get_value("User", user, "cago_telegram_id")
+	# Move the Telegram id off whatever other account currently holds it (re-link / device change).
+	for other in frappe.get_all("User", filters={"cago_telegram_id": tg_id, "name": ["!=", user]}, pluck="name"):
+		frappe.db.set_value("User", other, "cago_telegram_id", None)
+		frappe.db.set_value("User", other, "cago_telegram_linked_at", None)
+		_audit_link(other, f"Telegram {_mask_tg(tg_id)} chuyển sang tài khoản {user}")
+		_notify_in_app(other, f"Telegram {_mask_tg(tg_id)} đã được gỡ khỏi tài khoản bạn (chuyển sang {user}).")
+	frappe.db.set_value("User", user, "cago_telegram_id", tg_id)
+	frappe.db.set_value("User", user, "cago_telegram_linked_at", now_datetime())
+	_audit_link(user, f"Liên kết Telegram {_mask_tg(tg_id)}")
+	_notify_in_app(user, f"Tài khoản của bạn vừa liên kết Telegram {_mask_tg(tg_id)}. Nếu không phải bạn, hãy gỡ ngay trong app.")
+	frappe.db.commit()
+	# If THIS account had a different Telegram before, warn that old device — it's the channel a real
+	# owner would still be watching if someone replaced their link.
+	if prev and str(prev) != str(tg_id):
+		from cago.api.notify import notify_telegram
+
+		notify_telegram("⚠️ Liên kết Telegram của tài khoản này vừa được thay bằng thiết bị khác. Nếu không phải bạn, hãy mở app kiểm tra ngay.", chat_id=prev)
+
+
+def _pending_key(user) -> str:
+	return f"cago_tg_pending:{user}"
+
+
 def _consume_link(code: str, from_id: str) -> str:
-	"""A user tapped the deep-link → map their Telegram id to the Cago account that minted `code`."""
+	"""A user tapped the deep-link → bind their Telegram id to the Cago account that minted `code`.
+	STEP-UP for owner-tier accounts: instead of binding on the spot (a leaked code could otherwise bind
+	an attacker's Telegram to a privileged account), the link is held PENDING until confirmed from the
+	logged-in app — only someone with that account's session can finish it. Staff bind immediately."""
 	if not from_id:
 		return "Không đọc được tài khoản Telegram của bạn."
 	user = frappe.cache().get_value(_link_key(code))
 	if not user or not frappe.db.exists("User", user):
 		return "Mã liên kết không hợp lệ hoặc đã hết hạn. Mở lại app và bấm 'Liên kết Telegram'."
-	frappe.cache().delete_value(_link_key(code))
-	# One Telegram id → one Cago user: detach it from any other account first (re-link / device change).
-	# Detach to NULL, never "" — cago_telegram_id is UNIQUE, and MySQL allows many NULLs but only one ""
-	# (two detached users at "" would collide → IntegrityError).
-	for other in frappe.get_all("User", filters={"cago_telegram_id": from_id, "name": ["!=", user]}, pluck="name"):
-		frappe.db.set_value("User", other, "cago_telegram_id", None)
-	frappe.db.set_value("User", user, "cago_telegram_id", from_id)
-	frappe.db.commit()
+	frappe.cache().delete_value(_link_key(code))  # single-use
+	if _is_owner_user(user):
+		# High-privilege account → require confirmation from inside the app (can't be done by a stranger
+		# who merely intercepted the code). Stash the pending Telegram id for confirm_link().
+		frappe.cache().set_value(_pending_key(user), from_id, expires_in_sec=600)
+		_audit_link(user, f"Yêu cầu liên kết Telegram {_mask_tg(from_id)} — chờ xác nhận trong app")
+		_notify_in_app(user, f"Có yêu cầu liên kết Telegram {_mask_tg(from_id)} vào tài khoản chủ của bạn. Mở app để Xác nhận hoặc Từ chối.")
+		return (
+			f"🔒 Tài khoản <b>{user}</b> là tài khoản CHỦ. Để bảo vệ, hãy mở app Cago (đang đăng nhập tài khoản này) "
+			"và bấm <b>Xác nhận liên kết</b>. Yêu cầu hết hạn sau 10 phút."
+		)
+	_bind_telegram(user, from_id)
 	return f"✅ Đã liên kết Telegram với tài khoản <b>{user}</b>. Từ giờ lệnh hiện theo đúng quyền của bạn."
 
 
@@ -795,11 +864,15 @@ def miniapp_login(init_data=None):
 
 @frappe.whitelist()
 def link_start():
-	"""Owner/staff self-link: mint a one-time code + a t.me deep link. Tapping it opens the bot, which
-	maps the sender's Telegram id to THIS user (see _consume_link)."""
+	"""Owner/staff self-link: mint a one-time, short-lived code + a t.me deep link. Tapping it opens the
+	bot, which binds the sender's Telegram id to THIS user (see _consume_link). Rate-limited (anti-abuse);
+	the code is high-entropy + single-use + 10-min TTL."""
 	ensure_internal()
+	from cago.utils.ratelimit import rate_guard
+
+	rate_guard("tg_link_start", limit=6, seconds=60)
 	user = frappe.session.user
-	code = frappe.generate_hash(length=10)
+	code = frappe.generate_hash(length=24)  # ~high entropy bearer code (single-use, short TTL)
 	frappe.cache().set_value(_link_key(code), user, expires_in_sec=600)
 	bot = _bot_username()
 	return {
@@ -812,17 +885,72 @@ def link_start():
 
 @frappe.whitelist()
 def link_status():
-	"""Whether the current user's Telegram is linked (for the 'Liên kết / Huỷ' UI)."""
+	"""Current user's link state for the 'Liên kết / Huỷ' UI: whether linked (+ masked handle & when),
+	and whether an owner-tier confirmation is PENDING (step-up flow)."""
 	ensure_internal()
-	return {"linked": bool(frappe.db.get_value("User", frappe.session.user, "cago_telegram_id"))}
+	user = frappe.session.user
+	tg = frappe.db.get_value("User", user, ["cago_telegram_id", "cago_telegram_linked_at"], as_dict=True) or {}
+	pending = frappe.cache().get_value(_pending_key(user))
+	return {
+		"linked": bool(tg.get("cago_telegram_id")),
+		"handle": _mask_tg(tg.get("cago_telegram_id")) if tg.get("cago_telegram_id") else "",
+		"linked_at": str(tg.get("cago_telegram_linked_at") or "")[:16],
+		"pending": _mask_tg(pending) if pending else "",
+	}
+
+
+@frappe.whitelist()
+def confirm_link():
+	"""Owner-tier step-up: finish a PENDING Telegram link from inside the logged-in app. Only the account
+	holder (this session) can do this, so a leaked code redeemed by a stranger's Telegram can't complete."""
+	ensure_internal()
+	user = frappe.session.user
+	pending = frappe.cache().get_value(_pending_key(user))
+	if not pending:
+		frappe.throw(_("Không có yêu cầu liên kết nào đang chờ (có thể đã hết hạn). Hãy bấm Liên kết lại."))
+	frappe.cache().delete_value(_pending_key(user))
+	_bind_telegram(user, pending)
+	return link_status()
+
+
+@frappe.whitelist()
+def link_current_telegram(init_data=None):
+	"""Link the CURRENT Telegram (Mini App) to the LOGGED-IN account — the strongest, simplest path: the
+	signed initData proves the Telegram identity (HMAC) and the authenticated session proves account
+	ownership, both held at once in one trusted context, so NO bearer code / step-up is needed (the
+	password login IS the step-up). Used by the post-login 'liên kết Telegram này?' prompt in the Mini App."""
+	ensure_internal()
+	ok, tg_user, reason = _verify_init_data(init_data)
+	if not ok:
+		frappe.throw(_("Không xác thực được Telegram ({0}). Thử lại trong app Telegram.").format(reason))
+	tg_id = str(tg_user.get("id") or "")
+	if not tg_id:
+		frappe.throw(_("Không đọc được tài khoản Telegram."))
+	_bind_telegram(frappe.session.user, tg_id)
+	return link_status()
+
+
+@frappe.whitelist()
+def reject_link():
+	"""Owner-tier step-up: reject/clear a pending Telegram link request (it wasn't me)."""
+	ensure_internal()
+	user = frappe.session.user
+	if frappe.cache().get_value(_pending_key(user)):
+		frappe.cache().delete_value(_pending_key(user))
+		_audit_link(user, "Từ chối yêu cầu liên kết Telegram")
+	return link_status()
 
 
 @frappe.whitelist()
 def unlink():
-	"""Detach the current user's Telegram link."""
+	"""Detach the current user's Telegram link (and clear any pending request)."""
 	ensure_internal()
-	# NULL, not "" — cago_telegram_id is UNIQUE and MySQL rejects a second "" (see _consume_link).
-	frappe.db.set_value("User", frappe.session.user, "cago_telegram_id", None)
+	user = frappe.session.user
+	# NULL, not "" — cago_telegram_id is UNIQUE and MySQL rejects a second "" (see _bind_telegram).
+	frappe.db.set_value("User", user, "cago_telegram_id", None)
+	frappe.db.set_value("User", user, "cago_telegram_linked_at", None)
+	frappe.cache().delete_value(_pending_key(user))
+	_audit_link(user, "Gỡ liên kết Telegram")
 	frappe.db.commit()
 	return {"linked": False}
 

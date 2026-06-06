@@ -306,6 +306,8 @@ def ensure_user_fields():
 				# Linked Telegram user id (set via the deep-link flow in cago.api.telegram). Lets the ops
 				# bot gate commands by THIS user's real Cago role instead of a manual ID allowlist.
 				{"fieldname": "cago_telegram_id", "label": "Cago Telegram ID", "fieldtype": "Data", "hidden": 1, "no_copy": 1, "unique": 1},
+				# When the Telegram link was established — shown in the app so the owner can review/revoke.
+				{"fieldname": "cago_telegram_linked_at", "label": "Cago Telegram Linked At", "fieldtype": "Datetime", "hidden": 1, "no_copy": 1, "insert_after": "cago_telegram_id"},
 			]
 		},
 		ignore_validate=True,
