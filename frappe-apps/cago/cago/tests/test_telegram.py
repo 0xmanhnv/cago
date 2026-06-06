@@ -356,6 +356,21 @@ class TestTelegramMiniAppLogin(FrappeTestCase):
 		self.assertEqual(str(user.get("id")), "7")
 
 
+class TestTelegramDiagnostics(FrappeTestCase):
+	"""The admin setup checklist returns every expected check + an overall readiness flag."""
+
+	def test_diagnostics_contract(self):
+		d = telegram.diagnostics()
+		self.assertIn("checks", d)
+		self.assertIsInstance(d["ready"], bool)
+		keys = {c["key"] for c in d["checks"]}
+		self.assertTrue({"bot_token", "public_url", "webhook", "owner", "group"} <= keys)
+		# every check carries the fields the UI renders
+		for c in d["checks"]:
+			self.assertIn("ok", c)
+			self.assertIn("label", c)
+
+
 class TestTelegramInline(FrappeTestCase):
 	"""Inline 'tra giá' ("@bot cám") is role-gated: only a recognized internal user gets product results;
 	anyone else gets an empty list + a 'link your account' prompt."""
