@@ -229,7 +229,7 @@ export function Wanted() {
           )}
 
           {/* Primary action first: most orders just go straight to payment. */}
-          <button onClick={createInvoice} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-teal-600 py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
+          <button onClick={createInvoice} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand py-3.5 text-lg font-extrabold text-white disabled:opacity-50">
             {busy ? "Đang xử lý..." : "🛒 Bán / thu tiền cho đơn này"}
           </button>
 

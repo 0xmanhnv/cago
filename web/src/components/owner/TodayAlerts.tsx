@@ -64,7 +64,7 @@ export function TodayAlerts() {
         <div className="truncate font-bold">{r.display_name}</div>
         <div className="text-sm text-slate-500">{r.qty ? `Còn ${r.qty}` : r.status}{r.shelf_location ? ` · kệ ${r.shelf_location}` : ""}</div>
       </div>
-      <button onClick={() => router.push("/pos/reorder")} className="shrink-0 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-bold text-white">Nhập</button>
+      <button onClick={() => router.push("/pos/reorder")} className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-sm font-bold text-white">Nhập</button>
     </div>
   );
 

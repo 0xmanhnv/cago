@@ -399,7 +399,7 @@ export function CustomerLedger({ customer }: { customer: string }) {
               const r = await frappeCall<{ text: string }>("cago.api.owner.zalo_draft", { kind: "debt_reminder", customer });
               setDraft(r.text);
             }}
-            className="min-h-touch rounded-xl bg-teal-600 font-extrabold text-white"
+            className="min-h-touch rounded-xl bg-brand font-extrabold text-white"
           >
             📩 Nhắc nợ (Zalo)
           </button>

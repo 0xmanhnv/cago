@@ -528,7 +528,7 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
           />
         }
       />
-      <button onClick={() => setAdding(true)} className="mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
+      <button onClick={() => setAdding(true)} className="mt-add mb-3">
         ➕ Thêm khách mới
       </button>
       <div className="mb-1 text-sm text-slate-500">Chọn khách để thực hiện — số bên phải là nợ hiện tại của khách (để xem ai đang nợ, vào &quot;📒 Công nợ khách&quot;).</div>

@@ -200,7 +200,7 @@ export function BulkReceive() {
       {tab === "image" && (
         <div className="mb-3 rounded-xl bg-white p-3 text-center shadow-sm">
           <p className="mb-2 text-sm text-slate-500">Chụp tờ giấy ghi tay hoặc hoá đơn — máy tự đọc thành danh sách để bác kiểm tra.</p>
-          <label className="inline-block min-h-touch cursor-pointer rounded-xl bg-teal-600 px-5 py-3 font-extrabold text-white">
+          <label className="inline-block min-h-touch cursor-pointer rounded-xl bg-brand px-5 py-3 font-extrabold text-white">
             {reading ? "Đang đọc ảnh..." : "📷 Chụp / chọn ảnh"}
             <input type="file" accept="image/*" capture="environment" className="hidden" disabled={reading} onChange={(e) => onImage(e.target.files?.[0] || null)} />
           </label>
@@ -236,7 +236,7 @@ export function BulkReceive() {
         {invoiceImage ? (
           <button onClick={() => setInvoiceImage(null)} className="rounded-lg bg-slate-200 px-3 py-1.5 text-sm font-bold text-slate-700">Bỏ ảnh</button>
         ) : (
-          <label className="cursor-pointer rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-bold text-white">
+          <label className="cursor-pointer rounded-lg bg-brand px-3 py-1.5 text-sm font-bold text-white">
             📎 Đính kèm
             <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => attachEvidence(e.target.files?.[0] || null)} />
           </label>

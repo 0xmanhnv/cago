@@ -399,7 +399,7 @@ export function StaffAdmin() {
         <>
           <button
             onClick={() => setCreating({ email: "", full_name: "", password: "", roles: [] })}
-            className="mb-3 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white"
+            className="mt-add mb-3"
           >
             ➕ Thêm nhân viên
           </button>

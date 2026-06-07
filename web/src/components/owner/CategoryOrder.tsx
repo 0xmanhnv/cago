@@ -177,7 +177,7 @@ export function CategoryOrder() {
       <p className="mb-3 ml-1 text-sm text-slate-500">Thêm / sửa / xoá loại hàng, chọn loại cha và sắp xếp thứ tự hiện trên kiosk. Loại không có cha chính là loại gốc (và có thể làm cha của loại khác).</p>
 
       {!form && (
-        <button onClick={() => setForm({ ...blank })} className="mb-3 min-h-touch w-full rounded-2xl bg-teal-600 py-3 font-extrabold text-white">
+        <button onClick={() => setForm({ ...blank })} className="mt-add mb-3">
           ➕ Thêm loại hàng
         </button>
       )}

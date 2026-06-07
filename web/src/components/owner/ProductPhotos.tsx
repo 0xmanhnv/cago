@@ -30,7 +30,7 @@ export function ProductPhotos({
       ) : (
         <div className="rounded-lg bg-slate-100 p-5 text-center text-slate-500">Chưa có ảnh — bấm &quot;Tải ảnh lên&quot;</div>
       )}
-      <label className="mt-2 flex min-h-touch cursor-pointer items-center justify-center rounded-xl bg-teal-600 font-extrabold text-white">
+      <label className="mt-2 flex min-h-touch cursor-pointer items-center justify-center rounded-xl bg-brand font-extrabold text-white">
         <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { onPick(e.target.files); e.target.value = ""; }} />
         📷 Tải ảnh lên
       </label>

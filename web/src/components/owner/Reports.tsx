@@ -345,7 +345,7 @@ export function Report() {
       {reportTab === "stock" && (
         <div className="rounded-xl bg-white p-4">
           <div className="text-slate-600">Tổng quan kho: giá trị tồn (theo giá vốn), số mã hàng, và tồn từng sản phẩm.</div>
-          <button onClick={() => router.push("/pos/inventory")} className="mt-3 min-h-touch w-full rounded-xl bg-teal-700 font-extrabold text-white">🏬 Mở Kho hàng</button>
+          <button onClick={() => router.push("/pos/inventory")} className="mt-3 min-h-touch w-full rounded-xl bg-brand-dark font-extrabold text-white">🏬 Mở Kho hàng</button>
           <button onClick={() => router.push("/pos/low-stock")} className="mt-2 min-h-touch w-full rounded-xl border-2 border-amber-200 bg-white font-bold text-amber-700">📦 Hàng sắp hết</button>
         </div>
       )}

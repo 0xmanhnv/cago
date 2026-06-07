@@ -214,7 +214,7 @@ export function Exchange() {
               <button onClick={() => setNewItems((x) => x.filter((_, j) => j !== i))} className="h-9 w-9 rounded-lg bg-rose-100 font-bold text-rose-700">×</button>
             </div>
           ))}
-          <button onClick={() => setPicking(true)} className="mb-3 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">➕ Thêm hàng đổi lấy</button>
+          <button onClick={() => setPicking(true)} className="mt-add mb-3">➕ Thêm hàng đổi lấy</button>
 
           <div className="mb-2 grid grid-cols-3 gap-2">
             {PAYMENTS.map((p) => (

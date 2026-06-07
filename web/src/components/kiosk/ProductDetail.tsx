@@ -129,7 +129,7 @@ export function ProductDetail({ code }: { code: string }) {
             🔊 Đọc to
           </button>
           {boot?.store_map && (
-            <button onClick={() => setShowMap(true)} className="rounded-full bg-teal-600 px-4 py-2.5 font-extrabold text-white shadow-soft">
+            <button onClick={() => setShowMap(true)} className="rounded-full bg-brand px-4 py-2.5 font-extrabold text-white shadow-soft">
               📍 Xem vị trí
             </button>
           )}

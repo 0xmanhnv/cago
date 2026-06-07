@@ -106,7 +106,7 @@ export function ProductManager() {
           </>
         }
       />
-      <button onClick={() => router.push("/pos/products/new")} className="mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
+      <button onClick={() => router.push("/pos/products/new")} className="mt-add mb-3">
         ➕ Thêm sản phẩm mới
       </button>
       <div className="mb-3 mt-2 flex items-center justify-between">

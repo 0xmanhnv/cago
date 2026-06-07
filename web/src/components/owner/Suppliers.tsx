@@ -77,7 +77,7 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
   return (
     <div>
       <BackBar onBack={onBack} title="🚚 Nhà cung cấp" sub={<SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm nhà cung cấp..." />} />
-      <button onClick={() => setAdding(true)} className="mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
+      <button onClick={() => setAdding(true)} className="mt-add mb-3">
         ➕ Thêm nhà cung cấp
       </button>
       <div className="md:grid md:grid-cols-2 md:gap-x-3">
@@ -151,7 +151,7 @@ function SupplierView({ supplier, name, onBack }: { supplier: string; name: stri
           <label className="block font-bold text-slate-700">Ghi chú (địa chỉ, mặt hàng…)</label>
           <textarea rows={2} value={edit.note} onChange={(e) => setEdit({ ...edit, note: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           <button onClick={saveInfo} className="mt-1 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">💾 Lưu thông tin</button>
-          <button onClick={toggleActive} className={`mt-2 min-h-touch w-full rounded-xl font-extrabold text-white ${d?.disabled ? "bg-teal-600" : "bg-amber-600"}`}>
+          <button onClick={toggleActive} className={`mt-2 min-h-touch w-full rounded-xl font-extrabold text-white ${d?.disabled ? "bg-brand" : "bg-amber-600"}`}>
             {d?.disabled ? "♻️ Dùng lại NCC này" : "🚫 Ngừng dùng NCC này"}
           </button>
           <p className="mt-2 text-center text-xs text-slate-400">Ngừng dùng = ẩn khỏi chọn khi nhập hàng, nhưng GIỮ toàn bộ lịch sử nợ/nhập để truy vết.</p>

@@ -113,7 +113,7 @@ export function ReceiveStock() {
     return (
       <div className="mx-auto max-w-[760px]">
         <ProductPicker title="📥 Nhập hàng" accent onBack={() => goBackSmart(router)} onPick={pick} />
-        <button onClick={() => router.push("/pos/bulk")} className="mt-3 w-full rounded-xl border-2 border-teal-300 bg-white py-3 font-extrabold text-teal-700">
+        <button onClick={() => router.push("/pos/bulk")} className="mt-3 w-full rounded-xl border-2 border-emerald-300 bg-white py-3 font-extrabold text-brand-dark">
           ⚡ Nhập nhiều mặt cùng lúc (nhập loạt) →
         </button>
       </div>
@@ -154,7 +154,7 @@ export function ReceiveStock() {
                   {b.batch_id}{b.expiry_date ? ` · HSD ${b.expiry_date}` : ""}
                 </button>
               ))}
-              <button onClick={() => setAdding((v) => !v)} className="rounded-lg border-2 border-dashed border-teal-400 px-3 py-2 text-sm font-bold text-teal-700">➕ Lô mới</button>
+              <button onClick={() => setAdding((v) => !v)} className="rounded-lg border-2 border-dashed border-emerald-400 px-3 py-2 text-sm font-bold text-brand-dark">➕ Lô mới</button>
             </div>
             {adding && (
               <div className="mt-2">
@@ -165,7 +165,7 @@ export function ReceiveStock() {
                   <label className="flex flex-col text-xs font-bold text-slate-500">Mã lô <span className="font-normal text-slate-400">(tự sinh nếu trống)</span>
                     <input value={newBatch.id} onChange={(e) => setNewBatch({ ...newBatch, id: e.target.value })} placeholder="LO-…" className="mt-0.5 rounded-lg border-2 border-emerald-200 p-2.5 text-base font-normal text-slate-800" />
                   </label>
-                  <button onClick={addBatch} disabled={busy} className="rounded-lg bg-teal-600 px-4 py-2.5 font-bold text-white disabled:opacity-50">Lưu lô</button>
+                  <button onClick={addBatch} disabled={busy} className="rounded-lg bg-brand px-4 py-2.5 font-bold text-white disabled:opacity-50">Lưu lô</button>
                 </div>
               </div>
             )}

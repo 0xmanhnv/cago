@@ -1320,13 +1320,13 @@ export function Checkout() {
             {q.trim() || category ? "Không tìm thấy sản phẩm. Thử gõ tên khác." : "Gõ tên sản phẩm hoặc chọn loại hàng để xem."}
           </div>
         ) : (
-          <div className={`grid gap-2.5 ${viewMode === "list" ? "grid-cols-1 items-start" : "grid-cols-2 items-stretch lg:grid-cols-3 2xl:grid-cols-4"}`}>
+          <div className={`grid items-start gap-2.5 ${viewMode === "list" ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"}`}>
           {list.map((p) => {
             const line = lines[p.item_code];
             const m = meta[p.item_code];
             const multi = (m?.sale_units?.length || 0) > 1;
             return (
-              <div key={p.item_code} className={`flex h-full flex-col rounded-xl border-2 p-3 shadow-sm ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
+              <div key={p.item_code} className={`flex flex-col rounded-xl border-2 p-3 shadow-sm ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
                 {viewMode === "card" ? (
                   // Card = standard mobile product card: IMAGE ON TOP (full-width square), text below,
                   // a full-width Add button pinned to the bottom (mt-auto) so card buttons line up.
@@ -1951,7 +1951,7 @@ function CustomerPicker({ onPick, onWalkIn, online }: { onPick: (c: Cust) => voi
             )}
           </div>
           {online ? (
-            <button onClick={() => setAdding(true)} className="mt-2 w-full rounded-lg bg-teal-600 py-2.5 font-bold text-white">➕ Thêm khách mới</button>
+            <button onClick={() => setAdding(true)} className="mt-2 w-full rounded-lg border-2 border-emerald-300 bg-emerald-50 py-2.5 font-bold text-emerald-700">➕ Thêm khách mới</button>
           ) : (
             <div className="mt-2 rounded-lg bg-slate-100 py-2 text-center text-sm font-bold text-slate-400">➕ Thêm khách mới (cần mạng)</div>
           )}

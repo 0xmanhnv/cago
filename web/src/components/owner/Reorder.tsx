@@ -85,7 +85,7 @@ export function Reorder() {
         <>
           <div className="mb-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             Tích chọn mặt hàng cần nhập + sửa số lượng, rồi bấm <b>Tạo đơn nhập</b> để gửi NCC. Khi hàng về, vào
-            <button onClick={() => router.push("/pos/receive")} className="mx-1 rounded-md bg-teal-600 px-2 py-0.5 font-bold text-white">📥 Nhập hàng</button>
+            <button onClick={() => router.push("/pos/receive")} className="mx-1 rounded-md bg-brand px-2 py-0.5 font-bold text-white">📥 Nhập hàng</button>
             ghi số lượng + giá nhập thật.
           </div>
           <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-3">
@@ -105,7 +105,7 @@ export function Reorder() {
                   <button
                     onClick={() => buildList(supplier, items)}
                     disabled={!n}
-                    className="shrink-0 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
+                    className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-sm font-bold text-white disabled:opacity-40"
                   >
                     📋 Tạo đơn{n ? ` (${n})` : ""}
                   </button>
@@ -122,7 +122,7 @@ export function Reorder() {
                       <button
                         onClick={() => setOn(it.item_code, !p.on)}
                         aria-label={p.on ? "Bỏ chọn" : "Chọn"}
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 text-lg font-bold ${p.on ? "border-teal-600 bg-teal-600 text-white" : "border-slate-300 text-transparent"}`}
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border-2 text-lg font-bold ${p.on ? "border-brand bg-brand text-white" : "border-slate-300 text-transparent"}`}
                       >
                         ✓
                       </button>

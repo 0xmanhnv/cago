@@ -284,7 +284,7 @@ export function ProductEditor({ code }: { code: string }) {
               const r = await frappeCall<{ text: string }>("cago.api.owner.zalo_draft", { kind: "restock", item_code: code });
               setDraft(r.text);
             }}
-            className="min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white"
+            className="min-h-touch w-full rounded-xl bg-brand font-extrabold text-white"
           >
             📩 Soạn tin báo hàng về
           </button>
@@ -401,7 +401,7 @@ function StockSection({ code }: { code: string }) {
           ))}
         </select>
       )}
-      <button onClick={receive} disabled={busy} className="mt-2 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white disabled:opacity-50">
+      <button onClick={receive} disabled={busy} className="mt-2 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">
         📥 Nhập hàng (tăng tồn thật)
       </button>
 
