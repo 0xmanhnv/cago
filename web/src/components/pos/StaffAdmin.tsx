@@ -382,11 +382,16 @@ export function StaffAdmin() {
   // ---------- Lists ----------
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="👥 Nhân viên & phân quyền" />
-      <div className="mb-3 flex gap-2">
-        <button onClick={() => setTab("staff")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "staff" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>👤 Nhân viên</button>
-        <button onClick={() => setTab("roles")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "roles" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>🏷️ Chức danh</button>
-      </div>
+      <BackBar
+        onBack={() => goBackSmart(router)}
+        title="👥 Nhân viên & phân quyền"
+        sub={
+          <div className="flex gap-2">
+            <button onClick={() => setTab("staff")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "staff" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>👤 Nhân viên</button>
+            <button onClick={() => setTab("roles")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "roles" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>🏷️ Chức danh</button>
+          </div>
+        }
+      />
 
       {loading ? (
         <PageLoading />

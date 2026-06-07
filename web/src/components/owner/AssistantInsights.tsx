@@ -101,14 +101,19 @@ export function AssistantInsights() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="🤖 Trợ lý học gì" />
-      <div className="mb-3 flex gap-2">
-        {([[1, "Hôm nay"], [7, "7 ngày"], [30, "30 ngày"]] as const).map(([n, label]) => (
-          <button key={n} onClick={() => setDays(n)} className={`rounded-full border px-3.5 py-1.5 text-sm font-bold ${days === n ? "border-brand bg-brand text-white" : "border-emerald-300 bg-brand-light text-brand-dark"}`}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <BackBar
+        onBack={() => goBackSmart(router)}
+        title="🤖 Trợ lý học gì"
+        sub={
+          <div className="flex gap-2">
+            {([[1, "Hôm nay"], [7, "7 ngày"], [30, "30 ngày"]] as const).map(([n, label]) => (
+              <button key={n} onClick={() => setDays(n)} className={`rounded-full border px-3.5 py-1.5 text-sm font-bold ${days === n ? "border-brand bg-brand text-white" : "border-emerald-300 bg-brand-light text-brand-dark"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {!d ? (
         <PageLoading />

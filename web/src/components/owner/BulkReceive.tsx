@@ -177,13 +177,17 @@ export function BulkReceive() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="⚡ Nhập hàng loạt" />
-
-      <div className="mb-3 flex gap-2">
-        <TabBtn k="text">✍️ Gõ/dán</TabBtn>
-        <TabBtn k="image">📷 Chụp ảnh</TabBtn>
-        <TabBtn k="stock">✅ Chọn từ kho</TabBtn>
-      </div>
+      <BackBar
+        onBack={() => goBackSmart(router)}
+        title="⚡ Nhập hàng loạt"
+        sub={
+          <div className="flex gap-2">
+            <TabBtn k="text">✍️ Gõ/dán</TabBtn>
+            <TabBtn k="image">📷 Chụp ảnh</TabBtn>
+            <TabBtn k="stock">✅ Chọn từ kho</TabBtn>
+          </div>
+        }
+      />
 
       {tab === "text" && (
         <div className="mb-3 rounded-xl bg-white p-3 shadow-sm">
