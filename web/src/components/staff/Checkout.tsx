@@ -1508,17 +1508,19 @@ export function Checkout() {
                 </button>
               ) : (
                 <div className={`no-scrollbar flex max-h-[88vh] flex-col p-3 xl:max-h-[calc(100vh-2rem)] xl:animate-none ${payClosing ? "animate-sheet-down" : "animate-sheet-up"}`}>
-                  {/* Mobile: a slim drag handle to close the sheet — compact, like the other bottom
-                      sheets, instead of a big full-width "Thu gọn" bar that ate vertical space. */}
-                  <button onClick={closePay} aria-label="Thu gọn" className="mx-auto mb-2 block h-1.5 w-10 rounded-full bg-slate-300 xl:hidden" />
-                  {/* Header: tap the title to collapse/expand the line list; the ✕ (mobile) closes the
-                      whole sheet so staff can pick more items. */}
-                  <div className="mb-2 flex items-center justify-between gap-2">
+                  {/* Mobile: a slim drag handle (centered) + a plain ✕ pinned to the very top-right
+                      corner to close the sheet. Moved up here and stripped of its background so it's
+                      well clear of the per-line ✕ remove buttons just below (was easy to mis-tap). */}
+                  <div className="relative mb-2 h-5 xl:hidden">
+                    <button onClick={closePay} aria-label="Thu gọn" className="absolute left-1/2 top-1.5 h-1.5 w-10 -translate-x-1/2 rounded-full bg-slate-300" />
+                    <button onClick={closePay} aria-label="Đóng giỏ hàng" className="absolute -top-1 right-0 p-1 text-2xl leading-none text-slate-400">✕</button>
+                  </div>
+                  {/* Header: tap the title to collapse/expand the line list. */}
+                  <div className="mb-2 flex items-center gap-2">
                     <button onClick={() => setCartListOpen((v) => !v)} className="flex min-w-0 items-center gap-2">
                       <span className="truncate text-lg font-extrabold text-brand-dark">🛒 Giỏ hàng · {cartCodes.length} món</span>
                       <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{cartListOpen ? "▲ Ẩn" : "▼ Hiện"}</span>
                     </button>
-                    <button onClick={closePay} aria-label="Đóng" className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1 text-lg font-bold text-slate-500 xl:hidden">✕</button>
                   </div>
                   {/* Cart lines — listed + qty-editable right here, so staff never has to close the
                       panel to fix a quantity. Tap the number for the keypad; ✕ removes the line. Each line
