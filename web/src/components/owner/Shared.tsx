@@ -75,19 +75,13 @@ function AppBarNav({
   // always stays. Collapse via max-height so the content below actually moves up (no reserved gap).
   // Only wired when there IS a sub — the many screens that pass none skip the listener entirely.
   const [showSub, setShowSub] = useState(true);
-  const subRef = useRef<HTMLDivElement>(null);
-  const [subH, setSubH] = useState(0);
   const lastY = useRef(0);
   useEffect(() => {
-    const el = subRef.current;
-    if (sub == null || !el) return;
-    const ro = new ResizeObserver(() => setSubH(el.scrollHeight));
-    ro.observe(el);
-    setSubH(el.scrollHeight);
+    if (sub == null) return;
     let ticking = false;
     // Hiding the sub shrinks the page; near the bottom the browser then CLAMPS scrollY upward, which
-    // would read as "scroll-up" and re-show it → an infinite expand/collapse jitter that traps you
-    // before the bottom. After a hide we lock toggling for 400ms to swallow that clamp event.
+    // would read as "scroll-up" and re-show it → an expand/collapse jitter. After a hide we lock
+    // toggling for 450ms to swallow that clamp event. Deadzone 8px so small wobble doesn't flip it.
     let lockUntil = 0;
     const onScroll = () => {
       if (ticking) return;
@@ -96,10 +90,10 @@ function AppBarNav({
         const y = window.scrollY;
         const now = performance.now();
         if (now >= lockUntil) {
-          if (y < 60 || y < lastY.current - 4) setShowSub(true);
-          else if (y > lastY.current + 4) {
+          if (y < 60 || y < lastY.current - 8) setShowSub(true);
+          else if (y > lastY.current + 8) {
             setShowSub(false);
-            lockUntil = now + 400;
+            lockUntil = now + 450;
           }
         }
         lastY.current = y;
@@ -107,10 +101,7 @@ function AppBarNav({
       });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      ro.disconnect();
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, [sub]);
   return (
     // Two-tier sticky header: the green title bar (shared, tier 1) + an optional WHITE `sub` toolbar
@@ -129,12 +120,11 @@ function AppBarNav({
         </div>
       </div>
       {sub != null && (
-        <div
-          style={{ maxHeight: showSub ? subH || undefined : 0 }}
-          className={`overflow-hidden bg-white transition-[max-height,opacity] duration-200 ease-out ${showSub ? "opacity-100" : "opacity-0"}`}
-        >
-          <div ref={subRef} className="px-4 pb-2 pt-2.5">
-            {sub}
+        // Collapse via grid-template-rows 1fr↔0fr — smoother than animating max-height (browsers
+        // composite it better, no per-frame layout thrash → no "giật"). 300ms ease-out feels gentle.
+        <div className={`grid bg-white transition-[grid-template-rows,opacity] duration-300 ease-out ${showSub ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+          <div className="overflow-hidden">
+            <div className="px-4 pb-2 pt-2.5">{sub}</div>
           </div>
         </div>
       )}
