@@ -15,6 +15,7 @@ import { uomLabel } from "@/lib/uom";
 import { Spinner } from "@/components/ui/Loading";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, StockBadge } from "@/components/owner/Shared";
+import { QtyStepper } from "@/components/ui/QtyStepper";
 import type { ProductCard, Product, Category, Batch } from "@/lib/types";
 import { useOnline } from "@/lib/offline/useOnline";
 import { type SaleArgs, type SaleDisplay } from "@/lib/offline/db";
@@ -1405,17 +1406,12 @@ export function Checkout() {
                           <span className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-600">Σ lô: {trim(line.qty)} {labelOf(p.item_code, line.uom)}</span>
                         </div>
                       ) : (
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <button onClick={() => setQty(p.item_code, line.qty - 1)} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
-                          <button
-                            onClick={() => setKeypad(p.item_code)}
-                            title="Bấm để nhập số lượng"
-                            className="h-11 w-14 rounded-lg border-2 border-emerald-300 text-center text-xl font-extrabold"
-                          >
-                            {trim(line.qty)}
-                          </button>
-                          <button onClick={() => setQty(p.item_code, line.qty + 1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
-                        </div>
+                        <QtyStepper
+                          display={String(trim(line.qty))}
+                          onDec={() => setQty(p.item_code, line.qty - 1)}
+                          onInc={() => setQty(p.item_code, line.qty + 1)}
+                          onEdit={() => setKeypad(p.item_code)}
+                        />
                       );
                       const unit = lotManual[p.item_code] ? <span className="min-w-0 flex-1" /> : <span className="min-w-0 flex-1 truncate text-sm text-slate-500">{labelOf(p.item_code, line.uom)}</span>;
                       const total = <span className="shrink-0 whitespace-nowrap text-lg font-extrabold text-brand">{money(linePrice(p.item_code) * line.qty)}</span>;
@@ -1542,11 +1538,13 @@ export function Checkout() {
                           </div>
                           <div className="mt-1.5 flex items-center gap-2">
                             <div className="min-w-0 flex-1 text-sm text-slate-500">{money(linePrice(c))} / {labelOf(c, ln.uom)}</div>
-                            <div className="flex shrink-0 items-center gap-1">
-                              <button onClick={() => setQty(c, ln.qty - 1)} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
-                              <button onClick={() => setKeypad(c)} title="Bấm để nhập số lượng" className="h-11 w-14 rounded-lg border-2 border-emerald-300 text-center text-lg font-extrabold">{trim(ln.qty)}</button>
-                              <button onClick={() => setQty(c, ln.qty + 1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
-                            </div>
+                            <QtyStepper
+                              size="sm"
+                              display={String(trim(ln.qty))}
+                              onDec={() => setQty(c, ln.qty - 1)}
+                              onInc={() => setQty(c, ln.qty + 1)}
+                              onEdit={() => setKeypad(c)}
+                            />
                             <div className="min-w-[84px] shrink-0 whitespace-nowrap text-right text-base font-extrabold text-brand">{money(linePrice(c) * ln.qty)}</div>
                           </div>
                           {/* Multi-unit items: switch Kg / Yến / Bao right in the cart (changes the price). */}
@@ -1851,9 +1849,7 @@ function ProductPreview({
           {line ? (
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
-                <button onClick={onDec} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
-                <span className="w-14 text-center text-xl font-extrabold">{qtyText}{unitLabel ? "" : ""}</span>
-                <button onClick={onInc} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
+                <QtyStepper display={qtyText} onDec={onDec} onInc={onInc} />
                 {unitLabel && <span className="ml-1 text-slate-500">{unitLabel}</span>}
               </div>
               <button onClick={onRemove} className="rounded-lg bg-red-50 px-3 py-2.5 font-bold text-red-600">Bỏ khỏi đơn</button>
