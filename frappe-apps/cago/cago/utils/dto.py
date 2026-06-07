@@ -442,28 +442,30 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 			children = frappe.get_all("Item Group", filters={"cago_parent": category}, pluck="name")
 			base["item_group"] = ["in", [category, *children]] if children else category
 
-	if query and query.strip():
-		like = f"%{query.strip()}%"
-		rows = frappe.get_all(
-			"Item",
-			filters=base,
-			or_filters=[[f, "like", like] for f in SEARCH_FIELDS],
-			fields=LIST_FIELDS,
-			limit=limit,
-			limit_start=start,
-			order_by="item_name asc",
-		)
+	# Resolve the requested sort. name/creation are cheap SQL order_by (paginated in SQL); a price sort
+	# needs the price map (built just below), so those fetch ALL matching rows then slice the page.
+	SQL_ORDER = {"newest": "creation desc", "name_asc": "item_name asc", "name_desc": "item_name desc"}
+	price_sort = sort in ("price_asc", "price_desc")
+	if sort in SQL_ORDER:
+		order_by = SQL_ORDER[sort]
+	elif query and query.strip():
+		order_by = "item_name asc"  # search default
 	else:
-		rows = frappe.get_all(
-			"Item",
-			filters=base,
-			fields=LIST_FIELDS,
-			limit=limit,
-			limit_start=start,
-			order_by="cago_kiosk_sort_order asc, item_name asc",
-		)
+		order_by = "cago_kiosk_sort_order asc, item_name asc"  # browse default
+
+	fetch = {"filters": base, "fields": LIST_FIELDS, "order_by": order_by}
+	if query and query.strip():
+		fetch["or_filters"] = [[f, "like", f"%{query.strip()}%"] for f in SEARCH_FIELDS]
+	if price_sort:
+		fetch["limit"], fetch["limit_start"] = 5000, 0  # all matches; sliced after sorting by price
+	else:
+		fetch["limit"], fetch["limit_start"] = limit, start
+	rows = frappe.get_all("Item", **fetch)
 
 	prices = _price_map([r.name for r in rows])
+	if price_sort:
+		rows.sort(key=lambda r: flt(_rate_for(prices.get(r.name) or {}, r.stock_uom)), reverse=(sort == "price_desc"))
+		rows = rows[start : start + limit]
 	cat_meta = category_meta_map([r.item_group for r in rows])
 	# on-hand only needed for auto-status items, but one grouped query is cheap
 	qty_map = bin_qty_map([r.name for r in rows if r.get("cago_stock_auto")])

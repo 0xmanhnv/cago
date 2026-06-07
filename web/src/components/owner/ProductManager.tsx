@@ -14,6 +14,18 @@ import { SectionTabs } from "@/components/pos/SectionTabs";
 // the three old separate screens. Related product tools live here as quick links instead of
 // scattered home tiles.
 
+// Sort options offered by the "↓↑ Sắp xếp" sheet. Keys match cago.api.owner.search_products(sort=).
+// Price sorts are resolved server-side over ALL matches (price lives in a separate Item Price query).
+const SORT_OPTIONS = [
+  { key: "default", label: "Mặc định" },
+  { key: "newest", label: "🆕 Mới nhất" },
+  { key: "price_asc", label: "💲 Giá thấp → cao" },
+  { key: "price_desc", label: "💲 Giá cao → thấp" },
+  { key: "name_asc", label: "🔤 Tên A → Z" },
+  { key: "name_desc", label: "🔤 Tên Z → A" },
+];
+const SORT_LABEL: Record<string, string> = Object.fromEntries(SORT_OPTIONS.map((o) => [o.key, o.label]));
+
 export function ProductManager() {
   const router = useRouter();
   // Optional ?q= seed — e.g. "Trợ lý học gì" → "Bổ sung dữ liệu" deep-links here prefilled with the
@@ -23,23 +35,33 @@ export function ProductManager() {
   const [list, setList] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState(seed);
+  const [sort, setSort] = useState<string>("default");
+  const [sortOpen, setSortOpen] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const load = async (query: string) => {
+  const load = async (query: string, sortVal: string = sort) => {
     setLoading(true);
     try {
-      setList((await frappeCall<ProductCard[]>("cago.api.owner.search_products", { query }, { method: "GET" })) || []);
+      const params: Record<string, string> = { query };
+      if (sortVal && sortVal !== "default") params.sort = sortVal;
+      setList((await frappeCall<ProductCard[]>("cago.api.owner.search_products", params, { method: "GET" })) || []);
     } finally {
       setLoading(false);
     }
   };
   useEffect(() => {
     void load(seed.trim());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seed]);
   const onSearch = (v: string) => {
     setQ(v);
     clearTimeout(tRef.current);
     tRef.current = setTimeout(() => load(v.trim()), 300);
+  };
+  const chooseSort = (s: string) => {
+    setSort(s);
+    setSortOpen(false);
+    void load(q.trim(), s);
   };
   const edit = (code: string) => router.push(`/pos/products/${encodeURIComponent(code)}/edit`);
 
@@ -51,6 +73,32 @@ export function ProductManager() {
         ➕ Thêm sản phẩm mới
       </button>
       <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm tên · mã · biệt danh…" />
+      <div className="mb-3 mt-2 flex items-center justify-between">
+        <span className="text-sm text-slate-400">{loading ? "" : `${list.length} sản phẩm`}</span>
+        <button
+          onClick={() => setSortOpen(true)}
+          className="flex shrink-0 items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-600"
+        >
+          ↓↑ {SORT_LABEL[sort]}
+        </button>
+      </div>
+      {sortOpen && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/30" onClick={() => setSortOpen(false)}>
+          <div className="w-full rounded-t-2xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 text-center text-lg font-extrabold text-brand-dark">Sắp xếp</div>
+            {SORT_OPTIONS.map((o) => (
+              <button
+                key={o.key}
+                onClick={() => chooseSort(o.key)}
+                className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-lg ${sort === o.key ? "bg-emerald-50 font-extrabold text-brand" : "text-slate-700"}`}
+              >
+                {o.label}
+                {sort === o.key && <span>✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {loading ? (
         <SkeletonRows rows={6} />
       ) : list.length === 0 ? (

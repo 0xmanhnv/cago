@@ -48,12 +48,13 @@ def price_history(item_code, limit=20):
 
 
 @frappe.whitelist()
-def search_products(query=None, recommended_only=0):
-	"""Owner product search -> list of owner DTOs."""
+def search_products(query=None, recommended_only=0, sort=None):
+	"""Owner product search -> list of owner DTOs. `sort`: newest | name_asc | name_desc |
+	price_asc | price_desc (None = default browse/search order)."""
 	ensure_cap("products")
 	from frappe.utils import cint
 
-	return dto.list_dtos(query, audience="owner", public_only=False, recommended_only=bool(cint(recommended_only)))
+	return dto.list_dtos(query, audience="owner", public_only=False, recommended_only=bool(cint(recommended_only)), sort=sort)
 
 
 def _run_backup():
