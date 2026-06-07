@@ -168,95 +168,20 @@ export function Settings() {
     <div className="mx-auto max-w-[760px] xl:max-w-[1100px]">
       <BackBar onBack={() => goBackSmart(router)} title="CÀI ĐẶT CỬA HÀNG" />
 
-      {/* On desktop the settings cards flow into 2 masonry COLUMNS (not a grid) so short cards don't
-          leave a big gap below them when paired with a taller card in the same grid row; phones/
-          tablets keep a single column. Each card is break-inside-avoid so it never splits. */}
+      {/* Settings are split into 3 labelled groups (Bán hàng / Công nợ / Kết nối) so the owner can
+          locate a switch at a glance instead of scrolling a wall of cards — learnt from a polished VN
+          POS Settings screen, but we keep edit-in-place cards (NOT drill-down sub-screens, which add
+          navigation depth that hurts a low-tech owner). On desktop each group flows into 2 masonry
+          COLUMNS (short cards don't leave a gap); phones keep one column. Each card is
+          break-inside-avoid so it never splits across a column. */}
+      <h2 className="mb-2 ml-1 mt-5 font-extrabold text-slate-500">🛒 Bán hàng &amp; thanh toán</h2>
       <div className="xl:columns-2 xl:gap-4">
-      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
-        <h2 className="font-extrabold text-brand-dark">📒 Hạn mức nợ mặc định</h2>
-        <p className="mt-1 text-sm text-slate-500">Áp dụng cho khách CHƯA đặt hạn mức riêng. Vượt mức thì không cho ghi nợ thêm. Để 0 = không giới hạn.</p>
-        <input
-          inputMode="numeric"
-          value={groupVnd(defLimit)}
-          onChange={(e) => setDefLimit(String(parseVnd(e.target.value)))}
-          placeholder="VD: 2.000.000 (0 = không giới hạn)"
-          className="mt-2 w-full rounded-lg border-2 border-emerald-300 p-2.5"
-        />
-        <button onClick={saveDefLimit} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">💾 Lưu hạn mức mặc định</button>
-      </div>
-
-      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
-        <h2 className="font-extrabold text-brand-dark">✍️ Xác nhận nợ (số nợ số hoá)</h2>
-        <p className="mt-1 text-sm text-slate-500">Yêu cầu khách ký / điểm chỉ / chụp ảnh khi ghi nợ hoặc khi trả nợ — thay cho việc ký sổ giấy.</p>
-        {([
-          { key: "debt", label: "Khi GHI NỢ", mk: "debt_mode" as const, nk: "debt_min" as const },
-          { key: "repay", label: "Khi KHÁCH TRẢ NỢ", mk: "repay_mode" as const, nk: "repay_min" as const },
-        ]).map((row) => (
-          <div key={row.key} className="mt-3 border-t border-slate-100 pt-3">
-            <div className="font-bold text-slate-700">{row.label}</div>
-            <select
-              value={proof[row.mk]}
-              onChange={(e) => setProof({ ...proof, [row.mk]: e.target.value })}
-              className="mt-1 w-full rounded-lg border-2 border-emerald-200 bg-white p-2.5"
-            >
-              <option value="off">Tắt — không cần xác nhận</option>
-              <option value="optional">Gợi ý — hiện ô ký, có thể bỏ qua</option>
-              <option value="required">Bắt buộc — phải ký/ảnh/người chứng</option>
-            </select>
-            {proof[row.mk] === "required" && (
-              <div className="mt-2">
-                <label className="text-sm text-slate-500">Chỉ bắt buộc khi số tiền ≥ (để 0 = luôn bắt buộc)</label>
-                <input
-                  inputMode="numeric"
-                  value={proof[row.nk]}
-                  onChange={(e) => setProof({ ...proof, [row.nk]: groupVnd(e.target.value) })}
-                  placeholder="VD: 500.000"
-                  className="mt-1 w-full rounded-lg border-2 border-emerald-200 p-2.5"
-                />
-              </div>
-            )}
-          </div>
-        ))}
-        <button onClick={saveProof} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">💾 Lưu cách xác nhận nợ</button>
-      </div>
-
-      <div className="rounded-xl bg-white p-4">
-        <p className="text-slate-500">Nhập tài khoản ngân hàng của cửa hàng để hiện mã QR cho khách chuyển khoản đúng số tiền.</p>
-        <label className="mt-3 block font-bold text-slate-700">Mã ngân hàng (BIN)</label>
-        <input value={b.bank_bin} onChange={(e) => setB({ ...b, bank_bin: e.target.value })} placeholder="VD: 970436 (Vietcombank)" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-        <label className="mt-3 block font-bold text-slate-700">Số tài khoản</label>
-        <input value={b.account} onChange={(e) => setB({ ...b, account: e.target.value })} inputMode="numeric" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-        <label className="mt-3 block font-bold text-slate-700">Tên chủ tài khoản</label>
-        <input value={b.account_name} onChange={(e) => setB({ ...b, account_name: e.target.value })} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-        <button onClick={save} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
-          💾 Lưu
-        </button>
-      </div>
-
-      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
-        <div className="font-extrabold">Khách tự xem công nợ trên kiosk</div>
-        <p className="text-slate-500">Khi bật: khách nhập SĐT ở kiosk, người bán bấm xác nhận, rồi khách xem được nợ của mình.</p>
-        <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
-          <input type="checkbox" checked={debtVisible} onChange={toggleDebt} className="h-5 w-5" />
-          Cho phép xem công nợ trên kiosk
-        </label>
-      </div>
-
-      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
+      <div className="break-inside-avoid rounded-xl bg-white p-4">
         <div className="font-extrabold">Cho phép sửa giá khi bán (mặc cả)</div>
         <p className="text-slate-500">Khi bật: lúc bán, người bán được sửa đơn giá từng mặt hàng (bớt giá cho khách). Khi tắt: luôn bán đúng bảng giá.</p>
         <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
           <input type="checkbox" checked={priceEdit} onChange={togglePriceEdit} className="h-5 w-5" />
           Cho phép sửa giá từng dòng ở màn hình bán
-        </label>
-      </div>
-
-      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
-        <div className="font-extrabold">Cho phép nhân viên thu nợ khách</div>
-        <p className="text-slate-500">Khi bật: nhân viên được ghi &quot;Khách trả nợ&quot; — tiền vào sổ quỹ ca của nhân viên đó và hệ thống ghi rõ ai thu. Khi tắt: chỉ chủ thu nợ.</p>
-        <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
-          <input type="checkbox" checked={staffCollect} onChange={toggleStaffCollect} className="h-5 w-5" />
-          Cho phép nhân viên thu nợ
         </label>
       </div>
 
@@ -304,7 +229,93 @@ export function Settings() {
         </button>
       </div>
 
-      <div id="notify" className="mt-4 scroll-mt-20 break-inside-avoid rounded-xl bg-white p-4">
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
+        <h2 className="font-extrabold text-brand-dark">🏦 Tài khoản nhận chuyển khoản (QR)</h2>
+        <p className="mt-1 text-slate-500">Nhập tài khoản ngân hàng của cửa hàng để hiện mã QR cho khách chuyển khoản đúng số tiền.</p>
+        <label className="mt-3 block font-bold text-slate-700">Mã ngân hàng (BIN)</label>
+        <input value={b.bank_bin} onChange={(e) => setB({ ...b, bank_bin: e.target.value })} placeholder="VD: 970436 (Vietcombank)" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <label className="mt-3 block font-bold text-slate-700">Số tài khoản</label>
+        <input value={b.account} onChange={(e) => setB({ ...b, account: e.target.value })} inputMode="numeric" className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <label className="mt-3 block font-bold text-slate-700">Tên chủ tài khoản</label>
+        <input value={b.account_name} onChange={(e) => setB({ ...b, account_name: e.target.value })} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+        <button onClick={save} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">
+          💾 Lưu
+        </button>
+      </div>
+      </div>
+
+      <h2 className="mb-2 ml-1 mt-6 font-extrabold text-slate-500">📒 Công nợ khách</h2>
+      <div className="xl:columns-2 xl:gap-4">
+      <div className="break-inside-avoid rounded-xl bg-white p-4">
+        <h2 className="font-extrabold text-brand-dark">📒 Hạn mức nợ mặc định</h2>
+        <p className="mt-1 text-sm text-slate-500">Áp dụng cho khách CHƯA đặt hạn mức riêng. Vượt mức thì không cho ghi nợ thêm. Để 0 = không giới hạn.</p>
+        <input
+          inputMode="numeric"
+          value={groupVnd(defLimit)}
+          onChange={(e) => setDefLimit(String(parseVnd(e.target.value)))}
+          placeholder="VD: 2.000.000 (0 = không giới hạn)"
+          className="mt-2 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+        />
+        <button onClick={saveDefLimit} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">💾 Lưu hạn mức mặc định</button>
+      </div>
+
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
+        <h2 className="font-extrabold text-brand-dark">✍️ Xác nhận nợ (số nợ số hoá)</h2>
+        <p className="mt-1 text-sm text-slate-500">Yêu cầu khách ký / điểm chỉ / chụp ảnh khi ghi nợ hoặc khi trả nợ — thay cho việc ký sổ giấy.</p>
+        {([
+          { key: "debt", label: "Khi GHI NỢ", mk: "debt_mode" as const, nk: "debt_min" as const },
+          { key: "repay", label: "Khi KHÁCH TRẢ NỢ", mk: "repay_mode" as const, nk: "repay_min" as const },
+        ]).map((row) => (
+          <div key={row.key} className="mt-3 border-t border-slate-100 pt-3">
+            <div className="font-bold text-slate-700">{row.label}</div>
+            <select
+              value={proof[row.mk]}
+              onChange={(e) => setProof({ ...proof, [row.mk]: e.target.value })}
+              className="mt-1 w-full rounded-lg border-2 border-emerald-200 bg-white p-2.5"
+            >
+              <option value="off">Tắt — không cần xác nhận</option>
+              <option value="optional">Gợi ý — hiện ô ký, có thể bỏ qua</option>
+              <option value="required">Bắt buộc — phải ký/ảnh/người chứng</option>
+            </select>
+            {proof[row.mk] === "required" && (
+              <div className="mt-2">
+                <label className="text-sm text-slate-500">Chỉ bắt buộc khi số tiền ≥ (để 0 = luôn bắt buộc)</label>
+                <input
+                  inputMode="numeric"
+                  value={proof[row.nk]}
+                  onChange={(e) => setProof({ ...proof, [row.nk]: groupVnd(e.target.value) })}
+                  placeholder="VD: 500.000"
+                  className="mt-1 w-full rounded-lg border-2 border-emerald-200 p-2.5"
+                />
+              </div>
+            )}
+          </div>
+        ))}
+        <button onClick={saveProof} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white">💾 Lưu cách xác nhận nợ</button>
+      </div>
+
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
+        <div className="font-extrabold">Cho phép nhân viên thu nợ khách</div>
+        <p className="text-slate-500">Khi bật: nhân viên được ghi &quot;Khách trả nợ&quot; — tiền vào sổ quỹ ca của nhân viên đó và hệ thống ghi rõ ai thu. Khi tắt: chỉ chủ thu nợ.</p>
+        <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
+          <input type="checkbox" checked={staffCollect} onChange={toggleStaffCollect} className="h-5 w-5" />
+          Cho phép nhân viên thu nợ
+        </label>
+      </div>
+
+      <div className="mt-4 break-inside-avoid rounded-xl bg-white p-4">
+        <div className="font-extrabold">Khách tự xem công nợ trên kiosk</div>
+        <p className="text-slate-500">Khi bật: khách nhập SĐT ở kiosk, người bán bấm xác nhận, rồi khách xem được nợ của mình.</p>
+        <label className="mt-2 flex items-center gap-2 font-bold text-slate-700">
+          <input type="checkbox" checked={debtVisible} onChange={toggleDebt} className="h-5 w-5" />
+          Cho phép xem công nợ trên kiosk
+        </label>
+      </div>
+      </div>
+
+      <h2 className="mb-2 ml-1 mt-6 font-extrabold text-slate-500">🔌 Kết nối &amp; thiết bị</h2>
+      <div className="xl:columns-2 xl:gap-4">
+      <div id="notify" className="scroll-mt-20 break-inside-avoid rounded-xl bg-white p-4">
         <div className="font-extrabold">📩 Nhắc việc cho chủ</div>
         <p className="text-slate-500">
           Số của chủ để nhận nhắc việc hằng ngày (hết hàng / cận hạn / công nợ) qua Zalo/SMS — khi kênh gửi

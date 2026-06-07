@@ -55,7 +55,16 @@ const config: Config = {
       },
       // Large, finger-friendly defaults for rural/elderly users (docs/16).
       minHeight: { touch: "56px" },
-      fontSize: { tap: ["18px", "1.4"] },
+      // Type scale nudged up for older rural eyes, anchored to the 17px body base (globals.css). Only
+      // the SMALL/MID steps are overridden (the legibility pain point — 300+ uses of text-sm, 80+ of
+      // text-xs); lg/xl/2xl/3xl keep Tailwind defaults so headings & big price numbers don't reflow.
+      // Fixes the old inconsistency where text-base (16px) was SMALLER than unstyled body text (17px).
+      fontSize: {
+        xs: ["13px", "1.45"], // was 12px
+        sm: ["15px", "1.5"], // was 14px — the dominant secondary-text size
+        base: ["17px", "1.55"], // was 16px — now matches the body base
+        tap: ["18px", "1.4"],
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],
