@@ -39,6 +39,17 @@ const SORT_OPTIONS = [
 const SORT_LABEL: Record<string, string> = Object.fromEntries(SORT_OPTIONS.map((o) => [o.key, o.label]));
 const PAGE = 24;
 
+// Related warehouse utilities surfaced right on the Kho-hàng hub (learnt from a VN POS that bundles
+// nhập/xuất/kiểm/tem here) — each links to an existing Cago screen so there's one place for stock work.
+const SHORTCUTS = [
+  { icon: "📥", label: "Nhập hàng", href: "/pos/receive" },
+  { icon: "🏷", label: "In tem", href: "/pos/labels" },
+  { icon: "📦", label: "Sắp hết", href: "/pos/low-stock" },
+  { icon: "🛒", label: "Gợi ý nhập", href: "/pos/reorder" },
+  { icon: "⏰", label: "Lô & hạn", href: "/pos/expiry" },
+  { icon: "📜", label: "Lịch sử nhập", href: "/pos/receive-history" },
+];
+
 export function InventoryOverview() {
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
@@ -116,6 +127,19 @@ export function InventoryOverview() {
             <div className="text-lg font-extrabold text-slate-700">{loading ? "…" : agg.total_qty_text}</div>
           </div>
         </div>
+      </div>
+
+      <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
+        {SHORTCUTS.map((s) => (
+          <button
+            key={s.href}
+            onClick={() => router.push(s.href)}
+            className="flex shrink-0 flex-col items-center gap-1 rounded-xl bg-white px-3.5 py-2 shadow-sm active:bg-slate-50"
+          >
+            <span className="text-2xl leading-none">{s.icon}</span>
+            <span className="whitespace-nowrap text-xs font-bold text-slate-600">{s.label}</span>
+          </button>
+        ))}
       </div>
 
       <div className="mt-3">
