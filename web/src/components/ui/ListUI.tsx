@@ -60,7 +60,7 @@ export function SearchInput({ value, onChange, placeholder, autoFocus }: { value
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="mb-2.5 w-full rounded-xl border-2 border-slate-300 p-3 text-base"
+      className="mb-2.5 w-full rounded-xl border-2 border-emerald-300 p-3 text-base"
     />
   );
 }

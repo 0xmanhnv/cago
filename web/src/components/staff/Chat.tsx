@@ -74,7 +74,7 @@ export function Chat() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && ask(input)}
           placeholder="Nhập câu hỏi..."
-          className="flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
+          className="flex-1 rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
         />
         <button onClick={() => ask(input)} disabled={sending} className="rounded-xl bg-brand px-5 font-bold text-white disabled:opacity-50">
           Gửi

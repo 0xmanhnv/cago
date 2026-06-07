@@ -220,7 +220,7 @@ export function SearchHeader({
             }}
             enterKeyHint="search"
             placeholder={searchPlaceholder}
-            className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3 text-base text-slate-800 placeholder:text-slate-400"
+            className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base text-slate-800 placeholder:text-slate-400"
           />
           {onCam && (
             <button
@@ -228,7 +228,7 @@ export function SearchHeader({
               onMouseDown={(e) => e.preventDefault()}
               onClick={onCam}
               aria-label="Quét bằng camera"
-              className="shrink-0 rounded-xl border-2 border-slate-300 bg-white px-3.5 text-2xl text-brand-dark"
+              className="shrink-0 rounded-xl border-2 border-emerald-300 bg-white px-3.5 text-2xl text-brand-dark"
             >
               📷
             </button>
@@ -306,7 +306,7 @@ export function DraftModal({
   return (
     <Sheet open onClose={onClose} label={title}>
         <h3 className="text-lg font-bold">{title}</h3>
-        <textarea readOnly value={text} rows={allowPrint ? 8 : 5} className="mt-2 w-full rounded-lg border-2 border-slate-300 p-3 text-base" />
+        <textarea readOnly value={text} rows={allowPrint ? 8 : 5} className="mt-2 w-full rounded-lg border-2 border-emerald-300 p-3 text-base" />
         {note && <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">{note}</div>}
         {sent === true && <Ok>Đã gửi tin nhắn.</Ok>}
         {sent === false && <Warn>Gửi không thành công — bác sao chép gửi tay giúp nhé.</Warn>}

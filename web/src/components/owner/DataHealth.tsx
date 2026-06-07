@@ -189,7 +189,7 @@ export function DataHealth() {
                       ) : (
                         <div className="mt-2 flex gap-2">
                           <button disabled={busy} onClick={() => setMergeFor(i)} className="flex-1 rounded-lg bg-rose-600 py-2 text-sm font-bold text-white disabled:opacity-50">🔀 Gộp lại</button>
-                          <button disabled={busy} onClick={() => dismiss(g.items)} className="flex-1 rounded-lg border-2 border-slate-300 bg-white py-2 text-sm font-bold text-slate-600 disabled:opacity-50">Không trùng</button>
+                          <button disabled={busy} onClick={() => dismiss(g.items)} className="flex-1 rounded-lg border-2 border-emerald-300 bg-white py-2 text-sm font-bold text-slate-600 disabled:opacity-50">Không trùng</button>
                         </div>
                       )}
                     </div>

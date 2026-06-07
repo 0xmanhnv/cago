@@ -90,3 +90,11 @@ BackupScreen, TabBarConfig (max-w-820), Cashbook + Ghi nợ/Trả nợ (max-w-64
 Full pos + kiosk sweep at 6 breakpoints (top-level) + key sub-features at 3 sizes: **zero horizontal
 overflow / broken layouts**. Visual spot-checks consistent + on-brand. Remaining polish was form-width
 on desktop (now constrained on every form page). Device QA on a real phone still recommended for feel.
+
+## Component consistency (sizes / shared tokens)
+- Shared components: QtyStepper (sm/md), SortControl (via Sheet), ViewToggle, StatBanner, DragScroll,
+  Sheet (bottom popup), .mt-add (secondary add button). Steppers unified to sm everywhere.
+- Input border colour unified → all text inputs + their 📷 buttons use border-emerald-300 (was a
+  green-vs-grey split: forms green / search grey). Kept grey only on non-inputs: StoreMap canvas,
+  ConnectScreen mini-button, the "Tách/trả" toggle.
+- Off-brand teal removed app-wide (→ brand green / .mt-add).

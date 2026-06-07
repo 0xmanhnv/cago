@@ -1171,14 +1171,14 @@ export function Checkout() {
                   }}
                   enterKeyHint="search"
                   placeholder="🔎 Tìm tên · mã · mã vạch…"
-                  className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3 text-base"
+                  className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base"
                 />
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setCamOpen(true)}
                   aria-label="Quét mã vạch bằng camera"
-                  className="shrink-0 rounded-xl border-2 border-slate-300 bg-white px-3.5 text-2xl text-brand-dark"
+                  className="shrink-0 rounded-xl border-2 border-emerald-300 bg-white px-3.5 text-2xl text-brand-dark"
                 >
                   📷
                 </button>
@@ -1231,7 +1231,7 @@ export function Checkout() {
               value={recentQ}
               onChange={(e) => setRecentQ(e.target.value)}
               enterKeyHint="search" placeholder="🔎 Tìm theo số hoá đơn / tên khách..."
-              className="mb-2 w-full rounded-xl border-2 border-slate-300 p-3"
+              className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3"
             />
             <div className="divide-y divide-slate-100">
               {recent
@@ -1943,7 +1943,7 @@ function CustomerPicker({ onPick, onWalkIn, online }: { onPick: (c: Cust) => voi
               tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
             }}
             enterKeyHint="search" placeholder="Tìm khách theo tên / SĐT..."
-            className="w-full rounded-lg border-2 border-slate-300 p-2.5"
+            className="w-full rounded-lg border-2 border-emerald-300 p-2.5"
           />
           <button onClick={onWalkIn} className="mt-2 w-full rounded-lg bg-slate-100 py-2 text-left font-bold text-slate-600">👤 Khách lẻ (không ghi nợ)</button>
           <div className="no-scrollbar mt-1 max-h-56 overflow-auto">

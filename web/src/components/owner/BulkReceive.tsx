@@ -250,7 +250,7 @@ export function BulkReceive() {
           {rows.map((r, i) => (
             <div key={r._id} className="border-b border-slate-100 py-2 last:border-0">
               <div className="flex items-center gap-2">
-                <input value={r.name} onChange={(e) => upd(i, { name: e.target.value })} className="min-w-0 flex-1 rounded-lg border-2 border-slate-300 p-2 font-bold" />
+                <input value={r.name} onChange={(e) => upd(i, { name: e.target.value })} className="min-w-0 flex-1 rounded-lg border-2 border-emerald-300 p-2 font-bold" />
                 <button onClick={() => del(i)} className="shrink-0 rounded-lg bg-red-100 px-2.5 py-2 text-sm font-bold text-red-700">Xoá</button>
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm">

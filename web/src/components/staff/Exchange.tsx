@@ -149,7 +149,7 @@ export function Exchange() {
               onChange={(e) => search(e.target.value)}
               enterKeyHint="search"
               placeholder="🔎 Tìm hoá đơn cần đổi (số HĐ / tên khách)…"
-              className="w-full rounded-xl border-2 border-slate-300 p-3 text-base"
+              className="w-full rounded-xl border-2 border-emerald-300 p-3 text-base"
             />
           ) : undefined
         }

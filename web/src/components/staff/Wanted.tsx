@@ -242,7 +242,7 @@ export function Wanted() {
                 <button
                   onClick={() => setStatus("Confirmed")}
                   disabled={busy || wl.status === "Confirmed"}
-                  className={`min-h-[48px] flex-1 rounded-xl font-bold ${wl.status === "Confirmed" ? "bg-blue-600 text-white ring-2 ring-blue-300" : "border-2 border-slate-300 bg-white text-slate-700"}`}
+                  className={`min-h-[48px] flex-1 rounded-xl font-bold ${wl.status === "Confirmed" ? "bg-blue-600 text-white ring-2 ring-blue-300" : "border-2 border-emerald-300 bg-white text-slate-700"}`}
                 >
                   ✅ Xác nhận
                 </button>
@@ -250,7 +250,7 @@ export function Wanted() {
                   <button
                     onClick={() => setStatus("Delivering")}
                     disabled={busy || wl.status === "Delivering"}
-                    className={`min-h-[48px] flex-1 rounded-xl font-bold ${wl.status === "Delivering" ? "bg-amber-500 text-white ring-2 ring-amber-300" : "border-2 border-slate-300 bg-white text-slate-700"}`}
+                    className={`min-h-[48px] flex-1 rounded-xl font-bold ${wl.status === "Delivering" ? "bg-amber-500 text-white ring-2 ring-amber-300" : "border-2 border-emerald-300 bg-white text-slate-700"}`}
                   >
                     🚚 Đang giao
                   </button>
