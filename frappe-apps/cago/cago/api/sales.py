@@ -551,6 +551,10 @@ def list_recent_sales(limit=60, start=0, status="all", query=None):
 		base["name"] = ["in", list(returned_names) or ["__none__"]]
 	elif status == "returnable" and returned_names:
 		base["name"] = ["not in", list(returned_names)]
+	elif status == "unpaid":  # Đơn-hàng hub tab: còn nợ (outstanding > 0)
+		base["outstanding_amount"] = [">", 0]
+	elif status == "paid":  # Đơn-hàng hub tab: đã thu đủ
+		base["outstanding_amount"] = ["<=", 0]
 
 	q = (query or "").strip()
 	or_filters = [["name", "like", f"%{q}%"], ["customer_name", "like", f"%{q}%"]] if q else None

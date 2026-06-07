@@ -14,6 +14,7 @@ export const ACTIONS: Record<string, ActionDef> = {
   returns: { label: "↩️ Trả / Đổi hàng", color: "bg-rose-600", href: "/pos/returns", cap: "returns" },
   exchange: { label: "↔️ Đổi hàng", color: "bg-rose-500", href: "/pos/exchange", cap: "returns" },
   orders: { label: "📋 Khách đã chọn", color: "bg-teal-600", href: "/pos/orders", cap: null },
+  saleshistory: { label: "🧾 Đơn hàng", color: "bg-blue-600", href: "/pos/sales", cap: "returns" },
   support: { label: "🛎️ Khách cần hỗ trợ", color: "bg-rose-600", href: "/pos/support", cap: "sell" },
   assistant: { label: "🤖 Hỏi trợ lý", color: "bg-violet-600", href: "/pos/assistant", cap: null },
   help: { label: "📖 Hướng dẫn", color: "bg-sky-600", href: "/pos/help", cap: null },

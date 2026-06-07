@@ -44,7 +44,7 @@ const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : use
 // covers low-stock) are dropped from the home catalog but their routes + ACTIONS stay (so pinned
 // favourites and deep links still resolve).
 const GROUPS: { title: string; keys: string[] }[] = [
-  { title: "🛒 Bán hàng", keys: ["sell", "search", "returns", "orders", "support", "assistant"] },
+  { title: "🛒 Bán hàng", keys: ["sell", "search", "saleshistory", "returns", "orders", "support", "assistant"] },
   { title: "📦 Sản phẩm", keys: ["product", "recommended", "labels", "health"] },
   { title: "🏬 Kho & nhập hàng", keys: ["alerts", "receive", "reorder", "expiry", "receivehist"] },
   { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
