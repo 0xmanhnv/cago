@@ -139,16 +139,24 @@ export function Exchange() {
 
   return (
     <div className="pb-10">
-      <BackBar title="↔️ Đổi hàng" onBack={() => router.push("/pos")} />
+      <BackBar
+        title="↔️ Đổi hàng"
+        onBack={() => router.push("/pos")}
+        sub={
+          !sel ? (
+            <input
+              value={q}
+              onChange={(e) => search(e.target.value)}
+              enterKeyHint="search"
+              placeholder="🔎 Tìm hoá đơn cần đổi (số HĐ / tên khách)…"
+              className="w-full rounded-xl border-2 border-slate-300 p-3 text-base"
+            />
+          ) : undefined
+        }
+      />
 
       {!sel ? (
         <>
-          <input
-            value={q}
-            onChange={(e) => search(e.target.value)}
-            enterKeyHint="search" placeholder="🔎 Tìm hoá đơn cần đổi (số HĐ / tên khách)…"
-            className="mb-3 w-full rounded-xl border-2 border-emerald-200 p-3 text-base"
-          />
           {rows.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không có hoá đơn đổi được.</div>
           ) : (

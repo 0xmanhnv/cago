@@ -189,54 +189,30 @@ export function SearchHeader({
   onCam?: () => void;
   autoFocusSearch?: boolean;
 }) {
-  const [showSearch, setShowSearch] = useState(true);
-  const [navH, setNavH] = useState(0);
-  const navRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const lastY = useRef(0);
-  // Measure the nav height BEFORE the first paint so the search block is positioned right immediately
-  // (was useEffect → first frame had navH=0 → the block briefly sat at top:0 then jumped down = a flash).
-  useIsoLayoutEffect(() => {
-    setNavH(navRef.current?.offsetHeight ?? 0);
-  }, []);
+  // Focus WITHOUT scrolling — the HTML `autoFocus` attribute scrolls the field into view, which fights
+  // the route's scroll-to-top and flashes the header. preventScroll keeps the page still.
   useEffect(() => {
-    // Focus WITHOUT scrolling — the HTML `autoFocus` attribute scrolls the field into view, which
-    // fought the route's scroll-to-top and flashed the header. preventScroll keeps the page still.
     if (autoFocusSearch) searchRef.current?.focus({ preventScroll: true });
-    const measure = () => setNavH(navRef.current?.offsetHeight ?? 0);
-    window.addEventListener("resize", measure);
-    let ticking = false;
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        const y = window.scrollY;
-        if (y < 80 || y < lastY.current - 2) setShowSearch(true);
-        else if (y > lastY.current + 2) setShowSearch(false);
-        lastY.current = y;
-        ticking = false;
-      });
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", measure);
-    };
   }, [autoFocusSearch]);
+  // Unified with every other list screen: the search lives in the green bar's WHITE tier-2 `sub`, which
+  // already pins under the title and slides away on scroll (GPU transform, no reflow). No more bespoke
+  // green sliding search block — Tra giá / Bán hàng / Tìm hàng now look identical to the rest.
   return (
-    <>
-      <AppBarNav navRef={navRef} title={title} onBack={onBack} label={label} right={right} />
-      <div
-        style={{ top: Math.max(0, navH - 8) }}
-        className={`sticky z-20 -mx-4 -mt-2 mb-3 transform-gpu bg-brand px-4 pb-3.5 pt-3 text-white shadow-[0_6px_10px_-4px_rgba(0,0,0,0.18)] transition-transform duration-200 ease-out [backface-visibility:hidden] ${showSearch ? "translate-y-0" : "-translate-y-[130%] pointer-events-none"}`}
-      >
-        {/* ONE box for name · code · barcode (no separate barcode field). A hardware scanner or a typed
-            all-digit barcode + Enter resolves & adds via onBarcodeKey; a name search does nothing
-            special. The 📷 opens the camera — type="button" + onMouseDown preventDefault so a single
-            tap fires it even while the search box has focus (no "first tap just focuses input"). */}
+    <BackBar
+      title={title}
+      onBack={onBack}
+      label={label}
+      right={right}
+      sub={
+        // ONE box for name · code · barcode (no separate barcode field). A hardware scanner or a typed
+        // all-digit barcode + Enter resolves & adds via onBarcodeKey; a name search does nothing special.
+        // The 📷 opens the camera — type="button" + onMouseDown preventDefault so a single tap fires it
+        // even while the search box has focus (no "first tap just focuses input").
         <div className="flex gap-2">
           <input
             ref={searchRef}
+            type="search"
             {...(searchValue !== undefined ? { value: searchValue } : {})}
             onChange={onSearch}
             onKeyDown={(e) => {
@@ -244,7 +220,7 @@ export function SearchHeader({
             }}
             enterKeyHint="search"
             placeholder={searchPlaceholder}
-            className="min-w-0 flex-1 rounded-xl border-0 bg-white p-3.5 text-lg text-slate-800 placeholder:text-slate-400"
+            className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3 text-base text-slate-800 placeholder:text-slate-400"
           />
           {onCam && (
             <button
@@ -252,14 +228,14 @@ export function SearchHeader({
               onMouseDown={(e) => e.preventDefault()}
               onClick={onCam}
               aria-label="Quét bằng camera"
-              className="shrink-0 rounded-xl bg-white px-3.5 text-2xl text-brand-dark shadow-sm"
+              className="shrink-0 rounded-xl border-2 border-slate-300 bg-white px-3.5 text-2xl text-brand-dark"
             >
               📷
             </button>
           )}
         </div>
-      </div>
-    </>
+      }
+    />
   );
 }
 

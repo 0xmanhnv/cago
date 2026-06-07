@@ -1146,6 +1146,47 @@ export function Checkout() {
               )}
             </>
           }
+          sub={
+            <>
+              {/* ONE "find a product" box (white tier-2, same as every other screen): type a name/code to
+                  filter, or scan a barcode. A hardware scanner types the all-digit barcode + Enter →
+                  resolves & adds; tapping 📷 opens the phone-camera scanner. */}
+              <div className="flex gap-2">
+                <input
+                  value={q}
+                  onChange={(e) => {
+                    setQ(e.target.value);
+                    clearTimeout(tRef.current);
+                    tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && /^\d{6,}$/.test(q.trim())) {
+                      clearTimeout(tRef.current);
+                      void findBarcode(q.trim());
+                      setQ("");
+                    }
+                  }}
+                  enterKeyHint="search"
+                  placeholder="🔎 Tìm tên · mã · mã vạch…"
+                  className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3 text-base"
+                />
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setCamOpen(true)}
+                  aria-label="Quét mã vạch bằng camera"
+                  className="shrink-0 rounded-xl border-2 border-slate-300 bg-white px-3.5 text-2xl text-brand-dark"
+                >
+                  📷
+                </button>
+              </div>
+              {cats.length > 0 && (
+                <div className="mt-2">
+                  <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />
+                </div>
+              )}
+            </>
+          }
         />
       </div>
       <div className="min-w-0">
@@ -1261,61 +1302,13 @@ export function Checkout() {
       {/* Customer is chosen inside the payment panel (with the cart + ghi nợ), so the sell screen
           stays focused on finding products — no duplicate customer control up here. */}
 
-      {/* Sticky headroom bar: search + barcode + category chips stay reachable while scrolling
-          (hide on scroll-down, reveal on scroll-up) so staff needn't scroll to the top. */}
-      {/* Not sticky: the shared BackBar above is the sticky/green top bar (keeps the status bar green);
-          two stacked sticky bars used to collide and leak a sliver. This toolbar scrolls with the list
-          and is back the moment you scroll up. */}
-      <div className="-mx-4 mb-3 bg-[#eef9f0]/95 px-4 py-2">
-        {/* ONE "find a product" box: type a name / code to filter, or scan a barcode. A hardware
-            USB/BT scanner just types the (all-digit) barcode + Enter → resolves & adds the item;
-            tapping 📷 opens the phone-camera scanner. Merged from the old separate search + "Mã vạch"
-            toggle + second field so the row stays uncluttered (common POS pattern). */}
-        <div className="flex gap-2">
-          <input
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              clearTimeout(tRef.current);
-              tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
-            }}
-            onKeyDown={(e) => {
-              // All-digit query on Enter = a scanned/typed barcode → add it; a name search does nothing
-              // special (so Enter on "cám cò" never shows a false "barcode not found").
-              if (e.key === "Enter" && /^\d{6,}$/.test(q.trim())) {
-                clearTimeout(tRef.current); // cancel the pending text-search for the barcode digits
-                void findBarcode(q.trim());
-                setQ("");
-              }
-            }}
-            enterKeyHint="search" placeholder="🔎 Tìm tên · mã · mã vạch…"
-            className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
-          />
-          {/* Camera as a SEPARATE box beside the input (not overlapping it) + type=button +
-              onMouseDown preventDefault → one tap opens the scanner even while the box has focus. */}
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setCamOpen(true)}
-            aria-label="Quét mã vạch bằng camera"
-            className="shrink-0 rounded-xl bg-emerald-600 px-4 text-2xl text-white"
-          >
-            📷
-          </button>
-        </div>
-        {/* Category chips get their OWN full-width row so they never get clipped by the toggle. */}
-        {cats.length > 0 && (
-          <div className="mt-2">
-            <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />
-          </div>
-        )}
-        {/* Product count + List/Card toggle on a slim row below (no longer squeezing the chips). */}
-        <div className="mt-2 flex items-center justify-between">
-          <span className="whitespace-nowrap text-sm text-slate-400">{list.length} sản phẩm</span>
-          <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
-            <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3.5 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
-            <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3.5 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
-          </div>
+      {/* Product count + List/Card toggle. The search + 📷 + category chips now live in the green bar's
+          sticky tier-2 `sub` (same as every other screen), so this slim row is all that's left here. */}
+      <div className="mb-3 flex items-center justify-between">
+        <span className="whitespace-nowrap text-sm text-slate-400">{list.length} sản phẩm</span>
+        <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
+          <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3.5 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
+          <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3.5 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
         </div>
       </div>
 
