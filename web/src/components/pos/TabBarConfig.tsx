@@ -41,6 +41,7 @@ export function TabBarConfig() {
   return (
     <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="📱 Sửa thanh dưới" />
+      <div className="mx-auto max-w-[820px]">
       <p className="mb-3 ml-1 text-sm text-slate-500">
         Chọn tối đa <b>{TABBAR_MAX}</b> chức năng hay dùng để hiện ở <b>thanh dưới cùng</b>. <b>🏠 Trang chủ</b> luôn có. Sửa tới đâu áp dụng tới đó.
       </p>
@@ -86,6 +87,7 @@ export function TabBarConfig() {
             </button>
           );
         })}
+      </div>
       </div>
     </div>
   );

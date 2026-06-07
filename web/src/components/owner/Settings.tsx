@@ -167,6 +167,7 @@ export function Settings() {
   return (
     <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="⚙️ Cài đặt cửa hàng" />
+      <div className="mx-auto max-w-[820px]">
 
       {/* Settings are split into 3 labelled groups (Bán hàng / Công nợ / Kết nối) so the owner can
           locate a switch at a glance instead of scrolling a wall of cards — learnt from a polished VN
@@ -365,6 +366,7 @@ export function Settings() {
         ) : (
           <div className="mt-2 text-sm text-slate-400">Đang tạo khoá…</div>
         )}
+      </div>
       </div>
       </div>
     </div>

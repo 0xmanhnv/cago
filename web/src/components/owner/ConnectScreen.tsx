@@ -156,6 +156,7 @@ export function ConnectScreen() {
   return (
     <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="🔌 Kết nối & Kênh" />
+      <div className="mx-auto max-w-[820px]">
       <Ok>
         Cấu hình kỹ thuật cho các kênh (Zalo, Telegram, thanh toán). Chỉ <b>quản trị</b> thấy màn này —
         token & mật khẩu không hiển thị cho người khác.
@@ -312,6 +313,7 @@ export function ConnectScreen() {
         <button onClick={saveNotify} disabled={!!busy} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">
           {busy === "notify" ? "Đang lưu…" : "💾 Lưu kênh gửi tin"}
         </button>
+      </div>
       </div>
     </div>
   );

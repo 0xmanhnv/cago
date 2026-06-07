@@ -206,6 +206,7 @@ export function ProductEditor({ code }: { code: string }) {
     // so labels stay near their inputs instead of stretching across the screen.
     <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="✏️ Sửa sản phẩm" />
+      <div className="mx-auto max-w-[820px]">
       <div className="rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">Sửa: {e.cago_display_name || e.item_name}</h2>
 
@@ -311,6 +312,7 @@ export function ProductEditor({ code }: { code: string }) {
         </button>
       </div>
       {draft !== null && <DraftModal text={draft} onClose={() => setDraft(null)} />}
+      </div>
     </div>
   );
 }

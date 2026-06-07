@@ -40,6 +40,7 @@ export function BackupScreen() {
   return (
     <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="💾 Sao lưu dữ liệu" />
+      <div className="mx-auto max-w-[820px]">
       <div className="rounded-xl bg-white p-4">
         <p className="text-slate-600">
           Tạo bản sao lưu toàn bộ dữ liệu (bán hàng, công nợ, sản phẩm, ảnh). Nên sao lưu trước khi sửa lớn.
@@ -57,6 +58,7 @@ export function BackupScreen() {
         <p className="mt-2 text-xs text-slate-400">
           Sao lưu chạy nền, có thể mất vài phút. Bản sao nằm trong máy chủ — nên bật sao lưu tự động và chép ra USB/ổ ngoài/Drive (xem Hướng dẫn go-live).
         </p>
+      </div>
       </div>
     </div>
   );

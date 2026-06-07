@@ -80,6 +80,7 @@ export function AiSettings() {
   return (
     <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="🤖 Cấu hình trợ lý AI" />
+      <div className="mx-auto max-w-[820px]">
       <Ok>
         Đang dùng: <b>{c.effective.provider}</b>
         {c.effective.model ? ` · ${c.effective.model}` : ""}
@@ -128,6 +129,7 @@ export function AiSettings() {
       <button onClick={save} disabled={busy} className="mt-4 min-h-touch w-full rounded-xl bg-brand text-lg font-extrabold text-white disabled:opacity-50">
         {busy ? "Đang lưu..." : "💾 Lưu cấu hình AI"}
       </button>
+      </div>
     </div>
   );
 }

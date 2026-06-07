@@ -71,6 +71,7 @@ export function StoreProfile() {
   return (
     <div className="">
       <BackBar title="🏪 Thông tin cửa hàng" onBack={() => goBackSmart(router)} />
+      <div className="mx-auto max-w-[820px]">
       <div className="mt-4 rounded-xl bg-white p-4">
         <p className="text-sm text-slate-500">Thông tin này in lên đầu hoá đơn cho khách và hiện ở trang theo dõi đơn.</p>
         {field("Tên cửa hàng", "name", { placeholder: "VD: Cửa hàng Minh Tuyết" })}
@@ -81,6 +82,7 @@ export function StoreProfile() {
         <button onClick={save} disabled={saving} className="mt-4 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">
           {saving ? "Đang lưu…" : "💾 Lưu thông tin"}
         </button>
+      </div>
       </div>
     </div>
   );
