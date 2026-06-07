@@ -360,6 +360,7 @@ export function Checkout() {
   const [delivery, setDelivery] = useState(""); // optional delivery fee (phí giao hàng) added to the bill
   const [custInPanel, setCustInPanel] = useState(false); // change-customer picker inside the pay panel
   const [viewMode, setViewMode] = useState<"list" | "card">("list"); // staff default = dense list (speed)
+  const [cartListOpen, setCartListOpen] = useState(true); // collapse the cart line list (keep total + pay visible)
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<string | null>(null); // applied code
   const [couponDisc, setCouponDisc] = useState(0);
@@ -1320,13 +1321,13 @@ export function Checkout() {
             {q.trim() || category ? "Không tìm thấy sản phẩm. Thử gõ tên khác." : "Gõ tên sản phẩm hoặc chọn loại hàng để xem."}
           </div>
         ) : (
-          <div className={`grid items-start gap-2.5 ${viewMode === "list" ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"}`}>
+          <div className={viewMode === "list" ? "grid grid-cols-1 gap-2.5" : "gap-2.5 [column-gap:0.625rem] columns-2 lg:columns-3 2xl:columns-4"}>
           {list.map((p) => {
             const line = lines[p.item_code];
             const m = meta[p.item_code];
             const multi = (m?.sale_units?.length || 0) > 1;
             return (
-              <div key={p.item_code} className={`flex flex-col rounded-xl border-2 p-3 shadow-sm ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
+              <div key={p.item_code} className={`flex flex-col rounded-xl border-2 p-3 shadow-sm ${viewMode === "card" ? "mb-2.5 break-inside-avoid" : ""} ${line ? "border-brand bg-brand-light/40" : "border-transparent bg-white"}`}>
                 {viewMode === "card" ? (
                   // Card = standard mobile product card: IMAGE ON TOP (full-width square), text below,
                   // a full-width Add button pinned to the bottom (mt-auto) so card buttons line up.
@@ -1511,31 +1512,42 @@ export function Checkout() {
                   <span className="shrink-0 rounded-xl bg-brand px-5 py-3 text-lg font-extrabold text-white">Thanh toán ▲</span>
                 </button>
               ) : (
-                <div className={`no-scrollbar max-h-[82vh] overflow-auto p-3 xl:max-h-[calc(100vh-2rem)] xl:animate-none ${payClosing ? "animate-sheet-down" : "animate-sheet-up"}`}>
+                <div className={`no-scrollbar flex max-h-[88vh] flex-col p-3 xl:max-h-[calc(100vh-2rem)] xl:animate-none ${payClosing ? "animate-sheet-down" : "animate-sheet-up"}`}>
                   <button onClick={closePay} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500 xl:hidden">
                     ▼ Thu gọn — chọn thêm hàng
                   </button>
-                  <div className="mb-2 hidden text-lg font-extrabold text-brand-dark xl:block">🛒 Giỏ hàng</div>
+                  {/* Header doubles as a collapse toggle for the line list — handy once the cart is long
+                      (keeps the customer + total + pay buttons in view without scrolling the lines). */}
+                  <button
+                    onClick={() => setCartListOpen((v) => !v)}
+                    className="mb-2 flex w-full items-center justify-between"
+                  >
+                    <span className="text-lg font-extrabold text-brand-dark">🛒 Giỏ hàng · {cartCodes.length} món</span>
+                    <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-500">{cartListOpen ? "▲ Ẩn danh sách" : "▼ Hiện danh sách"}</span>
+                  </button>
                   {/* Cart lines — listed + qty-editable right here, so staff never has to close the
-                      panel to fix a quantity. Tap the number for the keypad; ✕ removes the line. */}
-                  <div className="mb-2 max-h-[38vh] divide-y divide-slate-100 overflow-auto rounded-xl border border-slate-200 xl:max-h-none xl:overflow-visible">
+                      panel to fix a quantity. Tap the number for the keypad; ✕ removes the line. Each line
+                      shows the FULL product name on its own row (no truncation); the price · stepper ·
+                      total · remove sit on the row below. */}
+                  {cartListOpen && (
+                  <div className="mb-2 min-h-0 divide-y divide-slate-100 overflow-auto rounded-xl border border-slate-200">
                     {cartCodes.map((c) => {
                       const ln = lines[c];
                       const units = meta[c]?.sale_units || [];
                       return (
                         <div key={c} className="px-2.5 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate text-base font-bold leading-tight">{nameOf(c)}</div>
-                              <div className="text-sm text-slate-500">{money(linePrice(c))} / {labelOf(c, ln.uom)}</div>
-                            </div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-base font-bold leading-snug">{nameOf(c)}</div>
+                            <button onClick={() => setQty(c, 0)} aria-label="Bỏ" className="-mr-0.5 -mt-0.5 shrink-0 rounded-lg bg-red-50 px-2 py-1 text-sm font-bold text-red-600">✕</button>
+                          </div>
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <div className="min-w-0 flex-1 text-sm text-slate-500">{money(linePrice(c))} / {labelOf(c, ln.uom)}</div>
                             <div className="flex shrink-0 items-center gap-1">
                               <button onClick={() => setQty(c, ln.qty - 1)} className="h-11 w-11 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
                               <button onClick={() => setKeypad(c)} title="Bấm để nhập số lượng" className="h-11 w-14 rounded-lg border-2 border-emerald-300 text-center text-lg font-extrabold">{trim(ln.qty)}</button>
                               <button onClick={() => setQty(c, ln.qty + 1)} className="h-11 w-11 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
                             </div>
                             <div className="min-w-[84px] shrink-0 whitespace-nowrap text-right text-base font-extrabold text-brand">{money(linePrice(c) * ln.qty)}</div>
-                            <button onClick={() => setQty(c, 0)} aria-label="Bỏ" className="shrink-0 rounded-lg bg-red-50 px-2 py-1 text-sm font-bold text-red-600">✕</button>
                           </div>
                           {/* Multi-unit items: switch Kg / Yến / Bao right in the cart (changes the price). */}
                           {units.length > 1 && (
@@ -1555,6 +1567,7 @@ export function Checkout() {
                       );
                     })}
                   </div>
+                  )}
                   {/* Customer — changeable right here so staff don't have to scroll up to ghi nợ. */}
                   <button
                     onClick={() => setCustInPanel((v) => !v)}
