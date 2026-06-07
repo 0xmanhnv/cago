@@ -15,6 +15,7 @@ from frappe import _
 
 from cago.api.debt import _company
 from cago.utils.permissions import ensure_admin
+from cago.utils.secrets import set_secret
 
 _DATA_FIELDS = (
 	"cago_llm_provider",
@@ -71,7 +72,10 @@ def set_ai_config(**kwargs):
 			frappe.db.set_value("Company", c, f, (kwargs[f] or "").strip())
 	for f in _KEY_FIELDS:
 		if kwargs.get(f):  # only overwrite a secret when a real value is provided
-			frappe.db.set_value("Company", c, f, kwargs[f].strip())
+			# Encrypt into __Auth (the field is a Password type). A plain db.set_value wrote the key to
+			# the column while the reader (chatbot.config._db → get_decrypted_password) reads __Auth —
+			# so a UI-set key was both leaked in cleartext AND never actually used. set_secret fixes both.
+			set_secret("Company", c, f, kwargs[f].strip())
 	frappe.db.commit()
 	return get_ai_config()
 
