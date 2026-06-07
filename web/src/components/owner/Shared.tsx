@@ -116,9 +116,8 @@ export function SearchHeader({
   right,
   onSearch,
   searchValue,
-  searchPlaceholder = "🔎 Tìm theo tên, công dụng...",
+  searchPlaceholder = "🔎 Tìm tên · mã · mã vạch…",
   onBarcodeKey,
-  barcodePlaceholder = "⌨ Quét/nhập mã vạch rồi Enter",
   onCam,
   autoFocusSearch = true,
 }: {
@@ -130,7 +129,6 @@ export function SearchHeader({
   searchValue?: string;
   searchPlaceholder?: string;
   onBarcodeKey?: (e: KeyboardEvent<HTMLInputElement>) => void;
-  barcodePlaceholder?: string;
   onCam?: () => void;
   autoFocusSearch?: boolean;
 }) {
@@ -175,25 +173,34 @@ export function SearchHeader({
         style={{ top: Math.max(0, navH - 8) }}
         className={`sticky z-20 -mx-4 -mt-2 mb-3 transform-gpu bg-brand px-4 pb-3.5 pt-3 text-white shadow-[0_6px_10px_-4px_rgba(0,0,0,0.18)] transition-transform duration-200 ease-out [backface-visibility:hidden] ${showSearch ? "translate-y-0" : "-translate-y-[130%] pointer-events-none"}`}
       >
+        {/* ONE box for name · code · barcode (no separate barcode field). A hardware scanner or a typed
+            all-digit barcode + Enter resolves & adds via onBarcodeKey; a name search does nothing
+            special. The 📷 opens the camera — type="button" + onMouseDown preventDefault so a single
+            tap fires it even while the search box has focus (no "first tap just focuses input"). */}
         <div className="flex gap-2">
           <input
             ref={searchRef}
             {...(searchValue !== undefined ? { value: searchValue } : {})}
             onChange={onSearch}
+            onKeyDown={(e) => {
+              if (onBarcodeKey && e.key === "Enter" && /^\d{6,}$/.test((e.target as HTMLInputElement).value.trim())) onBarcodeKey(e);
+            }}
+            enterKeyHint="search"
             placeholder={searchPlaceholder}
             className="min-w-0 flex-1 rounded-xl border-0 bg-white p-3.5 text-lg text-slate-800 placeholder:text-slate-400"
           />
           {onCam && (
-            <button onClick={onCam} aria-label="Quét bằng camera" className="shrink-0 rounded-xl bg-white px-3.5 text-base font-bold text-brand-dark shadow-sm">📷</button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onCam}
+              aria-label="Quét bằng camera"
+              className="shrink-0 rounded-xl bg-white px-3.5 text-2xl text-brand-dark shadow-sm"
+            >
+              📷
+            </button>
           )}
         </div>
-        {onBarcodeKey && (
-          <input
-            placeholder={barcodePlaceholder}
-            onKeyDown={onBarcodeKey}
-            className="mt-2 w-full rounded-xl border-0 bg-white p-3 text-base text-slate-800 placeholder:text-slate-400"
-          />
-        )}
       </div>
     </>
   );
@@ -349,20 +356,18 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
       ) : (
         <>
           <BackBar onBack={onBack} />
-          <input
-            autoFocus
-            onChange={onSearch}
-            placeholder="Tên, tên hay gọi, màu bao..."
-            className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
-          />
-          {/* USB/BT scanner types here + Enter; "📷" opens the phone camera (BarcodeScanner). */}
+          {/* ONE box: type a name/code to filter, or scan a barcode (USB/BT scanner types digits + Enter;
+              📷 opens the phone camera). type="button" + onMouseDown preventDefault → one-tap camera. */}
           <div className="mb-2 flex gap-2">
             <input
-              placeholder="⌨ Quét/nhập mã vạch rồi Enter"
-              onKeyDown={onBarcodeKey}
-              className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base"
+              autoFocus
+              onChange={onSearch}
+              onKeyDown={(e) => { if (e.key === "Enter" && /^\d{6,}$/.test((e.target as HTMLInputElement).value.trim())) onBarcodeKey(e); }}
+              enterKeyHint="search"
+              placeholder="🔎 Tên · mã · mã vạch…"
+              className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
             />
-            <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-600 px-3 text-base font-bold text-white">📷</button>
+            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-600 px-4 text-2xl text-white">📷</button>
           </div>
         </>
       )}

@@ -1305,7 +1305,7 @@ export function Checkout() {
             USB/BT scanner just types the (all-digit) barcode + Enter → resolves & adds the item;
             tapping 📷 opens the phone-camera scanner. Merged from the old separate search + "Mã vạch"
             toggle + second field so the row stays uncluttered (common POS pattern). */}
-        <div className="relative">
+        <div className="flex gap-2">
           <input
             value={q}
             onChange={(e) => {
@@ -1322,12 +1322,16 @@ export function Checkout() {
               }
             }}
             enterKeyHint="search" placeholder="🔎 Tìm tên · mã · mã vạch…"
-            className="w-full rounded-xl border-2 border-slate-300 p-3.5 pr-14 text-lg"
+            className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
           />
+          {/* Camera as a SEPARATE box beside the input (not overlapping it) + type=button +
+              onMouseDown preventDefault → one tap opens the scanner even while the box has focus. */}
           <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => setCamOpen(true)}
             aria-label="Quét mã vạch bằng camera"
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-emerald-600 px-3 py-2.5 text-white"
+            className="shrink-0 rounded-xl bg-emerald-600 px-4 text-2xl text-white"
           >
             📷
           </button>

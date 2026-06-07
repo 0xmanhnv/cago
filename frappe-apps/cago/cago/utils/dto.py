@@ -410,11 +410,15 @@ def _rate_for(pmap, stock_uom):
 	return pmap.get(stock_uom) or pmap.get("") or 0
 
 
-def list_dtos(query, audience="staff", public_only=False, category=None, limit=24, start=0, recommended_only=False, codes=None):
+def list_dtos(query, audience="staff", public_only=False, category=None, limit=24, start=0, recommended_only=False, codes=None, sort=None):
 	"""Lightweight list/search results built with 2 queries total (items + prices).
 
 	List cards don't need alternatives or live stock qty, so we skip the per-item
 	get_doc/Bin/alternative lookups that the detail DTOs use (avoids N+1).
+
+	`sort` (owner product list): name/creation are cheap SQL order_by with SQL pagination; the
+	price-based sorts need the price map (a separate query) so those fetch ALL matching rows, sort
+	in Python, then slice the page (the catalog is only a few hundred items, so this stays cheap).
 	"""
 	base = {"disabled": 0}
 	if public_only:

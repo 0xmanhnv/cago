@@ -146,10 +146,9 @@ export function Search() {
         onBarcodeKey={(e) => {
           if (e.key === "Enter") {
             void findBarcode((e.target as HTMLInputElement).value);
-            (e.target as HTMLInputElement).value = "";
+            setQ(""); // controlled input → clear via state (DOM .value="" wouldn't stick)
           }
         }}
-        barcodePlaceholder="⌨ Hoặc quét mã vạch..."
         onCam={() => setCamOpen(true)}
       />
       {camOpen && (
