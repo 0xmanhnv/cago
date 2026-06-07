@@ -340,10 +340,7 @@ export function Checkout() {
   // Headroom: hide the search/category bar on scroll-down (more room for products), reveal it
   // instantly on scroll-up — so staff find/filter without scrolling to the very top.
   const [showTop, setShowTop] = useState(false); // back-to-top FAB after scrolling down
-  // Barcode entry is secondary (most rural sales are by name), so it hides behind a toggle to free
-  // a full row above the product list; shops with a hardware scanner just leave it open.
-  const [scanOpen, setScanOpen] = useState(false);
-  const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay
+  const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay (opened from the search box 📷)
   useEffect(() => {
     let ticking = false;
     const apply = () => {
@@ -1304,9 +1301,11 @@ export function Checkout() {
           two stacked sticky bars used to collide and leak a sliver. This toolbar scrolls with the list
           and is back the moment you scroll up. */}
       <div className="-mx-4 mb-3 bg-[#eef9f0]/95 px-4 py-2">
-        {/* Search + barcode toggle on one row — both are "find a product", and keeping the toggle
-            here (not in the chips row) leaves the category chips full width on a narrow phone. */}
-        <div className="flex items-center gap-2">
+        {/* ONE "find a product" box: type a name / code to filter, or scan a barcode. A hardware
+            USB/BT scanner just types the (all-digit) barcode + Enter → resolves & adds the item;
+            tapping 📷 opens the phone-camera scanner. Merged from the old separate search + "Mã vạch"
+            toggle + second field so the row stays uncluttered (common POS pattern). */}
+        <div className="relative">
           <input
             value={q}
             onChange={(e) => {
@@ -1314,35 +1313,25 @@ export function Checkout() {
               clearTimeout(tRef.current);
               tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
             }}
-            enterKeyHint="search" placeholder="🔎 Tìm theo tên, công dụng..."
-            className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
+            onKeyDown={(e) => {
+              // All-digit query on Enter = a scanned/typed barcode → add it; a name search does nothing
+              // special (so Enter on "cám cò" never shows a false "barcode not found").
+              if (e.key === "Enter" && /^\d{6,}$/.test(q.trim())) {
+                void findBarcode(q.trim());
+                setQ("");
+              }
+            }}
+            enterKeyHint="search" placeholder="🔎 Tìm tên · mã · mã vạch…"
+            className="w-full rounded-xl border-2 border-slate-300 p-3.5 pr-14 text-lg"
           />
           <button
-            onClick={() => setScanOpen((v) => !v)}
-            aria-label="Quét mã vạch"
-            className={`shrink-0 whitespace-nowrap rounded-xl border-2 px-3 py-3.5 text-sm font-bold ${scanOpen ? "border-brand bg-brand text-white" : "border-emerald-300 bg-white text-emerald-700"}`}
+            onClick={() => setCamOpen(true)}
+            aria-label="Quét mã vạch bằng camera"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-emerald-600 px-3 py-2.5 text-white"
           >
-            ▮▮ Mã vạch
+            📷
           </button>
         </div>
-        {/* Barcode field only when toggled on (keeps the common name-search uncluttered): a hardware
-            USB/BT scanner types here + Enter; "📷 Quét bằng camera" uses the phone camera instead. */}
-        {scanOpen && (
-          <div className="mt-2 flex gap-2">
-            <input
-              autoFocus
-              placeholder="⌨ Quét/nhập mã vạch rồi Enter"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  void findBarcode((e.target as HTMLInputElement).value);
-                  (e.target as HTMLInputElement).value = "";
-                }
-              }}
-              className="min-w-0 flex-1 rounded-xl border-2 border-emerald-300 p-3 text-base"
-            />
-            <button onClick={() => setCamOpen(true)} className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-600 px-3 py-3 text-base font-bold text-white">📷 Camera</button>
-          </div>
-        )}
         {/* Category chips get their OWN full-width row so they never get clipped by the toggle. */}
         {cats.length > 0 && (
           <div className="mt-2">

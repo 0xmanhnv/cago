@@ -50,7 +50,7 @@ export function ProductManager() {
       <button onClick={() => router.push("/pos/products/new")} className="mt-tile mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
         ➕ Thêm sản phẩm mới
       </button>
-      <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm để xem giá / sửa..." />
+      <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm tên · mã · biệt danh…" />
       {loading ? (
         <SkeletonRows rows={6} />
       ) : list.length === 0 ? (
