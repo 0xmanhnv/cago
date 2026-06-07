@@ -85,13 +85,23 @@ function AppBarNav({
     ro.observe(el);
     setSubH(el.scrollHeight);
     let ticking = false;
+    // Hiding the sub shrinks the page; near the bottom the browser then CLAMPS scrollY upward, which
+    // would read as "scroll-up" and re-show it → an infinite expand/collapse jitter that traps you
+    // before the bottom. After a hide we lock toggling for 400ms to swallow that clamp event.
+    let lockUntil = 0;
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         const y = window.scrollY;
-        if (y < 60 || y < lastY.current - 4) setShowSub(true);
-        else if (y > lastY.current + 4) setShowSub(false);
+        const now = performance.now();
+        if (now >= lockUntil) {
+          if (y < 60 || y < lastY.current - 4) setShowSub(true);
+          else if (y > lastY.current + 4) {
+            setShowSub(false);
+            lockUntil = now + 400;
+          }
+        }
         lastY.current = y;
         ticking = false;
       });
