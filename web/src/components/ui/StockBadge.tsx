@@ -4,7 +4,8 @@
  *  lives in its own tiny module (shared by POS owner/staff screens AND the kiosk without dragging the
  *  big owner/Shared bundle into the kiosk route). */
 export function StockBadge({ status }: { status?: string | null }) {
-  const s = (status || "").toLowerCase();
+  if (!status) return null; // blank status → render nothing (was an empty green pill)
+  const s = status.toLowerCase();
   const out = s.includes("hết hàng"); // "Hết hàng", "⚠ Hết hàng"
   const low = !out && (s.includes("còn ít") || s.includes("sắp")); // "Còn ít", "Sắp hết", "Sắp nhập"
   const tone = out ? "bg-red-50 text-red-600" : low ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700";

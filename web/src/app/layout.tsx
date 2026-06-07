@@ -29,17 +29,22 @@ export const metadata: Metadata = {
   // green app-bar fills behind it to the very top (light status-bar text on green). The safe-area padding
   // keeps content clear of the notch. (In a plain Safari TAB the status-bar strip is iOS-controlled and
   // not reliably paintable from a web page — the true "green to the top" is the installed experience.)
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Minh Tuyết" },
+  // "default" (opaque bar, content below it) — NOT black-translucent, which needs viewport-fit:cover to
+  // pad the notch; without cover (we dropped it) translucent would let the status bar overlap the header
+  // in an installed PWA. Installed bar colour then comes from theme-color (green); a Safari tab still
+  // gets the green tint from iOS sampling the top-of-viewport (canvas + sticky app-bar).
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Minh Tuyết" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "rgb(22, 163, 74)", // rgb() form (== #16a34a) — some iOS Safari builds tint the status bar more reliably with rgb() than hex
-  // Let the app paint edge-to-edge INCLUDING behind the iOS status bar / Dynamic Island so a colored
-  // top bar reaches the very top (no white strip). Content then uses env(safe-area-inset-*) to stay
-  // clear of the notch/home-indicator. Insets are 0 on non-notch devices → no change there.
-  viewportFit: "cover",
+  // NOTE: deliberately NOT `viewport-fit: cover`. The green status bar comes from iOS sampling the
+  // top-of-viewport colour (the canvas + the sticky green bar) — that works WITHOUT cover. Cover made
+  // `env(safe-area-inset-bottom)` report the full Safari bottom-toolbar height in a TAB, which padded a
+  // large empty band under the bottom nav. Dropping cover → insets are 0 in a tab (the OS keeps content
+  // inside the safe area itself), so the bottom nav sits flush above the toolbar with no band.
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1170,21 +1170,22 @@ export function Checkout() {
     // PC (xl): two columns — products left, the cart/pay panel docked right. Phone/tablet: one
     // column with the slide-up pay sheet (pb-24 leaves room for the fixed bottom bar).
     <div className="pb-24 xl:grid xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start xl:gap-6 xl:pb-4">
+      {/* Shared green app-bar. On PC it spans BOTH columns (col-span-2) so it reads as a proper full-width
+          top bar instead of a half-bar sitting only over the product column. In lại / Đơn giữ ride along. */}
+      <div className="xl:col-span-2">
+        <BackBar
+          title="BÁN HÀNG"
+          right={
+            <>
+              <button onClick={openReprint} aria-label="In lại" className="shrink-0 rounded-xl bg-white/20 px-3 py-2 font-bold text-white">🖨</button>
+              {held.length > 0 && (
+                <button onClick={() => setShowHeld((v) => !v)} className="shrink-0 rounded-xl bg-amber-300 px-3 py-2 font-bold text-amber-900">🗂 {held.length}</button>
+              )}
+            </>
+          }
+        />
+      </div>
       <div className="min-w-0">
-      {/* Shared green app-bar (same as Tra giá) → consistent header + green status bar. In lại / Đơn giữ
-          ride along as light actions; the title can no longer wrap (flex-1 truncate). */}
-      <BackBar
-        title="BÁN HÀNG"
-        right={
-          <>
-            <button onClick={openReprint} aria-label="In lại" className="shrink-0 rounded-xl bg-white/20 px-3 py-2 font-bold text-white">🖨</button>
-            {held.length > 0 && (
-              <button onClick={() => setShowHeld((v) => !v)} className="shrink-0 rounded-xl bg-amber-300 px-3 py-2 font-bold text-amber-900">🗂 {held.length}</button>
-            )}
-          </>
-        }
-      />
-
       <ShiftBar refreshKey={shiftRefresh} onState={setShiftState} cashier={boot?.full_name} />
 
       {openShiftFor && (
