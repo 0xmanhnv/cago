@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { FilterTabs, SearchInput } from "@/components/ui/ListUI";
@@ -57,6 +57,48 @@ export function LowStock() {
 }
 
 type Period = "today" | "week" | "month" | "year" | "custom";
+
+// A date field we fully control the LOOK of — native <input type="date"> renders inconsistently across
+// devices (some show a blank grey box with no mm/dd/yyyy hint). We draw a clean white field showing the
+// picked date (dd/MM/yyyy) or a "Chọn ngày…" placeholder + 📅, with a transparent native date input on
+// top so a tap still opens the system calendar (and showPicker() on browsers that support it).
+function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const open = () => {
+    const el = ref.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+    if (!el) return;
+    if (typeof el.showPicker === "function") {
+      try {
+        el.showPicker();
+        return;
+      } catch {
+        /* fall through */
+      }
+    }
+    el.focus();
+  };
+  const display = value ? value.split("-").reverse().join("/") : "";
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-bold text-slate-600">{label}</span>
+      <div className="relative">
+        <div className="flex items-center justify-between rounded-lg border-2 border-emerald-300 bg-white p-3">
+          <span className={display ? "font-bold text-slate-800" : "text-slate-400"}>{display || "Chọn ngày…"}</span>
+          <span className="text-lg leading-none">📅</span>
+        </div>
+        <input
+          ref={ref}
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onClick={open}
+          aria-label={label}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        />
+      </div>
+    </label>
+  );
+}
 
 // Hourly revenue trend, Hôm nay (solid green) vs Hôm qua (dashed amber). Hand-drawn SVG — no chart
 // library (keeps the bundle small, matches the project's "simple" ethos). Learnt from a VN POS report.
@@ -177,17 +219,9 @@ export function Report() {
       {period === "custom" && (
         // Two clearly-labelled full-width date fields (was a flex-wrap row where "đến" orphaned from
         // its input and the empty native inputs read as stray grey boxes).
-        <div className="mb-3 rounded-xl bg-white p-3 shadow-sm">
-          {/* Always stacked full-width: two native date inputs side-by-side overflow a narrow phone
-              (each has a min intrinsic width + the calendar glyph), clipping the 2nd field. */}
-          <label className="block">
-            <span className="mb-1 block text-sm font-bold text-slate-600">Từ ngày</span>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-          </label>
-          <label className="mt-2 block">
-            <span className="mb-1 block text-sm font-bold text-slate-600">Đến ngày</span>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5" />
-          </label>
+        <div className="mb-3 space-y-2 rounded-xl bg-white p-3 shadow-sm">
+          <DateField label="Từ ngày" value={fromDate} onChange={setFromDate} />
+          <DateField label="Đến ngày" value={toDate} onChange={setToDate} />
         </div>
       )}
       {onDay && (
