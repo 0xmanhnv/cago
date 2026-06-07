@@ -71,11 +71,41 @@ function AppBarNav({
 }) {
   const router = useRouter();
   const back = onBack ?? (() => goBackSmart(router));
+  // Tier-2 (sub) hides on scroll-DOWN and returns on scroll-UP (Facebook-style); tier-1 (green title)
+  // always stays. Collapse via max-height so the content below actually moves up (no reserved gap).
+  // Only wired when there IS a sub — the many screens that pass none skip the listener entirely.
+  const [showSub, setShowSub] = useState(true);
+  const subRef = useRef<HTMLDivElement>(null);
+  const [subH, setSubH] = useState(0);
+  const lastY = useRef(0);
+  useEffect(() => {
+    const el = subRef.current;
+    if (sub == null || !el) return;
+    const ro = new ResizeObserver(() => setSubH(el.scrollHeight));
+    ro.observe(el);
+    setSubH(el.scrollHeight);
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (y < 60 || y < lastY.current - 4) setShowSub(true);
+        else if (y > lastY.current + 4) setShowSub(false);
+        lastY.current = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+    };
+  }, [sub]);
   return (
-    // Two-tier sticky header: the green title bar (shared) + an optional WHITE `sub` toolbar for this
-    // page's own controls (tabs/filters/date). The whole unit is one sticky block, so the page-specific
-    // controls stay reachable while the content scrolls under them. `pinned` (default) sticks it to the
-    // top so the status bar stays green; pinned={false} on a screen with its OWN sticky toolbar.
+    // Two-tier sticky header: the green title bar (shared, tier 1) + an optional WHITE `sub` toolbar
+    // (tier 2) for this page's own controls. One sticky block; tier 2 collapses on scroll-down so the
+    // content gets more room, and slides back on scroll-up. `pinned` (default) keeps the status bar green.
     <div ref={navRef} className={`appbar-pull ${pinned ? "sticky top-0 z-30" : ""} -mx-4 ${className}`}>
       <div className="appbar-padtop bg-brand px-4 pb-3 text-white">
         {/* No 🏠 here — the bottom tab bar already has "Trang chủ", so the top-right is freed for each
@@ -88,7 +118,16 @@ function AppBarNav({
           {right}
         </div>
       </div>
-      {sub != null && <div className="bg-white px-4 pb-2 pt-2.5">{sub}</div>}
+      {sub != null && (
+        <div
+          style={{ maxHeight: showSub ? subH || undefined : 0 }}
+          className={`overflow-hidden bg-white transition-[max-height,opacity] duration-200 ease-out ${showSub ? "opacity-100" : "opacity-0"}`}
+        >
+          <div ref={subRef} className="px-4 pb-2 pt-2.5">
+            {sub}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
