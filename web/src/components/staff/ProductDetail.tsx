@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { goBackSmart } from "@/components/owner/Shared";
+import { goBackSmart, BackBar } from "@/components/owner/Shared";
 import type { Product, Batch } from "@/lib/types";
 
 import { PageLoading } from "@/components/ui/Loading";
@@ -133,11 +133,7 @@ export function ProductDetail({ code }: { code: string }) {
 
   return (
     <div>
-      <div className="mb-3.5 flex items-center gap-2.5">
-        <button onClick={() => goBackSmart(router, "/pos/search")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ‹ Quay lại
-        </button>
-      </div>
+      <BackBar onBack={() => goBackSmart(router, "/pos/search")} />
       <div className="rounded-xl bg-white p-4">
         <ProductInfo p={p} />
       </div>

@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
+
+// useLayoutEffect runs before paint (so a measured value lands on the FIRST visible frame — no flash),
+// but warns under SSR; fall back to useEffect on the server. SearchHeader is client-only in practice.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { confirmDialog, alertDialog } from "@/components/ui/dialog";
@@ -9,7 +13,13 @@ import { copyText, formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import { Sheet } from "@/components/ui/Sheet";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
+import { SearchInput } from "@/components/ui/ListUI";
+import { StockBadge } from "@/components/ui/StockBadge";
 import type { ProductCard } from "@/lib/types";
+
+// Re-export so the many screens that already `import { StockBadge } from "@/components/owner/Shared"`
+// keep working after the component moved to its own (kiosk-bundle-friendly) module.
+export { StockBadge };
 
 import { PageLoading } from "@/components/ui/Loading";
 // VND has no decimals — round + group. Single shared formatter (lib/utils) so owner/staff/kiosk match.
@@ -33,33 +43,159 @@ export function goBackSmart(router: ReturnType<typeof useRouter>, fallback = "/p
 }
 
 /**
- * Shared top bar. The arrow goes to the previous step: pass `onBack` for an in-flow sub-step (e.g.
- * back to a picker), or omit it on a top-level screen to get smart history-back. A persistent 🏠
- * Home button is ALWAYS shown so home is one tap from anywhere, however deep the user has gone.
+ * The slim brand-green sticky nav row shared by the whole POS/owner UI. Pinned to the very top so iOS
+ * Safari tints the status bar green (it samples the top-of-viewport colour) → the seamless "native app"
+ * top, consistent on every screen. The arrow goes to the previous step: pass `onBack` for an in-flow
+ * sub-step, or omit it on a top-level screen to get smart history-back. A persistent 🏠 Home button is
+ * ALWAYS shown. `right` is an optional trailing action — style it light (e.g. bg-white/20) to sit on green.
+ * `-mx-4` makes it full-bleed inside the pos layout's px-4 column (do NOT use inside a padded card).
  */
-// The ONE shared POS/owner header (back + title + optional action + 🏠 home), used across every
-// /pos screen so a header redesign happens in one place. The kiosk has its OWN header set under
-// components/kiosk — intentionally separate so kiosk can be restyled without touching POS.
-// `right` is an optional trailing action (rendered before 🏠) for screens that need one.
-export function BackBar({ onBack, title, label = "Quay lại", right }: { onBack?: () => void; title?: string; label?: string; right?: React.ReactNode }) {
+function AppBarNav({
+  onBack,
+  title,
+  label = "Quay lại",
+  right,
+  navRef,
+  className = "",
+  pinned = true,
+}: {
+  onBack?: () => void;
+  title?: string;
+  label?: string;
+  right?: React.ReactNode;
+  navRef?: React.Ref<HTMLDivElement>;
+  className?: string;
+  pinned?: boolean;
+}) {
   const router = useRouter();
   const back = onBack ?? (() => goBackSmart(router));
   return (
-    <div className="mb-3.5 flex items-center gap-2.5">
-      <button onClick={back} className="mt-backbtn">
-        ‹ {label}
-      </button>
-      {title && <div className="mt-title flex-1">{title}</div>}
-      {right}
-      <button
-        onClick={() => router.push("/pos")}
-        aria-label="Về trang chủ"
-        title="Về trang chủ"
-        className="shrink-0 rounded-xl bg-slate-100 px-3.5 py-3 text-xl leading-none text-slate-600"
-      >
-        🏠
-      </button>
+    // `pinned` (default) sticks the bar to the top so the status bar stays green; pass pinned={false}
+    // on a screen that already has its OWN sticky toolbar (e.g. Bán hàng) so two sticky bars don't
+    // collide and leak a sliver of the lower one beneath this one.
+    <div ref={navRef} className={`appbar-pull appbar-padtop ${pinned ? "sticky top-0 z-30" : ""} -mx-4 bg-brand px-4 pb-3 text-white ${className}`}>
+      <div className="flex items-center gap-2">
+        <button onClick={back} className="shrink-0 rounded-xl bg-white/20 px-2.5 py-2 font-bold text-white active:bg-white/30">
+          ‹ {label}
+        </button>
+        {title ? <div className="min-w-0 flex-1 truncate text-lg font-extrabold sm:text-xl">{title}</div> : <div className="flex-1" />}
+        {right}
+        <button
+          onClick={() => router.push("/pos")}
+          aria-label="Về trang chủ"
+          title="Về trang chủ"
+          className="shrink-0 rounded-xl bg-white/20 px-2.5 py-2 text-lg leading-none text-white active:bg-white/30"
+        >
+          🏠
+        </button>
+      </div>
     </div>
+  );
+}
+
+// The ONE shared POS/owner header, used across every /pos screen so a redesign happens in one place.
+// Now a brand-green sticky app-bar (same API as before) → every screen matches Tra giá and keeps the
+// status bar green. The kiosk has its OWN header set under components/kiosk (intentionally separate).
+export function BackBar(props: { onBack?: () => void; title?: string; label?: string; right?: React.ReactNode; pinned?: boolean }) {
+  // Soft downward shadow so the bar reads as a header floating above the content (the small gap below
+  // becomes an elevation shadow, not a flat pale strip). Only on the standalone bar — SearchHeader puts
+  // its shadow on the search block instead (a shadow here would seam between the nav and the search).
+  return <AppBarNav {...props} className="mb-3 shadow-[0_4px_10px_-5px_rgba(0,0,0,0.18)]" />;
+}
+
+/**
+ * Search variant of the app-bar for list-search screens (Tra giá, Bán hàng, staff Tìm hàng, …): the slim
+ * green nav PLUS a "headroom" green search block that slides up behind the nav on scroll-down and returns
+ * the instant the user scrolls up. Pure transform (translateY) → smooth, no reflow. The nav stays pinned
+ * so the status bar keeps its green tint.
+ */
+export function SearchHeader({
+  title,
+  onBack,
+  label,
+  right,
+  onSearch,
+  searchValue,
+  searchPlaceholder = "🔎 Tìm theo tên, công dụng...",
+  onBarcodeKey,
+  barcodePlaceholder = "⌨ Quét/nhập mã vạch rồi Enter",
+  onCam,
+  autoFocusSearch = true,
+}: {
+  title?: string;
+  onBack?: () => void;
+  label?: string;
+  right?: React.ReactNode;
+  onSearch: (e: ChangeEvent<HTMLInputElement>) => void;
+  searchValue?: string;
+  searchPlaceholder?: string;
+  onBarcodeKey?: (e: KeyboardEvent<HTMLInputElement>) => void;
+  barcodePlaceholder?: string;
+  onCam?: () => void;
+  autoFocusSearch?: boolean;
+}) {
+  const [showSearch, setShowSearch] = useState(true);
+  const [navH, setNavH] = useState(0);
+  const navRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const lastY = useRef(0);
+  // Measure the nav height BEFORE the first paint so the search block is positioned right immediately
+  // (was useEffect → first frame had navH=0 → the block briefly sat at top:0 then jumped down = a flash).
+  useIsoLayoutEffect(() => {
+    setNavH(navRef.current?.offsetHeight ?? 0);
+  }, []);
+  useEffect(() => {
+    // Focus WITHOUT scrolling — the HTML `autoFocus` attribute scrolls the field into view, which
+    // fought the route's scroll-to-top and flashed the header. preventScroll keeps the page still.
+    if (autoFocusSearch) searchRef.current?.focus({ preventScroll: true });
+    const measure = () => setNavH(navRef.current?.offsetHeight ?? 0);
+    window.addEventListener("resize", measure);
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (y < 80 || y < lastY.current - 2) setShowSearch(true);
+        else if (y > lastY.current + 2) setShowSearch(false);
+        lastY.current = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", measure);
+    };
+  }, [autoFocusSearch]);
+  return (
+    <>
+      <AppBarNav navRef={navRef} title={title} onBack={onBack} label={label} right={right} />
+      <div
+        style={{ top: Math.max(0, navH - 8) }}
+        className={`sticky z-20 -mx-4 -mt-2 mb-3 transform-gpu bg-brand px-4 pb-3.5 pt-3 text-white shadow-[0_6px_10px_-4px_rgba(0,0,0,0.18)] transition-transform duration-200 ease-out [backface-visibility:hidden] ${showSearch ? "translate-y-0" : "-translate-y-[130%] pointer-events-none"}`}
+      >
+        <div className="flex gap-2">
+          <input
+            ref={searchRef}
+            {...(searchValue !== undefined ? { value: searchValue } : {})}
+            onChange={onSearch}
+            placeholder={searchPlaceholder}
+            className="min-w-0 flex-1 rounded-xl border-0 bg-white p-3.5 text-lg text-slate-800 placeholder:text-slate-400"
+          />
+          {onCam && (
+            <button onClick={onCam} aria-label="Quét bằng camera" className="shrink-0 rounded-xl bg-white px-3.5 text-base font-bold text-brand-dark shadow-sm">📷</button>
+          )}
+        </div>
+        {onBarcodeKey && (
+          <input
+            placeholder={barcodePlaceholder}
+            onKeyDown={onBarcodeKey}
+            className="mt-2 w-full rounded-xl border-0 bg-white p-3 text-base text-slate-800 placeholder:text-slate-400"
+          />
+        )}
+      </div>
+    </>
   );
 }
 
@@ -166,7 +302,6 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
   const [list, setList] = useState<ProductCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay
-  const router = useRouter();
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const run = async (q: string) => {
     setLoading(true);
@@ -203,30 +338,14 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
   return (
     <div>
       {accent ? (
-        // App-bar "đỉnh liền màu": a solid brand-green bar reaching the screen's top edge — it merges
-        // with the green theme-color status-bar tint so it reads like a native app's top bar (KiotViet
-        // does the same with orange). Body below stays light. Preview via the `accent` prop (Tra giá).
-        <div className="appbar-pull appbar-padtop -mx-4 mb-3 rounded-b-3xl bg-brand px-4 pb-3.5 text-white shadow-md">
-          <div className="mb-3 flex items-center gap-2.5">
-            <button onClick={onBack} className="shrink-0 rounded-xl bg-white/20 px-3 py-1.5 font-bold text-white">‹ Quay lại</button>
-            <div className="flex-1 truncate text-xl font-extrabold">{title}</div>
-            <button onClick={() => router.push("/pos")} aria-label="Về trang chủ" className="shrink-0 rounded-xl bg-white/20 px-3 py-2 text-lg leading-none text-white">🏠</button>
-          </div>
-          <input
-            autoFocus
-            onChange={onSearch}
-            placeholder="🔎 Tên, tên hay gọi, màu bao..."
-            className="w-full rounded-xl border-0 bg-white p-3.5 text-lg text-slate-800 placeholder:text-slate-400"
-          />
-          <div className="mt-2 flex gap-2">
-            <input
-              placeholder="⌨ Quét/nhập mã vạch rồi Enter"
-              onKeyDown={onBarcodeKey}
-              className="min-w-0 flex-1 rounded-xl border-0 bg-white p-3 text-base text-slate-800 placeholder:text-slate-400"
-            />
-            <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 rounded-xl bg-white px-3.5 text-base font-bold text-brand-dark shadow-sm">📷</button>
-          </div>
-        </div>
+        <SearchHeader
+          title={title}
+          onBack={onBack}
+          onSearch={onSearch}
+          onBarcodeKey={onBarcodeKey}
+          onCam={() => setCamOpen(true)}
+          searchPlaceholder="🔎 Tên, tên hay gọi, màu bao..."
+        />
       ) : (
         <>
           <BackBar onBack={onBack} />
@@ -262,7 +381,7 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
       ) : list.length === 0 ? (
         <div className="text-slate-500">Không tìm thấy.</div>
       ) : (
-        <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+        <div className="md:grid md:grid-cols-2 md:gap-x-3">
         {list.map((p) => (
           <button key={p.item_code} onClick={() => onPick(p.item_code)} className="mb-3 flex w-full items-center gap-3 rounded-xl bg-white p-3.5 text-left shadow">
             <div className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg">
@@ -271,7 +390,7 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
             <div className="min-w-0 flex-1">
               <div className="font-bold leading-tight">{p.display_name}</div>
               <div className="font-bold text-brand">{p.price_text}</div>
-              <div className="text-slate-500">{p.stock_status}</div>
+              <StockBadge status={p.stock_status} />
             </div>
           </button>
         ))}
@@ -280,6 +399,7 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
     </div>
   );
 }
+
 
 interface CustomerHit {
   customer: string;
@@ -355,23 +475,25 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
   return (
     <div>
       <BackBar onBack={onBack} />
-      <input
-        autoFocus
+      <button onClick={() => setAdding(true)} className="mt-tile mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
+        ➕ Thêm khách mới
+      </button>
+      <SearchInput
         value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
+        onChange={(v) => {
+          setQ(v);
           clearTimeout(tRef.current);
-          tRef.current = setTimeout(() => run(e.target.value.trim()), 250);
+          tRef.current = setTimeout(() => run(v.trim()), 250);
         }}
-        placeholder="Tên khách, xóm..."
-        className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
+        placeholder="🔎 Tên khách, xóm..."
+        autoFocus
       />
       <div className="text-xl font-bold text-brand-dark">{title}</div>
       <div className="mb-1 text-sm text-slate-500">Chọn khách để thực hiện — số bên phải là nợ hiện tại của khách (để xem ai đang nợ, vào &quot;📒 Công nợ khách&quot;).</div>
       {list.length === 0 ? (
-        <div className="my-2 text-slate-500">Không tìm thấy khách. Bấm &quot;Thêm khách mới&quot; bên dưới.</div>
+        <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy khách. Bấm &quot;Thêm khách mới&quot; ở trên.</div>
       ) : (
-        <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+        <div className="md:grid md:grid-cols-2 md:gap-x-3">
         {list.map((c) => (
           <button key={c.customer} onClick={() => onPick(c.customer)} className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow">
             <div className="min-w-0">
@@ -387,9 +509,6 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
         ))}
         </div>
       )}
-      <button onClick={() => setAdding(true)} className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
-        ➕ Thêm khách mới
-      </button>
     </div>
   );
 }

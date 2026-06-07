@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 // "Thêm vào Màn hình chính" nudge → opens the PWA STANDALONE (no browser bars) = feels like a real app.
 // iOS Safari has no install API, so we show the manual Share→Add steps; Android/desktop Chrome fire
@@ -11,6 +12,7 @@ interface BipEvent extends Event {
 }
 
 export function InstallHint() {
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
   const [ios, setIos] = useState(false);
   const [bip, setBip] = useState<BipEvent | null>(null);
@@ -45,7 +47,9 @@ export function InstallHint() {
     return () => window.removeEventListener("beforeinstallprompt", onBip);
   }, []);
 
-  if (!show) return null;
+  // Only nudge on the owner/staff HOME — not on every sub-screen (repetitive) and not on the kiosk
+  // (a customer browsing the shared tablet / their phone shouldn't be told to install the shop's app).
+  if (!show || pathname !== "/pos") return null;
 
   const dismiss = () => {
     setShow(false);

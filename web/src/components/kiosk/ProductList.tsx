@@ -8,6 +8,7 @@ import { useKioskNav } from "@/lib/kioskNav";
 import { CatThumb } from "./CatThumb";
 import { NavButtons } from "./NavButtons";
 import { PageLoading } from "@/components/ui/Loading";
+import { StockBadge } from "@/components/ui/StockBadge";
 import type { Category, ProductCard } from "@/lib/types";
 
 type Sort = "default" | "price_asc" | "price_desc";
@@ -268,7 +269,7 @@ export function ProductList() {
                     <span title={p.display_name} className="line-clamp-2 text-[17px] font-extrabold text-brand-dark">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</span>
                     {p.is_chemical && <span className="rounded-full bg-harvest-light px-1.5 py-0.5 text-[11px] font-bold text-harvest-dark">⚠️</span>}
                   </div>
-                  <div className={`text-sm font-semibold ${out ? "text-slate-400" : "text-brand/80"}`}>{p.stock_status}</div>
+                  <StockBadge status={p.stock_status} />
                 </div>
                 <div className="shrink-0 text-right">
                   <div className="text-lg font-extrabold text-brand">{p.price_text}</div>
@@ -305,7 +306,7 @@ export function ProductList() {
                 <div className="flex flex-1 flex-col p-3">
                   <div className="line-clamp-2 text-[17px] font-extrabold leading-snug text-brand-dark">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</div>
                   <div className="mt-auto pt-2 text-xl font-extrabold text-brand">{p.price_text}</div>
-                  <div className={`text-sm font-semibold ${out ? "text-slate-400" : "text-brand/80"}`}>{p.stock_status}</div>
+                  <StockBadge status={p.stock_status} />
                 </div>
               </button>
             );

@@ -8,6 +8,7 @@ import { frappeCall } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { isInternal, hasCap, type Cap } from "@/lib/caps";
 import { usePosKioskAutoLock } from "@/lib/usePosKioskLogout";
+import { useScrollRestoration } from "@/lib/useScrollRestoration";
 import { PinLock } from "./PinLock";
 
 // Which capability the current /pos route needs. Central so we don't sprinkle guards across ~28
@@ -64,6 +65,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // Only arm when a shop PIN exists — never auto-lock into a PIN screen nothing can open.
   usePosKioskAutoLock(signedIn && !!boot?.has_pos_pin, reload);
 
+  // Hybrid scroll: forward → top, back → restore the previous scroll position (see the hook).
+  useScrollRestoration(path);
+
   // Record that the user has navigated within the app this session, so BackBar's smart-back knows
   // there's real in-app history to step back through (vs a cold/refresh load → fall back to home).
   const prev = useRef<string | null>(null);
@@ -77,8 +81,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   if (locked) return <PinLock brand={boot?.brand} onUnlock={reload} />;
   return (
     <CapabilityGuard cap={cap} owner={owner} admin={admin}>
-      {/* Ease each route in (keyed by path) so navigating never "snaps" — it cross-fades. */}
-      <div key={path} className="animate-fade-in">
+      {/* Keyed by path so each route gets a fresh mount (correct state reset on dynamic routes). No
+          fade: the opacity-0→1 fade made the bright green header appear to "flash" on every entry. */}
+      <div key={path}>
         {children}
       </div>
       {/* Live "khách cần hỗ trợ" badge — visible anywhere in /pos (except the queue itself) to anyone
@@ -94,6 +99,9 @@ function SupportBadge() {
   useEffect(() => {
     let alive = true;
     const tick = async () => {
+      // This badge is mounted on EVERY /pos screen, so skip the poll when the tab is hidden/locked —
+      // no point hammering the server (and the rural data link) while nobody's looking.
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       try {
         // "New/unread" count (notify-style): clears once staff opens the queue, reappears on a new call.
         const n = await frappeCall<number>("cago.api.support.unread_count", {});

@@ -34,7 +34,7 @@ export function UnsafeQuestions() {
         chưa có thì lần sau nhắc khách để lại số trên màn Hỏi trợ lý để được gọi lại.
       </p>
       {rows.length === 0 ? (
-        <div className="rounded-2xl border-2 border-emerald-100 bg-white p-6 text-center text-slate-500">
+        <div className="rounded-xl bg-white p-6 text-center text-slate-400">
           Chưa có câu hỏi nào cần lưu ý. 👍
         </div>
       ) : (

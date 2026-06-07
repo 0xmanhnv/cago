@@ -101,8 +101,9 @@ export function Coupons() {
         <button onClick={save} disabled={busy} className="mt-3 min-h-touch w-full rounded-xl bg-brand font-extrabold text-white disabled:opacity-50">💾 Lưu mã</button>
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-4">
         {rows.length === 0 && <div className="mt-card p-6 text-center text-slate-400">Chưa có mã giảm giá nào.</div>}
+        <div className="space-y-2 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
         {rows.map((c) => (
           <div key={c.coupon_code} className={`mt-card flex items-center justify-between gap-2 p-3 ${c.is_active ? "" : "opacity-60"}`}>
             <div className="min-w-0">
@@ -120,6 +121,7 @@ export function Coupons() {
             </div>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );

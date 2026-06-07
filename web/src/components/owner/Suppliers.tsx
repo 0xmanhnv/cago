@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { groupVnd, parseVnd } from "@/lib/utils";
-import { BackBar, goBackSmart, Ok } from "./Shared";
+import { BackBar, goBackSmart } from "./Shared";
+import { SearchInput } from "@/components/ui/ListUI";
 import { toast } from "@/components/ui/toast";
 import type { ProductCard } from "@/lib/types";
 
@@ -20,9 +21,18 @@ export function Suppliers() {
 function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id: string; name: string }) => void }) {
   const [all, setAll] = useState<Sup[]>([]);
   const [hits, setHits] = useState<Sup[]>([]);
+  const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", note: "" });
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const onSearch = (v: string) => {
+    setQ(v);
+    clearTimeout(tRef.current);
+    tRef.current = setTimeout(async () => {
+      const t = v.trim();
+      setHits(t ? await frappeCall<Sup[]>("cago.api.supplier.search_suppliers", { query: t }, { method: "GET" }) : []);
+    }, 250);
+  };
 
   useEffect(() => {
     // The full supplier list (incl. ngừng-dùng) — a real manage list, not only those currently owed.
@@ -67,18 +77,11 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
   return (
     <div>
       <BackBar onBack={onBack} title="NHÀ CUNG CẤP" />
-      <input
-        onChange={(e) => {
-          clearTimeout(tRef.current);
-          tRef.current = setTimeout(async () => {
-            const v = e.target.value.trim();
-            setHits(v ? await frappeCall<Sup[]>("cago.api.supplier.search_suppliers", { query: v }, { method: "GET" }) : []);
-          }, 250);
-        }}
-        enterKeyHint="search" placeholder="Tìm nhà cung cấp..."
-        className="mb-2 w-full rounded-xl border-2 border-emerald-300 p-3.5 text-lg"
-      />
-      <div className="xl:grid xl:grid-cols-2 xl:gap-x-3">
+      <button onClick={() => setAdding(true)} className="mt-tile mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
+        ➕ Thêm nhà cung cấp
+      </button>
+      <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm nhà cung cấp..." />
+      <div className="md:grid md:grid-cols-2 md:gap-x-3">
       {(hits.length ? hits : all).map((s) => (
         <button key={s.supplier} onClick={() => onPick({ id: s.supplier, name: s.supplier_name })} className={`mb-2 flex w-full items-center justify-between rounded-xl p-3.5 text-left shadow ${s.disabled ? "bg-slate-100 opacity-70" : "bg-white"}`}>
           <div className="min-w-0">
@@ -89,10 +92,7 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
         </button>
       ))}
       </div>
-      {!hits.length && !all.length && <Ok>Chưa có nhà cung cấp nào.</Ok>}
-      <button onClick={() => setAdding(true)} className="mt-2.5 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
-        ➕ Thêm nhà cung cấp
-      </button>
+      {!hits.length && !all.length && <div className="rounded-xl bg-white p-6 text-center text-slate-400">Chưa có nhà cung cấp nào.</div>}
     </div>
   );
 }

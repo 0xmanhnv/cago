@@ -14,10 +14,11 @@ import { toast } from "@/components/ui/toast";
 import { uomLabel } from "@/lib/uom";
 import { Spinner } from "@/components/ui/Loading";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
+import { BackBar, StockBadge } from "@/components/owner/Shared";
 import type { ProductCard, Product, Category, Batch } from "@/lib/types";
 import { useOnline } from "@/lib/offline/useOnline";
 import { type SaleArgs, type SaleDisplay } from "@/lib/offline/db";
-import { findByBarcodeLocal, getProductLocal, refreshCatalog, searchCatalogLocal, searchCustomersLocal } from "@/lib/offline/catalog";
+import { findByBarcodeLocal, getProductLocal, refreshCatalog, searchCatalogLocal, searchCustomersLocal, spendCachedPoints } from "@/lib/offline/catalog";
 import { enqueueSale, newClientUuid } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
 import { cfdPost } from "@/lib/cfd";
@@ -338,28 +339,16 @@ export function Checkout() {
   const STAFF_PAGE = 30;
   // Headroom: hide the search/category bar on scroll-down (more room for products), reveal it
   // instantly on scroll-up — so staff find/filter without scrolling to the very top.
-  const [hideBar, setHideBar] = useState(false);
   const [showTop, setShowTop] = useState(false); // back-to-top FAB after scrolling down
   // Barcode entry is secondary (most rural sales are by name), so it hides behind a toggle to free
   // a full row above the product list; shops with a hardware scanner just leave it open.
   const [scanOpen, setScanOpen] = useState(false);
   const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay
   useEffect(() => {
-    let last = window.scrollY;
     let ticking = false;
     const apply = () => {
       ticking = false;
       const y = Math.max(0, window.scrollY);
-      // Never hide the bar while a field is focused: when the keyboard opens, iOS scrolls the
-      // focused input into view (a scroll event), which would otherwise slide the search bar — and
-      // the very input being typed into — up off-screen under the status bar.
-      const el = document.activeElement;
-      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
-      if (typing) { setHideBar(false); last = y; setShowTop(y > 600); return; }
-      if (y < 90) setHideBar(false);
-      else if (y > last + 12) setHideBar(true);
-      else if (y < last - 12) setHideBar(false);
-      last = y;
       setShowTop(y > 600);
     };
     const onScroll = () => {
@@ -940,6 +929,9 @@ export function Checkout() {
   // server books it (deduping on client_uuid) once the connection returns.
   const queueOffline = async (payment_mode: PayMode, args: SaleArgs, display: SaleDisplay, outstanding: string | null, clientUuid?: string) => {
     const sale = await enqueueSale(args, display, clientUuid);
+    // Spend the redeemed points in the local cache so a 2nd offline sale to this customer can't redeem
+    // the same points again (server re-clamps on sync; this keeps the provisional total honest).
+    if (args.customer && (args.redeem_points || 0) > 0) await spendCachedPoints(args.customer, args.redeem_points || 0);
     setOfflineSale({ code: sale.local_code, lines: display.lines, total_text: display.total_text, outstanding });
     setResult({
       invoice: sale.local_code,
@@ -1013,10 +1005,19 @@ export function Checkout() {
         setQr(v.url);
       }
     } catch (e) {
-      // A transport failure (not a server rejection) mid-checkout = the network just dropped. Queue
-      // the cash/credit sale rather than lose it; bank can't be queued (needs the gateway).
-      if (!(e instanceof FrappeError) && payment_mode !== "bank") {
+      // "Transient" = the network dropped OR the server briefly couldn't answer (5xx/429, e.g. mid-deploy
+      // or a lost response). In BOTH cases the sale MAY have landed, so re-ringing with a fresh uuid could
+      // double-book. Queue the cash/credit sale with the SAME client_uuid → the retry dedups server-side
+      // (no double charge) and the sale is never lost. Bank needs the live gateway so it can't be queued —
+      // tell staff to CHECK "Đơn gần đây" before re-ringing rather than blindly retry.
+      const transient = !(e instanceof FrappeError) || e.status >= 500 || e.status === 429;
+      if (transient && payment_mode !== "bank") {
         await queueOffline(payment_mode, args, display, outstanding, cuid);
+        toast.success("Mạng/máy chủ trục trặc — đã LƯU đơn vào hàng chờ, sẽ tự đồng bộ. Đừng bán lại đơn này.");
+        return;
+      }
+      if (transient && payment_mode === "bank") {
+        toast.error("Máy chủ trục trặc. Mở 'Đơn gần đây' kiểm tra đơn đã lên chưa rồi mới bán lại (tránh trùng).");
         return;
       }
       toast.error(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
@@ -1068,7 +1069,15 @@ export function Checkout() {
       clearCart();
       if (autoPrint) void printReceipt(r.invoice, paper);
     } catch (e) {
-      toast.error(`Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`);
+      // Split has a bank leg → can't be queued. On a transient error the sale may have landed, so warn
+      // (don't let staff blind-re-ring with a fresh uuid = double-book); only show the raw error on a
+      // genuine business rejection.
+      const transient = !(e instanceof FrappeError) || e.status >= 500 || e.status === 429;
+      toast.error(
+        transient
+          ? "Máy chủ trục trặc. Mở 'Đơn gần đây' kiểm tra đơn đã lên chưa rồi mới bán lại (tránh trùng)."
+          : `Không bán được: ${e instanceof Error ? e.message : "lỗi không rõ"}`,
+      );
     } finally {
       setBusy(false);
     }
@@ -1162,24 +1171,19 @@ export function Checkout() {
     // column with the slide-up pay sheet (pb-24 leaves room for the fixed bottom bar).
     <div className="pb-24 xl:grid xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start xl:gap-6 xl:pb-4">
       <div className="min-w-0">
-      <div className="mb-2.5 flex items-center gap-2.5">
-        <button onClick={() => router.push(home)} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ‹ Trang chủ
-        </button>
-        <div className="min-w-0 flex-1">
-          {/* Cashier name moved into the shift strip (below) — it belongs with the shift it's
-              attributed to, and keeps this title row to a clean single line. */}
-          <div className="text-2xl font-bold leading-tight">BÁN HÀNG</div>
-        </div>
-        <button onClick={openReprint} className="rounded-xl bg-slate-200 px-3 py-3 font-bold text-slate-700">
-          🖨 In lại
-        </button>
-        {held.length > 0 && (
-          <button onClick={() => setShowHeld((v) => !v)} className="rounded-xl bg-amber-500 px-3 py-3 font-bold text-white">
-            🗂 Đơn giữ ({held.length})
-          </button>
-        )}
-      </div>
+      {/* Shared green app-bar (same as Tra giá) → consistent header + green status bar. In lại / Đơn giữ
+          ride along as light actions; the title can no longer wrap (flex-1 truncate). */}
+      <BackBar
+        title="BÁN HÀNG"
+        right={
+          <>
+            <button onClick={openReprint} aria-label="In lại" className="shrink-0 rounded-xl bg-white/20 px-3 py-2 font-bold text-white">🖨</button>
+            {held.length > 0 && (
+              <button onClick={() => setShowHeld((v) => !v)} className="shrink-0 rounded-xl bg-amber-300 px-3 py-2 font-bold text-amber-900">🗂 {held.length}</button>
+            )}
+          </>
+        }
+      />
 
       <ShiftBar refreshKey={shiftRefresh} onState={setShiftState} cashier={boot?.full_name} />
 
@@ -1236,7 +1240,7 @@ export function Checkout() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-brand">{s.total_text}</span>
-                      <span className="rounded-lg bg-slate-700 px-3 py-1.5 text-sm font-bold text-white">🖨 In</span>
+                      <span aria-label="In" className="rounded-lg bg-slate-700 px-3 py-2 text-base font-bold text-white">🖨</span>
                     </div>
                   </button>
                 ))}
@@ -1295,10 +1299,10 @@ export function Checkout() {
 
       {/* Sticky headroom bar: search + barcode + category chips stay reachable while scrolling
           (hide on scroll-down, reveal on scroll-up) so staff needn't scroll to the top. */}
-      <div
-        className="sticky top-0 z-20 -mx-4 mb-3 bg-[#eef9f0]/95 px-4 py-2 backdrop-blur-sm transition-transform duration-300 will-change-transform"
-        style={{ transform: hideBar ? "translateY(-130%)" : "translateY(0)" }}
-      >
+      {/* Not sticky: the shared BackBar above is the sticky/green top bar (keeps the status bar green);
+          two stacked sticky bars used to collide and leak a sliver. This toolbar scrolls with the list
+          and is back the moment you scroll up. */}
+      <div className="-mx-4 mb-3 bg-[#eef9f0]/95 px-4 py-2">
         {/* Search + barcode toggle on one row — both are "find a product", and keeping the toggle
             here (not in the chips row) leaves the category chips full width on a narrow phone. */}
         <div className="flex items-center gap-2">
@@ -1338,17 +1342,18 @@ export function Checkout() {
             <button onClick={() => setCamOpen(true)} className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-600 px-3 py-3 text-base font-bold text-white">📷 Camera</button>
           </div>
         )}
-        {/* category chips (scrollable) + product count + List/Card toggle */}
-        <div className="mt-2 flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            {cats.length > 0 && <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />}
+        {/* Category chips get their OWN full-width row so they never get clipped by the toggle. */}
+        {cats.length > 0 && (
+          <div className="mt-2">
+            <CategoryNav variant="chips" cats={cats} active={category} onPick={pickCategory} />
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden whitespace-nowrap text-sm text-slate-400 sm:inline">{list.length} sản phẩm</span>
-            <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
-              <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
-              <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
-            </div>
+        )}
+        {/* Product count + List/Card toggle on a slim row below (no longer squeezing the chips). */}
+        <div className="mt-2 flex items-center justify-between">
+          <span className="whitespace-nowrap text-sm text-slate-400">{list.length} sản phẩm</span>
+          <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
+            <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3.5 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
+            <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3.5 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
           </div>
         </div>
       </div>
@@ -1381,9 +1386,7 @@ export function Checkout() {
                     </button>
                     <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-snug">{p.display_name}</button>
                     <div className="mt-0.5 text-base font-extrabold text-brand">{p.price_text}</div>
-                    <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                      {stockText(p, m)}
-                    </div>
+                    <StockBadge status={stockText(p, m)} />
                     {expFlag(p)}
                     {!line && (
                       <button
@@ -1404,9 +1407,7 @@ export function Checkout() {
                     <div className="min-w-0 flex-1">
                       <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.display_name}</button>
                       <div className="text-sm font-bold text-brand">{p.price_text}</div>
-                      <div className={`text-xs ${cardOOS(p) ? "font-bold text-red-600" : "text-slate-400"}`}>
-                        {stockText(p, m)}
-                      </div>
+                      <StockBadge status={stockText(p, m)} />
                       {expFlag(p)}
                     </div>
                     {!line && (

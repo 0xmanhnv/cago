@@ -20,7 +20,7 @@ export function CatThumb({
   const h = variant === "big" ? "h-64" : variant === "thumb" ? "h-full" : "h-[150px]";
   if (image && !broken)
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={image} alt={name} onError={() => setBroken(true)} className={`w-full ${h} object-cover`} />;
+    return <img src={image} alt={name} loading="lazy" decoding="async" onError={() => setBroken(true)} className={`w-full ${h} object-cover`} />;
   // No photo yet → a clean, branded placeholder (category tint gradient + icon in a soft disc)
   // instead of a blank/odd image; looks intentional until the owner uploads a real photo.
   const tint = catColor(color);

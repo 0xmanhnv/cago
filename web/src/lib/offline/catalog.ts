@@ -123,3 +123,16 @@ export async function searchCustomersLocal(query: string, start = 0, pageSize = 
     return [];
   }
 }
+
+/** After an OFFLINE sale that redeemed loyalty points, drop the cached customer's points so a second
+ *  offline sale to the same customer doesn't redeem the same points again (the server re-clamps on
+ *  sync; this keeps the provisional receipt and subsequent offline sales honest). */
+export async function spendCachedPoints(customer: string, pts: number): Promise<void> {
+  if (!customer || pts <= 0) return;
+  const d = await db();
+  const row = await d.get("customers", customer);
+  if (row) {
+    row.points = Math.max(0, (row.points || 0) - pts);
+    await d.put("customers", row);
+  }
+}

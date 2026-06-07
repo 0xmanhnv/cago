@@ -51,10 +51,11 @@ export function DateHeader({ label }: { label: string }) {
   );
 }
 
-export function SearchInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+export function SearchInput({ value, onChange, placeholder, autoFocus }: { value: string; onChange: (v: string) => void; placeholder: string; autoFocus?: boolean }) {
   return (
     <input
       type="search"
+      autoFocus={autoFocus}
       enterKeyHint="search"
       value={value}
       onChange={(e) => onChange(e.target.value)}

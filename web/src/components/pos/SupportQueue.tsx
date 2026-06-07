@@ -128,8 +128,9 @@ export function SupportQueue() {
   const openCount = pending.length + accepted.length;
 
   return (
-    <div className="mx-auto max-w-2xl p-4">
+    <div>
       <BackBar title="🛎️ Khách cần hỗ trợ" />
+      <div className="mx-auto max-w-2xl">
 
       {openCount > 1 && (
         <button onClick={resolveAll} disabled={busy === "all"} className="mb-3 w-full rounded-xl border-2 border-emerald-300 py-2.5 font-bold text-brand-dark disabled:opacity-50">
@@ -176,6 +177,7 @@ export function SupportQueue() {
             </div>
           </Card>
         ))}
+      </div>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { toast } from "@/components/ui/toast";
 import { DateHeader, FilterTabs, groupOrdered, SearchInput } from "@/components/ui/ListUI";
 
 import { PageLoading } from "@/components/ui/Loading";
+import { BackBar } from "@/components/owner/Shared";
 const STATUS_VI: Record<string, string> = {
   New: "Mới",
   Confirmed: "Đã xác nhận",
@@ -149,11 +150,7 @@ export function Wanted() {
   if (wl) {
     return (
       <div>
-        <div className="mb-3.5 flex items-center gap-2.5">
-          <button onClick={() => setWl(null)} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-            ‹ Danh sách đơn
-          </button>
-        </div>
+        <BackBar onBack={() => setWl(null)} label="Danh sách đơn" />
         <div className="rounded-xl bg-white p-4">
           {/* Header: code + status badge + when it was placed (helps staff judge recency). */}
           <div className="flex items-start justify-between gap-2">
@@ -286,12 +283,7 @@ export function Wanted() {
   // ---- List view ---------------------------------------------------------
   return (
     <div>
-      <div className="mb-3.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/pos")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ‹ Trang chủ
-        </button>
-        <div className="flex-1 text-2xl font-bold">KHÁCH ĐÃ CHỌN</div>
-      </div>
+      <BackBar title="KHÁCH ĐÃ CHỌN" />
 
       {msg && <div className="mb-3 rounded-lg border border-amber-400 bg-amber-100 p-3 text-amber-900">{msg}</div>}
 

@@ -14,12 +14,21 @@ body {
   /* Don't let iOS auto-inflate text on rotate / reader heuristics — keep the app's own sizes (native feel). */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* No rubber-band bounce on the document. The sticky green app-bar keeps the status bar tinted; without
+     this, bouncing past the top reveals the light page background as a flickering white band between the
+     status bar and the bar. Disabling it also reads more like a native app (no browser-chrome reveal). */
+  overscroll-behavior-y: none;
 }
 
 /* Always reserve the scrollbar gutter so the layout doesn't shift left/right when a page
    grows/shrinks past one viewport (e.g. switching a category with many vs few products). */
 html {
   scrollbar-gutter: stable;
+  /* The "canvas": iOS Safari tints the status-bar strip + the bottom toolbar / rubber-band area with
+     the ROOT background colour. Set it to the app's pale-green base so those areas match the page
+     instead of showing system white. On screens with the sticky green app-bar, the bar still covers
+     the top → green status bar; the bottom stays this pale green = seamless with the body gradient. */
+  background-color: #ecf9ee;
 }
 
 /* Press feedback EVERYWHERE: rural / low-tech users need to feel a tap registered. Every button,
@@ -56,15 +65,23 @@ html {
   }
 }
 
-/* Soft sunny-field gradient: pale sky → fresh leaf, fixed so it doesn't scroll. */
 body {
   font-size: 17px;
   font-family: var(--font-be-vietnam), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* Soft sunny-field gradient (pale sky → fresh leaf), pinned to the viewport via a fixed pseudo-layer
+   instead of `background-attachment: fixed` — the latter repaints the whole gradient every scroll
+   frame (jank on the low-end phones/tablet this app targets); a fixed ::before composites cheaply. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
   background:
     radial-gradient(120% 60% at 50% -10%, #eafff1 0%, rgba(234, 255, 241, 0) 60%),
     linear-gradient(180deg, #f4fbf5 0%, #ecf9ee 100%);
-  background-attachment: fixed;
-  min-height: 100vh;
 }
 
 /* Edge-to-edge top app-bar (the green "đỉnh liền màu" header). With viewport-fit=cover the page paints
@@ -73,10 +90,12 @@ body {
    Authored here (not inline Tailwind) so the calc() spacing is guaranteed valid. Insets are 0 on
    non-notch devices → identical to before. */
 .appbar-pull {
-  margin-top: calc(max(1rem, env(safe-area-inset-top)) * -1);
+  margin-top: calc(env(safe-area-inset-top) * -1);
 }
 .appbar-padtop {
-  padding-top: calc(env(safe-area-inset-top) + 1.25rem);
+  /* Just enough breathing room below the status bar / notch — was 1.25rem, trimmed so the bar hugs the
+     top instead of leaving a tall empty green strip above "Quay lại". */
+  padding-top: calc(env(safe-area-inset-top) + 0.55rem);
 }
 
 /* iOS Safari auto-zooms when a focused form control has font-size < 16px — and often fails to zoom

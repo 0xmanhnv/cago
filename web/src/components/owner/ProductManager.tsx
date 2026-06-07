@@ -7,7 +7,7 @@ import { CatThumb } from "@/components/kiosk/CatThumb";
 import { SearchInput } from "@/components/ui/ListUI";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { ProductCard } from "@/lib/types";
-import { BackBar, goBackSmart } from "./Shared";
+import { BackBar, goBackSmart, StockBadge } from "./Shared";
 
 // One product hub: search to look up a price (tra giá) → tap to edit (sửa), ➕ to add (thêm) —
 // the three old separate screens. Related product tools live here as quick links instead of
@@ -76,7 +76,7 @@ export function ProductManager() {
               <div className="min-w-0 flex-1">
                 <div className="font-bold leading-tight">{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</div>
                 <div className="font-bold text-brand">{p.price_text}</div>
-                <div className="text-sm text-slate-500">{p.stock_status}</div>
+                <StockBadge status={p.stock_status} />
               </div>
               <span className="shrink-0 rounded-lg bg-amber-500 px-3 py-2 text-sm font-bold text-white">Sửa →</span>
             </button>

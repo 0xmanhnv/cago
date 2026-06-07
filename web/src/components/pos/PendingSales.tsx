@@ -5,13 +5,13 @@
 
 import { uomLabel } from "@/lib/uom";
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { useOnline } from "@/lib/offline/useOnline";
 import { type QueuedSale } from "@/lib/offline/db";
 import { listQueue, purgeDone, retrySale } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
 import { toast } from "@/components/ui/toast";
+import { BackBar } from "@/components/owner/Shared";
 
 const esc = (s: string) => (s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
 
@@ -48,7 +48,6 @@ const STATUS: Record<QueuedSale["status"], { label: string; cls: string }> = {
 };
 
 export function PendingSales() {
-  const router = useRouter();
   const { boot } = useSession();
   const online = useOnline();
   const [rows, setRows] = useState<QueuedSale[]>([]);
@@ -97,15 +96,14 @@ export function PendingSales() {
 
   return (
     <div>
-      <div className="mb-3 flex items-center gap-2.5">
-        <button onClick={() => router.push("/pos")} className="rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ‹ Trang chủ
-        </button>
-        <div className="min-w-0 flex-1 text-2xl font-bold">Đơn chờ đồng bộ</div>
-        <span className={`rounded-full px-3 py-1 text-sm font-bold ${online ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>
-          {online ? "● Trực tuyến" : "● Ngoại tuyến"}
-        </span>
-      </div>
+      <BackBar
+        title="Đơn chờ đồng bộ"
+        right={
+          <span className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ${online ? "bg-white/20 text-white" : "bg-amber-300 text-amber-900"}`}>
+            {online ? "● Trực tuyến" : "● Ngoại tuyến"}
+          </span>
+        }
+      />
 
       <button
         onClick={sync}

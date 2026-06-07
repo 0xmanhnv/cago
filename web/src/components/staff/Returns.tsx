@@ -171,7 +171,7 @@ export function Returns() {
         title="TRẢ HÀNG"
         onBack={() => router.push("/pos")}
         right={
-          <button onClick={() => router.push("/pos/exchange")} className="shrink-0 whitespace-nowrap rounded-xl bg-rose-500 px-4 py-3 font-bold text-white">
+          <button onClick={() => router.push("/pos/exchange")} className="shrink-0 whitespace-nowrap rounded-xl bg-white/20 px-3 py-2 font-bold text-white">
             ↔️ Đổi hàng
           </button>
         }

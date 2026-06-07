@@ -403,6 +403,7 @@ export function StaffAdmin() {
           ) : (
           <>
             <p className="mb-2 ml-1 text-sm text-slate-500">Bấm một người để sửa thông tin, chức danh + giới hạn.</p>
+            <div className="md:grid md:grid-cols-2 md:gap-x-3">
             {staff.map((s) => (
               <button
                 key={s.user}
@@ -419,6 +420,7 @@ export function StaffAdmin() {
                 {!s.is_owner && <span className="shrink-0 text-slate-400">Sửa ›</span>}
               </button>
             ))}
+            </div>
           </>
           )}
         </>
@@ -430,7 +432,8 @@ export function StaffAdmin() {
           {roles.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Chưa có chức danh nào.</div>
           ) : (
-            roles.map((r) => (
+            <div className="md:grid md:grid-cols-2 md:gap-x-3">
+            {roles.map((r) => (
               <button key={r.name} onClick={() => setEditRole({ ...r })} className="mb-2 flex w-full items-center justify-between rounded-xl bg-white p-3.5 text-left shadow">
                 <div className="min-w-0">
                   <div className="font-bold">{r.title}</div>
@@ -438,7 +441,8 @@ export function StaffAdmin() {
                 </div>
                 <span className="shrink-0 text-sm text-slate-400">{r.members} người ›</span>
               </button>
-            ))
+            ))}
+            </div>
           )}
         </>
       )}

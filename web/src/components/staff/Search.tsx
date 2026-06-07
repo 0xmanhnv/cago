@@ -8,6 +8,7 @@ import { CatThumb } from "@/components/kiosk/CatThumb";
 import { CategoryNav } from "@/components/ui/CategoryNav";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
+import { SearchHeader, StockBadge } from "@/components/owner/Shared";
 import type { ProductCard, Category } from "@/lib/types";
 
 const PAGE = 30;
@@ -129,40 +130,28 @@ export function Search() {
 
   return (
     <div>
-      {/* Top row: back + the primary name search (the most-used field, so it gets top spot
-          and the biggest input). The barcode field is secondary (below). */}
-      <div className="mb-2.5 flex items-center gap-2.5">
-        <button onClick={() => router.push("/pos")} className="shrink-0 whitespace-nowrap rounded-xl bg-slate-200 px-4 py-3 text-lg font-bold">
-          ‹ Trang chủ
-        </button>
-        <input
-          autoFocus
-          value={q}
-          onChange={(e) => {
-            const v = e.target.value;
-            setQ(v);
-            clearTimeout(tRef.current);
-            tRef.current = setTimeout(() => { void run(v.trim()); syncUrl({ q: v }); }, 250);
-          }}
-          enterKeyHint="search" placeholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
-          className="min-w-0 flex-1 rounded-xl border-2 border-slate-300 p-3.5 text-lg"
-        />
-      </div>
-      {/* Barcode is rarely typed by hand (a scanner fires keystrokes + Enter), so it stays a
-          slim, muted secondary field rather than competing with the name search. */}
-      <div className="mb-2.5 flex gap-2">
-        <input
-          placeholder="⌨ Hoặc quét mã vạch..."
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              void findBarcode((e.target as HTMLInputElement).value);
-              (e.target as HTMLInputElement).value = "";
-            }
-          }}
-          className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm"
-        />
-        <button onClick={() => setCamOpen(true)} aria-label="Quét bằng camera" className="shrink-0 rounded-xl bg-emerald-600 px-3 text-base font-bold text-white">📷</button>
-      </div>
+      {/* Shared green app-bar (same as Tra giá): name search + barcode + camera fold into the headroom
+          header, so this screen matches the rest and keeps the status bar green. */}
+      <SearchHeader
+        title="TÌM HÀNG"
+        onBack={() => router.push("/pos")}
+        searchValue={q}
+        onSearch={(e) => {
+          const v = e.target.value;
+          setQ(v);
+          clearTimeout(tRef.current);
+          tRef.current = setTimeout(() => { void run(v.trim()); syncUrl({ q: v }); }, 250);
+        }}
+        searchPlaceholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
+        onBarcodeKey={(e) => {
+          if (e.key === "Enter") {
+            void findBarcode((e.target as HTMLInputElement).value);
+            (e.target as HTMLInputElement).value = "";
+          }
+        }}
+        barcodePlaceholder="⌨ Hoặc quét mã vạch..."
+        onCam={() => setCamOpen(true)}
+      />
       {camOpen && (
         <BarcodeScanner
           onScan={(c) => {
@@ -226,8 +215,9 @@ export function Search() {
                       {p.display_name}
                     </div>
                     <div className="mt-0.5 font-bold text-brand">{p.price_text}</div>
-                    <div className="mt-auto pt-1 text-sm text-slate-500">
-                      {[p.stock_status, p.category].filter(Boolean).join(" · ")}
+                    <div className="mt-auto flex flex-wrap items-center gap-x-1.5 pt-1">
+                      <StockBadge status={p.stock_status} />
+                      {p.category && <span className="text-sm text-slate-400">· {p.category}</span>}
                     </div>
                   </div>
                 </button>
@@ -246,8 +236,9 @@ export function Search() {
                       {p.display_name}
                     </div>
                     <div className="font-bold text-brand">{p.price_text}</div>
-                    <div className="text-slate-500">
-                      {[p.stock_status, p.category].filter(Boolean).join(" · ")}
+                    <div className="flex flex-wrap items-center gap-x-1.5">
+                      <StockBadge status={p.stock_status} />
+                      {p.category && <span className="text-sm text-slate-400">· {p.category}</span>}
                     </div>
                   </div>
                 </button>
