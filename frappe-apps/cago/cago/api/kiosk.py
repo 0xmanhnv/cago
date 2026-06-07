@@ -270,6 +270,9 @@ def track_order(code, phone):
 		}
 		for r in wl.items
 	]
+	from cago.api.store import store_profile
+
+	sp = store_profile()
 	return {
 		"code": wl.code,
 		"status": wl.status,
@@ -278,4 +281,7 @@ def track_order(code, phone):
 		"payment_method": wl.payment_method,
 		"created": str(wl.creation)[:16],
 		"items": items,
+		# Shop identity for the public tracking header (owner-set on Thông tin cửa hàng). Public-safe:
+		# name + contact only — the same info already printed on the receipt.
+		"store": {"name": sp["name"], "phone": sp["phone"], "address": sp["address"], "hours": sp["hours"]},
 	}

@@ -1321,6 +1321,7 @@ export function Checkout() {
               // All-digit query on Enter = a scanned/typed barcode → add it; a name search does nothing
               // special (so Enter on "cám cò" never shows a false "barcode not found").
               if (e.key === "Enter" && /^\d{6,}$/.test(q.trim())) {
+                clearTimeout(tRef.current); // cancel the pending text-search for the barcode digits
                 void findBarcode(q.trim());
                 setQ("");
               }

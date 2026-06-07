@@ -11,6 +11,7 @@ interface Order {
   payment_method?: string;
   created?: string;
   items: { display_name: string; qty: number }[];
+  store?: { name?: string; phone?: string; address?: string; hours?: string };
 }
 
 /** Public order tracking: a customer who left a phone enters their order code + phone to see the
@@ -72,6 +73,14 @@ export function TrackOrder() {
               </div>
             ))}
           </div>
+          {order.store?.name && (
+            <div className="mt-4 rounded-2xl bg-emerald-50 p-3 text-sm text-slate-600">
+              <div className="font-bold text-brand-dark">🏪 {order.store.name}</div>
+              {order.store.address && <div className="mt-0.5">{order.store.address}</div>}
+              {order.store.phone && <div className="mt-0.5">☎ {order.store.phone}</div>}
+              {order.store.hours && <div className="mt-0.5">🕒 {order.store.hours}</div>}
+            </div>
+          )}
         </div>
       )}
     </div>

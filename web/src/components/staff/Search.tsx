@@ -145,6 +145,7 @@ export function Search() {
         searchPlaceholder="🔎 Tìm theo tên, tên hay gọi, màu, công dụng..."
         onBarcodeKey={(e) => {
           if (e.key === "Enter") {
+            clearTimeout(tRef.current); // cancel the pending text-search for the typed barcode digits
             void findBarcode((e.target as HTMLInputElement).value);
             setQ(""); // controlled input → clear via state (DOM .value="" wouldn't stick)
           }

@@ -46,16 +46,21 @@ export function OrderHistory() {
   const [hasMore, setHasMore] = useState(false);
   const [printing, setPrinting] = useState("");
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Monotonic token: every load() (tab switch / new search) bumps it; a load-more in flight is dropped
+  // if the token moved meanwhile, so a slow page never appends rows from the previous tab/query.
+  const seqRef = useRef(0);
 
   const load = async (t: string, query: string) => {
+    const seq = ++seqRef.current;
     setLoading(true);
     try {
       const r =
         (await frappeCall<SaleRow[]>("cago.api.sales.list_recent_sales", { status: t, query, start: 0, limit: PAGE }, { method: "GET" })) || [];
+      if (seq !== seqRef.current) return; // a newer load started → this response is stale
       setRows(r);
       setHasMore(r.length === PAGE);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   };
   useEffect(() => {
@@ -64,10 +69,12 @@ export function OrderHistory() {
 
   const more = async () => {
     if (loadingMore) return;
+    const seq = seqRef.current;
     setLoadingMore(true);
     try {
       const r =
         (await frappeCall<SaleRow[]>("cago.api.sales.list_recent_sales", { status: tab, query: q.trim(), start: rows.length, limit: PAGE }, { method: "GET" })) || [];
+      if (seq !== seqRef.current) return; // tab/search changed mid-flight → don't append the old page
       setRows((prev) => [...prev, ...r]);
       setHasMore(r.length === PAGE);
     } finally {

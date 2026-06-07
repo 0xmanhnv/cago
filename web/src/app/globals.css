@@ -97,16 +97,6 @@ body::before {
      top instead of leaving a tall empty green strip above "Quay lại". */
   padding-top: calc(env(safe-area-inset-top) + 0.55rem);
 }
-/* In a browser TAB (not the installed PWA) iOS Safari has no viewport-fit=cover, so
-   env(safe-area-inset-top)=0; when Safari's toolbar collapses on scroll the page goes full-bleed and
-   the app-bar's content (‹ Quay lại / title) slides UNDER the status bar. Give a floor that clears the
-   status bar in that case. Scoped to display-mode:browser so the installed PWA — where the OS already
-   reserves the status-bar strip — is untouched; max() so a device that DOES report a real inset wins. */
-@media (display-mode: browser) {
-  .appbar-padtop {
-    padding-top: max(calc(env(safe-area-inset-top) + 0.55rem), 2.75rem);
-  }
-}
 
 /* iOS Safari auto-zooms when a focused form control has font-size < 16px — and often fails to zoom
    back out when the keyboard hides, leaving the layout shifted. Several screens use Tailwind text-sm
