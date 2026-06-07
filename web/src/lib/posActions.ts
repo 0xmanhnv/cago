@@ -31,6 +31,7 @@ export const ACTIONS: Record<string, ActionDef> = {
   receivehist: { label: "📜 Lịch sử nhập", color: "bg-teal-600", href: "/pos/receive-history", cap: "stock" },
   alerts: { label: "🔔 Cảnh báo hôm nay", color: "bg-amber-600", href: "/pos/alerts", cap: "stock" },
   lowstock: { label: "📦 Hàng sắp hết", color: "bg-teal-600", href: "/pos/low-stock", cap: "stock" },
+  inventory: { label: "🏬 Kho hàng (giá trị tồn)", color: "bg-teal-700", href: "/pos/inventory", cap: "owner" },
   reorder: { label: "🛒 Gợi ý nhập hàng", color: "bg-teal-700", href: "/pos/reorder", cap: "stock" },
   expiry: { label: "⏰ Lô & hạn dùng", color: "bg-orange-600", href: "/pos/expiry", cap: "stock" },
   labels: { label: "🏷 In tem giá", color: "bg-blue-600", href: "/pos/labels", cap: "products" },
