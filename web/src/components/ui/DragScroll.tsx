@@ -14,11 +14,18 @@ import { useEffect } from "react";
  */
 export function DragScroll() {
   useEffect(() => {
-    // Nearest ancestor that is one of our hidden-scrollbar strips AND actually overflows.
+    // Nearest ancestor that is one of our hidden-scrollbar strips AND actually overflows horizontally.
+    // Crucially it must be SHORT (a one-row chip/tab strip) — tall scroll containers (the cart panel,
+    // the preview sheet) also use `no-scrollbar`, and grabbing those would fight their vertical scroll.
     const strip = (target: EventTarget | null): HTMLElement | null => {
       let n = target as HTMLElement | null;
       while (n && n !== document.body) {
-        if (n.classList?.contains("no-scrollbar") && n.scrollWidth > n.clientWidth + 2) return n;
+        if (
+          n.classList?.contains("no-scrollbar") &&
+          n.scrollWidth > n.clientWidth + 2 &&
+          n.clientHeight <= 96 // a chip/tab row, not a tall scroll area
+        )
+          return n;
         n = n.parentElement;
       }
       return null;
@@ -59,23 +66,16 @@ export function DragScroll() {
       if (el) el.style.cursor = "";
       el = null;
     };
-    // Vertical wheel → horizontal scroll on a strip (only when it would otherwise do nothing useful).
-    const onWheel = (e: WheelEvent) => {
-      const s = strip(e.target);
-      if (!s || e.deltaY === 0 || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      s.scrollLeft += e.deltaY;
-      e.preventDefault();
-    };
-
+    // NOTE: deliberately NO wheel handler. Translating vertical wheel → horizontal scroll on these
+    // strips hijacked normal page scrolling whenever the cursor sat over one — the owner couldn't
+    // scroll the page with the mouse. Drag-to-pan alone covers the "PC can't swipe chips" need.
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("pointermove", onMove, true);
     window.addEventListener("pointerup", onUp, true);
-    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
     return () => {
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("pointermove", onMove, true);
       window.removeEventListener("pointerup", onUp, true);
-      window.removeEventListener("wheel", onWheel, true);
     };
   }, []);
   return null;
