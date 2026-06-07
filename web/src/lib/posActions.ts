@@ -39,6 +39,7 @@ export const ACTIONS: Record<string, ActionDef> = {
   map: { label: "🗺 Sơ đồ cửa hàng", color: "bg-teal-600", href: "/pos/map", cap: "settings" },
   recordpay: { label: "💵 Khách trả nợ", color: "bg-brand", href: "/pos/record-payment", cap: "debt" },
   recorddebt: { label: "📝 Ghi nợ (chỉ tiền)", color: "bg-red-500", href: "/pos/record-debt", cap: "debt" },
+  customers: { label: "👥 Khách hàng", color: "bg-sky-600", href: "/pos/customers", cap: "debt_view" },
   debt: { label: "📒 Công nợ khách", color: "bg-violet-600", href: "/pos/debt", cap: "debt_view" },
   verify: { label: "🙋 Xem nợ khách", color: "bg-amber-500", href: "/pos/verify", cap: "debt_view" },
   supplier: { label: "🚚 Nhà cung cấp", color: "bg-violet-500", href: "/pos/suppliers", cap: "supplier" },

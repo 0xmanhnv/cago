@@ -47,7 +47,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
   { title: "🛒 Bán hàng", keys: ["sell", "search", "saleshistory", "returns", "orders", "support", "assistant"] },
   { title: "📦 Sản phẩm", keys: ["product", "recommended", "labels", "health"] },
   { title: "🏬 Kho & nhập hàng", keys: ["inventory", "alerts", "receive", "reorder", "expiry", "receivehist"] },
-  { title: "📒 Công nợ & sổ quỹ", keys: ["debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
+  { title: "📒 Khách & công nợ", keys: ["customers", "debt", "recordpay", "recorddebt", "verify", "supplier", "cashbook"] },
   { title: "📊 Báo cáo", keys: ["reports", "unsafe", "insights", "aicontent"] },
   { title: "⚙️ Cài đặt cửa hàng", keys: ["readiness", "storeinfo", "settings", "tabbar", "categories", "map", "coupons", "aisettings", "integrations", "telegramlink", "staffadmin", "backup", "help"] },
   { title: "🖥 Màn hình & thiết bị", keys: ["cfd", "handover", "setpin"] },

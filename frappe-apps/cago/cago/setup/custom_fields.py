@@ -204,6 +204,18 @@ def ensure_customer_fields():
 					"insert_after": "cago_zalo_id",
 					"description": "Bật tự động khi khách tự đăng ký qua Zalo/web. Chặn mua chịu cho tới khi chủ duyệt.",
 				},
+				{
+					"fieldname": "cago_nickname",
+					"label": "Tên thường gọi",
+					"fieldtype": "Data",
+					"insert_after": "cago_unverified",
+				},
+				{
+					"fieldname": "cago_note",
+					"label": "Ghi chú khách hàng",
+					"fieldtype": "Small Text",
+					"insert_after": "cago_nickname",
+				},
 			]
 		},
 		ignore_validate=True,
