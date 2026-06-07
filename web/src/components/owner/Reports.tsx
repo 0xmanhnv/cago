@@ -111,25 +111,43 @@ export function Report() {
   const [profit, setProfit] = useState<Profit | null>(null);
   const [best, setBest] = useState<{ display_name: string; qty: number }[]>([]);
   const [byCust, setByCust] = useState<{ customer_name: string; total_text: string }[]>([]);
+  const [dayOffset, setDayOffset] = useState(0); // day view: 0 = today, -1 = yesterday, … (‹ › stepper)
   const ready = period !== "custom" || (!!fromDate && !!toDate); // custom needs both dates
+
+  // Local YYYY-MM-DD for `today + off` (local, not UTC — avoids a near-midnight off-by-one in VN).
+  const dayStr = (off: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + off);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const dayLabel = (off: number) => (off === 0 ? "Hôm nay" : off === -1 ? "Hôm qua" : dayStr(off).split("-").reverse().join("/"));
+  const onDay = period === "today";
 
   useEffect(() => {
     if (!ready) return;
-    const args = { period, from_date: fromDate || undefined, to_date: toDate || undefined };
+    // The Ngày view can step back to a past day (dayOffset) — that day becomes a 1-day custom range.
+    const args =
+      onDay && dayOffset !== 0
+        ? { period: "custom" as const, from_date: dayStr(dayOffset), to_date: dayStr(dayOffset) }
+        : { period, from_date: fromDate || undefined, to_date: toDate || undefined };
     setS(null);
     frappeCall<Summary>("cago.api.reports.period_summary", args, { method: "GET" }).then(setS);
-    // Hourly trend (today vs yesterday) only makes sense for the day view.
+    // Hourly trend (that day vs the day before) only makes sense for the day view.
     setHourly(null);
-    if (period === "today") frappeCall<Hourly>("cago.api.reports.revenue_by_hour", {}, { method: "GET" }).then(setHourly).catch(() => setHourly(null));
+    if (onDay) frappeCall<Hourly>("cago.api.reports.revenue_by_hour", { date: dayStr(dayOffset) }, { method: "GET" }).then(setHourly).catch(() => setHourly(null));
     frappeCall<Split>("cago.api.reports.payment_split", args, { method: "GET" }).then(setSplit).catch(() => setSplit(null));
     frappeCall<Profit>("cago.api.reports.gross_profit", args, { method: "GET" }).then(setProfit).catch(() => setProfit(null));
     frappeCall<{ display_name: string; qty: number }[]>("cago.api.reports.best_sellers", { limit: 5 }, { method: "GET" }).then((r) => setBest(r || []));
     frappeCall<{ customer_name: string; total_text: string }[]>("cago.api.reports.sales_by_customer", { ...args, limit: 5 }, { method: "GET" }).then((r) => setByCust(r || []));
-  }, [period, fromDate, toDate, ready]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, fromDate, toDate, ready, dayOffset]);
 
   const tab = (p: Period, label: string) => (
     <button
-      onClick={() => setPeriod(p)}
+      onClick={() => {
+        setPeriod(p);
+        setDayOffset(0);
+      }}
       className={`rounded-xl px-3.5 py-2.5 font-bold ${p === period ? "bg-blue-600 text-white" : "bg-brand-light text-brand-dark"}`}
     >
       {label}
@@ -152,6 +170,13 @@ export function Report() {
           <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-lg border-2 border-emerald-300 p-2" />
           <label className="font-bold text-slate-600">đến</label>
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-lg border-2 border-emerald-300 p-2" />
+        </div>
+      )}
+      {onDay && (
+        <div className="mb-3 flex items-center justify-between rounded-xl bg-white p-2 shadow-sm">
+          <button onClick={() => setDayOffset((o) => o - 1)} aria-label="Ngày trước" className="rounded-lg bg-slate-100 px-5 py-2 text-xl font-bold text-slate-600">‹</button>
+          <span className="font-extrabold text-brand-dark">📅 {dayLabel(dayOffset)}</span>
+          <button onClick={() => setDayOffset((o) => Math.min(0, o + 1))} disabled={dayOffset >= 0} aria-label="Ngày sau" className="rounded-lg bg-slate-100 px-5 py-2 text-xl font-bold text-slate-600 disabled:opacity-30">›</button>
         </div>
       )}
       <div className="rounded-xl bg-white p-4">
