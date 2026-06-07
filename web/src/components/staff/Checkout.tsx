@@ -1512,7 +1512,7 @@ export function Checkout() {
                       corner to close the sheet. Moved up here and stripped of its background so it's
                       well clear of the per-line ✕ remove buttons just below (was easy to mis-tap). */}
                   <div className="relative mb-2 h-5 xl:hidden">
-                    <button onClick={closePay} aria-label="Thu gọn" className="absolute left-1/2 top-1.5 h-1.5 w-10 -translate-x-1/2 rounded-full bg-slate-300" />
+                    <button onClick={closePay} aria-label="Thu gọn" className="absolute inset-x-0 top-1.5 mx-auto h-1.5 w-10 rounded-full bg-slate-300" />
                     <button onClick={closePay} aria-label="Đóng giỏ hàng" className="absolute -top-1 right-0 p-1 text-2xl leading-none text-slate-400">✕</button>
                   </div>
                   {/* Header: tap the title to collapse/expand the line list. */}
