@@ -2097,9 +2097,11 @@ function ShiftBar({ refreshKey, onState, cashier }: { refreshKey: number; onStat
             <span className="shrink-0 text-emerald-700">{det ? "▴ Thu gọn" : "▾ Chi tiết"}</span>
           </button>
           {det && (
-            <div className="flex items-end justify-between gap-2 border-t border-emerald-200 px-2.5 pb-2.5 pt-2">
-              <div className="min-w-0 text-xs text-emerald-700/90">
-                <div>Mở lúc {shift.opened_at}{cashier ? ` · 👤 ${cashier}` : ""}</div>
+            <div className="border-t border-emerald-200 px-2.5 pb-2.5 pt-2">
+              {/* Detail text gets the FULL width (was squeezed into a narrow column beside the buttons,
+                  so it wrapped awkwardly); the two actions sit on their own full-width row below. */}
+              <div className="text-sm text-emerald-700/90">
+                <div>🕒 Mở lúc {shift.opened_at}{cashier ? ` · 👤 ${cashier}` : ""}</div>
                 {/* Blind close hides the expected figure (anti-fraud); cashier only sees it's open. */}
                 {shift.blind ? (
                   <div>Đầu ca {shift.opening_text} · đếm két khi đóng ca</div>
@@ -2107,9 +2109,9 @@ function ShiftBar({ refreshKey, onState, cashier }: { refreshKey: number; onStat
                   <div>Đầu ca {shift.opening_text} · Tiền mặt trong ca {shift.cash_sales_text}</div>
                 )}
               </div>
-              <div className="flex shrink-0 gap-1.5">
-                <button onClick={() => setMode("mv")} className="rounded-lg bg-amber-500 px-2.5 py-2 text-sm font-bold text-white">💵 Quỹ</button>
-                <button onClick={() => setMode("close")} className="rounded-lg bg-red-600 px-3 py-2 font-bold text-white">🔴 Đóng ca</button>
+              <div className="mt-2.5 flex gap-2">
+                <button onClick={() => setMode("mv")} className="flex-1 rounded-lg bg-amber-500 py-2.5 font-bold text-white">💵 Quỹ</button>
+                <button onClick={() => setMode("close")} className="flex-1 rounded-lg bg-red-600 py-2.5 font-bold text-white">🔴 Đóng ca</button>
               </div>
             </div>
           )}

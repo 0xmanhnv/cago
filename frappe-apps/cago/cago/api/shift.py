@@ -114,6 +114,12 @@ def _cashier_movements(user, since, until=None):
 	return net, out
 
 
+def _cash(x):
+	"""Cash amount text — a real 0 shows '0đ', not format_price's 'Liên hệ' (a product-price helper),
+	which read as 'Đầu ca Liên hệ' on the shift bar."""
+	return dto.format_price(x) if flt(x) else "0đ"
+
+
 def _shift_dto(doc):
 	from cago.utils.permissions import is_owner
 
@@ -137,20 +143,20 @@ def _shift_dto(doc):
 		"opened_at": format_datetime(doc.opened_at, "dd/MM HH:mm") if doc.opened_at else None,
 		"closed_at": format_datetime(doc.closed_at, "dd/MM HH:mm") if doc.closed_at else None,
 		"opening_cash": flt(doc.opening_cash),
-		"opening_text": dto.format_price(doc.opening_cash),
-		"payouts_text": dto.format_price(doc.payouts),
-		"counted_text": dto.format_price(doc.counted_cash) if doc.status == "Closed" else None,
+		"opening_text": _cash(doc.opening_cash),
+		"payouts_text": _cash(doc.payouts),
+		"counted_text": _cash(doc.counted_cash) if doc.status == "Closed" else None,
 	}
 	if blind:
 		return out  # hide cash_sales / expected / variance entirely
 	out.update(
 		{
 			"cash_sales": cash_sales,
-			"cash_sales_text": dto.format_price(cash_sales),
+			"cash_sales_text": _cash(cash_sales),
 			"expected": expected,
-			"expected_text": dto.format_price(expected),
+			"expected_text": _cash(expected),
 			"diff": flt(doc.difference),
-			"diff_text": dto.format_price(abs(flt(doc.difference))),
+			"diff_text": _cash(abs(flt(doc.difference))),
 			"match": abs(flt(doc.difference)) < 1 if doc.status == "Closed" else None,
 			"over": flt(doc.difference) > 0,
 			"movements": mv_list,
