@@ -68,8 +68,7 @@ export function Labels() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="🏷 In tem giá / kệ" />
-      <SectionTabs group="products" />
+      <BackBar onBack={() => goBackSmart(router)} title="🏷 In tem giá / kệ" sub={<SectionTabs group="products" />} />
       <button onClick={() => setPicking(true)} className="mb-3 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
         ➕ Thêm sản phẩm
       </button>

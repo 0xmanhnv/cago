@@ -69,8 +69,7 @@ export function RecommendedManager() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="⭐ Hàng khuyên dùng" />
-      <SectionTabs group="products" />
+      <BackBar onBack={() => goBackSmart(router)} title="⭐ Hàng khuyên dùng" sub={<SectionTabs group="products" />} />
       <p className="mb-2 text-sm text-slate-500">
         Bấm ⭐ để bật/tắt (lưu ngay). Hàng khuyên dùng được trợ lý ưu tiên gợi ý và hiện ⭐ trên thẻ sản phẩm.
       </p>

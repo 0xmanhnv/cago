@@ -173,8 +173,7 @@ export function CategoryOrder() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="🗂 Loại hàng (nhóm hàng)" />
-      <SectionTabs group="products" />
+      <BackBar onBack={() => goBackSmart(router)} title="🗂 Loại hàng (nhóm hàng)" sub={<SectionTabs group="products" />} />
       <p className="mb-3 ml-1 text-sm text-slate-500">Thêm / sửa / xoá loại hàng, chọn loại cha và sắp xếp thứ tự hiện trên kiosk. Loại không có cha chính là loại gốc (và có thể làm cha của loại khác).</p>
 
       {!form && (

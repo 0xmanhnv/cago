@@ -94,8 +94,7 @@ export function ProductManager() {
 
   return (
     <div className="mx-auto max-w-[820px]">
-      <BackBar onBack={() => goBackSmart(router)} title="📦 Sản phẩm" />
-      <SectionTabs group="products" />
+      <BackBar onBack={() => goBackSmart(router)} title="📦 Sản phẩm" sub={<SectionTabs group="products" />} />
       <button onClick={() => router.push("/pos/products/new")} className="mt-tile mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
         ➕ Thêm sản phẩm mới
       </button>
