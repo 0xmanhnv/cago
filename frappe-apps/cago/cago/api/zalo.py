@@ -53,9 +53,11 @@ def link_customer(phone, zalo_id=None, name=None) -> str:
 	phone = re.sub(r"[^\d]", "", phone or "")
 	if not phone:
 		frappe.throw(_("Thiếu số điện thoại."))
+	# SECURITY: match the customer ONLY by the just-verified phone. `zalo_id` comes from the client and
+	# must NEVER be a lookup key — else passing your own valid phone token + a victim's zalo_id would
+	# return the victim's Customer. zalo_id is only STORED below, on the phone-verified customer.
 	existing = (
-		(frappe.db.get_value("Customer", {"cago_zalo_id": zalo_id}, "name") if zalo_id else None)
-		or frappe.db.get_value("Customer", {"mobile_no": phone}, "name")
+		frappe.db.get_value("Customer", {"mobile_no": phone}, "name")
 		or frappe.db.get_value("Customer", {"cago_zalo_phone": phone}, "name")
 	)
 	if existing:

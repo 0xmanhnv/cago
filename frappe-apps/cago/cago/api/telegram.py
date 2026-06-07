@@ -293,8 +293,11 @@ def webhook():
 		return {"ok": False}
 	secret = get_secret("Company", c, "cago_telegram_webhook_secret") if c else ""
 	# No secret configured → bot isn't wired; bail before touching the request (also keeps this callable
-	# from a non-HTTP context). With a secret, Telegram must echo it back in the header.
-	if not secret or frappe.get_request_header("X-Telegram-Bot-Api-Secret-Token") != secret:
+	# from a non-HTTP context). With a secret, Telegram must echo it back in the header — constant-time
+	# compare (like _check_init_data) so the public webhook isn't a timing oracle for the token.
+	import hmac
+
+	if not secret or not hmac.compare_digest(frappe.get_request_header("X-Telegram-Bot-Api-Secret-Token") or "", secret):
 		return {"ok": False}
 
 	data = (frappe.request.get_json(silent=True) or {}) if getattr(frappe, "request", None) else {}
