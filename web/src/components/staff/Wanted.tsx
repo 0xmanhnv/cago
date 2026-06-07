@@ -283,7 +283,7 @@ export function Wanted() {
   // ---- List view ---------------------------------------------------------
   return (
     <div>
-      <BackBar title="KHÁCH ĐÃ CHỌN" />
+      <BackBar title="Khách đã chọn" />
 
       {msg && <div className="mb-3 rounded-lg border border-amber-400 bg-amber-100 p-3 text-amber-900">{msg}</div>}
 

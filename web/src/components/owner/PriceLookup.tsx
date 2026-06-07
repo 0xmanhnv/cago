@@ -36,7 +36,7 @@ export function PriceLookup() {
   }
   return (
     <ProductPicker
-      title="TRA GIÁ"
+      title="Tra giá"
       accent
       onBack={() => goBackSmart(router)}
       onPick={async (code) => {
@@ -51,7 +51,7 @@ export function EditPicker() {
   const router = useRouter();
   return (
     <ProductPicker
-      title="SỬA SẢN PHẨM"
+      title="Sửa sản phẩm"
       accent
       onBack={() => goBackSmart(router)}
       onPick={(code) => router.push(`/pos/products/${encodeURIComponent(code)}/edit`)}

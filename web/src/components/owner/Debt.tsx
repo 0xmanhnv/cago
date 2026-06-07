@@ -198,7 +198,7 @@ export function DebtList() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="CÔNG NỢ KHÁCH HÀNG" />
+      <BackBar onBack={() => goBackSmart(router)} title="Công nợ khách hàng" />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
       ) : list.length === 0 ? (

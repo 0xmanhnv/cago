@@ -139,7 +139,7 @@ export function Exchange() {
 
   return (
     <div className="pb-10">
-      <BackBar title="↔️ ĐỔI HÀNG" onBack={() => router.push("/pos")} />
+      <BackBar title="↔️ Đổi hàng" onBack={() => router.push("/pos")} />
 
       {!sel ? (
         <>

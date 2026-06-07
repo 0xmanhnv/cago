@@ -281,7 +281,7 @@ export function StoreMap() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="SƠ ĐỒ CỬA HÀNG" />
+      <BackBar onBack={() => goBackSmart(router)} title="Sơ đồ cửa hàng" />
 
       {/* floor tabs */}
       <div className="mb-2 flex flex-wrap items-center gap-2">

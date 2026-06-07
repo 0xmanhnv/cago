@@ -108,7 +108,7 @@ export function OrderHistory() {
 
   return (
     <div className="mx-auto max-w-[820px] pb-10">
-      <BackBar title="🧾 ĐƠN HÀNG" onBack={() => goBackSmart(router)} />
+      <BackBar title="🧾 Đơn hàng" onBack={() => goBackSmart(router)} />
       <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm số hoá đơn / tên khách…" />
       <FilterTabs active={tab} onChange={onTab} tabs={TABS} />
 

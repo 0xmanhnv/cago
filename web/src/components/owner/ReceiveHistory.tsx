@@ -76,7 +76,7 @@ export function ReceiveHistory() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="LỊCH SỬ NHẬP HÀNG" />
+      <BackBar onBack={() => goBackSmart(router)} title="Lịch sử nhập hàng" />
 
       {loading ? (
         <PageLoading />

@@ -39,7 +39,7 @@ export function BackupScreen() {
 
   return (
     <div className="mx-auto max-w-[680px]">
-      <BackBar onBack={() => goBackSmart(router)} title="💾 SAO LƯU DỮ LIỆU" />
+      <BackBar onBack={() => goBackSmart(router)} title="💾 Sao lưu dữ liệu" />
       <div className="rounded-xl bg-white p-4">
         <p className="text-slate-600">
           Tạo bản sao lưu toàn bộ dữ liệu (bán hàng, công nợ, sản phẩm, ảnh). Nên sao lưu trước khi sửa lớn.

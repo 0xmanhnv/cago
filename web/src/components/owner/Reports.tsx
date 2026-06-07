@@ -23,7 +23,7 @@ export function LowStock() {
   const filtered = text ? list.filter((p) => `${p.display_name} ${p.shelf_location || ""}`.toLowerCase().includes(text)) : list;
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="HÀNG SẮP HẾT" />
+      <BackBar onBack={() => goBackSmart(router)} title="Hàng sắp hết" />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
       ) : list.length === 0 ? (
@@ -164,7 +164,7 @@ export function Report() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="BÁO CÁO" />
+      <BackBar onBack={() => goBackSmart(router)} title="Báo cáo" />
       <div className="mb-3 flex flex-wrap gap-2">
         {tab("today", "Hôm nay")}
         {tab("week", "Tuần")}
@@ -289,7 +289,7 @@ export function ExpiryReport() {
   }, []);
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="LÔ SẮP HẾT HẠN (60 ngày)" />
+      <BackBar onBack={() => goBackSmart(router)} title="Lô sắp hết hạn (60 ngày)" />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
       ) : rows.length === 0 ? (

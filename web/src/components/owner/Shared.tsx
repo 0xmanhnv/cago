@@ -454,7 +454,7 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
     };
     return (
       <div>
-        <BackBar onBack={() => setAdding(false)} label="Quay lại" title="THÊM KHÁCH MỚI" />
+        <BackBar onBack={() => setAdding(false)} label="Quay lại" title="Thêm khách mới" />
         <div className="rounded-xl bg-white p-4">
           <label className="block font-bold text-slate-700">Tên khách *</label>
           <input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />

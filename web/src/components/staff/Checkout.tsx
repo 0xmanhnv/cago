@@ -1137,7 +1137,7 @@ export function Checkout() {
           only reappearing at the very top. */}
       <div className="contents xl:block xl:col-span-2">
         <BackBar
-          title="BÁN HÀNG"
+          title="Bán hàng"
           right={
             <>
               <button onClick={openReprint} aria-label="In lại" className="shrink-0 rounded-xl bg-white/20 px-3 py-2 font-bold text-white">🖨</button>

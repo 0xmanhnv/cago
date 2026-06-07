@@ -118,7 +118,7 @@ export function DataHealth() {
 
   return (
     <div className="mx-auto max-w-[820px]">
-      <BackBar onBack={() => goBackSmart(router)} title="🩺 KIỂM TRA DỮ LIỆU" />
+      <BackBar onBack={() => goBackSmart(router)} title="🩺 Kiểm tra dữ liệu" />
       <SectionTabs group="products" />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
