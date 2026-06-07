@@ -58,6 +58,7 @@ function AppBarNav({
   navRef,
   className = "",
   pinned = true,
+  sub,
 }: {
   onBack?: () => void;
   title?: string;
@@ -66,29 +67,28 @@ function AppBarNav({
   navRef?: React.Ref<HTMLDivElement>;
   className?: string;
   pinned?: boolean;
+  sub?: React.ReactNode;
 }) {
   const router = useRouter();
   const back = onBack ?? (() => goBackSmart(router));
   return (
-    // `pinned` (default) sticks the bar to the top so the status bar stays green; pass pinned={false}
-    // on a screen that already has its OWN sticky toolbar (e.g. Bán hàng) so two sticky bars don't
-    // collide and leak a sliver of the lower one beneath this one.
-    <div ref={navRef} className={`appbar-pull appbar-padtop ${pinned ? "sticky top-0 z-30" : ""} -mx-4 bg-brand px-4 pb-3 text-white ${className}`}>
-      <div className="flex items-center gap-2">
-        <button onClick={back} className="shrink-0 rounded-xl bg-white/20 px-2.5 py-2 font-bold text-white active:bg-white/30">
-          ‹ {label}
-        </button>
-        {title ? <div className="min-w-0 flex-1 truncate text-lg font-extrabold sm:text-xl">{title}</div> : <div className="flex-1" />}
-        {right}
-        <button
-          onClick={() => router.push("/pos")}
-          aria-label="Về trang chủ"
-          title="Về trang chủ"
-          className="shrink-0 rounded-xl bg-white/20 px-2.5 py-2 text-lg leading-none text-white active:bg-white/30"
-        >
-          🏠
-        </button>
+    // Two-tier sticky header: the green title bar (shared) + an optional WHITE `sub` toolbar for this
+    // page's own controls (tabs/filters/date). The whole unit is one sticky block, so the page-specific
+    // controls stay reachable while the content scrolls under them. `pinned` (default) sticks it to the
+    // top so the status bar stays green; pinned={false} on a screen with its OWN sticky toolbar.
+    <div ref={navRef} className={`appbar-pull ${pinned ? "sticky top-0 z-30" : ""} -mx-4 ${className}`}>
+      <div className="appbar-padtop bg-brand px-4 pb-3 text-white">
+        {/* No 🏠 here — the bottom tab bar already has "Trang chủ", so the top-right is freed for each
+            page's own useful actions (passed via `right`). */}
+        <div className="flex items-center gap-2">
+          <button onClick={back} className="shrink-0 rounded-xl bg-white/20 px-2.5 py-2 font-bold text-white active:bg-white/30">
+            ‹ {label}
+          </button>
+          {title ? <div className="min-w-0 flex-1 truncate text-lg font-extrabold sm:text-xl">{title}</div> : <div className="flex-1" />}
+          {right}
+        </div>
       </div>
+      {sub != null && <div className="bg-white px-4 pb-2 pt-2.5">{sub}</div>}
     </div>
   );
 }
@@ -96,7 +96,7 @@ function AppBarNav({
 // The ONE shared POS/owner header, used across every /pos screen so a redesign happens in one place.
 // Now a brand-green sticky app-bar (same API as before) → every screen matches Tra giá and keeps the
 // status bar green. The kiosk has its OWN header set under components/kiosk (intentionally separate).
-export function BackBar(props: { onBack?: () => void; title?: string; label?: string; right?: React.ReactNode; pinned?: boolean }) {
+export function BackBar(props: { onBack?: () => void; title?: string; label?: string; right?: React.ReactNode; pinned?: boolean; sub?: React.ReactNode }) {
   // Soft downward shadow so the bar reads as a header floating above the content (the small gap below
   // becomes an elevation shadow, not a flat pale strip). Only on the standalone bar — SearchHeader puts
   // its shadow on the search block instead (a shadow here would seam between the nav and the search).

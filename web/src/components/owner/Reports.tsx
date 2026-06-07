@@ -200,49 +200,54 @@ export function Report() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="📊 Báo cáo" />
-      {/* Report-type tabs (underline, like a polished VN POS): Bán hàng / Lãi lỗ / Kho hàng / Thu chi.
-          The period selector below is shared across them. */}
-      <div className="mb-3 flex border-b border-slate-200">
-        {([["sales", "Bán hàng"], ["profit", "Lãi lỗ"], ["stock", "Kho hàng"], ["cashflow", "Thu chi"]] as const).map(([k, l]) => (
-          <button
-            key={k}
-            onClick={() => setReportTab(k)}
-            className={`flex-1 border-b-2 px-1 py-2.5 text-sm font-bold ${reportTab === k ? "border-brand text-brand" : "border-transparent text-slate-500"}`}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
-      {/* Shared FilterTabs (green-active, no-wrap scroll, uniform pills) — was a flex-wrap row of
-          off-brand BLUE buttons that wrapped "Khoảng ngày" onto a lonely 2nd line. */}
-      <FilterTabs
-        active={period}
-        onChange={(k) => {
-          setPeriod(k as Period);
-          setDayOffset(0);
-        }}
-        tabs={[
-          { key: "today", label: "Hôm nay" },
-          { key: "week", label: "Tuần" },
-          { key: "month", label: "Tháng" },
-          { key: "year", label: "Năm" },
-          { key: "custom", label: "Khoảng ngày" },
-        ]}
+      {/* Two-tier sticky header: green title + a WHITE sub-bar (report tabs + period + day stepper) that
+          stays stuck while the report scrolls — so switching tab/kỳ never needs scrolling back up. */}
+      <BackBar
+        onBack={() => goBackSmart(router)}
+        title="📊 Báo cáo"
+        sub={
+          <>
+            <div className="flex">
+              {([["sales", "Bán hàng"], ["profit", "Lãi lỗ"], ["stock", "Kho hàng"], ["cashflow", "Thu chi"]] as const).map(([k, l]) => (
+                <button
+                  key={k}
+                  onClick={() => setReportTab(k)}
+                  className={`flex-1 border-b-2 px-1 pb-2 text-sm font-bold ${reportTab === k ? "border-brand text-brand" : "border-transparent text-slate-400"}`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2.5">
+              <FilterTabs
+                active={period}
+                onChange={(k) => {
+                  setPeriod(k as Period);
+                  setDayOffset(0);
+                }}
+                tabs={[
+                  { key: "today", label: "Hôm nay" },
+                  { key: "week", label: "Tuần" },
+                  { key: "month", label: "Tháng" },
+                  { key: "year", label: "Năm" },
+                  { key: "custom", label: "Khoảng ngày" },
+                ]}
+              />
+            </div>
+            {onDay && (
+              <div className="flex items-center justify-between rounded-lg bg-slate-50">
+                <button onClick={() => setDayOffset((o) => o - 1)} aria-label="Ngày trước" className="px-5 py-1.5 text-xl font-bold text-slate-600">‹</button>
+                <span className="text-sm font-extrabold text-brand-dark">📅 {dayLabel(dayOffset)}</span>
+                <button onClick={() => setDayOffset((o) => Math.min(0, o + 1))} disabled={dayOffset >= 0} aria-label="Ngày sau" className="px-5 py-1.5 text-xl font-bold text-slate-600 disabled:opacity-30">›</button>
+              </div>
+            )}
+          </>
+        }
       />
       {period === "custom" && (
-        // Two clearly-labelled full-width date fields (was a flex-wrap row where "đến" orphaned from
-        // its input and the empty native inputs read as stray grey boxes).
         <div className="mb-3 space-y-2 rounded-xl bg-white p-3 shadow-sm">
           <DateField label="Từ ngày" value={fromDate} onChange={setFromDate} />
           <DateField label="Đến ngày" value={toDate} onChange={setToDate} />
-        </div>
-      )}
-      {onDay && (
-        <div className="mb-3 flex items-center justify-between rounded-xl bg-white p-2 shadow-sm">
-          <button onClick={() => setDayOffset((o) => o - 1)} aria-label="Ngày trước" className="rounded-lg bg-slate-100 px-5 py-2 text-xl font-bold text-slate-600">‹</button>
-          <span className="font-extrabold text-brand-dark">📅 {dayLabel(dayOffset)}</span>
-          <button onClick={() => setDayOffset((o) => Math.min(0, o + 1))} disabled={dayOffset >= 0} aria-label="Ngày sau" className="rounded-lg bg-slate-100 px-5 py-2 text-xl font-bold text-slate-600 disabled:opacity-30">›</button>
         </div>
       )}
       {/* ── BÁN HÀNG ── KPIs + hourly trend + best sellers + top customers */}
