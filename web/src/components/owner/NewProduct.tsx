@@ -115,7 +115,7 @@ export function NewProduct() {
       <BackBar onBack={() => goBackSmart(router)} title="➕ Thêm sản phẩm" />
       {/* 2-column on desktop (sm+) so the form uses the width instead of a narrow mobile strip;
           1-column on phones. Name + checkboxes + button span both columns. */}
-      <div className="grid grid-cols-1 gap-x-5 gap-y-2 rounded-xl bg-white p-4 sm:grid-cols-2">
+      <div className="mx-auto grid max-w-[820px] grid-cols-1 gap-x-5 gap-y-2 rounded-xl bg-white p-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className="block font-bold text-slate-700">Tên sản phẩm *</label>
           <input autoFocus value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
