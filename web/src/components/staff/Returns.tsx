@@ -168,7 +168,7 @@ export function Returns() {
     <div className="pb-10">
       {/* Đổi hàng = trả + bán mới; lives in the header so it's one "trả/đổi" entry, not two tiles. */}
       <BackBar
-        title="Trả hàng"
+        title="↩️ Trả hàng"
         onBack={() => router.push("/pos")}
         right={
           <button onClick={() => router.push("/pos/exchange")} className="shrink-0 whitespace-nowrap rounded-xl bg-white/20 px-3 py-2 font-bold text-white">

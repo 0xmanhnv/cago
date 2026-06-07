@@ -133,7 +133,7 @@ export function ProductDetail({ code }: { code: string }) {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router, "/pos/search")} />
+      <BackBar onBack={() => goBackSmart(router, "/pos/search")} title={p.display_name} />
       <div className="rounded-xl bg-white p-4">
         <ProductInfo p={p} />
       </div>

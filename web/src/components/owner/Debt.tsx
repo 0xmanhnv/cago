@@ -88,7 +88,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
 
   return (
     <div>
-      <BackBar onBack={() => setCust("")} label="Quay lại" />
+      <BackBar onBack={() => setCust("")} title={info.customer_name} />
       <div className="rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">{info.customer_name}</h2>
         <div className="flex justify-between border-b border-slate-100 py-2">
@@ -198,7 +198,7 @@ export function DebtList() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="Công nợ khách hàng" />
+      <BackBar onBack={() => goBackSmart(router)} title="📒 Công nợ khách hàng" />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
       ) : list.length === 0 ? (
@@ -338,7 +338,7 @@ export function CustomerLedger({ customer }: { customer: string }) {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router, "/pos/debt")} label="Quay lại" />
+      <BackBar onBack={() => goBackSmart(router, "/pos/debt")} title={d.customer_name} />
       <div className="rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">{d.customer_name}</h2>
         <div className="flex justify-between border-b border-slate-100 py-2">

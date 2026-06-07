@@ -120,7 +120,7 @@ export function StaffAdmin() {
     };
     return (
       <div>
-        <BackBar onBack={() => { setEditStaff(null); setPwNew(""); }} label="Quay lại" />
+        <BackBar onBack={() => { setEditStaff(null); setPwNew(""); }} title="Sửa nhân viên" />
         <div className="rounded-xl bg-white p-4">
           <div className="text-sm text-slate-500">{editStaff.user}</div>
 
@@ -248,7 +248,7 @@ export function StaffAdmin() {
     };
     return (
       <div>
-        <BackBar onBack={() => setCreating(null)} label="Quay lại" />
+        <BackBar onBack={() => setCreating(null)} title="➕ Thêm nhân viên" />
         <div className="rounded-xl bg-white p-4">
           <h2 className="text-xl font-bold">Thêm nhân viên</h2>
           <label className="mt-2 block text-sm font-bold text-slate-600">Email (dùng để đăng nhập)</label>
@@ -382,7 +382,7 @@ export function StaffAdmin() {
   // ---------- Lists ----------
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="Nhân viên & phân quyền" />
+      <BackBar onBack={() => goBackSmart(router)} title="👥 Nhân viên & phân quyền" />
       <div className="mb-3 flex gap-2">
         <button onClick={() => setTab("staff")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "staff" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>👤 Nhân viên</button>
         <button onClick={() => setTab("roles")} className={`flex-1 rounded-xl px-3 py-2.5 font-bold ${tab === "roles" ? "bg-brand text-white" : "bg-brand-light text-brand-dark"}`}>🏷️ Chức danh</button>

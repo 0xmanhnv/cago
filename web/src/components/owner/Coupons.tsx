@@ -80,7 +80,7 @@ export function Coupons() {
 
   return (
     <div className="mx-auto max-w-[760px]">
-      <BackBar onBack={() => goBackSmart(router)} title="Mã giảm giá" />
+      <BackBar onBack={() => goBackSmart(router)} title="🎟 Mã giảm giá" />
 
       <div className="mt-card p-4">
         <div className="text-lg font-extrabold">➕ Tạo / sửa mã</div>

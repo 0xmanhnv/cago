@@ -124,7 +124,7 @@ function SupportBadge() {
     <FloatingFab
       storageKey="cago_fab_support"
       onTap={() => router.push("/pos/support")}
-      title="Khách cần hỗ trợ"
+      title="🛎️ Khách cần hỗ trợ"
       style={{ position: "fixed", right: 12, bottom: "calc(84px + env(safe-area-inset-bottom))", zIndex: 55 }}
       className="animate-pop-in flex items-center gap-2 rounded-full bg-red-600 px-5 py-3.5 text-base font-extrabold text-white shadow-2xl"
     >

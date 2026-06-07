@@ -51,7 +51,7 @@ export function EditPicker() {
   const router = useRouter();
   return (
     <ProductPicker
-      title="Sửa sản phẩm"
+      title="✏️ Sửa sản phẩm"
       accent
       onBack={() => goBackSmart(router)}
       onPick={(code) => router.push(`/pos/products/${encodeURIComponent(code)}/edit`)}

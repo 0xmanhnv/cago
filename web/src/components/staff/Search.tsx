@@ -133,7 +133,7 @@ export function Search() {
       {/* Shared green app-bar (same as Tra giá): name search + barcode + camera fold into the headroom
           header, so this screen matches the rest and keeps the status bar green. */}
       <SearchHeader
-        title="Tìm hàng"
+        title="🔎 Tìm hàng"
         onBack={() => router.push("/pos")}
         searchValue={q}
         onSearch={(e) => {

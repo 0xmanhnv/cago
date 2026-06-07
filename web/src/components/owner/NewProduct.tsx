@@ -112,7 +112,7 @@ export function NewProduct() {
 
   return (
     <div className="mx-auto max-w-[760px] xl:max-w-[900px]">
-      <BackBar onBack={() => goBackSmart(router)} title="Thêm sản phẩm" />
+      <BackBar onBack={() => goBackSmart(router)} title="➕ Thêm sản phẩm" />
       {/* 2-column on desktop (sm+) so the form uses the width instead of a narrow mobile strip;
           1-column on phones. Name + checkboxes + button span both columns. */}
       <div className="grid grid-cols-1 gap-x-5 gap-y-2 rounded-xl bg-white p-4 sm:grid-cols-2">

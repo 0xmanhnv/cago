@@ -97,7 +97,7 @@ export function PendingSales() {
   return (
     <div>
       <BackBar
-        title="Đơn chờ đồng bộ"
+        title="📤 Đơn chờ đồng bộ"
         right={
           <span className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ${online ? "bg-white/20 text-white" : "bg-amber-300 text-amber-900"}`}>
             {online ? "● Trực tuyến" : "● Ngoại tuyến"}

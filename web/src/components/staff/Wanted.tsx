@@ -150,7 +150,7 @@ export function Wanted() {
   if (wl) {
     return (
       <div>
-        <BackBar onBack={() => setWl(null)} label="Danh sách đơn" />
+        <BackBar onBack={() => setWl(null)} title="📋 Chi tiết đơn" />
         <div className="rounded-xl bg-white p-4">
           {/* Header: code + status badge + when it was placed (helps staff judge recency). */}
           <div className="flex items-start justify-between gap-2">
@@ -283,7 +283,7 @@ export function Wanted() {
   // ---- List view ---------------------------------------------------------
   return (
     <div>
-      <BackBar title="Khách đã chọn" />
+      <BackBar title="📋 Khách đã chọn" />
 
       {msg && <div className="mb-3 rounded-lg border border-amber-400 bg-amber-100 p-3 text-amber-900">{msg}</div>}
 

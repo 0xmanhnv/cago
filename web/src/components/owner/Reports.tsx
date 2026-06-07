@@ -23,7 +23,7 @@ export function LowStock() {
   const filtered = text ? list.filter((p) => `${p.display_name} ${p.shelf_location || ""}`.toLowerCase().includes(text)) : list;
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="Hàng sắp hết" />
+      <BackBar onBack={() => goBackSmart(router)} title="📦 Hàng sắp hết" />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
       ) : list.length === 0 ? (
@@ -175,11 +175,17 @@ export function Report() {
         ]}
       />
       {period === "custom" && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 shadow-sm">
-          <label className="font-bold text-slate-600">Từ</label>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="rounded-lg border-2 border-emerald-300 p-2" />
-          <label className="font-bold text-slate-600">đến</label>
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="rounded-lg border-2 border-emerald-300 p-2" />
+        // Two clearly-labelled full-width date fields (was a flex-wrap row where "đến" orphaned from
+        // its input and the empty native inputs read as stray grey boxes).
+        <div className="mb-3 flex flex-col gap-2 rounded-xl bg-white p-3 shadow-sm sm:flex-row sm:gap-3">
+          <label className="flex-1">
+            <span className="mb-1 block text-sm font-bold text-slate-600">Từ ngày</span>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          </label>
+          <label className="flex-1">
+            <span className="mb-1 block text-sm font-bold text-slate-600">Đến ngày</span>
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5" />
+          </label>
         </div>
       )}
       {onDay && (
@@ -291,7 +297,7 @@ export function ExpiryReport() {
   }, []);
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="Lô sắp hết hạn (60 ngày)" />
+      <BackBar onBack={() => goBackSmart(router)} title="⏰ Lô sắp hết hạn (60 ngày)" />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
       ) : rows.length === 0 ? (

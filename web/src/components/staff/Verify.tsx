@@ -38,7 +38,7 @@ export function Verify() {
 
   return (
     <div>
-      <BackBar title="Xác nhận khách xem nợ" onBack={() => router.push("/pos")} />
+      <BackBar title="🙋 Xác nhận khách xem nợ" onBack={() => router.push("/pos")} />
       {msg && <div className="mb-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-emerald-800">{msg}</div>}
       {list.length === 0 ? (
         <div className="text-slate-500">Chưa có khách nào yêu cầu. (Khi khách nhập SĐT ở kiosk, yêu cầu sẽ hiện ở đây.)</div>

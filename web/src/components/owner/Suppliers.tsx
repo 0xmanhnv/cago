@@ -58,7 +58,7 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
     };
     return (
       <div>
-        <BackBar onBack={() => setAdding(false)} label="Quay lại" title="Thêm nhà cung cấp" />
+        <BackBar onBack={() => setAdding(false)} label="Quay lại" title="🚚 Thêm nhà cung cấp" />
         <div className="rounded-xl bg-white p-4">
           <label className="block font-bold text-slate-700">Tên nhà cung cấp *</label>
           <input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mb-2 mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5" />
@@ -76,7 +76,7 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
 
   return (
     <div>
-      <BackBar onBack={onBack} title="Nhà cung cấp" />
+      <BackBar onBack={onBack} title="🚚 Nhà cung cấp" />
       <button onClick={() => setAdding(true)} className="mt-tile mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
         ➕ Thêm nhà cung cấp
       </button>
