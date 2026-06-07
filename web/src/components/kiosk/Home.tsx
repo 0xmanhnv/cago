@@ -97,7 +97,7 @@ export function Home() {
                 </div>
                 <div className="flex flex-1 flex-col p-2.5">
                   <div className="line-clamp-2 min-h-[2.5em] text-sm font-bold leading-tight">{p.display_name}</div>
-                  <div className="mt-auto pt-1 font-extrabold text-brand">{p.price_text}</div>
+                  <div className="mt-auto pt-1 text-base font-extrabold text-brand">{p.price_text}</div>
                 </div>
               </button>
             ))}

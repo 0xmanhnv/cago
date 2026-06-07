@@ -64,7 +64,7 @@ export function ProductManager() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold leading-tight">{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</div>
-                <div className="font-bold text-brand">{p.price_text}</div>
+                <div className="text-lg font-extrabold text-brand">{p.price_text}</div>
                 <StockBadge status={p.stock_status} />
               </div>
               <span className="shrink-0 rounded-lg bg-amber-500 px-3 py-2 text-sm font-bold text-white">Sửa →</span>

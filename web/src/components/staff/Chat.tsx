@@ -58,7 +58,7 @@ export function Chat() {
                   {c.image && <img src={c.image} alt="" className="h-12 w-12 rounded-lg object-cover" />}
                   <div className="flex-1">
                     <div className="font-bold">{c.display_name}</div>
-                    <div className="font-bold text-brand">{c.price_text}</div>
+                    <div className="text-lg font-extrabold text-brand">{c.price_text}</div>
                   </div>
                 </button>
               ))}

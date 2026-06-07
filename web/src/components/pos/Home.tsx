@@ -319,9 +319,9 @@ export function Home() {
         </div>
       ) : digest?.has_tasks ? (
         <div className="mb-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
-          <div className="flex items-center justify-between">
-            <div className="font-extrabold text-amber-800">📌 Việc cần làm hôm nay</div>
-            <button onClick={() => router.push("/pos/alerts")} className="rounded-full bg-white px-3 py-1 text-sm font-bold text-amber-800 shadow-sm">Xem tất cả ›</button>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 truncate font-extrabold text-amber-800">📌 Việc hôm nay</div>
+            <button onClick={() => router.push("/pos/alerts")} className="shrink-0 whitespace-nowrap rounded-full bg-white px-3 py-1 text-sm font-bold text-amber-800 shadow-sm">Xem tất cả ›</button>
           </div>
           <div className="mt-1 flex flex-wrap gap-2">
             {digest.out_of_stock > 0 && (

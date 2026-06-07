@@ -22,7 +22,7 @@ export const ACTIONS: Record<string, ActionDef> = {
   price: { label: "🔎 Tra giá / sửa giá", color: "bg-blue-600", href: "/pos/price", cap: "products" },
   new: { label: "➕ Thêm sản phẩm", color: "bg-teal-600", href: "/pos/products/new", cap: "products" },
   edit: { label: "✏️ Sửa sản phẩm", color: "bg-amber-500", href: "/pos/edit", cap: "products" },
-  product: { label: "📦 Sản phẩm (tra giá · thêm · sửa)", color: "bg-blue-600", href: "/pos/products", cap: "products" },
+  product: { label: "📦 Sản phẩm", color: "bg-blue-600", href: "/pos/products", cap: "products" },
   recommended: { label: "⭐ Hàng khuyên dùng", color: "bg-amber-500", href: "/pos/recommended", cap: "products" },
   receive: { label: "📥 Nhập hàng", color: "bg-teal-700", href: "/pos/receive", cap: "stock" },
   bulk: { label: "⚡ Nhập hàng loạt", color: "bg-teal-700", href: "/pos/bulk", cap: "stock" },

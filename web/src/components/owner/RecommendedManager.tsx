@@ -96,7 +96,7 @@ export function RecommendedManager() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold leading-tight">{p.display_name}</div>
-                <div className="text-sm font-bold text-brand">{p.price_text}</div>
+                <div className="text-base font-extrabold text-brand">{p.price_text}</div>
               </div>
               <button
                 onClick={() => toggle(p)}

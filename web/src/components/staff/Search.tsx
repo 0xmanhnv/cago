@@ -214,7 +214,7 @@ export function Search() {
                       {p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}
                       {p.display_name}
                     </div>
-                    <div className="mt-0.5 font-bold text-brand">{p.price_text}</div>
+                    <div className="mt-0.5 text-lg font-extrabold text-brand">{p.price_text}</div>
                     <div className="mt-auto flex flex-wrap items-center gap-x-1.5 pt-1">
                       <StockBadge status={p.stock_status} />
                       {p.category && <span className="text-sm text-slate-400">· {p.category}</span>}
@@ -235,7 +235,7 @@ export function Search() {
                       {p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}
                       {p.display_name}
                     </div>
-                    <div className="font-bold text-brand">{p.price_text}</div>
+                    <div className="text-base font-extrabold text-brand">{p.price_text}</div>
                     <div className="flex flex-wrap items-center gap-x-1.5">
                       <StockBadge status={p.stock_status} />
                       {p.category && <span className="text-sm text-slate-400">· {p.category}</span>}

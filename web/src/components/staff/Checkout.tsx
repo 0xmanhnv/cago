@@ -1407,7 +1407,7 @@ export function Checkout() {
                     </button>
                     <div className="min-w-0 flex-1">
                       <button onClick={() => setPreview(p.item_code)} className="line-clamp-2 text-left font-bold leading-tight underline-offset-2 hover:underline">{p.display_name}</button>
-                      <div className="text-sm font-bold text-brand">{p.price_text}</div>
+                      <div className="text-base font-extrabold text-brand">{p.price_text}</div>
                       <StockBadge status={stockText(p, m)} />
                       {expFlag(p)}
                     </div>
