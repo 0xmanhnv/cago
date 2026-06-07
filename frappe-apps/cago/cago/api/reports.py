@@ -65,6 +65,14 @@ def period_summary(period="today", from_date=None, to_date=None):
 	).run()
 	total = flt(res[0][0]) if res and res[0] else 0
 	count = (res[0][1] if res and res[0] else 0) or 0
+	# Distinct customers + average per bill (richer KPI row, learnt from a polished VN POS report).
+	cust = frappe.db.sql(
+		"""select count(distinct customer) from `tabSales Invoice`
+		   where docstatus=1 and is_return=0 and company=%s and posting_date>=%s and posting_date<=%s and ifnull(customer,'')!=''""",
+		(company, start, end),
+	)
+	customer_count = (cust[0][0] if cust and cust[0] else 0) or 0
+	avg = (total / count) if count else 0
 	return {
 		"period": period,
 		"period_label": label,
@@ -73,6 +81,43 @@ def period_summary(period="today", from_date=None, to_date=None):
 		"sales_total": total,
 		"sales_total_text": dto.format_price(total) if total else "0đ",
 		"invoice_count": count,
+		"customer_count": customer_count,
+		"avg_text": dto.format_price(avg) if avg else "0đ",
+	}
+
+
+@frappe.whitelist()
+def revenue_by_hour(date=None):
+	"""Net sales per hour for `date` (default today) and the day before — for the trend chart
+	(Hôm nay vs Hôm qua). Lightweight: two 24-slot arrays the frontend draws as an SVG line."""
+	ensure_cap("reports")
+	from frappe.utils import add_days, getdate, nowdate
+
+	d = getdate(date or nowdate())
+	prev = add_days(d, -1)
+	company = _company()
+
+	def buckets(day):
+		arr = [0.0] * 24
+		for r in frappe.db.sql(
+			"""select hour(creation) h, sum(grand_total) v from `tabSales Invoice`
+			   where docstatus=1 and company=%s and posting_date=%s group by hour(creation)""",
+			(company, day),
+			as_dict=1,
+		):
+			h = int(r.h or 0)
+			if 0 <= h <= 23:
+				arr[h] = flt(r.v)
+		return arr
+
+	today, yest = buckets(d), buckets(prev)
+	return {
+		"date": str(d),
+		"today": today,
+		"yesterday": yest,
+		"max": max(max(today), max(yest), 1),
+		"today_total_text": dto.format_price(sum(today)) if sum(today) else "0đ",
+		"yesterday_total_text": dto.format_price(sum(yest)) if sum(yest) else "0đ",
 	}
 
 

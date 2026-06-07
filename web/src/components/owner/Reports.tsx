@@ -58,15 +58,55 @@ export function LowStock() {
 
 type Period = "today" | "week" | "month" | "year" | "custom";
 
+// Hourly revenue trend, Hôm nay (solid green) vs Hôm qua (dashed amber). Hand-drawn SVG — no chart
+// library (keeps the bundle small, matches the project's "simple" ethos). Learnt from a VN POS report.
+function TrendChart({ h }: { h: { today: number[]; yesterday: number[]; max: number; today_total_text: string; yesterday_total_text: string } }) {
+  const W = 320,
+    H = 120,
+    padL = 3,
+    padR = 3,
+    padT = 8,
+    padB = 14;
+  const max = h.max || 1;
+  const x = (i: number) => padL + (i / 23) * (W - padL - padR);
+  const y = (v: number) => padT + (1 - v / max) * (H - padT - padB);
+  const path = (arr: number[]) => arr.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+  return (
+    <div className="mt-3 rounded-xl border border-slate-100 bg-white p-3">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
+        <span className="font-bold text-slate-600">📈 Xu hướng theo giờ</span>
+        <span className="flex items-center gap-3 text-xs text-slate-500">
+          <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-brand" /> Hôm nay <b className="text-brand">{h.today_total_text}</b></span>
+          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2 border-dashed border-harvest" /> Hôm qua {h.yesterday_total_text}</span>
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full" style={{ height: 132 }} aria-hidden>
+        <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#e2e8f0" strokeWidth={1} />
+        <path d={path(h.yesterday)} fill="none" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 3" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <path d={path(h.today)} fill="none" stroke="#16a34a" strokeWidth={2.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="flex justify-between text-[10px] text-slate-400">
+        <span>0h</span>
+        <span>6h</span>
+        <span>12h</span>
+        <span>18h</span>
+        <span>23h</span>
+      </div>
+    </div>
+  );
+}
+
 export function Report() {
   const router = useRouter();
-  type Summary = { period_label: string; sales_total_text: string; invoice_count: number };
+  type Summary = { period_label: string; sales_total_text: string; invoice_count: number; customer_count: number; avg_text: string };
   type Split = { cash_text: string; bank_text: string; other_text: string; credit_text: string };
   type Profit = { revenue_text: string; cogs_text: string; profit_text: string; margin_pct: number };
+  type Hourly = { today: number[]; yesterday: number[]; max: number; today_total_text: string; yesterday_total_text: string };
   const [period, setPeriod] = useState<Period>("today");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [s, setS] = useState<Summary | null>(null);
+  const [hourly, setHourly] = useState<Hourly | null>(null);
   const [split, setSplit] = useState<Split | null>(null);
   const [profit, setProfit] = useState<Profit | null>(null);
   const [best, setBest] = useState<{ display_name: string; qty: number }[]>([]);
@@ -78,6 +118,9 @@ export function Report() {
     const args = { period, from_date: fromDate || undefined, to_date: toDate || undefined };
     setS(null);
     frappeCall<Summary>("cago.api.reports.period_summary", args, { method: "GET" }).then(setS);
+    // Hourly trend (today vs yesterday) only makes sense for the day view.
+    setHourly(null);
+    if (period === "today") frappeCall<Hourly>("cago.api.reports.revenue_by_hour", {}, { method: "GET" }).then(setHourly).catch(() => setHourly(null));
     frappeCall<Split>("cago.api.reports.payment_split", args, { method: "GET" }).then(setSplit).catch(() => setSplit(null));
     frappeCall<Profit>("cago.api.reports.gross_profit", args, { method: "GET" }).then(setProfit).catch(() => setProfit(null));
     frappeCall<{ display_name: string; qty: number }[]>("cago.api.reports.best_sellers", { limit: 5 }, { method: "GET" }).then((r) => setBest(r || []));
@@ -130,6 +173,17 @@ export function Report() {
               <span className="text-slate-500">Số hóa đơn</span>
               <b>{s.invoice_count}</b>
             </div>
+            <div className="mt-2 flex gap-2">
+              <div className="flex-1 rounded-lg bg-slate-50 px-3 py-2 text-center">
+                <div className="text-xs text-slate-400">Khách hàng</div>
+                <div className="text-lg font-extrabold text-slate-700">{s.customer_count}</div>
+              </div>
+              <div className="flex-1 rounded-lg bg-slate-50 px-3 py-2 text-center">
+                <div className="text-xs text-slate-400">Trung bình/đơn</div>
+                <div className="text-lg font-extrabold text-slate-700">{s.avg_text}</div>
+              </div>
+            </div>
+            {hourly && <TrendChart h={hourly} />}
             {profit && (
               <div className="mt-1 rounded-lg bg-emerald-50 px-2.5 py-1.5">
                 <div className="flex justify-between py-0.5">
