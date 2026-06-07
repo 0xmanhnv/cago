@@ -198,7 +198,28 @@ export function DebtList() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="📒 Công nợ khách hàng" />
+      <BackBar
+        onBack={() => goBackSmart(router)}
+        title="📒 Công nợ khách hàng"
+        sub={
+          list.length === 0 ? undefined : (
+            <>
+              <SearchInput value={q} onChange={setQ} placeholder="🔎 Tìm khách theo tên / xóm..." />
+              <div className="no-scrollbar mt-2 flex gap-2 overflow-x-auto">
+                {([["amount", "💰 Nợ nhiều"], ["village", "🏘 Theo xóm"], ["name", "🔤 Tên A–Z"]] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    onClick={() => setSort(k)}
+                    className={`flex-none whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-bold ${sort === k ? "border-brand bg-brand text-white" : "border-emerald-300 bg-brand-light text-brand-dark"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )
+        }
+      />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
       ) : list.length === 0 ? (
@@ -207,18 +228,6 @@ export function DebtList() {
         <>
           <div className="mb-2 rounded-xl bg-red-50 p-2.5 text-center font-bold text-red-700">
             {list.length} khách đang nợ · tổng {money(list.reduce((s, c) => s + (c.outstanding || 0), 0))}
-          </div>
-          <SearchInput value={q} onChange={setQ} placeholder="🔎 Tìm khách theo tên / xóm..." />
-          <div className="no-scrollbar mb-2 flex gap-2 overflow-x-auto">
-            {([["amount", "💰 Nợ nhiều"], ["village", "🏘 Theo xóm"], ["name", "🔤 Tên A–Z"]] as const).map(([k, label]) => (
-              <button
-                key={k}
-                onClick={() => setSort(k)}
-                className={`flex-none whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-bold ${sort === k ? "border-brand bg-brand text-white" : "border-emerald-300 bg-brand-light text-brand-dark"}`}
-              >
-                {label}
-              </button>
-            ))}
           </div>
           {filtered.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy khách.</div>

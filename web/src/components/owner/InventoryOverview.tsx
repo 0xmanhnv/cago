@@ -109,7 +109,7 @@ export function InventoryOverview() {
 
   return (
     <div className="mx-auto max-w-[820px] pb-10">
-      <BackBar title="🏬 Kho hàng" onBack={() => goBackSmart(router)} />
+      <BackBar title="🏬 Kho hàng" onBack={() => goBackSmart(router)} sub={<SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm tên · mã · mã vạch…" />} />
 
       <div className="mt-3 rounded-2xl bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between">
@@ -142,10 +142,7 @@ export function InventoryOverview() {
         ))}
       </div>
 
-      <div className="mt-3">
-        <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm tên · mã · mã vạch…" />
-      </div>
-      <div className="mb-2 mt-2 flex items-center justify-end">
+      <div className="mb-2 mt-3 flex items-center justify-end">
         <button onClick={() => setSortOpen(true)} className="flex shrink-0 items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-600">
           ↓↑ {SORT_LABEL[sort]}
         </button>

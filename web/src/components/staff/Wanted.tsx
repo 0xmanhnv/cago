@@ -283,25 +283,30 @@ export function Wanted() {
   // ---- List view ---------------------------------------------------------
   return (
     <div>
-      <BackBar title="📋 Khách đã chọn" />
+      <BackBar
+        title="📋 Khách đã chọn"
+        sub={
+          <>
+            {/* One search: filters the list live, and opens the order directly when a full code
+                (WL-YYYY-NNNNN) is typed or scanned — no separate "tra theo mã" box. */}
+            <SearchInput value={listQ} onChange={setListQ} placeholder="🔎 Tìm / quét mã đơn, hoặc tên hàng..." />
+            <FilterTabs
+              active={includeDone ? "all" : "open"}
+              onChange={(k) => {
+                const v = k === "all";
+                setIncludeDone(v);
+                void loadList(v);
+              }}
+              tabs={[
+                { key: "open", label: "Đang chờ" },
+                { key: "all", label: "Tất cả" },
+              ]}
+            />
+          </>
+        }
+      />
 
       {msg && <div className="mb-3 rounded-lg border border-amber-400 bg-amber-100 p-3 text-amber-900">{msg}</div>}
-
-      {/* One search: filters the list live, and opens the order directly when a full code
-          (WL-YYYY-NNNNN) is typed or scanned — no separate "tra theo mã" box. */}
-      <SearchInput value={listQ} onChange={setListQ} placeholder="🔎 Tìm / quét mã đơn, hoặc tên hàng..." />
-      <FilterTabs
-        active={includeDone ? "all" : "open"}
-        onChange={(k) => {
-          const v = k === "all";
-          setIncludeDone(v);
-          void loadList(v);
-        }}
-        tabs={[
-          { key: "open", label: "Đang chờ" },
-          { key: "all", label: "Tất cả" },
-        ]}
-      />
 
       {(() => {
         const t = listQ.trim().toLowerCase();

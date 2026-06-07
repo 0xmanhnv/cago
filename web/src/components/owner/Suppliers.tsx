@@ -76,11 +76,10 @@ function SupplierList({ onBack, onPick }: { onBack: () => void; onPick: (s: { id
 
   return (
     <div>
-      <BackBar onBack={onBack} title="🚚 Nhà cung cấp" />
-      <button onClick={() => setAdding(true)} className="mt-tile mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
+      <BackBar onBack={onBack} title="🚚 Nhà cung cấp" sub={<SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm nhà cung cấp..." />} />
+      <button onClick={() => setAdding(true)} className="mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
         ➕ Thêm nhà cung cấp
       </button>
-      <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm nhà cung cấp..." />
       <div className="md:grid md:grid-cols-2 md:gap-x-3">
       {(hits.length ? hits : all).map((s) => (
         <button key={s.supplier} onClick={() => onPick({ id: s.supplier, name: s.supplier_name })} className={`mb-2 flex w-full items-center justify-between rounded-xl p-3.5 text-left shadow ${s.disabled ? "bg-slate-100 opacity-70" : "bg-white"}`}>
