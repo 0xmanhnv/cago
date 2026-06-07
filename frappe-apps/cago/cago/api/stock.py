@@ -76,7 +76,7 @@ def inventory_overview(query=None, category=None, sort=None, start=0, limit=24):
 			"stock_value": val_map.get(c, 0),
 		}
 		for c in codes
-		if c in meta
+		if c in meta and qty_map.get(c, 0)  # Kho hàng = what's actually IN stock; drop 0 on-hand (clutter)
 	]
 
 	# Store totals across ALL matching items (not just the page) for the KPI card.
@@ -100,7 +100,8 @@ def inventory_overview(query=None, category=None, sort=None, start=0, limit=24):
 	page = rows[start : start + limit]
 	for r in page:
 		r["qty_text"] = _qty(r["qty"])
-		r["value_text"] = _vnd(r["stock_value"])  # plain VND (0 → "0đ"), not format_price's "Liên hệ"
+		# In stock but 0 value = no giá vốn entered yet → say so (nudge the owner) instead of a bare "0đ".
+		r["value_text"] = _vnd(r["stock_value"]) if round(flt(r["stock_value"])) else "Chưa có giá vốn"
 	return {
 		"rows": page,
 		"total_value_text": _vnd(total_value),
@@ -116,11 +117,15 @@ def _vnd(n):
 
 
 def _qty(n):
-	"""Group a (possibly fractional) quantity the VN way: 13578.7 -> '13.578,7', 675 -> '675'."""
+	"""Group a (possibly fractional, possibly negative) quantity the VN way: 13578.7 -> '13.578,7',
+	675 -> '675', -0.5 -> '-0,5', 0.999 -> '1'. Rounds to 2dp FIRST so a 0.999 carries into the whole
+	(was '0,0') and keeps the sign for a -1<n<0 balance (was a wrong positive '0,5')."""
 	n = flt(n)
-	whole = int(n)
+	neg = n < 0
+	r = round(abs(n), 2)
+	whole = int(r)
 	grouped = f"{whole:,}".replace(",", ".")
-	frac = round(n - whole, 2)
+	frac = round(r - whole, 2)
 	if frac:
-		grouped += "," + str(frac).split(".")[1]
-	return grouped
+		grouped += "," + f"{frac:.2f}".split(".")[1].rstrip("0")
+	return ("-" if neg and (whole or frac) else "") + grouped

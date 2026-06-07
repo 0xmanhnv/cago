@@ -163,7 +163,11 @@ export function InventoryOverview() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-bold leading-tight">{p.display_name}</div>
                   <div className="text-xs text-slate-400">{p.item_code}</div>
-                  <div className="text-lg font-extrabold text-harvest-dark">{p.value_text}</div>
+                  {/^[\d-]/.test(p.value_text) ? (
+                    <div className="text-lg font-extrabold text-harvest-dark">{p.value_text}</div>
+                  ) : (
+                    <div className="text-sm font-bold text-slate-400">⚠ {p.value_text}</div>
+                  )}
                 </div>
                 <div className="shrink-0 text-right text-sm text-slate-500">
                   SL<div className="text-base font-extrabold text-slate-700">{p.qty_text}</div>
