@@ -19,7 +19,7 @@ import type { ProductCard, Product, Category, Batch } from "@/lib/types";
 import { useOnline } from "@/lib/offline/useOnline";
 import { type SaleArgs, type SaleDisplay } from "@/lib/offline/db";
 import { findByBarcodeLocal, getProductLocal, refreshCatalog, searchCatalogLocal, searchCustomersLocal, spendCachedPoints } from "@/lib/offline/catalog";
-import { enqueueSale, newClientUuid } from "@/lib/offline/queue";
+import { enqueueSale, newClientUuid, queueCounts } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
 import { cfdPost } from "@/lib/cfd";
 import { printReceipt } from "@/lib/receipt";
@@ -2038,6 +2038,14 @@ function ShiftBar({ refreshKey, onState, cashier }: { refreshKey: number; onStat
   };
   const doClose = async () => {
     if (busy) return;
+    // Offline sales still in the queue would sync AFTER this close — their posted_at falls inside the
+    // now-closed shift window, so they're counted in NO shift → the drawer shows a phantom surplus and
+    // the cash is orphaned from reconciliation. Warn before closing; allow override so a cashier who
+    // genuinely can't wait for the network isn't trapped.
+    const pend = (await queueCounts().catch(() => ({ pending: 0 }))).pending;
+    if (pend > 0 && !(await confirmDialog(`Còn ${pend} đơn bán chưa đồng bộ lên hệ thống. Đóng ca bây giờ dễ làm LỆCH tiền két (mấy đơn này sẽ vào sau khi đã chốt). Nên chờ có mạng, đồng bộ xong rồi hãy đóng ca.\n\nVẫn đóng ca?`))) {
+      return;
+    }
     setBusy(true);
     try {
       const r = await frappeCall<CloseResult>("cago.api.shift.close_shift", { counted_cash: num(counted), payouts: num(payouts) });

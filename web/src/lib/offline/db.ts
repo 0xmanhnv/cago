@@ -21,6 +21,7 @@ export interface CatalogRow {
   stock_status?: string | null;
   stock_auto?: boolean;
   actual_stock_qty?: number | null;
+  allow_oversell?: boolean; // back-orderable → offline can still ring it when stock shows 0 (same as online)
   is_chemical?: boolean;
   shelf_location?: string | null;
   safety_notes?: string | null;

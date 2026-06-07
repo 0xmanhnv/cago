@@ -149,6 +149,9 @@ def catalog_snapshot():
 				"stock_status": dto.stock_status_for(r, qty or 0),
 				"stock_auto": bool(r.cago_stock_auto),
 				"actual_stock_qty": qty,
+				# Without this, an offline sale of a back-orderable item showing 0 stock was hard-blocked
+				# (online it shows a "Vẫn bán?" confirm) — a lost sale exactly when offline matters most.
+				"allow_oversell": bool(r.cago_allow_oversell),
 				"is_chemical": bool(r.cago_is_chemical),
 				"shelf_location": r.cago_shelf_location,
 				"safety_notes": dto.safety_warning_for(r),
