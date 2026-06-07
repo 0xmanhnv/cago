@@ -1132,8 +1132,10 @@ export function Checkout() {
     // column with the slide-up pay sheet (pb-24 leaves room for the fixed bottom bar).
     <div className="pb-24 xl:grid xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start xl:gap-6 xl:pb-4">
       {/* Shared green app-bar. On PC it spans BOTH columns (col-span-2) so it reads as a proper full-width
-          top bar instead of a half-bar sitting only over the product column. In lại / Đơn giữ ride along. */}
-      <div className="xl:col-span-2">
+          top bar. On phone it's `display:contents` so the sticky BackBar's containing block is the TALL
+          page div (not this short wrapper) — otherwise sticky had no room and the header scrolled away,
+          only reappearing at the very top. */}
+      <div className="contents xl:block xl:col-span-2">
         <BackBar
           title="BÁN HÀNG"
           right={
