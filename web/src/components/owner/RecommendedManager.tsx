@@ -96,12 +96,12 @@ export function RecommendedManager() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold leading-tight">{p.display_name}</div>
-                <div className="text-base font-extrabold text-brand">{p.price_text}</div>
+                <div className="text-sm font-extrabold text-brand">{p.price_text}</div>
               </div>
               <button
                 onClick={() => toggle(p)}
                 disabled={busy === p.item_code}
-                className={`shrink-0 rounded-xl px-4 py-2.5 font-bold disabled:opacity-50 ${p.recommended ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500"}`}
+                className={`shrink-0 rounded-xl px-3 py-2 text-sm font-bold disabled:opacity-50 ${p.recommended ? "bg-amber-400 text-white" : "bg-slate-100 text-slate-500"}`}
               >
                 {busy === p.item_code ? "..." : p.recommended ? "⭐ Đang khuyên" : "☆ Khuyên dùng"}
               </button>

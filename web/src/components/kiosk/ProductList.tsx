@@ -190,7 +190,7 @@ export function ProductList() {
       >
         <div className="mb-2.5 flex items-center gap-2.5">
           <NavButtons />
-          <div className="flex-1 truncate text-[22px] font-bold text-brand-dark">{title}</div>
+          <div className="flex-1 truncate text-2xl font-bold text-brand-dark">{title}</div>
         </div>
 
         <input
@@ -266,13 +266,13 @@ export function ProductList() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span title={p.display_name} className="line-clamp-2 text-[17px] font-extrabold text-brand-dark">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</span>
+                    <span title={p.display_name} className="line-clamp-2 text-base font-extrabold text-brand-dark">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</span>
                     {p.is_chemical && <span className="rounded-full bg-harvest-light px-1.5 py-0.5 text-[11px] font-bold text-harvest-dark">⚠️</span>}
                   </div>
                   <StockBadge status={p.stock_status} />
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-lg font-extrabold text-brand">{p.price_text}</div>
+                  <div className="text-base font-extrabold text-brand">{p.price_text}</div>
                 </div>
                 <span className="shrink-0 text-2xl text-slate-300">›</span>
               </button>
@@ -304,8 +304,8 @@ export function ProductList() {
                   )}
                 </div>
                 <div className="flex flex-1 flex-col p-3">
-                  <div className="line-clamp-2 text-[17px] font-extrabold leading-snug text-brand-dark">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</div>
-                  <div className="mt-auto pt-2 text-xl font-extrabold text-brand">{p.price_text}</div>
+                  <div className="line-clamp-2 text-base font-extrabold leading-snug text-brand-dark">{p.best_seller && <span title="Bán chạy">🏆 </span>}{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</div>
+                  <div className="mt-auto pt-2 text-lg font-extrabold text-brand">{p.price_text}</div>
                   <StockBadge status={p.stock_status} />
                 </div>
               </button>

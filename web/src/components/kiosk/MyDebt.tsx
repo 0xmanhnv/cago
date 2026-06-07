@@ -91,7 +91,7 @@ export function MyDebt() {
     <div>
       <div className="mb-4 flex items-center gap-2.5">
         <NavButtons />
-        <div className="flex-1 text-[22px] font-bold text-brand-dark">Công nợ của tôi</div>
+        <div className="flex-1 text-2xl font-bold text-brand-dark">Công nợ của tôi</div>
       </div>
 
       {step === "enter" && (
@@ -116,7 +116,7 @@ export function MyDebt() {
       {step === "wait" && (
         <div className="rounded-2xl bg-white p-6 text-center">
           <div className="text-5xl">🙋</div>
-          <p className="mt-2 text-lg">Bác nhờ <b>người bán</b> bấm xác nhận giúp ạ — đang chờ…</p>
+          <p className="mt-2 text-base">Bác nhờ <b>người bán</b> bấm xác nhận giúp ạ — đang chờ…</p>
           <div className="mt-3 inline-flex gap-1.5">
             <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-slate-400" />
             <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: "0.2s" }} />

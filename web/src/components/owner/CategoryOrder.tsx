@@ -157,7 +157,7 @@ export function CategoryOrder() {
       <div className="flex items-center gap-2">
         {indent && <span className="shrink-0 text-slate-300">↳</span>}
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-2xl" style={{ background: c.color }}>{c.icon}</span>
-        <span className="min-w-0 flex-1 text-[17px] font-bold leading-snug text-brand-dark">{c.category}{c.hidden && <span className="ml-1 text-xs font-bold text-slate-400">· ẩn</span>}</span>
+        <span className="min-w-0 flex-1 font-bold leading-snug text-brand-dark">{c.category}{c.hidden && <span className="ml-1 text-xs font-bold text-slate-400">· ẩn</span>}</span>
         <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{c.count} SP</span>
       </div>
       <div className="mt-2 flex items-center justify-end gap-2">
@@ -175,10 +175,10 @@ export function CategoryOrder() {
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="LOẠI HÀNG (NHÓM HÀNG)" />
       <SectionTabs group="products" />
-      <p className="mb-3 ml-1 text-slate-500">Thêm / sửa / xoá loại hàng, chọn loại cha và sắp xếp thứ tự hiện trên kiosk. Loại không có cha chính là loại gốc (và có thể làm cha của loại khác).</p>
+      <p className="mb-3 ml-1 text-sm text-slate-500">Thêm / sửa / xoá loại hàng, chọn loại cha và sắp xếp thứ tự hiện trên kiosk. Loại không có cha chính là loại gốc (và có thể làm cha của loại khác).</p>
 
       {!form && (
-        <button onClick={() => setForm({ ...blank })} className="mb-3 min-h-touch w-full rounded-2xl bg-teal-600 py-3 text-lg font-extrabold text-white">
+        <button onClick={() => setForm({ ...blank })} className="mb-3 min-h-touch w-full rounded-2xl bg-teal-600 py-3 font-extrabold text-white">
           ➕ Thêm loại hàng
         </button>
       )}
@@ -256,7 +256,7 @@ export function CategoryOrder() {
               </div>
             ))}
           </div>
-          <button onClick={saveOrder} disabled={busy} className="mt-4 min-h-touch w-full rounded-2xl bg-brand py-4 text-xl font-extrabold text-white shadow-soft disabled:opacity-50">
+          <button onClick={saveOrder} disabled={busy} className="mt-4 min-h-touch w-full rounded-2xl bg-brand py-4 font-extrabold text-white shadow-soft disabled:opacity-50">
             {busy ? "Đang lưu..." : "💾 Lưu thứ tự"}
           </button>
         </>

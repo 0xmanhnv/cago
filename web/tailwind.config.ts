@@ -55,15 +55,19 @@ const config: Config = {
       },
       // Large, finger-friendly defaults for rural/elderly users (docs/16).
       minHeight: { touch: "56px" },
-      // Type scale nudged up for older rural eyes, anchored to the 17px body base (globals.css). Only
-      // the SMALL/MID steps are overridden (the legibility pain point — 300+ uses of text-sm, 80+ of
-      // text-xs); lg/xl/2xl/3xl keep Tailwind defaults so headings & big price numbers don't reflow.
-      // Fixes the old inconsistency where text-base (16px) was SMALLER than unstyled body text (17px).
+      // Compact, UNIFORM type scale (owner asked for smaller, not big). Anchored to the 15px body base
+      // (globals.css). EVERY step is overridden — incl. lg/xl/2xl/3xl — so headings shrink one notch too
+      // instead of jumping to Tailwind's 18/20/24/30 ladder (that gap was the "inconsistent" feel). base
+      // == body (15px) keeps the two in sync; `tap` stays 17 (≥16 → no iOS input zoom).
       fontSize: {
-        xs: ["13px", "1.45"], // was 12px
-        sm: ["15px", "1.5"], // was 14px — the dominant secondary-text size
-        base: ["17px", "1.55"], // was 16px — now matches the body base
-        tap: ["18px", "1.4"],
+        xs: ["12px", "1.45"], // meta / badges
+        sm: ["13px", "1.5"], // dominant secondary text
+        base: ["15px", "1.55"], // body + list names (== body)
+        lg: ["17px", "1.5"], // sub-headings, price lines
+        xl: ["19px", "1.4"], // screen / detail titles
+        "2xl": ["22px", "1.3"], // KPI hero numbers, kiosk titles
+        "3xl": ["28px", "1.2"], // the single biggest number on a screen
+        tap: ["17px", "1.4"],
       },
     },
   },

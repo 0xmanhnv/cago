@@ -53,7 +53,7 @@ export function Cart() {
     <div>
       <div className="mb-4 flex items-center gap-2.5">
         <NavButtons />
-        <div className="flex-1 text-[22px] font-bold text-brand-dark">
+        <div className="flex-1 text-2xl font-bold text-brand-dark">
           Giỏ đã chọn{lines.length > 0 && <span className="ml-2 text-base font-semibold text-slate-500">· {lines.length} sản phẩm</span>}
         </div>
       </div>
@@ -65,7 +65,7 @@ export function Cart() {
           <div className="my-4 rounded-2xl border-2 border-dashed border-harvest bg-harvest-light px-5 py-5 text-4xl font-black tracking-widest text-harvest-dark">
             {result}
           </div>
-          <p className="text-lg">Bác đọc mã này cho người bán để lấy hàng nhé!</p>
+          <p className="text-base">Bác đọc mã này cho người bán để lấy hàng nhé!</p>
           <p className="mt-2 text-sm text-slate-500">Đặt từ xa? Lưu <b>mã</b> + số điện thoại để <Link href="/track" className="font-bold text-brand underline">tra cứu trạng thái đơn</Link>.</p>
           <button onClick={nav.goHome} className="mt-3 min-h-touch w-full rounded-2xl bg-brand py-3.5 text-lg font-extrabold text-white shadow-soft">
             Xong

@@ -20,7 +20,7 @@ export function Guide() {
         <NavButtons />
         <div className="flex-1 text-2xl font-extrabold text-brand-dark">❓ Hướng dẫn</div>
       </div>
-      <p className="mb-4 rounded-2xl bg-white px-4 py-3 text-lg text-slate-600 shadow-soft">
+      <p className="mb-4 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 shadow-soft">
         Cửa hàng có máy này để bác <b>tự xem hàng, xem giá</b> và <b>tìm đường trong cửa hàng</b>. Rất dễ:
       </p>
       <div className="space-y-3">
@@ -29,12 +29,12 @@ export function Guide() {
             <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-3xl">{s.icon}</span>
             <div>
               <div className="text-xl font-extrabold text-brand-dark">{s.title}</div>
-              <div className="mt-0.5 text-[17px] leading-relaxed text-slate-600">{s.desc}</div>
+              <div className="mt-0.5 text-sm leading-relaxed text-slate-600">{s.desc}</div>
             </div>
           </div>
         ))}
       </div>
-      <div className="mt-4 rounded-2xl border border-amber-200 border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 text-[17px] font-medium leading-relaxed text-amber-900">
+      <div className="mt-4 rounded-2xl border border-amber-200 border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 text-base font-medium leading-relaxed text-amber-900">
         ⚠️ {SAFETY}
       </div>
     </div>

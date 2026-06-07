@@ -66,7 +66,7 @@ export function MapPage() {
     <div>
       <div className="mb-4 flex items-center gap-2.5">
         <NavButtons />
-        <div className="flex-1 text-[22px] font-bold text-brand-dark">Sơ đồ cửa hàng</div>
+        <div className="flex-1 text-2xl font-bold text-brand-dark">Sơ đồ cửa hàng</div>
       </div>
 
       {!loaded ? (

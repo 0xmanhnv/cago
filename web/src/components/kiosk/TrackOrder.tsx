@@ -46,7 +46,7 @@ export function TrackOrder() {
     <div>
       <div className="mb-4 flex items-center gap-2.5">
         <NavButtons />
-        <div className="flex-1 text-[22px] font-bold text-brand-dark">Tra cứu đơn</div>
+        <div className="flex-1 text-2xl font-bold text-brand-dark">Tra cứu đơn</div>
       </div>
       <div className="rounded-3xl border border-emerald-100 bg-white p-4 shadow-card">
         <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Mã đơn (vd WL-…)" className="w-full rounded-xl border-2 border-emerald-200 p-3 text-lg" />
