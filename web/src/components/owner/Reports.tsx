@@ -177,12 +177,14 @@ export function Report() {
       {period === "custom" && (
         // Two clearly-labelled full-width date fields (was a flex-wrap row where "đến" orphaned from
         // its input and the empty native inputs read as stray grey boxes).
-        <div className="mb-3 flex flex-col gap-2 rounded-xl bg-white p-3 shadow-sm sm:flex-row sm:gap-3">
-          <label className="flex-1">
+        <div className="mb-3 rounded-xl bg-white p-3 shadow-sm">
+          {/* Always stacked full-width: two native date inputs side-by-side overflow a narrow phone
+              (each has a min intrinsic width + the calendar glyph), clipping the 2nd field. */}
+          <label className="block">
             <span className="mb-1 block text-sm font-bold text-slate-600">Từ ngày</span>
             <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           </label>
-          <label className="flex-1">
+          <label className="mt-2 block">
             <span className="mb-1 block text-sm font-bold text-slate-600">Đến ngày</span>
             <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-full rounded-lg border-2 border-emerald-300 p-2.5" />
           </label>
