@@ -353,6 +353,7 @@ export function Checkout() {
   // reprint the provisional receipt without a server round-trip.
   const [offlineSale, setOfflineSale] = useState<{ code: string; lines: SaleDisplay["lines"]; total_text: string; outstanding: string | null } | null>(null);
   const [qr, setQr] = useState<string | null>(null);
+  const qrAmtRef = useRef(0); // the sale total to show beside the QR (cart is already cleared by then)
   const [held, setHeld] = useState<Held[]>([]);
   const [preview, setPreview] = useState<string | null>(null); // product being previewed (tap image/title)
   const [showHeld, setShowHeld] = useState(false);
@@ -499,21 +500,25 @@ export function Checkout() {
   }, [hasMore, loading, loadingMore, list.length, q, category]);
 
   const ensureMeta = async (code: string): Promise<Meta | null> => {
-    if (meta[code]) return meta[code];
+    // Cart keys may be composite (`item_code::uom` for an extra unit). Meta is always keyed by the REAL
+    // item_code and the backend queried with it — resolve it here, else a restored two-unit line would
+    // query a non-existent code → no meta → price 0 (a free line).
+    const ic = code.includes("::") ? code.slice(0, code.indexOf("::")) : code;
+    if (meta[ic]) return meta[ic];
     try {
       const p = online
-        ? await frappeCall<Product>("cago.api.staff.get_product", { item_code: code }, { method: "GET" })
-        : ((await getProductLocal(code)) as Product | undefined);
+        ? await frappeCall<Product>("cago.api.staff.get_product", { item_code: ic }, { method: "GET" })
+        : ((await getProductLocal(ic)) as Product | undefined);
       if (!p) return null;
       const m: Meta = {
-        name: p.display_name || code,
+        name: p.display_name || ic,
         sale_units: p.sale_units && p.sale_units.length ? p.sale_units : [{ uom: p.unit || "", price_text: p.price_text }],
         stock_uom: p.unit || "",
         stock_qty: p.actual_stock_qty ?? 0,
         stock_auto: p.stock_auto,
         stock_status: p.stock_status,
       };
-      setMeta((x) => ({ ...x, [code]: m }));
+      setMeta((x) => ({ ...x, [ic]: m }));
       return m;
     } catch {
       return null;
@@ -600,8 +605,15 @@ export function Checkout() {
       else copy[code] = { ...copy[code], qty: trim(qty) };
       return copy;
     });
-  // Changing the unit changes the base price, so drop any manual override when the UOM flips.
-  const setUom = (code: string, uom: string) => setLines((l) => ({ ...l, [code]: { ...l[code], uom, rate: undefined } }));
+  // Changing the unit changes the base price, so drop any manual override when the UOM flips. Guard:
+  // never switch a line onto a unit this product ALREADY has in another line (would double-charge that
+  // unit as two lines) — a no-op in that case.
+  const setUom = (code: string, uom: string) =>
+    setLines((l) => {
+      const base = (k: string) => (k.includes("::") ? k.slice(0, k.indexOf("::")) : k);
+      if (Object.keys(l).some((k) => k !== code && base(k) === base(code) && l[k].uom === uom)) return l;
+      return { ...l, [code]: { ...l[code], uom, rate: undefined } };
+    });
   const setRate = (code: string, raw: string) =>
     setLines((l) => {
       const v = parseInt((raw || "").replace(/[^\d]/g, ""), 10);
@@ -886,7 +898,7 @@ export function Checkout() {
   }, [lines, payTotal, totalSaved, cust]);
   // Show the payment QR big on the customer display while it's up.
   useEffect(() => {
-    if (qr) cfdPost({ type: "qr", url: qr, amount_text: money(payTotal) });
+    if (qr) cfdPost({ type: "qr", url: qr, amount_text: money(qrAmtRef.current || payTotal) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qr]);
 
@@ -982,6 +994,7 @@ export function Checkout() {
           { amount: r.total, info: `Ban hang ${r.invoice}` },
           { method: "GET" },
         );
+        qrAmtRef.current = r.total; // cart is cleared, so payTotal is 0 — show the server total instead
         setQr(v.url);
       }
     } catch (e) {

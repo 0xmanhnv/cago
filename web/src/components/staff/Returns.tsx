@@ -216,7 +216,7 @@ export function Returns() {
                   {s.returned ? (
                     <span className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-400">Đã trả</span>
                   ) : (
-                    <button onClick={() => openReturn(s)} disabled={!!busy} className="rounded-lg bg-red-600 px-4 py-2.5 font-bold text-white disabled:opacity-50">
+                    <button onClick={() => openReturn(s)} disabled={busy === s.invoice} className="rounded-lg bg-red-600 px-4 py-2.5 font-bold text-white disabled:opacity-50">
                       {busy === s.invoice ? "..." : "↩ Trả hàng"}
                     </button>
                   )}

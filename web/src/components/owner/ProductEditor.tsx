@@ -46,6 +46,8 @@ const EDIT_FIELDS = [
   "cago_safety_notes",
   "cago_is_chemical",
   "cago_is_public_visible",
+  "cago_recommended", // ⭐ khuyên dùng — else the checkbox loads unticked & un-ticking on save wipes it
+  "disabled", // Ngừng bán — else a discontinued item opens showing the "Ngừng bán" button, not "Bán lại"
 ] as const;
 
 // These are defined at MODULE scope (not inside ProductEditor) so their component identity
