@@ -522,10 +522,16 @@ def get_receipt(invoice):
 		)
 	from cago.utils.safety import STANDARD_SAFETY_WARNING
 
+	from cago.api.store import store_profile
+
+	sp = store_profile()
 	return {
 		"invoice": si.name,
-		# Receipt header = the customer-facing brand (Minh Tuyết), not the ERPNext Company entity.
-		"store": frappe.db.get_single_value("Website Settings", "app_name") or frappe.db.get_value("Company", company, "company_name") or company,
+		# Receipt header = the customer-facing brand (Minh Tuyết) + contact, owner-set on the Thông tin
+		# cửa hàng screen; falls back to the ERPNext Company name.
+		"store": sp["name"] or frappe.db.get_value("Company", company, "company_name") or company,
+		"store_address": sp["address"],
+		"store_phone": sp["phone"],
 		"when": format_datetime(si.creation, "dd/MM/yyyy HH:mm"),
 		"customer_name": si.customer_name,
 		"lines": lines,

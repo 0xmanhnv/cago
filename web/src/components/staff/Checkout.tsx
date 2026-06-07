@@ -108,6 +108,8 @@ const DRAFT_KEY = "cago_active_cart";
 interface Receipt {
   invoice: string;
   store: string;
+  store_address?: string | null;
+  store_phone?: string | null;
   when: string;
   lines: { name: string; qty: number; uom: string; rate_text: string; amount_text: string }[];
   total_text: string;
@@ -149,6 +151,8 @@ async function printReceipt(invoice: string, size: PaperSize = loadPaper()) {
   .tot{font-weight:bold;font-size:${p.tot};text-align:right;margin-top:4px}.sf{font-size:9px;border-top:1px solid #000;margin-top:4px;padding-top:3px}</style>
   </head><body>
   <h3>${esc(r.store)}</h3>
+  ${r.store_address ? `<div class="c r">${esc(r.store_address)}</div>` : ""}
+  ${r.store_phone ? `<div class="c r">ĐT: ${esc(r.store_phone)}</div>` : ""}
   <div class="c">HOÁ ĐƠN BÁN HÀNG</div>
   <div class="c">${esc(r.when)} · ${esc(r.invoice)}</div>
   <hr>${rows}

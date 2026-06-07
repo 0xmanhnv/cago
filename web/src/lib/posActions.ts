@@ -20,6 +20,7 @@ export const ACTIONS: Record<string, ActionDef> = {
   help: { label: "📖 Hướng dẫn", color: "bg-sky-600", href: "/pos/help", cap: null },
   coupons: { label: "🎟 Mã giảm giá", color: "bg-violet-600", href: "/pos/coupons", cap: "settings" },
   settings: { label: "⚙️ Cài đặt cửa hàng", color: "bg-violet-600", href: "/pos/settings", cap: "settings" },
+  storeinfo: { label: "🏪 Thông tin cửa hàng", color: "bg-violet-500", href: "/pos/store", cap: "settings" },
   price: { label: "🔎 Tra giá / sửa giá", color: "bg-blue-600", href: "/pos/price", cap: "products" },
   new: { label: "➕ Thêm sản phẩm", color: "bg-teal-600", href: "/pos/products/new", cap: "products" },
   edit: { label: "✏️ Sửa sản phẩm", color: "bg-amber-500", href: "/pos/edit", cap: "products" },
