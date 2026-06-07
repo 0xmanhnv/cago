@@ -175,17 +175,20 @@ export function Returns() {
             ↔️ Đổi hàng
           </button>
         }
-      />
-
-      <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm theo số hoá đơn / tên khách..." />
-      <FilterTabs
-        active={tab}
-        onChange={(k) => onTab(k as Tab)}
-        tabs={[
-          { key: "returnable", label: "Còn trả được", count: counts.returnable },
-          { key: "returned", label: "Đã trả", count: counts.returned },
-          { key: "all", label: "Tất cả", count: counts.all },
-        ]}
+        sub={
+          <>
+            <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm theo số hoá đơn / tên khách..." />
+            <FilterTabs
+              active={tab}
+              onChange={(k) => onTab(k as Tab)}
+              tabs={[
+                { key: "returnable", label: "Còn trả được", count: counts.returnable },
+                { key: "returned", label: "Đã trả", count: counts.returned },
+                { key: "all", label: "Tất cả", count: counts.all },
+              ]}
+            />
+          </>
+        }
       />
 
       {loading ? (
