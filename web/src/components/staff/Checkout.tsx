@@ -845,6 +845,12 @@ export function Checkout() {
   const desktop = useIsDesktop();
   const panelOpen = payOpen || desktop; // docked cart on PC is always "expanded"
   useLockBodyScroll(payOpen && !desktop); // sheet locks scroll; docked cart must not
+  // Removing the last line (✕) empties the cart, which UNMOUNTS the whole pay sheet + its overlay —
+  // but payOpen stayed true, so the body-scroll lock never released and the page froze (no overlay
+  // left to tap "close"). Reset payOpen the moment the cart goes empty so the lock always lifts.
+  useEffect(() => {
+    if (cartCodes.length === 0 && payOpen) setPayOpen(false);
+  }, [cartCodes.length, payOpen]);
 
   // Mirror the live cart to the customer-facing display (/pos/display) — only name/qty/line total +
   // the grand total (never cost). Posts an idle "welcome" when the cart empties.
