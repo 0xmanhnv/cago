@@ -94,11 +94,21 @@ export function ProductManager() {
 
   return (
     <div className="mx-auto max-w-[820px]">
-      <BackBar onBack={() => goBackSmart(router)} title="📦 Sản phẩm" sub={<SectionTabs group="products" />} />
-      <button onClick={() => router.push("/pos/products/new")} className="mt-tile mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
+      <BackBar
+        onBack={() => goBackSmart(router)}
+        title="📦 Sản phẩm"
+        sub={
+          <>
+            <SectionTabs group="products" />
+            <div className="mt-2.5">
+              <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm tên · mã · biệt danh…" />
+            </div>
+          </>
+        }
+      />
+      <button onClick={() => router.push("/pos/products/new")} className="mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
         ➕ Thêm sản phẩm mới
       </button>
-      <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm tên · mã · biệt danh…" />
       <div className="mb-3 mt-2 flex items-center justify-between">
         <span className="text-sm text-slate-400">{loading ? "" : `${list.length} sản phẩm`}</span>
         <button

@@ -23,7 +23,11 @@ export function LowStock() {
   const filtered = text ? list.filter((p) => `${p.display_name} ${p.shelf_location || ""}`.toLowerCase().includes(text)) : list;
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="📦 Hàng sắp hết" />
+      <BackBar
+        onBack={() => goBackSmart(router)}
+        title="📦 Hàng sắp hết"
+        sub={list.length === 0 ? undefined : <SearchInput value={q} onChange={setQ} placeholder="🔎 Tìm theo tên / vị trí kệ..." />}
+      />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
       ) : list.length === 0 ? (
@@ -31,7 +35,6 @@ export function LowStock() {
       ) : (
         <>
           <div className="mb-2 rounded-xl bg-amber-50 p-2.5 text-center font-bold text-amber-700">{list.length} mặt hàng sắp hết</div>
-          <SearchInput value={q} onChange={setQ} placeholder="🔎 Tìm theo tên / vị trí kệ..." />
           {filtered.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy mặt hàng.</div>
           ) : (

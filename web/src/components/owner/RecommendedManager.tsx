@@ -69,11 +69,21 @@ export function RecommendedManager() {
 
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="⭐ Hàng khuyên dùng" sub={<SectionTabs group="products" />} />
+      <BackBar
+        onBack={() => goBackSmart(router)}
+        title="⭐ Hàng khuyên dùng"
+        sub={
+          <>
+            <SectionTabs group="products" />
+            <div className="mt-2.5">
+              <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm sản phẩm..." />
+            </div>
+          </>
+        }
+      />
       <p className="mb-2 text-sm text-slate-500">
         Bấm ⭐ để bật/tắt (lưu ngay). Hàng khuyên dùng được trợ lý ưu tiên gợi ý và hiện ⭐ trên thẻ sản phẩm.
       </p>
-      <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm sản phẩm..." />
       <div className="mb-2.5">
         <button
           onClick={toggleRecoOnly}
