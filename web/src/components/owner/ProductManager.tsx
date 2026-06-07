@@ -25,6 +25,7 @@ const SORT_OPTIONS = [
   { key: "name_desc", label: "🔤 Tên Z → A" },
 ];
 const SORT_LABEL: Record<string, string> = Object.fromEntries(SORT_OPTIONS.map((o) => [o.key, o.label]));
+const PAGE = 24;
 
 export function ProductManager() {
   const router = useRouter();
@@ -37,16 +38,42 @@ export function ProductManager() {
   const [q, setQ] = useState(seed);
   const [sort, setSort] = useState<string>("default");
   const [sortOpen, setSortOpen] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Monotonic token: a new load (search / sort change) bumps it so a slow load-more never appends a
+  // stale page for the previous query/sort.
+  const seqRef = useRef(0);
+
+  const fetchPage = (query: string, sortVal: string, start: number) => {
+    const params: Record<string, string> = { query, start: String(start), limit: String(PAGE) };
+    if (sortVal && sortVal !== "default") params.sort = sortVal;
+    return frappeCall<ProductCard[]>("cago.api.owner.search_products", params, { method: "GET" });
+  };
 
   const load = async (query: string, sortVal: string = sort) => {
+    const seq = ++seqRef.current;
     setLoading(true);
     try {
-      const params: Record<string, string> = { query };
-      if (sortVal && sortVal !== "default") params.sort = sortVal;
-      setList((await frappeCall<ProductCard[]>("cago.api.owner.search_products", params, { method: "GET" })) || []);
+      const r = (await fetchPage(query, sortVal, 0)) || [];
+      if (seq !== seqRef.current) return;
+      setList(r);
+      setHasMore(r.length === PAGE);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
+    }
+  };
+  const more = async () => {
+    if (loadingMore) return;
+    const seq = seqRef.current;
+    setLoadingMore(true);
+    try {
+      const r = (await fetchPage(q.trim(), sort, list.length)) || [];
+      if (seq !== seqRef.current) return; // search/sort changed mid-flight → drop the stale page
+      setList((prev) => [...prev, ...r]);
+      setHasMore(r.length === PAGE);
+    } finally {
+      setLoadingMore(false);
     }
   };
   useEffect(() => {
@@ -129,6 +156,15 @@ export function ProductManager() {
             </button>
           ))}
         </div>
+      )}
+      {!loading && hasMore && (
+        <button
+          onClick={more}
+          disabled={loadingMore}
+          className="mt-1 min-h-touch w-full rounded-xl border-2 border-emerald-200 bg-white font-bold text-brand-dark disabled:opacity-50"
+        >
+          {loadingMore ? "Đang tải thêm…" : "Tải thêm"}
+        </button>
       )}
     </div>
   );

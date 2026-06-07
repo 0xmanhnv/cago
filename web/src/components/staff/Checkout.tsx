@@ -22,6 +22,7 @@ import { findByBarcodeLocal, getProductLocal, refreshCatalog, searchCatalogLocal
 import { enqueueSale, newClientUuid } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
 import { cfdPost } from "@/lib/cfd";
+import { printReceipt } from "@/lib/receipt";
 import { useLockBodyScroll } from "@/lib/useLockBodyScroll";
 import { useIsDesktop } from "@/lib/useIsDesktop";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -105,18 +106,6 @@ const saveHeld = (h: Held[]) => window.sessionStorage?.setItem(HELD_KEY, JSON.st
 // The ACTIVE (unfinished) cart, auto-saved so an accidental back / refresh doesn't lose it.
 const DRAFT_KEY = "cago_active_cart";
 
-interface Receipt {
-  invoice: string;
-  store: string;
-  store_address?: string | null;
-  store_phone?: string | null;
-  when: string;
-  lines: { name: string; qty: number; uom: string; rate_text: string; amount_text: string }[];
-  total_text: string;
-  paid_text?: string | null;
-  outstanding_text?: string | null;
-  safety?: string | null;
-}
 const esc = (s: string) => (s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
 
 // Receipt printers vary by shop: cheap 58mm thermal, wider 80mm thermal, or an A5 sheet on a
@@ -133,41 +122,6 @@ const loadPaper = (): PaperSize => {
   return v === "80" || v === "a5" ? v : "58";
 };
 
-async function printReceipt(invoice: string, size: PaperSize = loadPaper()) {
-  // Open the print window SYNCHRONOUSLY (still inside the click gesture) — if we opened it after
-  // the awaited fetch below, popup blockers would silently kill it.
-  const w = window.open("", "_blank", "width=380,height=640");
-  const r = await frappeCall<Receipt>("cago.api.sales.get_receipt", { invoice }, { method: "GET" });
-  const p = PAPER[size];
-  const rows = r.lines
-    .map(
-      (l) =>
-        `<div class="it"><div>${esc(l.name)}</div><div class="r">${trim(l.qty)} ${esc(uomLabel(l.uom))} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`,
-    )
-    .join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(r.invoice)}</title>
-  <style>@page{size:${p.page};margin:${size === "a5" ? "8mm" : "2mm"}}body{width:${p.width};font-family:monospace;font-size:${p.base};color:#000}
-  h3{text-align:center;margin:2px 0}.c{text-align:center}.it{border-bottom:1px dashed #999;padding:2px 0}.r{font-size:${p.line}}
-  .tot{font-weight:bold;font-size:${p.tot};text-align:right;margin-top:4px}.sf{font-size:9px;border-top:1px solid #000;margin-top:4px;padding-top:3px}</style>
-  </head><body>
-  <h3>${esc(r.store)}</h3>
-  ${r.store_address ? `<div class="c r">${esc(r.store_address)}</div>` : ""}
-  ${r.store_phone ? `<div class="c r">ĐT: ${esc(r.store_phone)}</div>` : ""}
-  <div class="c">HOÁ ĐƠN BÁN HÀNG</div>
-  <div class="c">${esc(r.when)} · ${esc(r.invoice)}</div>
-  <hr>${rows}
-  <div class="tot">TỔNG: ${r.total_text}</div>
-  ${r.paid_text ? `<div class="r">Khách trả: ${r.paid_text}</div>` : ""}
-  ${r.outstanding_text ? `<div class="r">Còn nợ: ${r.outstanding_text}</div>` : ""}
-  ${r.safety ? `<div class="sf">${esc(r.safety)}</div>` : ""}
-  <div class="c" style="margin-top:6px">Cảm ơn quý khách!</div>
-  <script>window.onload=function(){window.print()}</script>
-  </body></html>`;
-  if (w) {
-    w.document.write(html);
-    w.document.close();
-  }
-}
 
 // Provisional receipt for an OFFLINE sale — printed straight from the queued cart (no server call,
 // which would fail with no network). Clearly marked "CHƯA ĐỒNG BỘ"; the real invoice prints later.

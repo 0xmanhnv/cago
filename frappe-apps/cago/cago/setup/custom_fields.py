@@ -355,7 +355,7 @@ def ensure_payment_fields():
 				{"fieldname": "cago_store_address", "label": "Cago Store Address", "fieldtype": "Small Text", "insert_after": "cago_store_phone"},
 				{"fieldname": "cago_store_hours", "label": "Cago Store Hours", "fieldtype": "Data", "insert_after": "cago_store_address", "description": "VD: 06:00 - 22:00"},
 				{"fieldname": "cago_store_desc", "label": "Cago Store Description", "fieldtype": "Small Text", "insert_after": "cago_store_hours"},
-				{"fieldname": "cago_bank_bin", "label": "Cago Bank BIN", "fieldtype": "Data", "insert_after": "company_name", "description": "Mã ngân hàng (BIN), vd Vietcombank=970436."},
+				{"fieldname": "cago_bank_bin", "label": "Cago Bank BIN", "fieldtype": "Data", "insert_after": "cago_store_desc", "description": "Mã ngân hàng (BIN), vd Vietcombank=970436."},
 				{"fieldname": "cago_bank_account", "label": "Cago Bank Account", "fieldtype": "Data", "insert_after": "cago_bank_bin"},
 				{"fieldname": "cago_bank_account_name", "label": "Cago Bank Account Name", "fieldtype": "Data", "insert_after": "cago_bank_account"},
 				# Debt-acknowledgement (số nợ số hoá): require a finger signature / photo / witness when
