@@ -66,7 +66,7 @@ export function InstallHint() {
   };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[120] border-t border-emerald-200 bg-white p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.12)]">
+    <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-[120] border-y border-emerald-200 bg-white p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.12)]">
       <div className="mx-auto flex max-w-[760px] items-center gap-3">
         <div className="flex-1 text-sm text-slate-700">
           {ios ? (
