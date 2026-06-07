@@ -66,10 +66,13 @@ def period_summary(period="today", from_date=None, to_date=None):
 	total = flt(res[0][0]) if res and res[0] else 0
 	count = (res[0][1] if res and res[0] else 0) or 0
 	# Distinct customers + average per bill (richer KPI row, learnt from a polished VN POS report).
+	# Exclude the shared "Khách lẻ" walk-in record — it's a real Customer (never empty), so without this
+	# every anonymous cash sale would count as the same +1 "customer", making the KPI meaningless.
 	cust = frappe.db.sql(
 		"""select count(distinct customer) from `tabSales Invoice`
-		   where docstatus=1 and is_return=0 and company=%s and posting_date>=%s and posting_date<=%s and ifnull(customer,'')!=''""",
-		(company, start, end),
+		   where docstatus=1 and is_return=0 and company=%s and posting_date>=%s and posting_date<=%s
+		     and ifnull(customer,'')!='' and ifnull(customer_name,'')!=%s""",
+		(company, start, end, dto.WALKIN_NAME),
 	)
 	customer_count = (cust[0][0] if cust and cust[0] else 0) or 0
 	avg = (total / count) if count else 0
@@ -100,8 +103,8 @@ def revenue_by_hour(date=None):
 	def buckets(day):
 		arr = [0.0] * 24
 		for r in frappe.db.sql(
-			"""select hour(creation) h, sum(grand_total) v from `tabSales Invoice`
-			   where docstatus=1 and company=%s and posting_date=%s group by hour(creation)""",
+			"""select hour(posting_time) h, sum(grand_total) v from `tabSales Invoice`
+			   where docstatus=1 and company=%s and posting_date=%s group by hour(posting_time)""",
 			(company, day),
 			as_dict=1,
 		):

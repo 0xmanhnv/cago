@@ -138,15 +138,20 @@ export function Report() {
       onDay && dayOffset !== 0
         ? { period: "custom" as const, from_date: dayStr(dayOffset), to_date: dayStr(dayOffset) }
         : { period, from_date: fromDate || undefined, to_date: toDate || undefined };
+    // Guard against out-of-order responses: rapidly stepping days fires several batches; a slower older
+    // response must not overwrite a newer one. `live` is flipped false by the cleanup on the next run.
+    let live = true;
     setS(null);
-    frappeCall<Summary>("cago.api.reports.period_summary", args, { method: "GET" }).then(setS);
-    // Hourly trend (that day vs the day before) only makes sense for the day view.
     setHourly(null);
-    if (onDay) frappeCall<Hourly>("cago.api.reports.revenue_by_hour", { date: dayStr(dayOffset) }, { method: "GET" }).then(setHourly).catch(() => setHourly(null));
-    frappeCall<Split>("cago.api.reports.payment_split", args, { method: "GET" }).then(setSplit).catch(() => setSplit(null));
-    frappeCall<Profit>("cago.api.reports.gross_profit", args, { method: "GET" }).then(setProfit).catch(() => setProfit(null));
-    frappeCall<{ display_name: string; qty: number }[]>("cago.api.reports.best_sellers", { limit: 5 }, { method: "GET" }).then((r) => setBest(r || []));
-    frappeCall<{ customer_name: string; total_text: string }[]>("cago.api.reports.sales_by_customer", { ...args, limit: 5 }, { method: "GET" }).then((r) => setByCust(r || []));
+    frappeCall<Summary>("cago.api.reports.period_summary", args, { method: "GET" }).then((r) => { if (live) setS(r); });
+    // Hourly trend (that day vs the day before) only makes sense for the day view.
+    if (onDay) frappeCall<Hourly>("cago.api.reports.revenue_by_hour", { date: dayStr(dayOffset) }, { method: "GET" }).then((r) => { if (live) setHourly(r); }).catch(() => { if (live) setHourly(null); });
+    frappeCall<Split>("cago.api.reports.payment_split", args, { method: "GET" }).then((r) => { if (live) setSplit(r); }).catch(() => { if (live) setSplit(null); });
+    frappeCall<Profit>("cago.api.reports.gross_profit", args, { method: "GET" }).then((r) => { if (live) setProfit(r); }).catch(() => { if (live) setProfit(null); });
+    // best_sellers is period-scoped like every other panel (was all-time — inconsistent with the page).
+    frappeCall<{ display_name: string; qty: number }[]>("cago.api.reports.best_sellers", { ...args, limit: 5 }, { method: "GET" }).then((r) => { if (live) setBest(r || []); });
+    frappeCall<{ customer_name: string; total_text: string }[]>("cago.api.reports.sales_by_customer", { ...args, limit: 5 }, { method: "GET" }).then((r) => { if (live) setByCust(r || []); });
+    return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, fromDate, toDate, ready, dayOffset]);
 
