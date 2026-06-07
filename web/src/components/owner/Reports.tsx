@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
-import { SearchInput } from "@/components/ui/ListUI";
+import { FilterTabs, SearchInput } from "@/components/ui/ListUI";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { Batch } from "@/lib/types";
 import { BackBar, goBackSmart, Ok } from "./Shared";
@@ -155,28 +155,25 @@ export function Report() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, fromDate, toDate, ready, dayOffset]);
 
-  const tab = (p: Period, label: string) => (
-    <button
-      onClick={() => {
-        setPeriod(p);
-        setDayOffset(0);
-      }}
-      className={`rounded-xl px-3.5 py-2.5 font-bold ${p === period ? "bg-blue-600 text-white" : "bg-brand-light text-brand-dark"}`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div>
-      <BackBar onBack={() => goBackSmart(router)} title="Báo cáo" />
-      <div className="mb-3 flex flex-wrap gap-2">
-        {tab("today", "Hôm nay")}
-        {tab("week", "Tuần")}
-        {tab("month", "Tháng")}
-        {tab("year", "Năm")}
-        {tab("custom", "Khoảng ngày")}
-      </div>
+      <BackBar onBack={() => goBackSmart(router)} title="📊 Báo cáo" />
+      {/* Shared FilterTabs (green-active, no-wrap scroll, uniform pills) — was a flex-wrap row of
+          off-brand BLUE buttons that wrapped "Khoảng ngày" onto a lonely 2nd line. */}
+      <FilterTabs
+        active={period}
+        onChange={(k) => {
+          setPeriod(k as Period);
+          setDayOffset(0);
+        }}
+        tabs={[
+          { key: "today", label: "Hôm nay" },
+          { key: "week", label: "Tuần" },
+          { key: "month", label: "Tháng" },
+          { key: "year", label: "Năm" },
+          { key: "custom", label: "Khoảng ngày" },
+        ]}
+      />
       {period === "custom" && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-white p-3 shadow-sm">
           <label className="font-bold text-slate-600">Từ</label>

@@ -13,7 +13,7 @@ export function PriceLookup() {
   if (p) {
     return (
       <div>
-        <BackBar onBack={() => setP(null)} label="Quay lại" />
+        <BackBar onBack={() => setP(null)} title={p.display_name} />
         <div className="rounded-xl bg-white p-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {p.image && <img src={p.image} alt="" className="max-h-60 w-full rounded-lg bg-slate-100 object-contain" />}
@@ -36,7 +36,7 @@ export function PriceLookup() {
   }
   return (
     <ProductPicker
-      title="Tra giá"
+      title="🔎 Tra giá / sửa giá"
       accent
       onBack={() => goBackSmart(router)}
       onPick={async (code) => {
