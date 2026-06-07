@@ -45,7 +45,7 @@ def inventory_overview(query=None, category=None, sort=None, start=0, limit=24):
 	else:
 		codes = frappe.get_all("Item", filters=base, pluck="name")
 	if not codes:
-		return {"rows": [], "total_value_text": dto.format_price(0), "total_qty_text": "0", "sku_count": 0, "has_more": False}
+		return {"rows": [], "total_value_text": _vnd(0), "total_qty_text": "0", "sku_count": 0, "has_more": False}
 
 	# On-hand qty + stock value per item, summed across the store's (non-group) warehouses, in one query.
 	company = _company()

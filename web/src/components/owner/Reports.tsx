@@ -60,7 +60,15 @@ type Period = "today" | "week" | "month" | "year" | "custom";
 
 // Hourly revenue trend, Hôm nay (solid green) vs Hôm qua (dashed amber). Hand-drawn SVG — no chart
 // library (keeps the bundle small, matches the project's "simple" ethos). Learnt from a VN POS report.
-function TrendChart({ h }: { h: { today: number[]; yesterday: number[]; max: number; today_total_text: string; yesterday_total_text: string } }) {
+function TrendChart({
+  h,
+  curLabel = "Hôm nay",
+  prevLabel = "Hôm qua",
+}: {
+  h: { today: number[]; yesterday: number[]; max: number; today_total_text: string; yesterday_total_text: string };
+  curLabel?: string;
+  prevLabel?: string;
+}) {
   const W = 320,
     H = 120,
     padL = 3,
@@ -76,8 +84,8 @@ function TrendChart({ h }: { h: { today: number[]; yesterday: number[]; max: num
       <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
         <span className="font-bold text-slate-600">📈 Xu hướng theo giờ</span>
         <span className="flex items-center gap-3 text-xs text-slate-500">
-          <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-brand" /> Hôm nay <b className="text-brand">{h.today_total_text}</b></span>
-          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2 border-dashed border-harvest" /> Hôm qua {h.yesterday_total_text}</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-brand" /> {curLabel} <b className="text-brand">{h.today_total_text}</b></span>
+          <span className="flex items-center gap-1"><span className="inline-block h-0 w-3.5 border-t-2 border-dashed border-harvest" /> {prevLabel} {h.yesterday_total_text}</span>
         </span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full" style={{ height: 132 }} aria-hidden>
@@ -208,7 +216,9 @@ export function Report() {
                 <div className="text-lg font-extrabold text-slate-700">{s.avg_text}</div>
               </div>
             </div>
-            {hourly && <TrendChart h={hourly} />}
+            {hourly && (
+              <TrendChart h={hourly} curLabel={dayOffset === 0 ? "Hôm nay" : "Ngày này"} prevLabel={dayOffset === 0 ? "Hôm qua" : "Ngày trước"} />
+            )}
             {profit && (
               <div className="mt-1 rounded-lg bg-emerald-50 px-2.5 py-1.5">
                 <div className="flex justify-between py-0.5">
