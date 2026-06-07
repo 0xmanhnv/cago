@@ -117,7 +117,7 @@ export function DataHealth() {
   const allClean = d && TABS.every((t) => count(t.key) === 0);
 
   return (
-    <div className="mx-auto max-w-[820px]">
+    <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="🩺 Kiểm tra dữ liệu" sub={<SectionTabs group="products" />} />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />

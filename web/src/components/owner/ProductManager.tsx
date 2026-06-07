@@ -93,7 +93,7 @@ export function ProductManager() {
   const edit = (code: string) => router.push(`/pos/products/${encodeURIComponent(code)}/edit`);
 
   return (
-    <div className="mx-auto max-w-[820px]">
+    <div className="">
       <BackBar
         onBack={() => goBackSmart(router)}
         title="📦 Sản phẩm"

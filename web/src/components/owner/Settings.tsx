@@ -165,7 +165,7 @@ export function Settings() {
   };
 
   return (
-    <div className="mx-auto max-w-[760px] xl:max-w-[1100px]">
+    <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="⚙️ Cài đặt cửa hàng" />
 
       {/* Settings are split into 3 labelled groups (Bán hàng / Công nợ / Kết nối) so the owner can

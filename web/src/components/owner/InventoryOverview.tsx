@@ -108,7 +108,7 @@ export function InventoryOverview() {
   };
 
   return (
-    <div className="mx-auto max-w-[820px] pb-10">
+    <div className=" pb-10">
       <BackBar title="🏬 Kho hàng" onBack={() => goBackSmart(router)} sub={<SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm tên · mã · mã vạch…" />} />
 
       <div className="mt-3 rounded-2xl bg-white p-4 shadow-sm">

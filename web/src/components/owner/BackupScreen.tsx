@@ -38,7 +38,7 @@ export function BackupScreen() {
   };
 
   return (
-    <div className="mx-auto max-w-[680px]">
+    <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="💾 Sao lưu dữ liệu" />
       <div className="rounded-xl bg-white p-4">
         <p className="text-slate-600">

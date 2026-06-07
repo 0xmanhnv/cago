@@ -107,7 +107,7 @@ export function OrderHistory() {
   const groups = groupOrdered(rows, (s) => s.date_group);
 
   return (
-    <div className="mx-auto max-w-[820px] pb-10">
+    <div className=" pb-10">
       <BackBar
         title="🧾 Đơn hàng"
         onBack={() => goBackSmart(router)}

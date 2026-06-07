@@ -204,7 +204,7 @@ export function ProductEditor({ code }: { code: string }) {
   return (
     // Forms read best in a comfortable column — cap the width on a wide PC (the /pos shell is 1100px)
     // so labels stay near their inputs instead of stretching across the screen.
-    <div className="mx-auto max-w-[760px]">
+    <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="✏️ Sửa sản phẩm" />
       <div className="rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">Sửa: {e.cago_display_name || e.item_name}</h2>

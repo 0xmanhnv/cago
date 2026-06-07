@@ -78,7 +78,7 @@ export function AiSettings() {
   );
 
   return (
-    <div className="mx-auto max-w-[760px]">
+    <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="🤖 Cấu hình trợ lý AI" />
       <Ok>
         Đang dùng: <b>{c.effective.provider}</b>

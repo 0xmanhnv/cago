@@ -154,7 +154,7 @@ export function ConnectScreen() {
   const label = "mt-3 block font-bold text-slate-700";
 
   return (
-    <div className="mx-auto max-w-[760px]">
+    <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="🔌 Kết nối & Kênh" />
       <Ok>
         Cấu hình kỹ thuật cho các kênh (Zalo, Telegram, thanh toán). Chỉ <b>quản trị</b> thấy màn này —

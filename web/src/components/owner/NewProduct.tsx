@@ -111,7 +111,7 @@ export function NewProduct() {
   const unitOptions = Array.from(new Set([...(!f.unitOther && f.unit ? [f.unit] : []), ...meta.uoms]));
 
   return (
-    <div className="mx-auto max-w-[760px] xl:max-w-[900px]">
+    <div className="">
       <BackBar onBack={() => goBackSmart(router)} title="➕ Thêm sản phẩm" />
       {/* 2-column on desktop (sm+) so the form uses the width instead of a narrow mobile strip;
           1-column on phones. Name + checkboxes + button span both columns. */}

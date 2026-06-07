@@ -69,7 +69,7 @@ export function StoreProfile() {
   );
 
   return (
-    <div className="mx-auto max-w-[760px]">
+    <div className="">
       <BackBar title="🏪 Thông tin cửa hàng" onBack={() => goBackSmart(router)} />
       <div className="mt-4 rounded-xl bg-white p-4">
         <p className="text-sm text-slate-500">Thông tin này in lên đầu hoá đơn cho khách và hiện ở trang theo dõi đơn.</p>
