@@ -38,7 +38,7 @@ export function Sheet({
             // NOT also animate transform or it clobbers the centering (panel drifts off-screen).
             // center → fade-in (opacity only); bottom → sheet-up but stays bottom-anchored (no translate).
             (variant === "bottom"
-              ? "fixed inset-x-0 bottom-0 z-[81] mx-auto max-h-[88vh] w-full max-w-[480px] animate-sheet-up overflow-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl"
+              ? "fixed inset-x-0 bottom-0 z-[81] mx-auto mb-[var(--kb-inset,0px)] max-h-[88vh] w-full max-w-[480px] animate-sheet-up overflow-auto rounded-t-2xl bg-white p-4 transition-[margin] duration-200 sm:rounded-2xl"
               : "fixed left-1/2 top-1/2 z-[81] max-h-[88vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 animate-fade-in overflow-auto rounded-2xl bg-white p-5") +
             (className ? ` ${className}` : "")
           }

@@ -1212,7 +1212,7 @@ export function Checkout() {
       <ShiftBar refreshKey={shiftRefresh} onState={setShiftState} cashier={boot?.full_name} />
 
       {openShiftFor && (
-        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => { setOpenShiftFor(false); pendingPayRef.current = null; }}>
+        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center pb-[var(--kb-inset,0px)] transition-[padding] duration-200 bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => { setOpenShiftFor(false); pendingPayRef.current = null; }}>
           <div className="w-full max-w-[420px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-xl font-extrabold text-emerald-800">🟢 Mở ca bán hàng</div>
             <p className="mt-1 text-sm text-slate-500">Cần mở ca trước khi bán. Đếm tiền mặt có sẵn trong két đầu ca (để cuối ca đối chiếu).</p>
@@ -1236,7 +1236,7 @@ export function Checkout() {
       )}
 
       {showReprint && (
-        <div className="fixed inset-0 z-30 flex animate-fade-in items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setShowReprint(false)}>
+        <div className="fixed inset-0 z-30 flex animate-fade-in items-end justify-center pb-[var(--kb-inset,0px)] transition-[padding] duration-200 bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setShowReprint(false)}>
           <div className="no-scrollbar max-h-[85vh] w-full max-w-[560px] animate-sheet-up overflow-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center justify-between">
               <div className="text-xl font-bold">🖨 In lại hoá đơn</div>
@@ -1864,7 +1864,7 @@ function ProductPreview({
       .finally(() => setLoading(false));
   }, [code]);
   return (
-    <div className="fixed inset-0 z-[80] flex animate-fade-in items-end justify-center bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] flex animate-fade-in items-end justify-center pb-[var(--kb-inset,0px)] transition-[padding] duration-200 bg-black/50 sm:items-center sm:p-4" onClick={onClose}>
       <div className="no-scrollbar flex max-h-[88vh] w-full max-w-[520px] animate-sheet-up flex-col overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
           <div className="text-lg font-extrabold text-brand-dark">Xem lại sản phẩm</div>
@@ -2156,7 +2156,7 @@ function ShiftBar({ refreshKey, onState, cashier }: { refreshKey: number; onStat
       )}
 
       {mode === "mv" && (
-        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
+        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center pb-[var(--kb-inset,0px)] transition-[padding] duration-200 bg-black/40 sm:items-center" onClick={() => setMode("none")}>
           <div className="w-full max-w-[380px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 text-xl font-bold">💵 Nộp / rút quỹ · chi vặt</div>
             <div className="grid grid-cols-3 gap-2">
@@ -2177,7 +2177,7 @@ function ShiftBar({ refreshKey, onState, cashier }: { refreshKey: number; onStat
       )}
 
       {mode === "open" && (
-        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
+        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center pb-[var(--kb-inset,0px)] transition-[padding] duration-200 bg-black/40 sm:items-center" onClick={() => setMode("none")}>
           <div className="w-full max-w-[380px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 text-xl font-bold">🟢 Mở ca</div>
             <label className="block font-bold text-slate-600">Tiền mặt có sẵn trong két (đầu ca)</label>
@@ -2191,7 +2191,7 @@ function ShiftBar({ refreshKey, onState, cashier }: { refreshKey: number; onStat
       )}
 
       {mode === "close" && (
-        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 sm:items-center" onClick={() => setMode("none")}>
+        <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center pb-[var(--kb-inset,0px)] transition-[padding] duration-200 bg-black/40 sm:items-center" onClick={() => setMode("none")}>
           <div className="w-full max-w-[380px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-1 text-xl font-bold">🔴 Đóng ca · đếm két</div>
             {!shift.blind && (
@@ -2281,7 +2281,7 @@ function Keypad({ label, value, uom, onClose, onSet }: { label: string; value: n
   };
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
   return (
-    <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex animate-fade-in items-end justify-center pb-[var(--kb-inset,0px)] transition-[padding] duration-200 bg-black/40 sm:items-center" onClick={onClose}>
       <div className="w-full max-w-[380px] animate-sheet-up rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-1 truncate text-center font-bold">{label}</div>
         <div className="mb-3 rounded-xl border-2 border-emerald-300 p-3 text-center text-3xl font-extrabold">

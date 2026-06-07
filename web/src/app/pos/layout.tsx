@@ -2,6 +2,7 @@ import { Shell } from "@/components/pos/Shell";
 import { OfflineBadge } from "@/components/pos/OfflineBadge";
 import { BottomNav } from "@/components/pos/BottomNav";
 import { DragScroll } from "@/components/ui/DragScroll";
+import { KeyboardInset } from "@/components/ui/KeyboardInset";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,8 @@ export default function PosLayout({ children }: { children: React.ReactNode }) {
     <Shell>
       {/* Mouse drag + wheel horizontal scroll for every chip/tab strip (PC has no swipe). */}
       <DragScroll />
+      {/* Track the soft-keyboard height so bottom sheets lift above it (--kb-inset). */}
+      <KeyboardInset />
       {/* 760px is the touch-first column (phone/tablet). Owner/staff also use a PC, so widen on a
           large screen (xl ≥1280px) to cut the empty side margins — the responsive product grid + lists
           fill it; forms stay readable. Phone/tablet are unaffected. */}
