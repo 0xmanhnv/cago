@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { hasCap, isInternal, type Cap } from "@/lib/caps";
@@ -31,12 +32,39 @@ export function BottomNav() {
   const path = usePathname() || "";
   const router = useRouter();
   const { boot } = useSession();
+  // Facebook-style: hide the bar while scrolling DOWN (more list visible), slide it back the instant
+  // the user scrolls UP (or near the top). Direction-based, rAF-throttled, transform-only (smooth).
+  const [hidden, setHidden] = useState(false);
+  const lastY = useRef(0);
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const dy = y - lastY.current;
+        // Wider deadzone (±8) so small jitter/inertia doesn't flip-flop the bar; always shown near top.
+        if (y < 60) setHidden(false);
+        else if (dy > 8) setHidden(true);
+        else if (dy < -8) setHidden(false);
+        lastY.current = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   if (!isInternal(boot)) return null;
   if (HIDE_PREFIXES.some((r) => path.startsWith(r))) return null;
   const tabs = TABS.filter((t) => !t.cap || hasCap(boot, t.cap));
   if (tabs.length < 2) return null; // nothing meaningful to switch between
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-emerald-100 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_12px_rgba(0,0,0,0.07)]">
+    <nav
+      className={`fixed inset-x-0 bottom-0 z-40 flex border-t border-emerald-100 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-2px_12px_rgba(0,0,0,0.07)] transition-transform duration-300 ease-out ${
+        hidden ? "translate-y-full" : "translate-y-0"
+      }`}
+    >
       {tabs.map((t) => {
         const on = t.active(path);
         return (

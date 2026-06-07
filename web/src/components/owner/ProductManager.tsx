@@ -8,16 +8,11 @@ import { SearchInput } from "@/components/ui/ListUI";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { ProductCard } from "@/lib/types";
 import { BackBar, goBackSmart, StockBadge } from "./Shared";
+import { SectionTabs } from "@/components/pos/SectionTabs";
 
 // One product hub: search to look up a price (tra giá) → tap to edit (sửa), ➕ to add (thêm) —
 // the three old separate screens. Related product tools live here as quick links instead of
 // scattered home tiles.
-const LINKS = [
-  { href: "/pos/recommended", label: "⭐ Hàng khuyên dùng" },
-  { href: "/pos/labels", label: "🏷 In tem giá" },
-  { href: "/pos/categories", label: "🗂 Loại hàng" },
-  { href: "/pos/health", label: "🩺 Kiểm tra dữ liệu" },
-];
 
 export function ProductManager() {
   const router = useRouter();
@@ -51,17 +46,11 @@ export function ProductManager() {
   return (
     <div className="mx-auto max-w-[820px]">
       <BackBar onBack={() => goBackSmart(router)} title="📦 SẢN PHẨM" />
+      <SectionTabs group="products" />
       <button onClick={() => router.push("/pos/products/new")} className="mt-tile mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
         ➕ Thêm sản phẩm mới
       </button>
       <SearchInput value={q} onChange={onSearch} placeholder="🔎 Tìm để xem giá / sửa..." />
-      <div className="no-scrollbar mb-3 flex gap-2 overflow-x-auto pb-1">
-        {LINKS.map((l) => (
-          <button key={l.href} onClick={() => router.push(l.href)} className="flex-none whitespace-nowrap rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-sm font-bold text-slate-700">
-            {l.label}
-          </button>
-        ))}
-      </div>
       {loading ? (
         <SkeletonRows rows={6} />
       ) : list.length === 0 ? (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { BackBar, goBackSmart } from "./Shared";
+import { SectionTabs } from "@/components/pos/SectionTabs";
 import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { ICONS } from "@/lib/storemap";
@@ -173,6 +174,7 @@ export function CategoryOrder() {
   return (
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="LOẠI HÀNG (NHÓM HÀNG)" />
+      <SectionTabs group="products" />
       <p className="mb-3 ml-1 text-slate-500">Thêm / sửa / xoá loại hàng, chọn loại cha và sắp xếp thứ tự hiện trên kiosk. Loại không có cha chính là loại gốc (và có thể làm cha của loại khác).</p>
 
       {!form && (

@@ -9,6 +9,7 @@ import { SkeletonRows } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/toast";
 import type { ProductCard } from "@/lib/types";
 import { BackBar, goBackSmart } from "./Shared";
+import { SectionTabs } from "@/components/pos/SectionTabs";
 
 /**
  * Bulk-manage "⭐ khuyên dùng" flags: one tappable star per product, saved instantly (no
@@ -69,6 +70,7 @@ export function RecommendedManager() {
   return (
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="⭐ HÀNG KHUYÊN DÙNG" />
+      <SectionTabs group="products" />
       <p className="mb-2 text-sm text-slate-500">
         Bấm ⭐ để bật/tắt (lưu ngay). Hàng khuyên dùng được trợ lý ưu tiên gợi ý và hiện ⭐ trên thẻ sản phẩm.
       </p>

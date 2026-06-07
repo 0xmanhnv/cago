@@ -7,6 +7,7 @@ import { confirmDialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { BackBar, goBackSmart, Ok } from "./Shared";
+import { SectionTabs } from "@/components/pos/SectionTabs";
 
 interface Row {
   item_code: string;
@@ -118,6 +119,7 @@ export function DataHealth() {
   return (
     <div className="mx-auto max-w-[820px]">
       <BackBar onBack={() => goBackSmart(router)} title="🩺 KIỂM TRA DỮ LIỆU" />
+      <SectionTabs group="products" />
       {loading ? (
         <SkeletonRows rows={6} thumb={false} />
       ) : !d ? (

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { BackBar, goBackSmart, ProductPicker } from "./Shared";
+import { SectionTabs } from "@/components/pos/SectionTabs";
 
 interface Label {
   item_code: string;
@@ -68,6 +69,7 @@ export function Labels() {
   return (
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="🏷 In tem giá / kệ" />
+      <SectionTabs group="products" />
       <button onClick={() => setPicking(true)} className="mb-3 min-h-touch w-full rounded-xl bg-teal-600 font-extrabold text-white">
         ➕ Thêm sản phẩm
       </button>
