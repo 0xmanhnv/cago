@@ -90,7 +90,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   return (
     <div>
       <BackBar onBack={() => setCust("")} title={info.customer_name} />
-      <div className="rounded-xl bg-white p-4">
+      <div className="mx-auto max-w-[640px] rounded-xl bg-white p-4">
         <h2 className="text-xl font-bold">{info.customer_name}</h2>
         <div className="flex justify-between border-b border-slate-100 py-2">
           <span className="text-slate-500">Đang nợ</span>

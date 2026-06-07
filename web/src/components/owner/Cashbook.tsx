@@ -61,7 +61,7 @@ export function Cashbook() {
   return (
     <div>
       <BackBar onBack={() => goBackSmart(router)} title="🧮 Chốt ca / Sổ quỹ" />
-      <div className="rounded-xl bg-white p-4">
+      <div className="mx-auto max-w-[640px] rounded-xl bg-white p-4">
         <div className="text-slate-600">Hôm nay đã thu:</div>
         <div className="mt-1 flex justify-between border-b border-slate-100 py-1.5">
           <span>💵 Tiền mặt (bán hàng)</span>
