@@ -536,21 +536,25 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
 
   return (
     <div>
-      <BackBar onBack={onBack} />
-      <button onClick={() => setAdding(true)} className="mt-tile mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
+      <BackBar
+        onBack={onBack}
+        title={title}
+        sub={
+          <SearchInput
+            value={q}
+            onChange={(v) => {
+              setQ(v);
+              clearTimeout(tRef.current);
+              tRef.current = setTimeout(() => run(v.trim()), 250);
+            }}
+            placeholder="🔎 Tên khách, xóm..."
+            autoFocus
+          />
+        }
+      />
+      <button onClick={() => setAdding(true)} className="mb-3 min-h-[60px] w-full bg-teal-600 text-lg">
         ➕ Thêm khách mới
       </button>
-      <SearchInput
-        value={q}
-        onChange={(v) => {
-          setQ(v);
-          clearTimeout(tRef.current);
-          tRef.current = setTimeout(() => run(v.trim()), 250);
-        }}
-        placeholder="🔎 Tên khách, xóm..."
-        autoFocus
-      />
-      <div className="text-xl font-bold text-brand-dark">{title}</div>
       <div className="mb-1 text-sm text-slate-500">Chọn khách để thực hiện — số bên phải là nợ hiện tại của khách (để xem ai đang nợ, vào &quot;📒 Công nợ khách&quot;).</div>
       {list.length === 0 ? (
         <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy khách. Bấm &quot;Thêm khách mới&quot; ở trên.</div>

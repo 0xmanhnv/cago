@@ -26,7 +26,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const { boot } = useSession();
   const policy = boot?.debt_proof?.[mode === "add" ? "debt" : "repay"];
   const method = mode === "add" ? "cago.api.debt.record_debt" : "cago.api.debt.record_repayment";
-  const title = mode === "add" ? "GHI NỢ" : "KHÁCH TRẢ NỢ";
+  const title = mode === "add" ? "✏️ Ghi nợ" : "💵 Khách trả nợ";
 
   if (!cust) {
     return (
