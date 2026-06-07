@@ -16,6 +16,7 @@ import { Spinner } from "@/components/ui/Loading";
 import { formatVnd, groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, StockBadge } from "@/components/owner/Shared";
 import { QtyStepper } from "@/components/ui/QtyStepper";
+import { ViewToggle } from "@/components/ui/ViewToggle";
 import type { ProductCard, Product, Category, Batch } from "@/lib/types";
 import { useOnline } from "@/lib/offline/useOnline";
 import { type SaleArgs, type SaleDisplay } from "@/lib/offline/db";
@@ -1308,10 +1309,7 @@ export function Checkout() {
           sticky tier-2 `sub` (same as every other screen), so this slim row is all that's left here. */}
       <div className="mb-3 flex items-center justify-between">
         <span className="whitespace-nowrap text-sm text-slate-400">{list.length} sản phẩm</span>
-        <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
-          <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3.5 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
-          <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3.5 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
-        </div>
+        <ViewToggle mode={viewMode} onChange={chooseView} />
       </div>
 
       <div>
@@ -1407,6 +1405,7 @@ export function Checkout() {
                         </div>
                       ) : (
                         <QtyStepper
+                          size="sm"
                           display={String(trim(line.qty))}
                           onDec={() => setQty(p.item_code, line.qty - 1)}
                           onInc={() => setQty(p.item_code, line.qty + 1)}
@@ -1509,18 +1508,18 @@ export function Checkout() {
                 </button>
               ) : (
                 <div className={`no-scrollbar flex max-h-[88vh] flex-col p-3 xl:max-h-[calc(100vh-2rem)] xl:animate-none ${payClosing ? "animate-sheet-down" : "animate-sheet-up"}`}>
-                  <button onClick={closePay} className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-100 py-2 font-bold text-slate-500 xl:hidden">
-                    ▼ Thu gọn — chọn thêm hàng
-                  </button>
-                  {/* Header doubles as a collapse toggle for the line list — handy once the cart is long
-                      (keeps the customer + total + pay buttons in view without scrolling the lines). */}
-                  <button
-                    onClick={() => setCartListOpen((v) => !v)}
-                    className="mb-2 flex w-full items-center justify-between"
-                  >
-                    <span className="text-lg font-extrabold text-brand-dark">🛒 Giỏ hàng · {cartCodes.length} món</span>
-                    <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-500">{cartListOpen ? "▲ Ẩn danh sách" : "▼ Hiện danh sách"}</span>
-                  </button>
+                  {/* Mobile: a slim drag handle to close the sheet — compact, like the other bottom
+                      sheets, instead of a big full-width "Thu gọn" bar that ate vertical space. */}
+                  <button onClick={closePay} aria-label="Thu gọn" className="mx-auto mb-2 block h-1.5 w-10 rounded-full bg-slate-300 xl:hidden" />
+                  {/* Header: tap the title to collapse/expand the line list; the ✕ (mobile) closes the
+                      whole sheet so staff can pick more items. */}
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <button onClick={() => setCartListOpen((v) => !v)} className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-lg font-extrabold text-brand-dark">🛒 Giỏ hàng · {cartCodes.length} món</span>
+                      <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">{cartListOpen ? "▲ Ẩn" : "▼ Hiện"}</span>
+                    </button>
+                    <button onClick={closePay} aria-label="Đóng" className="shrink-0 rounded-lg bg-slate-100 px-2.5 py-1 text-lg font-bold text-slate-500 xl:hidden">✕</button>
+                  </div>
                   {/* Cart lines — listed + qty-editable right here, so staff never has to close the
                       panel to fix a quantity. Tap the number for the keypad; ✕ removes the line. Each line
                       shows the FULL product name on its own row (no truncation); the price · stepper ·

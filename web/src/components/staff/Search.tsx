@@ -6,6 +6,7 @@ import { frappeCall } from "@/lib/api";
 import { toast } from "@/components/ui/toast";
 import { CatThumb } from "@/components/kiosk/CatThumb";
 import { CategoryNav } from "@/components/ui/CategoryNav";
+import { ViewToggle } from "@/components/ui/ViewToggle";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { BarcodeScanner } from "@/components/ui/BarcodeScanner";
 import { SearchHeader, StockBadge } from "@/components/owner/Shared";
@@ -180,10 +181,7 @@ export function Search() {
       {!loading && list.length > 0 && (
         <div className="mb-2.5 flex items-center justify-between">
           <span className="text-sm text-slate-400">{list.length} sản phẩm{hasMore ? "+" : ""}</span>
-          <div className="flex shrink-0 overflow-hidden rounded-full border border-slate-300 bg-white">
-            <button onClick={() => chooseView("list")} aria-label="Dạng danh sách" className={`px-3 py-1.5 text-lg ${viewMode === "list" ? "bg-brand text-white" : "text-slate-600"}`}>☰</button>
-            <button onClick={() => chooseView("card")} aria-label="Dạng thẻ" className={`px-3 py-1.5 text-lg ${viewMode === "card" ? "bg-brand text-white" : "text-slate-600"}`}>▦</button>
-          </div>
+          <ViewToggle mode={viewMode} onChange={chooseView} />
         </div>
       )}
       {loading ? (

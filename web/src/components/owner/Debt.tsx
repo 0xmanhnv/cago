@@ -8,6 +8,7 @@ import { SearchInput } from "@/components/ui/ListUI";
 import { groupVnd, parseVnd } from "@/lib/utils";
 import { BackBar, goBackSmart, CustomerPicker, DraftModal, money, Ok, Warn } from "./Shared";
 import { SkeletonRows } from "@/components/ui/Skeleton";
+import { StatBanner } from "@/components/ui/StatBanner";
 import { PageLoading } from "@/components/ui/Loading";
 import { toast } from "@/components/ui/toast";
 import { useSession } from "@/lib/session";
@@ -226,9 +227,9 @@ export function DebtList() {
         <Ok>Không có khách nào đang nợ. 🎉</Ok>
       ) : (
         <>
-          <div className="mb-2 rounded-xl bg-red-50 p-2.5 text-center font-bold text-red-700">
+          <StatBanner tone="red">
             {list.length} khách đang nợ · tổng {money(list.reduce((s, c) => s + (c.outstanding || 0), 0))}
-          </div>
+          </StatBanner>
           {filtered.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy khách.</div>
           ) : sort === "village" ? (

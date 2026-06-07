@@ -9,6 +9,7 @@ import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { ProductCard } from "@/lib/types";
 import { BackBar, goBackSmart, StockBadge } from "./Shared";
 import { SectionTabs } from "@/components/pos/SectionTabs";
+import { SortControl } from "@/components/ui/SortControl";
 
 // One product hub: search to look up a price (tra giá) → tap to edit (sửa), ➕ to add (thêm) —
 // the three old separate screens. Related product tools live here as quick links instead of
@@ -24,7 +25,6 @@ const SORT_OPTIONS = [
   { key: "name_asc", label: "🔤 Tên A → Z" },
   { key: "name_desc", label: "🔤 Tên Z → A" },
 ];
-const SORT_LABEL: Record<string, string> = Object.fromEntries(SORT_OPTIONS.map((o) => [o.key, o.label]));
 const PAGE = 24;
 
 export function ProductManager() {
@@ -37,7 +37,6 @@ export function ProductManager() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState(seed);
   const [sort, setSort] = useState<string>("default");
-  const [sortOpen, setSortOpen] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -87,7 +86,6 @@ export function ProductManager() {
   };
   const chooseSort = (s: string) => {
     setSort(s);
-    setSortOpen(false);
     void load(q.trim(), s);
   };
   const edit = (code: string) => router.push(`/pos/products/${encodeURIComponent(code)}/edit`);
@@ -111,30 +109,8 @@ export function ProductManager() {
       </button>
       <div className="mb-3 mt-2 flex items-center justify-between">
         <span className="text-sm text-slate-400">{loading ? "" : `${list.length} sản phẩm`}</span>
-        <button
-          onClick={() => setSortOpen(true)}
-          className="flex shrink-0 items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-600"
-        >
-          ↓↑ {SORT_LABEL[sort]}
-        </button>
+        <SortControl options={SORT_OPTIONS} active={sort} onChange={chooseSort} />
       </div>
-      {sortOpen && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/30" onClick={() => setSortOpen(false)}>
-          <div className="w-full rounded-t-2xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 text-center text-lg font-extrabold text-brand-dark">Sắp xếp</div>
-            {SORT_OPTIONS.map((o) => (
-              <button
-                key={o.key}
-                onClick={() => chooseSort(o.key)}
-                className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-lg ${sort === o.key ? "bg-emerald-50 font-extrabold text-brand" : "text-slate-700"}`}
-              >
-                {o.label}
-                {sort === o.key && <span>✓</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
       {loading ? (
         <SkeletonRows rows={6} />
       ) : list.length === 0 ? (

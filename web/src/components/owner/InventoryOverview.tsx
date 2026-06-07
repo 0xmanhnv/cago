@@ -7,6 +7,7 @@ import { CatThumb } from "@/components/kiosk/CatThumb";
 import { SearchInput } from "@/components/ui/ListUI";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { BackBar, goBackSmart } from "./Shared";
+import { SortControl } from "@/components/ui/SortControl";
 
 // "🏬 Kho hàng" — inventory-VALUE overview: how much money is sitting in stock (giá trị tồn), per
 // product + store totals. OWNER ONLY (valuation = cost-derived). Complements the operational stock
@@ -36,7 +37,6 @@ const SORT_OPTIONS = [
   { key: "qty_asc", label: "📦 Số lượng: ít → nhiều" },
   { key: "name_asc", label: "🔤 Tên A → Z" },
 ];
-const SORT_LABEL: Record<string, string> = Object.fromEntries(SORT_OPTIONS.map((o) => [o.key, o.label]));
 const PAGE = 24;
 
 // Related warehouse utilities surfaced right on the Kho-hàng hub (learnt from a VN POS that bundles
@@ -56,7 +56,6 @@ export function InventoryOverview() {
   const [agg, setAgg] = useState({ total_value_text: "", total_qty_text: "", sku_count: 0 });
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("value_desc");
-  const [sortOpen, setSortOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -103,7 +102,6 @@ export function InventoryOverview() {
   };
   const chooseSort = (s: string) => {
     setSort(s);
-    setSortOpen(false);
     void load(q.trim(), s);
   };
 
@@ -143,27 +141,8 @@ export function InventoryOverview() {
       </div>
 
       <div className="mb-2 mt-3 flex items-center justify-end">
-        <button onClick={() => setSortOpen(true)} className="flex shrink-0 items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-bold text-slate-600">
-          ↓↑ {SORT_LABEL[sort]}
-        </button>
+        <SortControl options={SORT_OPTIONS} active={sort} onChange={chooseSort} />
       </div>
-      {sortOpen && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/30" onClick={() => setSortOpen(false)}>
-          <div className="w-full rounded-t-2xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 text-center text-lg font-extrabold text-brand-dark">Sắp xếp</div>
-            {SORT_OPTIONS.map((o) => (
-              <button
-                key={o.key}
-                onClick={() => chooseSort(o.key)}
-                className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-lg ${sort === o.key ? "bg-emerald-50 font-extrabold text-brand" : "text-slate-700"}`}
-              >
-                {o.label}
-                {sort === o.key && <span>✓</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {loading ? (
         <SkeletonRows rows={6} />

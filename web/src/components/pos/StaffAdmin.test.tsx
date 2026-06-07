@@ -7,7 +7,9 @@ import userEvent from "@testing-library/user-event";
 // asks for confirmation and calls set_staff_admin with on:1 for that user.
 
 const frappeCall = vi.fn();
-const confirmDialog = vi.fn(() => Promise.resolve(true));
+// Give the impl a rest param so the inferred signature accepts the `(...a) => confirmDialog(...a)`
+// spread below — a no-arg impl infers a 0-arg type and spreading into it is ts(2556).
+const confirmDialog = vi.fn((..._a: unknown[]) => Promise.resolve(true));
 vi.mock("@/lib/api", () => ({ frappeCall: (...a: unknown[]) => frappeCall(...a) }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), back: vi.fn() }) }));
 vi.mock("@/components/ui/toast", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));

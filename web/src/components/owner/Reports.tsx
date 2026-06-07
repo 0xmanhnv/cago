@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { frappeCall } from "@/lib/api";
 import { FilterTabs, SearchInput } from "@/components/ui/ListUI";
+import { StatBanner } from "@/components/ui/StatBanner";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import type { Batch } from "@/lib/types";
 import { BackBar, goBackSmart, Ok } from "./Shared";
@@ -34,7 +35,7 @@ export function LowStock() {
         <Ok>Không có hàng nào sắp hết. 👍</Ok>
       ) : (
         <>
-          <div className="mb-2 rounded-xl bg-amber-50 p-2.5 text-center font-bold text-amber-700">{list.length} mặt hàng sắp hết</div>
+          <StatBanner tone="amber">{list.length} mặt hàng sắp hết</StatBanner>
           {filtered.length === 0 ? (
             <div className="rounded-xl bg-white p-6 text-center text-slate-400">Không tìm thấy mặt hàng.</div>
           ) : (
