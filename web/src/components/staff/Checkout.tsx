@@ -608,17 +608,33 @@ export function Checkout() {
       return { ...l, [code]: { ...l[code], rate: Number.isFinite(v) && raw.trim() !== "" ? v : undefined } };
     });
 
+  // A cart line key is normally the item_code. To let the SAME product sit in the cart in two units
+  // at once (e.g. 1 Bao + 1 Kg of cám), an EXTRA unit is keyed `item_code::uom`. itemOf() recovers the
+  // real item_code from either form; every meta / price / name / lô lookup goes through it.
+  const itemOf = (key: string) => {
+    const i = key.indexOf("::");
+    return i < 0 ? key : key.slice(0, i);
+  };
   const unitPrice = (code: string, uom: string) => {
-    const u = meta[code]?.sale_units.find((s) => s.uom === uom);
-    return parsePrice(u?.price_text || list.find((p) => p.item_code === code)?.price_text || "");
+    const ic = itemOf(code);
+    const u = meta[ic]?.sale_units.find((s) => s.uom === uom);
+    return parsePrice(u?.price_text || list.find((p) => p.item_code === ic)?.price_text || "");
   };
   // Vietnamese label for a stored unit code (kg10 → "Yến"); falls back to the code itself.
   const labelOf = (code: string, uom: string) =>
-    meta[code]?.sale_units.find((s) => s.uom === uom)?.label || uomLabel(uom);
+    meta[itemOf(code)]?.sale_units.find((s) => s.uom === uom)?.label || uomLabel(uom);
   // Display name for a cart line — works even if the item isn't in the current search view.
-  const nameOf = (code: string) => meta[code]?.name || list.find((p) => p.item_code === code)?.display_name || code;
+  const nameOf = (code: string) => meta[itemOf(code)]?.name || list.find((p) => p.item_code === itemOf(code))?.display_name || code;
   // Price actually charged for a line: manual override (if owner allows + set) else price-list rate.
   const linePrice = (code: string) => lines[code]?.rate ?? unitPrice(code, lines[code]?.uom ?? "");
+  // Sale-units of a product that are NOT yet in the cart (for the "mua thêm đơn vị khác" chips).
+  const unitsNotInCart = (itemCode: string) => {
+    const have = new Set(Object.keys(lines).filter((k) => itemOf(k) === itemCode).map((k) => lines[k].uom));
+    return (meta[itemCode]?.sale_units || []).filter((u) => !have.has(u.uom));
+  };
+  // Buy the same product in ANOTHER unit → a separate `item_code::uom` line (no-op if already there).
+  const addUnitLine = (itemCode: string, uom: string) =>
+    setLines((l) => (Object.keys(l).some((k) => itemOf(k) === itemCode && l[k].uom === uom) ? l : { ...l, [`${itemCode}::${uom}`]: { qty: 1, uom } }));
   const cartCodes = Object.keys(lines);
   const subtotal = cartCodes.reduce((s, c) => s + linePrice(c) * lines[c].qty, 0);
 
@@ -823,7 +839,7 @@ export function Checkout() {
       const a = lotAlloc[c];
       const useAlloc = lotManual[c] && a && Math.abs(lotSum(a) - lines[c].qty) < 1e-6;
       const batch_allocs = useAlloc ? Object.entries(a).filter(([, q]) => (q || 0) > 0).map(([batch, qty]) => ({ batch, qty })) : undefined;
-      return { item_code: c, qty: lines[c].qty, uom: lines[c].uom, rate: allowPriceEdit ? lines[c].rate : undefined, batch_allocs };
+      return { item_code: itemOf(c), qty: lines[c].qty, uom: lines[c].uom, rate: allowPriceEdit ? lines[c].rate : undefined, batch_allocs };
     });
     const dispLines = cartCodes.map((c) => {
       const price = linePrice(c);
@@ -1260,7 +1276,7 @@ export function Checkout() {
 
       {keypad && (
         <Keypad
-          label={list.find((p) => p.item_code === keypad)?.display_name || "Số lượng"}
+          label={nameOf(keypad)}
           value={lines[keypad]?.qty ?? 0}
           uom={labelOf(keypad, lines[keypad]?.uom || "")}
           onClose={() => setKeypad(null)}
@@ -1530,7 +1546,8 @@ export function Checkout() {
                   <div className="mb-2 min-h-0 divide-y divide-slate-100 overflow-auto rounded-xl border border-slate-200">
                     {cartCodes.map((c) => {
                       const ln = lines[c];
-                      const units = meta[c]?.sale_units || [];
+                      const units = meta[itemOf(c)]?.sale_units || [];
+                      const extraUnits = units.length > 1 ? unitsNotInCart(itemOf(c)) : [];
                       return (
                         <div key={c} className="px-2.5 py-2">
                           <div className="flex items-start justify-between gap-2">
@@ -1558,6 +1575,23 @@ export function Checkout() {
                                   className={`rounded-lg px-2.5 py-1 text-xs font-bold ${ln.uom === u.uom ? "bg-brand text-white" : "bg-slate-200 text-slate-700"}`}
                                 >
                                   {(u.label || u.uom)} · {u.price_text}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {/* Buy the SAME product in another unit too (e.g. 1 Bao + 1 Kg) — adds a
+                              separate line so both ship on one bill. Only offers units not already in
+                              the cart for this product. */}
+                          {extraUnits.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              <span className="text-xs text-slate-400">Bán kèm:</span>
+                              {extraUnits.map((u) => (
+                                <button
+                                  key={u.uom}
+                                  onClick={() => addUnitLine(itemOf(c), u.uom)}
+                                  className="rounded-lg border-2 border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700"
+                                >
+                                  ＋ {(u.label || u.uom)} · {u.price_text}
                                 </button>
                               ))}
                             </div>
