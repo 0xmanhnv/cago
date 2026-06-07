@@ -71,64 +71,82 @@ function AppBarNav({
 }) {
   const router = useRouter();
   const back = onBack ?? (() => goBackSmart(router));
+  const hasSub = sub != null;
   // Tier-2 (sub) hides on scroll-DOWN and returns on scroll-UP (Facebook-style); tier-1 (green title)
-  // always stays. Collapse via max-height so the content below actually moves up (no reserved gap).
-  // Only wired when there IS a sub — the many screens that pass none skip the listener entirely.
+  // always stays. It slides on a pure TRANSFORM (translateY) like the bottom tab bar — composited on the
+  // GPU, the document layout never changes, so there's no per-frame reflow and no "giật". (An earlier
+  // grid-rows/max-height collapse animated a LAYOUT property → it shoved every row below it up each
+  // frame = jank.) The sub is its OWN sticky element under the green bar (like SearchHeader): its flow
+  // box lives at the top of the page, so once scrolled past, sliding it up leaves NO gap — content just
+  // scrolls under where it was, exactly like the bottom bar. Only wired when there IS a sub.
+  const greenRef = useRef<HTMLDivElement>(null);
+  const setGreenRef = (el: HTMLDivElement | null) => {
+    greenRef.current = el;
+    if (typeof navRef === "function") navRef(el);
+    else if (navRef) (navRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  };
+  const [navH, setNavH] = useState(0);
   const [showSub, setShowSub] = useState(true);
   const lastY = useRef(0);
+  // Measure the green bar BEFORE paint so the sub sits at the right top: offset on the first frame.
+  useIsoLayoutEffect(() => {
+    if (hasSub) setNavH(greenRef.current?.offsetHeight ?? 0);
+  }, [hasSub]);
   useEffect(() => {
-    if (sub == null) return;
+    if (!hasSub) return;
+    const measure = () => setNavH(greenRef.current?.offsetHeight ?? 0);
+    window.addEventListener("resize", measure);
     let ticking = false;
-    // Hiding the sub shrinks the page; near the bottom the browser then CLAMPS scrollY upward, which
-    // would read as "scroll-up" and re-show it → an expand/collapse jitter. After a hide we lock
-    // toggling for 450ms to swallow that clamp event. Deadzone 8px so small wobble doesn't flip it.
-    let lockUntil = 0;
     const onScroll = () => {
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(() => {
         const y = window.scrollY;
-        const now = performance.now();
-        if (now >= lockUntil) {
-          if (y < 60 || y < lastY.current - 8) setShowSub(true);
-          else if (y > lastY.current + 8) {
-            setShowSub(false);
-            lockUntil = now + 450;
-          }
-        }
+        // Near the top always show; otherwise a small 4px deadzone so finger-wobble doesn't flip it.
+        if (y < 60 || y < lastY.current - 4) setShowSub(true);
+        else if (y > lastY.current + 4) setShowSub(false);
         lastY.current = y;
         ticking = false;
       });
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [sub]);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", measure);
+    };
+  }, [hasSub]);
   return (
     // Two-tier sticky header: the green title bar (shared, tier 1) + an optional WHITE `sub` toolbar
-    // (tier 2) for this page's own controls. One sticky block; tier 2 collapses on scroll-down so the
-    // content gets more room, and slides back on scroll-up. `pinned` (default) keeps the status bar green.
-    <div ref={navRef} className={`appbar-pull ${pinned ? "sticky top-0 z-30" : ""} -mx-4 ${className}`}>
-      <div className="appbar-padtop bg-brand px-4 pb-3 text-white">
-        {/* No 🏠 here — the bottom tab bar already has "Trang chủ", so the top-right is freed for each
-            page's own useful actions (passed via `right`). */}
-        <div className="flex items-center gap-2">
-          <button onClick={back} className="shrink-0 rounded-xl bg-white/20 px-2.5 py-2 font-bold text-white active:bg-white/30">
-            ‹ {label}
-          </button>
-          {title ? <div className="min-w-0 flex-1 truncate text-lg font-extrabold sm:text-xl">{title}</div> : <div className="flex-1" />}
-          {right}
-        </div>
-      </div>
-      {sub != null && (
-        // Collapse via grid-template-rows 1fr↔0fr — smoother than animating max-height (browsers
-        // composite it better, no per-frame layout thrash → no "giật"). 300ms ease-out feels gentle.
-        <div className={`grid bg-white transition-[grid-template-rows,opacity] duration-300 ease-out ${showSub ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-          <div className="overflow-hidden">
-            <div className="px-4 pb-2 pt-2.5">{sub}</div>
+    // (tier 2) for this page's own controls. `pinned` (default) keeps the status bar green. When there's
+    // no sub, `className` carries the bar's own bottom margin + elevation shadow; with a sub, those move
+    // onto the sub block (a shadow on the green bar would seam against the white sub right below it).
+    <>
+      <div ref={setGreenRef} className={`appbar-pull ${pinned ? "sticky top-0 z-30" : ""} -mx-4 ${hasSub ? "" : className}`}>
+        <div className="appbar-padtop bg-brand px-4 pb-3 text-white">
+          {/* No 🏠 here — the bottom tab bar already has "Trang chủ", so the top-right is freed for each
+              page's own useful actions (passed via `right`). */}
+          <div className="flex items-center gap-2">
+            <button onClick={back} className="shrink-0 rounded-xl bg-white/20 px-2.5 py-2 font-bold text-white active:bg-white/30">
+              ‹ {label}
+            </button>
+            {title ? <div className="min-w-0 flex-1 truncate text-lg font-extrabold sm:text-xl">{title}</div> : <div className="flex-1" />}
+            {right}
           </div>
         </div>
+      </div>
+      {hasSub && (
+        // Separate sticky tier-2: sits just under the green bar (top: navH-8, the -mt-2 overlaps the
+        // bar's pb-3 so there's no seam), slides up BEHIND it on scroll-down via translateY. transform-gpu
+        // + backface-visibility:hidden keep it on its own compositor layer = buttery, exactly like the
+        // bottom nav. -translate-y-[130%] clears its own shadow too; pointer-events-none while hidden.
+        <div
+          style={{ top: Math.max(0, navH - 8) }}
+          className={`sticky z-20 -mx-4 -mt-2 mb-3 transform-gpu bg-white px-4 pb-2.5 pt-3 shadow-[0_4px_10px_-5px_rgba(0,0,0,0.18)] transition-transform duration-300 ease-out [backface-visibility:hidden] ${showSub ? "translate-y-0" : "pointer-events-none -translate-y-[130%]"}`}
+        >
+          {sub}
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
