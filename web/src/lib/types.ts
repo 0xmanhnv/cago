@@ -11,6 +11,7 @@ export interface ProductCard {
   category_icon?: string;
   category_color?: string;
   price_text: string;
+  price_range_text?: string; // owner/staff: cheapest→dearest across sale UOMs ("12.000 – 600.000đ")
   stock_status?: string | null;
   short_description?: string;
   is_chemical?: boolean;

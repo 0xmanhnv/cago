@@ -112,8 +112,18 @@ export function ProductManager() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold leading-tight">{p.recommended && <span title="Khuyên dùng">⭐ </span>}{p.display_name}</div>
-                <div className="text-lg font-extrabold text-brand">{p.price_text}</div>
-                <StockBadge status={p.stock_status} />
+                {/* Owner list shows the multi-unit price RANGE (per-kg … per-bao) when the product sells in
+                    several UOMs, falling back to the single price; plus the exact on-hand for tracked items. */}
+                <div className="text-lg font-extrabold text-brand">{p.price_range_text?.includes("–") ? p.price_range_text : p.price_text}</div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <StockBadge status={p.stock_status} />
+                  {p.actual_stock_qty != null && (
+                    <span className="text-sm text-slate-500">
+                      Có thể bán: <b className="text-slate-700">{p.actual_stock_qty.toLocaleString("vi-VN")}</b>
+                      {p.unit ? ` ${p.unit}` : ""}
+                    </span>
+                  )}
+                </div>
               </div>
               <span className="shrink-0 rounded-lg bg-amber-500 px-3 py-2 text-sm font-bold text-white">Sửa →</span>
             </button>

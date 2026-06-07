@@ -139,6 +139,17 @@ def format_price(rate, uom=None):
 	return text
 
 
+def format_price_range(pmap):
+	"""'12.000 – 600.000đ' spanning a product's sale UOMs (cheapest → dearest). One distinct price →
+	a single formatted price; nothing priced → 'Liên hệ'. Lets the owner list show the multi-unit
+	spread at a glance (per-kg … per-bao) instead of just the base-unit price."""
+	vals = sorted({round(v) for v in (pmap or {}).values() if v and round(v) > 0})
+	if not vals:
+		return "Liên hệ"
+	fmt = lambda n: f"{n:,}".replace(",", ".")  # noqa: E731
+	return f"{fmt(vals[0])}đ" if len(vals) == 1 else f"{fmt(vals[0])} – {fmt(vals[-1])}đ"
+
+
 # --------------------------------------------------------------------------- #
 # Expiry (lô + hạn sử dụng) — Phase 1. Uses ERPNext Batch.expiry_date.
 # --------------------------------------------------------------------------- #
@@ -480,12 +491,12 @@ def list_dtos(query, audience="staff", public_only=False, category=None, limit=2
 				if exp:
 					exp_map[r.name] = {"expiry_text": format_date_vi(exp), "expiry_status": expiry_status(exp)}
 	return [
-		_list_dto(r, _rate_for(prices.get(r.name) or {}, r.stock_uom), audience, cat_meta, qty_map, bs, exp_map)
+		_list_dto(r, _rate_for(prices.get(r.name) or {}, r.stock_uom), audience, cat_meta, qty_map, bs, exp_map, prices.get(r.name) or {})
 		for r in rows
 	]
 
 
-def _list_dto(r, rate, audience, cat_meta=None, qty_map=None, bs_set=None, exp_map=None):
+def _list_dto(r, rate, audience, cat_meta=None, qty_map=None, bs_set=None, exp_map=None, pmap=None):
 	meta = (cat_meta or {}).get(r.item_group) or category_meta(r.item_group)
 	out = {
 		"item_code": r.name,
@@ -516,6 +527,10 @@ def _list_dto(r, rate, audience, cat_meta=None, qty_map=None, bs_set=None, exp_m
 			{
 				"shelf_location": r.cago_shelf_location,
 				"selling_price": rate,
+				# Cheapest→dearest across this product's sale UOMs (per-kg … per-bao) so the owner list can
+				# show a price RANGE for multi-unit items; single-unit items render one price. Owner/staff
+				# only (kiosk keeps the single public price).
+				"price_range_text": format_price_range(pmap),
 				# Real on-hand so the sell screen can warn BEFORE checkout. Only meaningful when the
 				# item auto-tracks stock; manual-status items report stock_auto=False (don't enforce).
 				"stock_auto": bool(r.cago_stock_auto),
