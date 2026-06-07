@@ -37,7 +37,7 @@ def _job_roles_of(user):
 
 def _row(user):
 	info = frappe.db.get_value(
-		"User", user, ["full_name", "enabled", "cago_allow_price_edit", "cago_max_discount_pct", "cago_blind_shift_close"], as_dict=True
+		"User", user, ["full_name", "enabled", "mobile_no", "cago_allow_price_edit", "cago_max_discount_pct", "cago_blind_shift_close"], as_dict=True
 	)
 	roles = set(frappe.get_roles(user))
 	# Only the real owner / superuser is "protected" (un-editable). A Cago Admin staff is editable +
@@ -46,6 +46,7 @@ def _row(user):
 	return {
 		"user": user,
 		"full_name": info.full_name or user,
+		"mobile": info.mobile_no or "",
 		"enabled": bool(info.enabled),
 		"is_owner": protected,
 		"is_admin": bool(roles & ADMIN_ROLES),
@@ -134,18 +135,21 @@ def set_staff_admin(user, on=1):
 
 
 @frappe.whitelist()
-def create_staff(email, full_name, password=None, job_roles=None, allow_price_edit=0, max_discount_pct=0, blind_shift_close=0):
-	"""Owner: create a new staff login (email + tên + mật khẩu) and assign chức danh + limits."""
+def create_staff(email, full_name, password=None, job_roles=None, allow_price_edit=0, max_discount_pct=0, blind_shift_close=0, mobile=None):
+	"""Owner: create a new staff login (email + tên + SĐT + mật khẩu) and assign chức danh + limits."""
 	ensure_owner()
 	email = (email or "").strip().lower()
 	if "@" not in email or "." not in email.rsplit("@", 1)[-1]:
 		frappe.throw(_("Email không hợp lệ (vd: nhanvien@cuahang.com)."))
 	if frappe.db.exists("User", email):
 		frappe.throw(_("Đã có tài khoản với email này."))
+	m = (mobile or "").strip()
+	if m and frappe.db.get_value("User", {"mobile_no": m}, "name"):
+		frappe.throw(_("Số điện thoại này đã gắn với tài khoản khác."))
 	name = (full_name or "").strip() or email.split("@")[0]
 	with as_user("Administrator"):
 		doc = frappe.get_doc(
-			{"doctype": "User", "email": email, "first_name": name, "user_type": "System User", "enabled": 1, "send_welcome_email": 0}
+			{"doctype": "User", "email": email, "first_name": name, "mobile_no": m or None, "user_type": "System User", "enabled": 1, "send_welcome_email": 0}
 		)
 		doc.insert(ignore_permissions=True)
 	save_staff(email, job_roles or [], allow_price_edit, max_discount_pct, blind_shift_close)  # caps + limits + commit
@@ -158,8 +162,14 @@ def create_staff(email, full_name, password=None, job_roles=None, allow_price_ed
 
 
 @frappe.whitelist()
-def set_staff_account(user, full_name=None, enabled=None, new_password=None):
-	"""Owner: edit a staff account — đổi tên, bật/tắt, đặt lại mật khẩu. Owner's own account is off-limits."""
+def set_staff_account(user, full_name=None, enabled=None, new_password=None, mobile=None, email=None):
+	"""Owner: edit a staff account — đổi tên, SĐT, email (đăng nhập), bật/tắt, đặt lại mật khẩu.
+
+	SĐT (mobile_no) is a login credential here (staff sign in with phone OR email), so it's kept unique
+	across accounts. Email IS the User's primary key, so changing it renames the User doc — that changes
+	how they log in, must stay unique, and can't be done to your own account (would break your session).
+	The owner's own account stays off-limits in this screen.
+	"""
 	ensure_owner()
 	if user in ("Administrator", "Guest") or not frappe.db.exists("User", user):
 		frappe.throw(_("Tài khoản không hợp lệ."))
@@ -171,13 +181,36 @@ def set_staff_account(user, full_name=None, enabled=None, new_password=None):
 		doc.last_name = ""
 	if enabled is not None:
 		doc.enabled = 1 if cint(enabled) else 0
+	if mobile is not None:
+		m = (mobile or "").strip()
+		if m and frappe.db.get_value("User", {"mobile_no": m, "name": ["!=", user]}, "name"):
+			frappe.throw(_("Số điện thoại này đã gắn với tài khoản khác."))
+		doc.mobile_no = m
 	doc.save(ignore_permissions=True)
+
+	final = user
+	if email is not None:
+		new_email = (email or "").strip().lower()
+		if new_email and new_email != user:
+			if user == frappe.session.user:
+				frappe.throw(_("Không tự đổi email của chính mình ở đây."))
+			if "@" not in new_email or "." not in new_email.rsplit("@", 1)[-1]:
+				frappe.throw(_("Email không hợp lệ (vd: nhanvien@cuahang.com)."))
+			if frappe.db.exists("User", new_email):
+				frappe.throw(_("Đã có tài khoản với email này."))
+			# Email = User primary key → rename the doc (Frappe's User.after_rename syncs the email field
+			# + auth). The staff then logs in with the new email. Run as Administrator for rename rights.
+			with as_user("Administrator"):
+				frappe.rename_doc("User", user, new_email, force=True)
+			frappe.db.set_value("User", new_email, "email", new_email)
+			final = new_email
+
 	if new_password:
 		from frappe.utils.password import update_password
 
-		update_password(user, new_password)
+		update_password(final, new_password)
 	frappe.db.commit()
-	return _row(user)
+	return _row(final)
 
 
 # --------------------------------------------------------------------------- #

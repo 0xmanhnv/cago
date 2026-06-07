@@ -12,6 +12,7 @@ import { PageLoading } from "@/components/ui/Loading";
 interface Staff {
   user: string;
   full_name: string;
+  mobile: string;
   enabled: boolean;
   is_owner: boolean;
   is_admin: boolean;
@@ -39,7 +40,12 @@ export function StaffAdmin() {
   const [editRole, setEditRole] = useState<(JobRole & { isNew?: boolean }) | null>(null);
   const [busy, setBusy] = useState(false);
   const [pwNew, setPwNew] = useState(""); // reset-password field in the edit panel
-  const [creating, setCreating] = useState<{ email: string; full_name: string; password: string; roles: string[] } | null>(null);
+  const [editEmail, setEditEmail] = useState(""); // editable login email (renames the User on save)
+  const [creating, setCreating] = useState<{ email: string; full_name: string; mobile: string; password: string; roles: string[] } | null>(null);
+  // Seed the email field once per opened staff (keyed on user so typing the name doesn't reset it).
+  useEffect(() => {
+    if (editStaff) setEditEmail(editStaff.user);
+  }, [editStaff?.user]);
 
   const reload = async () => {
     const [s, r] = await Promise.all([
@@ -65,17 +71,24 @@ export function StaffAdmin() {
       );
     const save = async () => {
       if (busy) return;
+      const newEmail = editEmail.trim().toLowerCase();
+      const emailChanged = !!newEmail && newEmail !== editStaff.user;
+      // Changing the email RENAMES the login → make the owner confirm (the staff then signs in with it).
+      if (emailChanged && !(await confirmDialog(`Đổi email đăng nhập thành "${newEmail}"? Nhân viên sẽ dùng email mới để đăng nhập.`))) return;
       setBusy(true);
       try {
-        // account (tên / bật-tắt / mật khẩu) + then caps & limits
-        await frappeCall("cago.api.staff_admin.set_staff_account", {
+        // account (tên / SĐT / email / bật-tắt / mật khẩu). When the email changes the User is renamed,
+        // so the returned row carries the NEW id — use it for the caps/limits save below.
+        const row = await frappeCall<Staff>("cago.api.staff_admin.set_staff_account", {
           user: editStaff.user,
           full_name: editStaff.full_name,
+          mobile: editStaff.mobile || "",
+          email: newEmail || undefined,
           enabled: editStaff.enabled ? 1 : 0,
           new_password: pwNew.trim() || undefined,
         });
         await frappeCall("cago.api.staff_admin.save_staff", {
-          user: editStaff.user,
+          user: row?.user || editStaff.user,
           job_roles: JSON.stringify(editStaff.job_roles.map((j) => j.name)),
           allow_price_edit: editStaff.allow_price_edit ? 1 : 0,
           max_discount_pct: editStaff.max_discount_pct || 0,
@@ -121,16 +134,31 @@ export function StaffAdmin() {
     return (
       <div>
         <BackBar onBack={() => { setEditStaff(null); setPwNew(""); }} title="Sửa nhân viên" />
-        <div className="rounded-xl bg-white p-4">
-          <div className="text-sm text-slate-500">{editStaff.user}</div>
-
-          {/* Account: tên / bật-tắt / đổi mật khẩu */}
-          <label className="mt-2 block text-sm font-bold text-slate-600">Tên nhân viên</label>
+        <div className="mx-auto max-w-[640px] rounded-xl bg-white p-4">
+          {/* Account: tên / SĐT / email (đăng nhập) / bật-tắt / đổi mật khẩu */}
+          <label className="block text-sm font-bold text-slate-600">Tên nhân viên</label>
           <input
             value={editStaff.full_name}
             onChange={(e) => setEditStaff({ ...editStaff, full_name: e.target.value })}
             className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
           />
+          <label className="mt-2 block text-sm font-bold text-slate-600">Số điện thoại (đăng nhập được bằng SĐT)</label>
+          <input
+            value={editStaff.mobile}
+            onChange={(e) => setEditStaff({ ...editStaff, mobile: e.target.value })}
+            inputMode="tel"
+            placeholder="VD: 0987654321"
+            className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+          />
+          <label className="mt-2 block text-sm font-bold text-slate-600">Email (dùng để đăng nhập)</label>
+          <input
+            value={editEmail}
+            onChange={(e) => setEditEmail(e.target.value)}
+            inputMode="email"
+            placeholder="nhanvien@cuahang.com"
+            className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+          />
+          <p className="mt-1 text-xs text-amber-700">Đổi email = đổi cách đăng nhập của nhân viên — họ sẽ dùng email mới để vào.</p>
           <label className="mt-2 flex items-center gap-2.5 rounded-xl bg-slate-50 p-3">
             <input type="checkbox" checked={editStaff.enabled} onChange={(e) => setEditStaff({ ...editStaff, enabled: e.target.checked })} className="h-5 w-5" />
             <span className="font-bold text-slate-700">Đang làm việc (tắt = nghỉ việc, không đăng nhập được)</span>
@@ -234,6 +262,7 @@ export function StaffAdmin() {
         await frappeCall("cago.api.staff_admin.create_staff", {
           email: creating.email.trim(),
           full_name: creating.full_name.trim(),
+          mobile: creating.mobile.trim() || undefined,
           password: creating.password.trim() || undefined,
           job_roles: JSON.stringify(creating.roles),
         });
@@ -263,6 +292,14 @@ export function StaffAdmin() {
             value={creating.full_name}
             onChange={(e) => setCreating({ ...creating, full_name: e.target.value })}
             placeholder="VD: Chị Hoa"
+            className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
+          />
+          <label className="mt-2 block text-sm font-bold text-slate-600">Số điện thoại (tuỳ chọn — đăng nhập được bằng SĐT)</label>
+          <input
+            value={creating.mobile}
+            onChange={(e) => setCreating({ ...creating, mobile: e.target.value })}
+            inputMode="tel"
+            placeholder="VD: 0987654321"
             className="mt-1 w-full rounded-lg border-2 border-emerald-300 p-2.5"
           />
           <label className="mt-2 block text-sm font-bold text-slate-600">Mật khẩu</label>
@@ -398,7 +435,7 @@ export function StaffAdmin() {
       ) : tab === "staff" ? (
         <>
           <button
-            onClick={() => setCreating({ email: "", full_name: "", password: "", roles: [] })}
+            onClick={() => setCreating({ email: "", full_name: "", mobile: "", password: "", roles: [] })}
             className="mt-add mb-3"
           >
             ➕ Thêm nhân viên
