@@ -51,6 +51,7 @@ export const ACTIONS: Record<string, ActionDef> = {
   staffadmin: { label: "👥 Nhân viên & quyền", color: "bg-slate-600", href: "/pos/staff", cap: "owner" },
   backup: { label: "💾 Sao lưu dữ liệu", color: "bg-slate-600", href: "/pos/backup", cap: "admin" },
   readiness: { label: "🚩 Sẵn sàng khai trương?", color: "bg-emerald-700", href: "/pos/readiness", cap: "owner" },
+  tabbar: { label: "📱 Sửa thanh dưới", color: "bg-slate-600", href: "/pos/tabbar", cap: null },
   cfd: { label: "🖥 Màn hình phụ cho khách", color: "bg-slate-700", cap: "sell", action: "cfd" },
   handover: { label: "🧑‍🌾 Màn hình khách", color: "bg-emerald-600", cap: null, action: "handover", kioskOnly: true },
   setpin: { label: "🔒 Đổi mã PIN", color: "bg-violet-600", cap: null, action: "setpin", kioskOnly: true },
@@ -80,6 +81,31 @@ export function readFavorites(): Fav[] {
     return Array.isArray(a) ? a : [];
   } catch {
     return [];
+  }
+}
+
+// The bottom tab bar is configured SEPARATELY from "⭐ Hay dùng" (different purpose: a small, stable set
+// of nav shortcuts vs the home favourites). Stored per-device in localStorage; "Trang chủ" is implicit.
+export const TABBAR_CACHE = "cago_tabbar";
+export const TABBAR_MAX = 4;
+export const TABBAR_CHANGED_EVENT = "cago-tabbar-changed";
+
+export function readTabbar(): string[] {
+  try {
+    const raw = typeof window !== "undefined" ? window.localStorage?.getItem(TABBAR_CACHE) : null;
+    const a = raw ? JSON.parse(raw) : null;
+    return Array.isArray(a) ? a.filter((k): k is string => typeof k === "string" && !!ACTIONS[k]?.href).slice(0, TABBAR_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeTabbar(keys: string[]): void {
+  try {
+    window.localStorage?.setItem(TABBAR_CACHE, JSON.stringify(keys.slice(0, TABBAR_MAX)));
+    window.dispatchEvent(new Event(TABBAR_CHANGED_EVENT)); // let the live BottomNav re-read immediately
+  } catch {
+    /* ignore */
   }
 }
 

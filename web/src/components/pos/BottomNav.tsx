@@ -4,12 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { isInternal } from "@/lib/caps";
-import { ACTIONS, canRunAction, readFavorites, tabParts } from "@/lib/posActions";
+import { ACTIONS, canRunAction, readTabbar, TABBAR_CHANGED_EVENT, tabParts } from "@/lib/posActions";
 
-// Customisable bottom tab bar (iPhone/Facebook style) — "Trang chủ" is LOCKED first, the rest mirror the
-// owner's pinned "⭐ Hay dùng" shortcuts (edited in one place, on the home "Sắp xếp"), capped + cap-gated.
-// Nothing is ever lost: every function still lives in the home grid. Hides on /pos/sell (its own pay bar)
-// and hides on scroll-down / returns on scroll-up.
+// Customisable bottom tab bar (iPhone/Facebook style) — "Trang chủ" is LOCKED first; the rest are chosen
+// SEPARATELY from "⭐ Hay dùng" on the "Sửa thanh dưới" screen (a small stable nav set, not the home
+// favourites). Cap-gated; nothing is lost (every function still lives in the home grid). Hides on
+// /pos/sell (its own pay bar) and hides on scroll-down / returns on scroll-up.
 type Tab = { href: string; icon: string; label: string; active: (p: string) => boolean };
 
 const HOME: Tab = { href: "/pos", icon: "🏠", label: "Trang chủ", active: (p) => p === "/pos" };
@@ -59,18 +59,23 @@ export function BottomNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Build the tabs from pinned favourites — re-read on each navigation so edits on the home screen show
-  // up here too. Cap-gated + de-duped + capped; falls back to sensible defaults if nothing is pinned.
+  // Build the tabs from the saved "Sửa thanh dưới" config — re-read on navigation AND on the change event
+  // (live update while editing). Cap-gated + de-duped + capped; sensible defaults until the owner picks.
   useEffect(() => {
-    const pinned = readFavorites().map((f) => f.k);
-    const keys = pinned.length ? pinned : DEFAULT_KEYS;
-    const favTabs = keys
-      .filter((k, i) => keys.indexOf(k) === i) // de-dup, keep order
-      .filter((k) => ACTIONS[k]?.href && canRunAction(ACTIONS[k], boot))
-      .slice(0, MAX_FAV_TABS)
-      .map(actionToTab)
-      .filter((t): t is Tab => !!t);
-    setTabs([HOME, ...favTabs]);
+    const build = () => {
+      const chosen = readTabbar();
+      const keys = chosen.length ? chosen : DEFAULT_KEYS;
+      const favTabs = keys
+        .filter((k, i) => keys.indexOf(k) === i) // de-dup, keep order
+        .filter((k) => ACTIONS[k]?.href && canRunAction(ACTIONS[k], boot))
+        .slice(0, MAX_FAV_TABS)
+        .map(actionToTab)
+        .filter((t): t is Tab => !!t);
+      setTabs([HOME, ...favTabs]);
+    };
+    build();
+    window.addEventListener(TABBAR_CHANGED_EVENT, build);
+    return () => window.removeEventListener(TABBAR_CHANGED_EVENT, build);
   }, [path, boot]);
 
   if (!isInternal(boot)) return null;
