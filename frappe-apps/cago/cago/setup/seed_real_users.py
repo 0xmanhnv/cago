@@ -53,8 +53,50 @@ def _resolve_path(path=None):
 	return frappe.get_site_path(DEFAULT_FILENAME)
 
 
-def seed_real_users(path=None):
-	"""Load the real-account list from a gitignored JSON file and apply it idempotently."""
+# Throwaway logins that must NEVER reach a production roster — the demo seed (test_accounts.py,
+# …@cago.test) and anything the test-suite leaves behind (_test_*, …@example.com).
+DEMO_SUFFIXES = ("@cago.test", "@example.com")
+DEMO_PREFIXES = ("_test_",)
+
+
+def _is_demo(uid):
+	return uid not in ("Administrator", "Guest") and (uid.endswith(DEMO_SUFFIXES) or uid.startswith(DEMO_PREFIXES))
+
+
+def prune_demo_accounts():
+	"""Strip every throwaway demo/test login so a prod roster shows only the real operators.
+
+	Deletes the User when nothing links to it; otherwise (it owns invoices/shifts/etc.) disables it
+	and removes its Cago roles + chức danh so it vanishes from the staff screen and can't sign in.
+	Never touches Administrator or the real seeded accounts. Idempotent.
+	"""
+	from cago.utils.permissions import ALL_CAP_ROLES
+
+	cago_roles = ALL_CAP_ROLES | {"Cago Owner", "Cago Admin", "Cago Staff"}
+	targets = [u for u in frappe.get_all("User", pluck="name") if _is_demo(u)]
+	for uid in targets:
+		frappe.db.savepoint("prune")
+		try:
+			frappe.delete_doc("User", uid, ignore_permissions=True, delete_permanently=True)
+			print(f"  deleted {uid}")
+			continue
+		except Exception:
+			frappe.db.rollback(save_point="prune")  # linked records block delete → neutralise instead
+		doc = frappe.get_doc("User", uid)
+		doc.set("roles", [r for r in doc.get("roles") if r.role not in cago_roles])
+		doc.set("cago_job_roles", [])
+		doc.enabled = 0
+		doc.save(ignore_permissions=True)
+		print(f"  disabled + de-roled {uid} (had linked data)")
+	frappe.db.commit()
+	print(f"Pruned {len(targets)} demo/test account(s).")
+
+
+def seed_real_users(path=None, prune_demo=False):
+	"""Load the real-account list from a gitignored JSON file and apply it idempotently.
+
+	prune_demo=True also strips throwaway demo/test logins so the live roster is minimal for prod.
+	"""
 	src = _resolve_path(path)
 	if not os.path.exists(src):
 		raise FileNotFoundError(
@@ -71,6 +113,8 @@ def seed_real_users(path=None):
 
 	frappe.db.commit()
 	print(f"Seeded {len(accounts)} real account(s) from {src}.")
+	if prune_demo:
+		prune_demo_accounts()
 
 
 def _apply_account(a):
