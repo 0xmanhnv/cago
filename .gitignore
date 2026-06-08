@@ -37,3 +37,7 @@ infra/docker/backups/
 # Caddy-generated local root CA (per-machine, for LAN HTTPS) — not committed
 cago-root-ca.crt
 web/public/cago-root-ca.crt
+
+# Real operator accounts (per-store secrets) — NEVER commit; keep the .example template only
+infra/secrets/*
+!infra/secrets/*.example.json
