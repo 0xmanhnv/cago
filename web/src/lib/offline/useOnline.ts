@@ -33,7 +33,12 @@ async function probe(): Promise<boolean> {
       signal: ctrl.signal,
     });
     clearTimeout(t);
-    return res.ok;
+    if (!res.ok) return false;
+    // Guard against a captive portal that answers every request with a 200 HTML login page: only
+    // treat it as "online" if the body is actually our JSON bootstrap (has a `message` object).
+    if (!(res.headers.get("content-type") || "").includes("json")) return false;
+    const j = await res.json().catch(() => null);
+    return !!(j && typeof j === "object" && "message" in j);
   } catch {
     return false;
   }

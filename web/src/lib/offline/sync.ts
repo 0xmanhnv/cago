@@ -3,7 +3,7 @@
 // hand — never silently dropped. The server dedups on client_uuid, so a re-sent sale that actually
 // succeeded the first time resolves to the same invoice.
 
-import { FrappeError, frappeCall } from "@/lib/api";
+import { FrappeError, frappeCall, setCsrfToken } from "@/lib/api";
 import { type QueuedSale } from "./db";
 import { listQueue, updateSale } from "./queue";
 
@@ -20,14 +20,23 @@ function announce() {
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("cago:queuechange"));
 }
 
+// Status codes that mean "couldn't deliver yet", NOT "the shop rejected this sale": server briefly
+// down (5xx), throttled (429), or a stale/empty session token (400 CSRF, 401/403 auth — common after
+// the tablet booted the /pos/sell shell offline and never got a fresh token). These keep the sale
+// PENDING and stop the run; a real 4xx business rejection (417 validation, item gone, over limit) is
+// the only thing that marks a sale `failed` for the owner to handle by hand.
+function isTransient(e: unknown): boolean {
+  return e instanceof FrappeError && (e.status >= 500 || e.status === 429 || e.status === 400 || e.status === 401 || e.status === 403);
+}
+
 async function send(sale: QueuedSale): Promise<void> {
   await updateSale(sale.client_uuid, { status: "syncing" });
   try {
-    const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", {
-      ...sale.args,
-      client_uuid: sale.client_uuid,
-      posted_at: sale.posted_at,
-    });
+    const r = await frappeCall<SaleResult>(
+      "cago.api.sales.quick_sale",
+      { ...sale.args, client_uuid: sale.client_uuid, posted_at: sale.posted_at },
+      { background: true }, // a background flush must never hijack the page with a 401 redirect
+    );
     if (r.cancelled) {
       // The matching invoice was voided server-side — this sale was NOT booked. Surface it so the
       // owner re-rings it, rather than showing a green "done" against a cancelled invoice.
@@ -36,22 +45,33 @@ async function send(sale: QueuedSale): Promise<void> {
     }
     await updateSale(sale.client_uuid, { status: "done", invoice: r.invoice, error: undefined });
   } catch (e) {
-    // A 5xx / 429 means the server is briefly unavailable (e.g. restarting after a deploy) — the
-    // sale isn't rejected, it just didn't land. Keep it pending and retry; only a 4xx is a real
-    // business rejection (item deleted, debt over limit) that won't fix itself.
-    const transient = e instanceof FrappeError && (e.status >= 500 || e.status === 429);
-    if (e instanceof FrappeError && !transient) {
+    if (e instanceof FrappeError && !isTransient(e)) {
       await updateSale(sale.client_uuid, { status: "failed", error: e.message });
     } else {
       await updateSale(sale.client_uuid, { status: "pending" });
-      throw e; // stop the run; the connection/server is gone
+      throw e; // stop the run; the connection/server/session is gone — retry later, don't mark failed
     }
+  }
+}
+
+/** Refresh the CSRF token from a fresh bootstrap before flushing. A tablet that booted the cached
+ *  /pos/sell shell offline has an empty token; without this, every queued sale's POST would 400 on
+ *  CSRF and (pre-fix) get wrongly marked failed. Best-effort: if still offline this throws and drain
+ *  simply finds nothing reachable. */
+async function refreshSession(): Promise<void> {
+  try {
+    const boot = await frappeCall<{ csrf_token?: string }>("cago.api.session.bootstrap", {}, { method: "GET", background: true });
+    if (boot?.csrf_token) setCsrfToken(boot.csrf_token);
+  } catch {
+    /* still offline / server down — drain will no-op on the network error */
   }
 }
 
 async function drain(): Promise<number> {
   let synced = 0;
   const pending = (await listQueue()).filter((s) => s.status === "pending" || s.status === "syncing");
+  if (!pending.length) return 0;
+  await refreshSession(); // ensure a live CSRF token before POSTing the queue
   for (const sale of pending) {
     try {
       await send(sale);

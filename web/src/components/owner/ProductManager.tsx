@@ -10,6 +10,7 @@ import type { ProductCard } from "@/lib/types";
 import { BackBar, goBackSmart, StockBadge } from "./Shared";
 import { SectionTabs } from "@/components/pos/SectionTabs";
 import { SortControl } from "@/components/ui/SortControl";
+import { uomLabel } from "@/lib/uom";
 
 // One product hub: search to look up a price (tra giá) → tap to edit (sửa), ➕ to add (thêm) —
 // the three old separate screens. Related product tools live here as quick links instead of
@@ -132,7 +133,7 @@ export function ProductManager() {
                   {p.actual_stock_qty != null && (
                     <span className="text-sm text-slate-500">
                       Có thể bán: <b className="text-slate-700">{p.actual_stock_qty.toLocaleString("vi-VN")}</b>
-                      {p.unit ? ` ${p.unit}` : ""}
+                      {p.unit ? ` ${uomLabel(p.unit)}` : ""}
                     </span>
                   )}
                 </div>

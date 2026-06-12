@@ -51,7 +51,7 @@ export function CallStaff({ onDone }: { onDone: () => void }) {
     if (!req?.name || !["pending", "accepted"].includes(req.status)) return;
     timer.current = setInterval(async () => {
       try {
-        const r = await frappeCall<Req>("cago.api.support.request_status", { name: req.name });
+        const r = await frappeCall<Req>("cago.api.support.request_status", { name: req.name, session_id: sessionId || null });
         setReq(r);
         if (r.status === "resolved" || r.status === "cancelled") {
           setTimeout(onDone, r.status === "resolved" ? 1800 : 0);

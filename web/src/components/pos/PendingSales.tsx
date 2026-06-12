@@ -21,14 +21,19 @@ function printProvisional(store: string, sale: QueuedSale) {
   const rows = sale.display.lines
     .map((l) => `<div class="it"><div>${esc(l.name)}</div><div class="r">${l.qty} ${esc(uomLabel(l.uom))} x ${l.rate_text} = <b>${l.amount_text}</b></div></div>`)
     .join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(sale.local_code)}</title>
+  // Once the sale has synced, reprint it as a REAL receipt with the server invoice number — not the
+  // "CHƯA ĐỒNG BỘ / TẠM" provisional, which would wrongly tell the customer it isn't booked yet.
+  const synced = sale.status === "done" && !!sale.invoice;
+  const header = synced
+    ? `<div class="c">PHIẾU BÁN HÀNG</div><div class="tmp" style="border:none">${esc(sale.invoice || "")}</div>`
+    : `<div class="c">PHIẾU BÁN HÀNG (TẠM)</div><div class="tmp">⚠ CHƯA ĐỒNG BỘ — ${esc(sale.local_code)}</div>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(sale.invoice || sale.local_code)}</title>
   <style>@page{size:58mm auto;margin:2mm}body{width:54mm;font-family:monospace;font-size:11px;color:#000}
   h3{text-align:center;margin:2px 0}.c{text-align:center}.it{border-bottom:1px dashed #999;padding:2px 0}.r{font-size:10px}
   .tot{font-weight:bold;font-size:14px;text-align:right;margin-top:4px}.tmp{text-align:center;border:1px dashed #000;margin:3px 0;padding:2px;font-weight:bold}</style>
   </head><body>
   <h3>${esc(store)}</h3>
-  <div class="c">PHIẾU BÁN HÀNG (TẠM)</div>
-  <div class="tmp">⚠ CHƯA ĐỒNG BỘ — ${esc(sale.local_code)}</div>
+  ${header}
   <hr>${rows}
   <div class="tot">TỔNG: ${esc(sale.display.total_text)}</div>
   <div class="c" style="margin-top:6px">Cảm ơn quý khách!</div>

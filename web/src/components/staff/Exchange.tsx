@@ -16,6 +16,8 @@ interface RetLine {
   rate: number;
   rate_text: string;
 }
+// Per-(item, unit) key so the same item in two UOMs doesn't collapse onto one input and over-return.
+const rk = (l: { item_code: string; uom: string }) => `${l.item_code}::${l.uom}`;
 interface SaleRow {
   invoice: string;
   customer_name: string;
@@ -95,12 +97,12 @@ export function Exchange() {
     }
   };
 
-  const retParsed = retLines.map((l) => ({ ...l, q: Math.max(0, Math.min(l.remaining, parseFloat((retQty[l.item_code] || "0").replace(",", ".")) || 0)) }));
+  const retParsed = retLines.map((l) => ({ ...l, q: Math.max(0, Math.min(l.remaining, parseFloat((retQty[rk(l)] || "0").replace(",", ".")) || 0)) }));
   const refundEstimate = retParsed.reduce((s, l) => s + l.q * l.rate, 0);
 
   const confirm = async () => {
     if (busy || !sel) return;
-    const return_lines = retParsed.filter((l) => l.q > 0).map((l) => ({ item_code: l.item_code, qty: l.q }));
+    const return_lines = retParsed.filter((l) => l.q > 0).map((l) => ({ item_code: l.item_code, uom: l.uom, qty: l.q }));
     const new_items = newItems.filter((n) => n.qty > 0).map((n) => ({ item_code: n.item_code, qty: n.qty }));
     if (!return_lines.length) return toast.error("Chọn hàng trả lại (lớn hơn 0).");
     if (!new_items.length) return toast.error("Chọn hàng đổi lấy.");
@@ -184,10 +186,10 @@ export function Exchange() {
             <div className="rounded-xl bg-white p-4 text-center text-slate-400">Đơn này đã trả hết.</div>
           ) : (
             retLines.map((l) => {
-              const cur = parseFloat((retQty[l.item_code] || "0").replace(",", ".")) || 0;
-              const set = (v: number) => setRetQty((qq) => ({ ...qq, [l.item_code]: String(Math.max(0, Math.min(l.remaining, +v.toFixed(2)))) }));
+              const cur = parseFloat((retQty[rk(l)] || "0").replace(",", ".")) || 0;
+              const set = (v: number) => setRetQty((qq) => ({ ...qq, [rk(l)]: String(Math.max(0, Math.min(l.remaining, +v.toFixed(2)))) }));
               return (
-                <div key={l.item_code} className="mb-2 rounded-xl border border-slate-200 bg-white p-2.5">
+                <div key={rk(l)} className="mb-2 rounded-xl border border-slate-200 bg-white p-2.5">
                   <div className="flex justify-between gap-2">
                     <span className="min-w-0 font-bold leading-tight">{l.name}</span>
                     <span className="shrink-0 text-sm text-slate-500">{l.rate_text}</span>
@@ -195,7 +197,7 @@ export function Exchange() {
                   <div className="text-xs text-slate-400">Còn trả được: {l.remaining} {uomLabel(l.uom)}</div>
                   <div className="mt-1.5 flex items-center gap-2">
                     <button onClick={() => set(cur - 1)} className="h-10 w-10 shrink-0 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
-                    <input inputMode="decimal" value={retQty[l.item_code] ?? ""} onChange={(e) => setRetQty((qq) => ({ ...qq, [l.item_code]: e.target.value }))} className="h-10 w-20 shrink-0 rounded-lg border-2 border-emerald-300 text-center text-lg font-extrabold" />
+                    <input inputMode="decimal" value={retQty[rk(l)] ?? ""} onChange={(e) => setRetQty((qq) => ({ ...qq, [rk(l)]: e.target.value }))} className="h-10 w-20 shrink-0 rounded-lg border-2 border-emerald-300 text-center text-lg font-extrabold" />
                     <button onClick={() => set(cur + 1)} className="h-10 w-10 shrink-0 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>
                     <span className="text-slate-500">{uomLabel(l.uom)}</span>
                   </div>

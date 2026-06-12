@@ -1,6 +1,8 @@
 // Minimal PWA service worker: read-cache for the kiosk so a flaky rural connection
 // still shows the catalog. NEVER caches writes (POST) — only GET.
-const CACHE = "cago-read-v2";
+// Bumped v2→v3: only successful responses are cached now, so purge any error pages a prior
+// version may have stored as a fallback.
+const CACHE = "cago-read-v3";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {
@@ -20,8 +22,10 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
           return res;
         })
         .catch(() => caches.match(req)),
@@ -50,11 +54,15 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
           return res;
         })
-        .catch(() => caches.match(req)),
+        // ignoreSearch: the cached shell is keyed on the bare path, so /pos/sell?wanted=X must still
+        // fall back to the cached /pos/sell rather than erroring out when offline.
+        .catch(() => caches.match(req, { ignoreSearch: true })),
     );
     return;
   }
@@ -65,8 +73,10 @@ self.addEventListener("fetch", (e) => {
       caches.match(req).then((cached) => {
         const net = fetch(req)
           .then((res) => {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy));
+            if (res.ok) {
+              const copy = res.clone();
+              caches.open(CACHE).then((c) => c.put(req, copy));
+            }
             return res;
           })
           .catch(() => cached);

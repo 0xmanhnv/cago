@@ -139,19 +139,34 @@ export function ProductEditor({ code }: { code: string }) {
   const [imgs, setImgs] = useState<{ main?: string; images: string[] }>({ images: [] });
   const [draft, setDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadErr, setLoadErr] = useState(false);
 
   useEffect(() => {
-    frappeCall<EditData>("cago.api.owner.get_product_for_edit", { item_code: code }, { method: "GET" }).then((d) => {
-      setE(d);
-      setImgs(d.images || { images: [] });
-      const init: Record<string, string | number> = {};
-      EDIT_FIELDS.forEach((k) => (init[k] = ((d as Record<string, unknown>)[k] as string | number) ?? ""));
-      init["barcode"] = (d as Record<string, unknown>)["barcode"] as string ?? ""; // Item Barcode child
-      setData(init);
-    });
+    setLoadErr(false);
+    frappeCall<EditData>("cago.api.owner.get_product_for_edit", { item_code: code }, { method: "GET" })
+      .then((d) => {
+        setE(d);
+        setImgs(d.images || { images: [] });
+        const init: Record<string, string | number> = {};
+        EDIT_FIELDS.forEach((k) => (init[k] = ((d as Record<string, unknown>)[k] as string | number) ?? ""));
+        init["barcode"] = (d as Record<string, unknown>)["barcode"] as string ?? ""; // Item Barcode child
+        setData(init);
+      })
+      // Without this the screen would spin forever (and throw an unhandled rejection) on any load error.
+      .catch(() => setLoadErr(true));
   }, [code]);
 
-  if (!e) return <PageLoading />;
+  if (!e)
+    return loadErr ? (
+      <div className="p-6 text-center text-slate-600">
+        <p className="mb-3">Không tải được sản phẩm. Kiểm tra kết nối rồi thử lại.</p>
+        <button onClick={() => location.reload()} className="rounded-lg bg-brand px-4 py-2 font-bold text-white">
+          Thử lại
+        </button>
+      </div>
+    ) : (
+      <PageLoading />
+    );
 
   const set = (k: string, v: string | number) => setData((d) => ({ ...d, [k]: v }));
 

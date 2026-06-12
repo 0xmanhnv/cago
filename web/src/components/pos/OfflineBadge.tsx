@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useOnline } from "@/lib/offline/useOnline";
+import { useOnline, isOnlineNow } from "@/lib/offline/useOnline";
 import { queueCounts } from "@/lib/offline/queue";
 import { flushQueue } from "@/lib/offline/sync";
 import { refreshCatalog } from "@/lib/offline/catalog";
@@ -31,7 +31,13 @@ export function OfflineBadge() {
 
   useEffect(() => {
     refresh();
-    const onChange = () => refresh();
+    // A sale queued while still "online" (e.g. a transient 5xx fallback during a deploy) bumps
+    // queuechange but no online-transition fires — so also try to drain here when reachable, else it
+    // would sit until a reload/offline-bounce. flushQueue is self-guarded against concurrent runs.
+    const onChange = () => {
+      refresh();
+      if (isOnlineNow()) void sync();
+    };
     const onUp = () => {
       void refreshCatalog().catch(() => {});
       void sync();

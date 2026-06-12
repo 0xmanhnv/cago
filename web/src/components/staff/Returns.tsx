@@ -18,6 +18,10 @@ interface RetLine {
   rate_text: string;
 }
 
+// Per-(item, unit) key — an invoice can list the same item in two UOMs, so item_code alone collapses
+// them onto one input and over-returns. Keep the qty map + render keyed by item + unit.
+const rk = (l: { item_code: string; uom: string }) => `${l.item_code}::${l.uom}`;
+
 interface SaleRow {
   invoice: string;
   customer_name: string;
@@ -127,7 +131,7 @@ export function Returns() {
       const r = await frappeCall<{ lines: RetLine[] }>("cago.api.sales.get_returnable", { invoice: s.invoice }, { method: "GET" });
       setRetLines(r.lines || []);
       const init: Record<string, string> = {};
-      (r.lines || []).forEach((l) => (init[l.item_code] = String(l.remaining)));
+      (r.lines || []).forEach((l) => (init[rk(l)] = String(l.remaining)));
       setRetQty(init);
     } catch {
       setRetLines([]);
@@ -136,13 +140,15 @@ export function Returns() {
     }
   };
   const retParsed = retLines.map((l) => {
-    const q = Math.max(0, Math.min(l.remaining, parseFloat((retQty[l.item_code] || "0").replace(",", ".")) || 0));
+    const q = Math.max(0, Math.min(l.remaining, parseFloat((retQty[rk(l)] || "0").replace(",", ".")) || 0));
     return { ...l, q };
   });
   const refundTotal = retParsed.reduce((s, l) => s + l.q * l.rate, 0);
   const confirmReturn = async () => {
     if (!retRow || busy) return;
-    const lines = retParsed.filter((l) => l.q > 0).map((l) => ({ item_code: l.item_code, qty: l.q }));
+    // Send the unit too: one invoice can hold the same item in two UOMs (e.g. Bao + Kg) — the server
+    // matches the return per (item, unit), so a "return 1 Bao" never pulls qty off the Kg row.
+    const lines = retParsed.filter((l) => l.q > 0).map((l) => ({ item_code: l.item_code, uom: l.uom, qty: l.q }));
     if (!lines.length) {
       toast.error("Chọn số lượng cần trả (lớn hơn 0).");
       return;
@@ -250,17 +256,17 @@ export function Returns() {
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-sm text-slate-500">Chọn số lượng trả lại</span>
                   <button
-                    onClick={() => { const a: Record<string, string> = {}; retLines.forEach((l) => (a[l.item_code] = String(l.remaining))); setRetQty(a); }}
+                    onClick={() => { const a: Record<string, string> = {}; retLines.forEach((l) => (a[rk(l)] = String(l.remaining))); setRetQty(a); }}
                     className="text-sm font-bold text-brand"
                   >
                     Trả hết đơn
                   </button>
                 </div>
                 {retLines.map((l) => {
-                  const cur = parseFloat((retQty[l.item_code] || "0").replace(",", ".")) || 0;
-                  const set = (v: number) => setRetQty((q) => ({ ...q, [l.item_code]: String(Math.max(0, Math.min(l.remaining, +v.toFixed(2)))) }));
+                  const cur = parseFloat((retQty[rk(l)] || "0").replace(",", ".")) || 0;
+                  const set = (v: number) => setRetQty((q) => ({ ...q, [rk(l)]: String(Math.max(0, Math.min(l.remaining, +v.toFixed(2)))) }));
                   return (
-                    <div key={l.item_code} className="mt-2 rounded-xl border border-slate-200 p-2.5">
+                    <div key={rk(l)} className="mt-2 rounded-xl border border-slate-200 p-2.5">
                       <div className="flex justify-between gap-2">
                         <span className="min-w-0 font-bold leading-tight">{l.name}</span>
                         <span className="shrink-0 text-sm text-slate-500">{l.rate_text}</span>
@@ -270,8 +276,8 @@ export function Returns() {
                         <button onClick={() => set(cur - 1)} className="h-10 w-10 shrink-0 rounded-lg bg-slate-200 text-2xl font-bold">−</button>
                         <input
                           inputMode="decimal"
-                          value={retQty[l.item_code] ?? ""}
-                          onChange={(e) => setRetQty((q) => ({ ...q, [l.item_code]: e.target.value }))}
+                          value={retQty[rk(l)] ?? ""}
+                          onChange={(e) => setRetQty((q) => ({ ...q, [rk(l)]: e.target.value }))}
                           className="h-10 w-20 shrink-0 rounded-lg border-2 border-emerald-300 text-center text-lg font-extrabold"
                         />
                         <button onClick={() => set(cur + 1)} className="h-10 w-10 shrink-0 rounded-lg bg-brand text-2xl font-bold text-white">＋</button>

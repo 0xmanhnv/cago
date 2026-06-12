@@ -31,12 +31,13 @@ beforeEach(async () => {
 describe("offline queue flush", () => {
   it("syncs a pending sale → done, sending client_uuid + posted_at to quick_sale", async () => {
     const sale = await enqueueSale(args, display);
-    mockCall.mockResolvedValue({ invoice: "ACC-SINV-1", total_text: "10.000đ" });
+    mockCall
+      .mockResolvedValueOnce({ csrf_token: "x" }) // flushQueue refreshes the CSRF token first
+      .mockResolvedValue({ invoice: "ACC-SINV-1", total_text: "10.000đ" });
     const n = await flushQueue();
     expect(n).toBe(1);
-    const [method, payload] = mockCall.mock.calls[0];
-    expect(method).toBe("cago.api.sales.quick_sale");
-    expect(payload).toMatchObject({ client_uuid: sale.client_uuid, posted_at: sale.posted_at, payment_mode: "cash" });
+    const saleCall = mockCall.mock.calls.find((c) => c[0] === "cago.api.sales.quick_sale")!;
+    expect(saleCall[1]).toMatchObject({ client_uuid: sale.client_uuid, posted_at: sale.posted_at, payment_mode: "cash" });
     const after = (await listQueue())[0];
     expect(after.status).toBe("done");
     expect(after.invoice).toBe("ACC-SINV-1");
@@ -62,8 +63,10 @@ describe("offline queue flush", () => {
   it("stops at the first network error, leaving later sales pending", async () => {
     await enqueueSale(args, display);
     await enqueueSale(args, display);
-    mockCall.mockRejectedValueOnce(new TypeError("offline")); // first send fails → break
-    mockCall.mockResolvedValue({ invoice: "INV-2", total_text: "x" });
+    mockCall
+      .mockResolvedValueOnce({ csrf_token: "x" }) // CSRF refresh succeeds
+      .mockRejectedValueOnce(new TypeError("offline")) // first SALE send fails → break
+      .mockResolvedValue({ invoice: "INV-2", total_text: "x" });
     const n = await flushQueue();
     expect(n).toBe(0);
     expect((await listQueue()).every((s) => s.status === "pending")).toBe(true);

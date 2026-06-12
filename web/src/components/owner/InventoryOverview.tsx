@@ -8,6 +8,7 @@ import { SearchInput } from "@/components/ui/ListUI";
 import { SkeletonRows } from "@/components/ui/Skeleton";
 import { BackBar, goBackSmart } from "./Shared";
 import { SortControl } from "@/components/ui/SortControl";
+import { uomLabel } from "@/lib/uom";
 
 // "🏬 Kho hàng" — inventory-VALUE overview: how much money is sitting in stock (giá trị tồn), per
 // product + store totals. OWNER ONLY (valuation = cost-derived). Complements the operational stock
@@ -171,7 +172,7 @@ export function InventoryOverview() {
                 </div>
                 <div className="shrink-0 text-right text-sm text-slate-500">
                   SL<div className="text-base font-extrabold text-slate-700">{p.qty_text}</div>
-                  {p.unit}
+                  {uomLabel(p.unit)}
                 </div>
               </button>
             ))}

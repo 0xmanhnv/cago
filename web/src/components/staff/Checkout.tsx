@@ -94,6 +94,7 @@ interface Held {
   discount?: string;
   discountMode?: "amount" | "percent";
   redeemPts?: number;
+  coupon?: string | null;
 }
 const HELD_KEY = "cago_held_orders";
 const loadHeld = (): Held[] => {
@@ -107,6 +108,41 @@ const loadHeld = (): Held[] => {
 const saveHeld = (h: Held[]) => window.sessionStorage?.setItem(HELD_KEY, JSON.stringify(h));
 // The ACTIVE (unfinished) cart, auto-saved so an accidental back / refresh doesn't lose it.
 const DRAFT_KEY = "cago_active_cart";
+
+// A wanted-list order sold OFFLINE still needs its kiosk status flipped to Completed, but that POST
+// fails while offline — so park the code and retry on reconnect, else the order stays "open" forever.
+const WANTED_RETRY_KEY = "cago_wanted_done_retry";
+function queueWantedDone(code: string) {
+  try {
+    const a: string[] = JSON.parse(window.localStorage?.getItem(WANTED_RETRY_KEY) || "[]");
+    if (!a.includes(code)) window.localStorage?.setItem(WANTED_RETRY_KEY, JSON.stringify([...a, code]));
+  } catch {
+    /* storage unavailable — best effort */
+  }
+}
+async function flushWantedDone() {
+  let a: string[] = [];
+  try {
+    a = JSON.parse(window.localStorage?.getItem(WANTED_RETRY_KEY) || "[]");
+  } catch {
+    return;
+  }
+  if (!a.length) return;
+  const { frappeCall } = await import("@/lib/api");
+  const left: string[] = [];
+  for (const code of a) {
+    try {
+      await frappeCall("cago.api.staff.set_wanted_list_status", { code, status: "Completed" });
+    } catch {
+      left.push(code); // still unreachable — keep for the next attempt
+    }
+  }
+  try {
+    window.localStorage?.setItem(WANTED_RETRY_KEY, JSON.stringify(left));
+  } catch {
+    /* ignore */
+  }
+}
 
 const esc = (s: string) => (s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
 
@@ -479,7 +515,12 @@ export function Checkout() {
     if (online) {
       void refreshCatalog().catch(() => {});
       void flushQueue().catch(() => {});
+      void flushWantedDone();
     }
+    // Retry parked wanted-list status updates the moment the connection returns.
+    const onUp = () => void flushWantedDone();
+    window.addEventListener("cago:online", onUp);
+    return () => window.removeEventListener("cago:online", onUp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Switching category clears the text search and lists that category (browse mode).
@@ -701,8 +742,10 @@ export function Checkout() {
   const payTotal = estimate + deliveryNum;
   const totalSaved = disc + effCouponDisc + redeemDisc; // everything knocked off the subtotal
 
-  const applyCoupon = async () => {
-    const code = couponInput.trim();
+  const applyCoupon = async (codeArg?: unknown) => {
+    // codeArg is a string only when called programmatically (resumeOrder re-applies a held coupon);
+    // an onClick passes the event object, so accept a string and otherwise read the input field.
+    const code = (typeof codeArg === "string" ? codeArg : couponInput).trim();
     if (!code) return;
     setCouponMsg(null);
     try {
@@ -735,10 +778,12 @@ export function Checkout() {
       setPayOpen(false);
     }, 200);
   };
-  // After a wanted-list sale completes, mark it Completed so it leaves the staff's open queue.
+  // After a wanted-list sale completes, mark it Completed so it leaves the staff's open queue. If the
+  // sale was rung OFFLINE this POST fails — park the code and retry on reconnect (see flushWantedDone).
   const markWantedDone = () => {
     if (!wantedCode) return;
-    void frappeCall("cago.api.staff.set_wanted_list_status", { code: wantedCode, status: "Completed" }).catch(() => {});
+    const code = wantedCode;
+    void frappeCall("cago.api.staff.set_wanted_list_status", { code, status: "Completed" }).catch(() => queueWantedDone(code));
     setWantedCode(null);
   };
   // Keep a % coupon's preview in sync when the cart changes; drop it if it no longer qualifies.
@@ -784,6 +829,7 @@ export function Checkout() {
       discount,
       discountMode,
       redeemPts,
+      coupon,
     };
     const next = [h, ...held];
     setHeld(next);
@@ -804,6 +850,14 @@ export function Checkout() {
     setDiscount(h.discount || "");
     setDiscountMode(h.discountMode || "amount");
     setRedeemPts(h.redeemPts || 0);
+    // Restore the applied coupon too (it was cleared on hold) — re-validate against the current cart
+    // to recompute its discount, or clear it if none was held.
+    if (h.coupon) {
+      setCouponInput(h.coupon);
+      void applyCoupon(h.coupon);
+    } else {
+      clearCoupon();
+    }
     const next = held.filter((x) => x.id !== h.id);
     setHeld(next);
     saveHeld(next);
@@ -978,7 +1032,13 @@ export function Checkout() {
     const outstanding = payment_mode === "credit" ? display.total_text : null;
     try {
       if (!online) {
-        await queueOffline(payment_mode, args, display, outstanding, cuid);
+        try {
+          await queueOffline(payment_mode, args, display, outstanding, cuid);
+        } catch {
+          // IndexedDB unavailable (iOS private mode / storage evicted): the sale is stored NOWHERE.
+          // Never swallow this — tell staff loudly to record it by hand instead of losing it silently.
+          toast.error("KHÔNG lưu được đơn (bộ nhớ thiết bị lỗi). Hãy GHI TAY đơn này rồi nhập lại sau!");
+        }
         return;
       }
       const r = await frappeCall<SaleResult>("cago.api.sales.quick_sale", { ...args, client_uuid: cuid });
@@ -1005,8 +1065,14 @@ export function Checkout() {
       // tell staff to CHECK "Đơn gần đây" before re-ringing rather than blindly retry.
       const transient = !(e instanceof FrappeError) || e.status >= 500 || e.status === 429;
       if (transient && payment_mode !== "bank") {
-        await queueOffline(payment_mode, args, display, outstanding, cuid);
-        toast.success("Mạng/máy chủ trục trặc — đã LƯU đơn vào hàng chờ, sẽ tự đồng bộ. Đừng bán lại đơn này.");
+        try {
+          await queueOffline(payment_mode, args, display, outstanding, cuid);
+          toast.success("Mạng/máy chủ trục trặc — đã LƯU đơn vào hàng chờ, sẽ tự đồng bộ. Đừng bán lại đơn này.");
+        } catch {
+          // Couldn't reach the server AND couldn't queue locally — don't double-throw out of the catch
+          // (which would lose the sale with no message); warn loudly to record it by hand.
+          toast.error("Máy chủ trục trặc VÀ không lưu được vào máy. Hãy GHI TAY đơn rồi kiểm tra 'Đơn gần đây' sau.");
+        }
         return;
       }
       if (transient && payment_mode === "bank") {
@@ -2066,7 +2132,11 @@ function ShiftBar({ refreshKey, onState, cashier }: { refreshKey: number; onStat
     try {
       apply(await frappeCall<ShiftState>("cago.api.shift.current_shift", {}, { method: "GET" }));
     } catch {
-      apply({ open: false });
+      // A fetch failure here is almost always offline (every sale bumps refreshKey → this reload). Do
+      // NOT flip an already-open shift to "closed" — that would block the NEXT offline sale behind a
+      // "Mở ca" modal that can't be submitted offline, killing the offline flow after one sale. Keep
+      // the last-known shift; only assume "no shift" if we never managed to load one (cold start).
+      setShift((prev) => prev ?? { open: false });
     }
   };
   // Reload on mount AND after each sale (refreshKey bumps) so the running "tiền mặt bán" and the

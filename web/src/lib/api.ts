@@ -38,7 +38,7 @@ function parseServerMessages(j: any): string | null {
   return j?.message ?? null;
 }
 
-type CallOpts = { method?: "GET" | "POST" };
+type CallOpts = { method?: "GET" | "POST"; background?: boolean };
 
 export async function frappeCall<T = unknown>(
   method: string,
@@ -76,7 +76,9 @@ export async function frappeCall<T = unknown>(
     // Session expired (401): the cookie is gone and our CSRF token is stale. Don't strand the
     // user on a dead page with a confusing error — send them to a fresh login. Guest/bootstrap
     // endpoints use allow_guest so they never 401, so this only fires for a lost protected session.
-    if (res.status === 401 && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    // A BACKGROUND caller (the offline-queue flush) must NOT hijack the page with a redirect — it
+    // just keeps the sale pending and lets the next foreground call handle re-login.
+    if (res.status === 401 && !opts.background && typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
       csrfToken = "";
       window.location.href = "/login";
     }
@@ -123,6 +125,13 @@ export async function logout() {
     await clearUserCaches();
   } catch {
     /* offline cache not available — nothing to clear */
+  }
+  // Also drop the cached signed-in bootstrap (offline cold-start fallback) so the next user on a
+  // shared till can't inherit the previous user's caps offline.
+  try {
+    window.localStorage?.removeItem("cago_boot_cache");
+  } catch {
+    /* ignore */
   }
 }
 

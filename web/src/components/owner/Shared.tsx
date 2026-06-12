@@ -343,13 +343,17 @@ export function ProductPicker({ title, onBack, onPick, accent = false }: { title
   const [loading, setLoading] = useState(true);
   const [camOpen, setCamOpen] = useState(false); // camera barcode scanner overlay
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const seqRef = useRef(0);
   const run = async (q: string) => {
+    const seq = ++seqRef.current; // newest-wins: a slow earlier response must not clobber a newer query
     setLoading(true);
     try {
       const r = await frappeCall<ProductCard[]>("cago.api.owner.search_products", { query: q }, { method: "GET" });
-      setList(r || []);
+      if (seq === seqRef.current) setList(r || []);
+    } catch {
+      if (seq === seqRef.current) setList([]);
     } finally {
-      setLoading(false);
+      if (seq === seqRef.current) setLoading(false);
     }
   };
   useEffect(() => {
@@ -454,12 +458,18 @@ export function CustomerPicker({ title, onBack, onPick }: { title: string; onBac
   const [q, setQ] = useState("");
   const tRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const savingRef = useRef(false);
+  const seqRef = useRef(0);
   const [form, setForm] = useState({ name: "", phone: "", village: "", limit: "", wholesale: false });
   const [msg, setMsg] = useState<React.ReactNode>(null);
 
   const run = async (query: string) => {
-    const r = await frappeCall<CustomerHit[]>("cago.api.debt.search_customers", { query }, { method: "GET" });
-    setList(r || []);
+    const seq = ++seqRef.current; // newest-wins guard + don't crash on a failed search
+    try {
+      const r = await frappeCall<CustomerHit[]>("cago.api.debt.search_customers", { query }, { method: "GET" });
+      if (seq === seqRef.current) setList(r || []);
+    } catch {
+      if (seq === seqRef.current) setList([]);
+    }
   };
   useEffect(() => {
     void run("");
