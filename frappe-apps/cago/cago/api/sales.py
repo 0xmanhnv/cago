@@ -624,19 +624,32 @@ def get_returnable(invoice):
 	try:
 		with as_user("Administrator"):
 			tmpl = make_sales_return(invoice)  # qty already nets off prior returns (negative = remaining)
+		# Aggregate by (item_code, UOM): one invoice line can be split across FEFO lots into many rows
+		# of the SAME item+unit, and multi-unit selling puts the same item in two UOMs. Collapse the lots
+		# into one card per (item, unit) so staff return "2 Bao" once, and carry the RAW uom (for the
+		# return payload, to match the right rows) plus a display label (Nos→Cái) separately.
+		agg = {}
 		for it in tmpl.items:
 			remaining = abs(flt(it.qty))
 			if remaining <= 1e-9:
 				continue
-			name = frappe.db.get_value("Item", it.item_code, "cago_display_name") or it.item_name or it.item_code
+			key = (it.item_code, it.uom)
+			rec = agg.get(key)
+			if rec:
+				rec["remaining"] += remaining
+			else:
+				name = frappe.db.get_value("Item", it.item_code, "cago_display_name") or it.item_name or it.item_code
+				agg[key] = {"item_code": it.item_code, "uom": it.uom, "name": name, "remaining": remaining, "rate": flt(it.rate)}
+		for rec in agg.values():
 			lines.append(
 				{
-					"item_code": it.item_code,
-					"name": name,
-					"uom": dto.uom_label(it.uom),
-					"remaining": _trim(remaining),
-					"rate": flt(it.rate),
-					"rate_text": dto.format_price(flt(it.rate), it.uom),
+					"item_code": rec["item_code"],
+					"name": rec["name"],
+					"uom": rec["uom"],  # RAW unit — echoed back in the return payload to match the right rows
+					"uom_label": dto.uom_label(rec["uom"]),  # display only
+					"remaining": _trim(rec["remaining"]),
+					"rate": rec["rate"],
+					"rate_text": dto.format_price(rec["rate"], rec["uom"]),
 				}
 			)
 	except Exception:
@@ -671,9 +684,10 @@ def return_sale(invoice, lines=None, client_uuid=None):
 		want = {}
 		for it in lines:
 			code = (it or {}).get("item_code")
+			uom = (it or {}).get("uom") or None
 			qty = flt((it or {}).get("qty"))
 			if code and qty > 0:
-				want[code] = want.get(code, 0) + qty
+				want[(code, uom)] = want.get((code, uom), 0) + qty
 		if not want:
 			frappe.throw(_("Chưa chọn số lượng trả."))
 
@@ -689,10 +703,19 @@ def return_sale(invoice, lines=None, client_uuid=None):
 			kept = []
 			for it in ret.items:
 				remaining = abs(flt(it.qty))
-				q = want.get(it.item_code, 0)
-				if q <= 0 or remaining <= 1e-9:
+				if remaining <= 1e-9:
 					continue
-				it.qty = -min(q, remaining)  # never return more than what's left
+				# Match this template row's (item, unit) to the request and DECREMENT as we consume it,
+				# so a quantity is never applied in full to every FEFO-lot row of the same item (the old
+				# bug: item split 3+1 across two lots refunded 2+1=3 for a 2-bag return). Fall back to a
+				# unit-agnostic entry for older clients that sent only item_code.
+				key = (it.item_code, it.uom) if (it.item_code, it.uom) in want else (it.item_code, None)
+				q = want.get(key, 0)
+				if q <= 0:
+					continue
+				take = min(q, remaining)
+				it.qty = -take  # never return more than what's left on this row
+				want[key] = q - take
 				kept.append(it)
 			if not kept:
 				frappe.throw(_("Hoá đơn này đã trả hết hoặc số lượng không hợp lệ."))
@@ -748,6 +771,17 @@ def exchange_sale(invoice, return_lines, new_items, payment_mode="cash", custome
 	new_items = frappe.parse_json(new_items) if isinstance(new_items, str) else new_items
 	if not new_items:
 		frappe.throw(_("Chưa chọn hàng đổi lấy."))
+	if not frappe.db.exists("Sales Invoice", invoice):
+		frappe.throw(_("Không tìm thấy hoá đơn."))
+	# The replacement sale must settle against the SAME customer as the original (wholesale price list,
+	# loyalty, and — for credit — a real customer). Default to the original invoice's customer; never let
+	# the new leg fall back to walk-in (which silently loses attribution and deterministically fails credit).
+	customer = customer or frappe.db.get_value("Sales Invoice", invoice, "customer")
+	# Pre-validate leg 2's hard requirement BEFORE the irreversible refund (leg 1 commits internally):
+	# a credit exchange needs a real customer, else we'd refund and then fail to book the replacement —
+	# leaving debt relief + free goods. Catch it up front so neither leg runs.
+	if payment_mode == "credit" and (not customer or customer == walkin_customer()):
+		frappe.throw(_("Đổi hàng ghi nợ cần chọn đúng khách hàng (không dùng khách lẻ)."))
 	# Both legs share the attempt's client_uuid (with distinct suffixes) so a network-retry of the
 	# whole exchange dedups each leg instead of double-refunding + double-selling.
 	ret_uuid = f"{client_uuid}:ret" if client_uuid else None
@@ -755,7 +789,7 @@ def exchange_sale(invoice, return_lines, new_items, payment_mode="cash", custome
 	# Leg 1: refund the returned lines (cash back / debt reduced — return_sale handles both).
 	ret = return_sale(invoice, return_lines, client_uuid=ret_uuid)
 	refund_amt = abs(flt(frappe.db.get_value("Sales Invoice", ret["return_invoice"], "grand_total")))
-	# Leg 2: sell the replacement items (quick_sale accepts a parsed list directly).
+	# Leg 2: sell the replacement items to the resolved customer (quick_sale accepts a parsed list).
 	sale = quick_sale(new_items, payment_mode, customer=customer, posted_at=posted_at, client_uuid=sell_uuid)
 	new_total = flt(sale.get("total"))
 	net = new_total - refund_amt  # > 0 → thu thêm của khách; < 0 → hoàn lại khách
@@ -876,9 +910,11 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	# reconciliation can attribute this sale's cash to the person who made it.
 	cashier = frappe.session.user
 	# A live counter sale must be inside an open till shift (cash accountability). Exempt: the owner
-	# (sells without a formal shift) and offline-queued sales (client_uuid — attributed by posted_at;
-	# they may sync after the shift closed). Skipped under the test runner (tests open no shift).
-	if client_uuid is None and not frappe.flags.in_test and not is_owner():
+	# (sells without a formal shift) and offline-queued sales (attributed by posted_at; they may sync
+	# after the shift closed). The OFFLINE marker is `posted_at` (only the sync replayer sends it),
+	# NOT client_uuid — the online POS sends client_uuid on every sale for retry-dedup, so keying the
+	# exemption on it would silently disable this gate for all live sales. Skipped under the test runner.
+	if posted_at is None and not frappe.flags.in_test and not is_owner():
 		from cago.api.shift import ensure_open_shift
 
 		ensure_open_shift(cashier)
@@ -906,16 +942,24 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 	max_discount_pct = _limits["max_discount_pct"]
 
 	rows = []
+	missing = []
 	for it in items:
 		code = (it or {}).get("item_code")
 		qty = flt((it or {}).get("qty"))
 		if not code or not frappe.db.exists("Item", code) or qty <= 0:
+			# An offline-replayed sale (posted_at) must NOT silently drop a line — the goods + cash
+			# already changed hands. If a queued item no longer exists, remember it and fail the whole
+			# sale below so it surfaces for re-entry, instead of booking a short invoice the drawer
+			# won't match. (A live online sale just skips empty/invalid lines as before.)
+			if posted_at is not None and code and qty > 0 and not frappe.db.exists("Item", code):
+				missing.append(code)
 			continue
 		stock_uom = frappe.db.get_value("Item", code, "stock_uom")
 		uom = (it.get("uom") or stock_uom) if it else stock_uom
-		# Enforce the no-oversell policy only for ONLINE live sales. An offline-queued sale (client_uuid)
-		# was already physically handed over; blocking it at sync would lose a real sale.
-		if client_uuid is None:
+		# Enforce the no-oversell policy only for ONLINE live sales. An offline-queued sale (posted_at)
+		# was already physically handed over; blocking it at sync would lose a real sale. Keyed on
+		# posted_at (the offline marker), NOT client_uuid which every online sale also carries.
+		if posted_at is None:
 			_check_stock(code, qty, uom, stock_uom, wh)
 		rate = _rate_for_uom(code, uom, stock_uom, pl)
 		# A 0/empty rate means "no override" (use the catalogue price), not "sell for free".
@@ -953,17 +997,25 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 			row["rate"] = new_rate
 			row["price_list_rate"] = new_rate
 		rows.extend(_allocate_rows(row, code, wh, uom, stock_uom, (it or {}).get("batch_allocs"), (it or {}).get("batch_no")))
+	if missing:
+		# Offline sale referencing item(s) deleted since it was queued — fail loudly so the queue marks
+		# it for manual re-entry rather than booking a short invoice (see the skip branch above).
+		frappe.throw(_("Đơn offline có sản phẩm không còn trong hệ thống — cần bán lại đơn này."))
 	if not rows:
 		frappe.throw(_("Không có sản phẩm hợp lệ."))
-	disc = flt(discount_amount)
+	disc = max(0.0, flt(discount_amount))
+	# Clamp the whole-bill discount to the items subtotal up front, so NO path — including a direct API
+	# call by the owner (max_discount_pct = 100, where the % check below is skipped) — can drive the
+	# grand total negative / push a credit customer's receivable below zero. (The FE already clamps.)
+	_subtotal_items = sum(flt(r["qty"]) * flt(r["rate"]) for r in rows)
+	disc = min(disc, _subtotal_items)
 	# A manual whole-bill discount is "mặc cả" too — only allowed when this cashier may bargain
 	# (else staff could zero out the total via the discount box, bypassing the giá sàn), and never
 	# beyond their per-staff max discount %.
 	if disc > 0 and not allow_price_edit:
 		frappe.throw(_("Bạn chưa được phép giảm giá khi bán. Nhờ chủ cửa hàng cấp quyền."))
 	if disc > 0 and max_discount_pct < 100:
-		_base = sum(flt(r["qty"]) * flt(r["rate"]) for r in rows)
-		if _base > 0 and disc / _base * 100 > max_discount_pct + 0.01:
+		if _subtotal_items > 0 and disc / _subtotal_items * 100 > max_discount_pct + 0.01:
 			frappe.throw(_("Vượt mức giảm tối đa {0}% của bạn.").format(_trim(max_discount_pct)))
 	# A coupon's discount is validated + computed SERVER-side (never trust a client amount) and
 	# its usage counted only here, on a completed sale. Stacks on top of any manual discount.

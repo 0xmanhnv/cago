@@ -331,10 +331,20 @@ class TestQuickSale(FrappeTestCase):
 				sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash")
 			shift.open_shift(0)
 			self.assertTrue(sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash")["invoice"])
-			# Offline-queued sales (client_uuid) stay exempt even with the guard active.
+			# A live sale that merely carries a client_uuid (online dedup key) is STILL gated — the gate
+			# keys on posted_at, the real offline marker, not on client_uuid (which every online sale sends).
 			frappe.db.set_value("Cago Till Shift", {"cashier": seller, "status": "Open"}, "status", "Closed")
+			with self.assertRaises(frappe.ValidationError):
+				sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", client_uuid=frappe.generate_hash(length=20))
+			# An offline-queued sale (posted_at present) stays exempt even with the guard active.
+			from frappe.utils import add_to_date, now_datetime
+
+			day = add_to_date(now_datetime(), days=-1).strftime("%Y-%m-%d")
 			self.assertTrue(
-				sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 1}]), "cash", client_uuid=frappe.generate_hash(length=20))["invoice"]
+				sales.quick_sale(
+					json.dumps([{"item_code": ITEM, "qty": 1}]), "cash",
+					client_uuid=frappe.generate_hash(length=20), posted_at=f"{day} 08:15:00",
+				)["invoice"]
 			)
 		finally:
 			frappe.set_user("Administrator")
@@ -675,6 +685,30 @@ class TestReturnsAndAdjust(FrappeTestCase):
 		# double return refused
 		with self.assertRaises(frappe.ValidationError):
 			sales.return_sale(s["invoice"])
+
+	def test_return_claws_back_loyalty_points(self):
+		"""A full return reverses the points the sale awarded — else buy-then-return-everything farms
+		points for free (regression guard for the loyalty-on-returns fix)."""
+		from cago.api import debt, purchasing, sales
+		from frappe.utils import cint
+
+		purchasing.receive_stock(ITEM, 10)
+		company = debt._company()
+		prev = frappe.db.get_value("Company", company, "cago_loyalty_earn_vnd")
+		frappe.db.set_value("Company", company, "cago_loyalty_earn_vnd", 1000)  # 1 pt / 1.000đ → points certain
+		try:
+			cust = debt.add_customer("KH Loyalty Return")["customer"]
+			start = cint(frappe.db.get_value("Customer", cust, "cago_points"))
+			s = sales.quick_sale(json.dumps([{"item_code": ITEM, "qty": 3}]), "cash", customer=cust)
+			earned = cint(frappe.db.get_value("Customer", cust, "cago_points")) - start
+			self.assertGreater(earned, 0, "a paid sale should award points")
+			sales.return_sale(s["invoice"])  # full return
+			self.assertEqual(
+				cint(frappe.db.get_value("Customer", cust, "cago_points")), start,
+				"a full return must claw back every point the sale awarded",
+			)
+		finally:
+			frappe.db.set_value("Company", company, "cago_loyalty_earn_vnd", prev or 0)
 
 	def test_adjust_stock_sets_counted_qty(self):
 		from cago.api import purchasing

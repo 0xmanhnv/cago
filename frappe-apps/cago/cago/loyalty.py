@@ -70,9 +70,12 @@ def _add_points(customer, delta):
 def accrue(doc, method=None):
 	"""On submit: award points for the spend AND deduct any points the customer redeemed on this
 	sale (cago_points_redeemed, set by quick_sale before submit). Both are recorded on the invoice
-	so cancel reverses the exact amounts."""
+	so cancel reverses the exact amounts. A RETURN (is_return) instead claws points back pro-rata."""
 	customer = getattr(doc, "customer", None)
 	if not customer or _is_walkin(customer):
+		return
+	if getattr(doc, "is_return", 0):
+		_accrue_return(doc, customer)
 		return
 	redeemed = int(flt(getattr(doc, "cago_points_redeemed", 0) or 0))
 	# Earn on the PRE-redemption total: a customer who spends points must not also earn less for
@@ -87,25 +90,77 @@ def accrue(doc, method=None):
 	pts = int(basis / _per_point())
 	if pts > 0:
 		_add_points(customer, +pts)
-		# Persist what we actually gave (read back on cancel). Field may be absent on older sites.
-		try:
-			frappe.db.set_value("Sales Invoice", doc.name, "cago_points_awarded", pts, update_modified=False)
-		except Exception:
-			pass
+	# ALWAYS persist what we awarded (even 0) so reverse() never has to guess — this distinguishes a
+	# genuinely-zero earn (e.g. a fully-credit sale) from an old invoice that predates the field.
+	try:
+		frappe.db.set_value("Sales Invoice", doc.name, "cago_points_awarded", pts, update_modified=False)
+	except Exception:
+		pass
 	if redeemed > 0:
 		_add_points(customer, -redeemed)  # customer spent these points as a discount
 
 
+def _return_share(doc):
+	"""Fraction of the original bill (by value) this return covers, clamped to [0, 1]; + the original."""
+	orig = getattr(doc, "return_against", None)
+	if not orig:
+		return 0.0, None
+	orig_total = abs(flt(frappe.db.get_value("Sales Invoice", orig, "grand_total")))
+	if orig_total <= 0:
+		return 0.0, orig
+	return min(1.0, abs(flt(getattr(doc, "grand_total", 0))) / orig_total), orig
+
+
+def _accrue_return(doc, customer):
+	"""A return reverses points proportionally to the value returned: claw back the points the original
+	sale AWARDED (else a buy-then-return-everything loop farms points for free), and give back the
+	points it REDEEMED (returning the goods returns the spent points). Persist both on the return SI so
+	cancelling the return re-applies them exactly."""
+	share, orig = _return_share(doc)
+	if not orig or share <= 0:
+		return
+	awarded_orig = int(flt(frappe.db.get_value("Sales Invoice", orig, "cago_points_awarded") or 0))
+	redeemed_orig = int(flt(frappe.db.get_value("Sales Invoice", orig, "cago_points_redeemed") or 0))
+	clawback = int(round(awarded_orig * share))
+	giveback = int(round(redeemed_orig * share))
+	if clawback or giveback:
+		_add_points(customer, giveback - clawback)
+	try:
+		frappe.db.set_value(
+			"Sales Invoice", doc.name,
+			{"cago_points_awarded": clawback, "cago_points_redeemed": giveback},
+			update_modified=False,
+		)
+	except Exception:
+		pass
+
+
 def reverse(doc, method=None):
-	"""On cancel: undo both — subtract the points awarded, give back the points redeemed."""
+	"""On cancel: undo exactly what this invoice did to the balance. A normal sale awarded points and
+	spent redeemed ones → give the redeemed back and remove the awarded. A return did the opposite
+	(clawback / giveback, stored in the same two fields) → invert it."""
 	customer = getattr(doc, "customer", None)
 	if not customer or _is_walkin(customer):
 		return
 	redeemed = int(flt(getattr(doc, "cago_points_redeemed", 0) or 0))
 	awarded = getattr(doc, "cago_points_awarded", None)
-	# Prefer the persisted award; fall back to the same pre-redemption basis used in accrue().
-	basis = flt(getattr(doc, "grand_total", 0)) + redeemed * redeem_value()
-	pts = int(flt(awarded)) if awarded else int(basis / _per_point())
+	if getattr(doc, "is_return", 0):
+		# On a return: awarded = points clawed back, redeemed = points given back. Cancelling inverts:
+		# add the clawback back to the customer, remove the giveback.
+		clawback = int(flt(awarded)) if awarded is not None else 0
+		if clawback or redeemed:
+			_add_points(customer, clawback - redeemed)
+		return
+	# Normal sale cancel: prefer the persisted award — 0 is a VALID value, don't recompute (the old
+	# fallback recomputed a non-credit-adjusted basis and deducted points a fully-credit sale never
+	# earned). Only estimate for pre-field invoices, mirroring accrue's credit handling.
+	if awarded is not None:
+		pts = int(flt(awarded))
+	else:
+		basis = flt(getattr(doc, "grand_total", 0)) + redeemed * redeem_value()
+		if not loyalty_on_credit():
+			basis = max(0.0, basis - flt(getattr(doc, "outstanding_amount", 0)))
+		pts = int(basis / _per_point())
 	if pts > 0:
 		_add_points(customer, -pts)
 	if redeemed > 0:
