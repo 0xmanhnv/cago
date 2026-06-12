@@ -17,6 +17,14 @@ from cago.utils.permissions import caps_for_user, has_cap, is_admin, is_owner, s
 
 
 @frappe.whitelist(allow_guest=True)
+def ping():
+	"""Dirt-cheap connectivity probe (NO DB). The sell screen polls this every ~20s to detect a flaky
+	rural connection — it must NOT hit the heavy bootstrap (which does ~20 DB reads) on every device,
+	every 20s. Returns a tiny fixed payload the client validates is real JSON."""
+	return {"ok": 1}
+
+
+@frappe.whitelist(allow_guest=True)
 def bootstrap():
 	"""Everything the frontend needs once per load. Safe for guests (kiosk)."""
 	_limits = selling_limits()

@@ -85,6 +85,10 @@ def list_customers(query=None, start=0, limit=30):
 	)
 	has_more = len(rows) > limit
 	rows = rows[:limit]
+	# ONE grouped GL query for the page's balances instead of a get_balance_on per customer (was N+1).
+	from cago.api.sales import _outstanding_map
+
+	bals = _outstanding_map([r.name for r in rows])
 	out = [
 		{
 			"customer": r.name,
@@ -93,7 +97,7 @@ def list_customers(query=None, start=0, limit=30):
 			"nickname": r.cago_nickname or "",
 			"mobile": r.mobile_no or "",
 			"village": r.cago_village or "",
-			"outstanding": get_customer_debt(r.name)["outstanding"],
+			"outstanding": flt(bals.get(r.name)),
 		}
 		for r in rows
 	]

@@ -607,3 +607,31 @@ def setup_all_fields():
 	from cago.utils.permissions import confine_internal_users
 
 	confine_internal_users()
+	ensure_indexes()
+
+
+# Hot filter/sort columns that ship without an index — each is queried on a frequent path against a
+# large table. (item, [columns]). cago_client_uuid + cago_telegram_id are already unique → indexed.
+_HOT_INDEXES = [
+	("Sales Invoice", ["cago_cashier"]),  # shift cash reconciliation (polled) on the biggest txn table
+	("Customer", ["cago_slug"]),  # resolve_customer on every debt/customer/profile call
+	("Customer", ["cago_zalo_id"]),  # Zalo channel login lookup
+	("Item", ["cago_is_public_visible"]),  # kiosk list/category/best-seller filter
+	("Item", ["cago_kiosk_sort_order"]),  # kiosk browse default ORDER BY (else filesort)
+	("Batch", ["item"]),  # _fefo_lots loads a batch's lots per batched sale
+]
+
+
+def ensure_indexes():
+	"""Add indexes on hot columns that ship unindexed (idempotent — skips ones already present)."""
+	for doctype, cols in _HOT_INDEXES:
+		table = f"tab{doctype}"
+		index_name = "_".join(cols) + "_index"
+		try:
+			if frappe.db.has_index(table, index_name):
+				continue
+			frappe.db.add_index(doctype, cols, index_name=index_name)
+			print(f"  index added: {doctype}({', '.join(cols)})")
+		except Exception:
+			# A pre-existing differently-named index, or a column not on this site — never block migrate.
+			frappe.clear_last_message()

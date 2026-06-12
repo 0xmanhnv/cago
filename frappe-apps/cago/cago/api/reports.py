@@ -352,11 +352,16 @@ def best_sellers(limit=10, period="all", from_date=None, to_date=None):
 @frappe.whitelist()
 def debt_list():
 	ensure_cap("debt_view")
+	from cago.api.sales import _outstanding_map
+
 	customers = frappe.get_all("Customer", fields=["name", "customer_name", "cago_village", "cago_slug"])
+	# ONE grouped GL query for every customer's balance instead of a get_balance_on per customer
+	# (the old loop fired hundreds of GL aggregates on every open of the debt screen).
+	bals = _outstanding_map([c.name for c in customers])
 	out = []
 	for c in customers:
-		bal = get_customer_debt(c.name)["outstanding"]
-		if bal and bal > 0:
+		bal = flt(bals.get(c.name))
+		if bal > 0:
 			out.append(
 				{
 					"customer": c.name,

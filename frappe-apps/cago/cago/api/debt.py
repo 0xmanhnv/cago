@@ -114,6 +114,10 @@ def search_customers(query=None):
 		limit=24,
 		order_by="customer_name asc",
 	)
+	# ONE grouped GL query for the result set instead of a get_balance_on per customer (was N+1).
+	from cago.api.sales import _outstanding_map
+
+	bals = _outstanding_map([r.name for r in rows])
 	out = []
 	for r in rows:
 		out.append(
@@ -122,7 +126,7 @@ def search_customers(query=None):
 				"customer_name": r.customer_name,
 				"village": r.cago_village,
 				"mobile": r.mobile_no,
-				"debt": get_customer_debt(r.name)["outstanding"],
+				"debt": flt(bals.get(r.name)),
 			}
 		)
 	return out

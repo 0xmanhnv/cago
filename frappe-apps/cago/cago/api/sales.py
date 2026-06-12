@@ -40,12 +40,20 @@ def walkin_customer():
 
 
 def _warehouse():
+	# Memoise per request — quick_sale + several report paths call this repeatedly, and the warehouse
+	# never changes within a request (mirrors dto.selling_warehouse()).
+	cached = getattr(frappe.flags, "cago_sell_warehouse", None)
+	if cached:
+		return cached
 	company = debt._company()
-	for wh in ("Stores", "Finished Goods"):
-		w = frappe.db.get_value("Warehouse", {"company": company, "is_group": 0, "warehouse_name": wh}, "name")
-		if w:
-			return w
-	return frappe.db.get_value("Warehouse", {"company": company, "is_group": 0}, "name")
+	wh = None
+	for name in ("Stores", "Finished Goods"):
+		wh = frappe.db.get_value("Warehouse", {"company": company, "is_group": 0, "warehouse_name": name}, "name")
+		if wh:
+			break
+	wh = wh or frappe.db.get_value("Warehouse", {"company": company, "is_group": 0}, "name")
+	frappe.flags.cago_sell_warehouse = wh
+	return wh
 
 
 def _price_list_for(customer):
