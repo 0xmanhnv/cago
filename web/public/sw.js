@@ -3,11 +3,25 @@
 // Bumped v2→v3: only successful responses are cached now, so purge any error pages a prior
 // version may have stored as a fallback.
 const CACHE = "cago-read-v3";
+// Product images live in their own capped cache so they can't grow unbounded on a kiosk tablet.
+const IMG_CACHE = "cago-img-v1";
+const IMG_MAX = 150;
+
+// FIFO-trim a cache to at most `max` entries (oldest insertion order removed first). Cheap LRU-ish.
+async function trimCache(name, max) {
+  try {
+    const c = await caches.open(name);
+    const keys = await c.keys();
+    for (let i = 0; i < keys.length - max; i++) await c.delete(keys[i]);
+  } catch {
+    /* ignore */
+  }
+}
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))),
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== IMG_CACHE).map((k) => caches.delete(k)))),
   );
   self.clients.claim();
 });
@@ -67,15 +81,19 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Static chunks / product images: stale-while-revalidate (hashed names → safe to cache).
+  // Static chunks / product images: stale-while-revalidate (hashed names → safe to cache). Images go
+  // to a SEPARATE capped cache (owner-uploaded photos accumulate unbounded on a long-lived kiosk
+  // tablet → storage pressure); chunks stay in the main cache.
   if (url.pathname.startsWith("/_next/") || url.pathname.startsWith("/files/")) {
+    const isImg = url.pathname.startsWith("/files/");
+    const bucket = isImg ? IMG_CACHE : CACHE;
     e.respondWith(
       caches.match(req).then((cached) => {
         const net = fetch(req)
           .then((res) => {
             if (res.ok) {
               const copy = res.clone();
-              caches.open(CACHE).then((c) => c.put(req, copy));
+              caches.open(bucket).then((c) => c.put(req, copy).then(() => isImg && trimCache(bucket, IMG_MAX)));
             }
             return res;
           })

@@ -21,12 +21,13 @@ function setOnline(next: boolean) {
   }
 }
 
-// A HEAD-ish ping that costs almost nothing. bootstrap is allow_guest so it never 401s.
+// A HEAD-ish ping that costs almost nothing — hits session.ping (no DB), NOT bootstrap (~20 DB reads).
+// allow_guest so it never 401s.
 async function probe(): Promise<boolean> {
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 4000);
-    const res = await fetch("/api/method/cago.api.session.bootstrap", {
+    const res = await fetch("/api/method/cago.api.session.ping", {
       method: "GET",
       credentials: "include",
       cache: "no-store",
