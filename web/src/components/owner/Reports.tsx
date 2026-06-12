@@ -295,7 +295,11 @@ export function Report() {
                   ))}
                 </>
               ) : (
-                <div className="mt-2.5 text-slate-500">Chưa có dữ liệu bán hàng.</div>
+                <div className="mt-2.5 flex flex-col items-center gap-1 py-6 text-center text-slate-400">
+                  <span className="text-4xl">🧾</span>
+                  <span className="font-medium">Chưa có đơn nào trong kỳ này.</span>
+                  <span className="text-sm">Bán hàng xong, số liệu sẽ hiện ở đây.</span>
+                </div>
               )}
               {byCust.length > 0 && (
                 <>

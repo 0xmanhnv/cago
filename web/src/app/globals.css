@@ -111,6 +111,17 @@ body::before {
   }
 }
 
+/* Brand-green focus ring on every form control. POS inputs style their border with Tailwind
+   (border-emerald-300) but have no focus style, so the browser's default dark outline showed on a
+   focused/autofocused field — off-brand next to the green borders. One rule unifies the focus look. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #16a34a;
+  outline-offset: 1px;
+  border-color: #16a34a;
+}
+
 /* ============================================================================
    "Minh Tuyết" shared design system — one CSS used across kiosk, owner & staff
    so every screen matches: soft rounded cards, fresh-green/harvest accents,
