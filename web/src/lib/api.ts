@@ -126,10 +126,11 @@ export async function logout() {
   } catch {
     /* offline cache not available — nothing to clear */
   }
-  // Also drop the cached signed-in bootstrap (offline cold-start fallback) so the next user on a
-  // shared till can't inherit the previous user's caps offline.
+  // Also drop the cached signed-in bootstrap (offline cold-start fallback) + any parked wanted-list
+  // status retries, so the next user on a shared till can't inherit the previous user's state.
   try {
     window.localStorage?.removeItem("cago_boot_cache");
+    window.localStorage?.removeItem("cago_wanted_done_retry");
   } catch {
     /* ignore */
   }

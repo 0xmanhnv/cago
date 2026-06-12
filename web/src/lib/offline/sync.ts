@@ -21,12 +21,13 @@ function announce() {
 }
 
 // Status codes that mean "couldn't deliver yet", NOT "the shop rejected this sale": server briefly
-// down (5xx), throttled (429), or a stale/empty session token (400 CSRF, 401/403 auth — common after
-// the tablet booted the /pos/sell shell offline and never got a fresh token). These keep the sale
-// PENDING and stop the run; a real 4xx business rejection (417 validation, item gone, over limit) is
-// the only thing that marks a sale `failed` for the owner to handle by hand.
+// down (5xx), throttled (429), or a stale CSRF token (400). These keep the sale PENDING and stop the
+// run. NOTE: 401/403 are deliberately NOT transient — a genuinely expired/guest session would loop
+// forever as pending (the queue never promotes pending→failed), silently hiding un-bookable sales
+// from the owner's `failed` count. An auth rejection must fail the sale so it surfaces for re-entry;
+// refreshSession() below already tops up a still-valid session's CSRF before we get here.
 function isTransient(e: unknown): boolean {
-  return e instanceof FrappeError && (e.status >= 500 || e.status === 429 || e.status === 400 || e.status === 401 || e.status === 403);
+  return e instanceof FrappeError && (e.status >= 500 || e.status === 429 || e.status === 400);
 }
 
 async function send(sale: QueuedSale): Promise<void> {
@@ -60,8 +61,12 @@ async function send(sale: QueuedSale): Promise<void> {
  *  simply finds nothing reachable. */
 async function refreshSession(): Promise<void> {
   try {
-    const boot = await frappeCall<{ csrf_token?: string }>("cago.api.session.bootstrap", {}, { method: "GET", background: true });
-    if (boot?.csrf_token) setCsrfToken(boot.csrf_token);
+    const boot = await frappeCall<{ csrf_token?: string; is_guest?: boolean }>("cago.api.session.bootstrap", {}, { method: "GET", background: true });
+    // Only adopt the token if the session is still a real signed-in one. If bootstrap comes back as
+    // GUEST (cookie expired), do NOT install the guest token — that would make every queued quick_sale
+    // 403 and (with 403 non-transient) fail; better to let the sale 403→failed so the owner re-rings it
+    // after logging in, than to look "fine" with a guest token.
+    if (boot?.csrf_token && !boot?.is_guest) setCsrfToken(boot.csrf_token);
   } catch {
     /* still offline / server down — drain will no-op on the network error */
   }

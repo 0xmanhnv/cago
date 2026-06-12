@@ -132,7 +132,8 @@ async function flushWantedDone() {
   const left: string[] = [];
   for (const code of a) {
     try {
-      await frappeCall("cago.api.staff.set_wanted_list_status", { code, status: "Completed" });
+      // background: a reconnect retry must not hijack the page to /login on a 401.
+      await frappeCall("cago.api.staff.set_wanted_list_status", { code, status: "Completed" }, { background: true });
     } catch {
       left.push(code); // still unreachable — keep for the next attempt
     }
@@ -850,11 +851,13 @@ export function Checkout() {
     setDiscount(h.discount || "");
     setDiscountMode(h.discountMode || "amount");
     setRedeemPts(h.redeemPts || 0);
-    // Restore the applied coupon too (it was cleared on hold) — re-validate against the current cart
-    // to recompute its discount, or clear it if none was held.
+    // Restore the applied coupon too (it was cleared on hold). Set it (don't call applyCoupon here —
+    // setLines is async so the subtotal is still 0 this tick, and a min-spend coupon would validate
+    // against 0 and be wrongly dropped). The coupon effect re-validates against the real subtotal once
+    // the resumed lines render.
     if (h.coupon) {
       setCouponInput(h.coupon);
-      void applyCoupon(h.coupon);
+      setCoupon(h.coupon);
     } else {
       clearCoupon();
     }
@@ -1776,7 +1779,8 @@ export function Checkout() {
                               <input
                                 inputMode="numeric"
                                 value={redeemPts ? String(redeemPts) : ""}
-                                onChange={(e) => setRedeemPts(parseInt(e.target.value.replace(/[^\d]/g, ""), 10) || 0)}
+                                // Clamp to what's actually usable so the box can't show "999" while only 50 apply.
+                                onChange={(e) => setRedeemPts(Math.min(maxRedeem, parseInt(e.target.value.replace(/[^\d]/g, ""), 10) || 0))}
                                 placeholder="0"
                                 className="h-9 w-20 rounded-lg border-2 border-amber-300 px-2 text-right"
                               />

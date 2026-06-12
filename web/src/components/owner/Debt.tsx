@@ -23,6 +23,7 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [qrCfg, setQrCfg] = useState(true);
+  const [qrBusy, setQrBusy] = useState(false);
   const [pending, setPending] = useState<number | null>(null); // amount awaiting the proof modal
   const { boot } = useSession();
   const policy = boot?.debt_proof?.[mode === "add" ? "debt" : "repay"];
@@ -109,18 +110,27 @@ export function DebtAction({ mode }: { mode: "add" | "repay" }) {
         </button>
         {mode === "repay" && (
           <button
+            disabled={qrBusy}
             onClick={async () => {
-              const r = await frappeCall<{ configured: boolean; url: string | null }>(
-                "cago.api.payment.vietqr",
-                { amount: parseVnd(amt), info: `${info.customer_name} tra no` },
-                { method: "GET" },
-              );
-              setQrCfg(r.configured);
-              setQr(r.url);
+              if (qrBusy) return; // guard a double-tap → two requests
+              setQrBusy(true);
+              try {
+                const r = await frappeCall<{ configured: boolean; url: string | null }>(
+                  "cago.api.payment.vietqr",
+                  { amount: parseVnd(amt), info: `${info.customer_name} tra no` },
+                  { method: "GET" },
+                );
+                setQrCfg(r.configured);
+                setQr(r.url);
+              } catch {
+                toast.error("Không tạo được mã QR. Thử lại.");
+              } finally {
+                setQrBusy(false);
+              }
             }}
-            className="mt-2.5 min-h-touch w-full rounded-xl bg-violet-600 font-extrabold text-white"
+            className="mt-2.5 min-h-touch w-full rounded-xl bg-violet-600 font-extrabold text-white disabled:opacity-50"
           >
-            💳 Hiện QR thu tiền
+            {qrBusy ? "Đang tạo QR…" : "💳 Hiện QR thu tiền"}
           </button>
         )}
         {qr && (
