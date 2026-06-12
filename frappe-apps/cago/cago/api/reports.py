@@ -205,7 +205,8 @@ def sales_by_customer(period="month", limit=10, from_date=None, to_date=None):
 	rows = (
 		frappe.qb.from_(si)
 		.select(si.customer, Sum(si.grand_total).as_("total"), Count(si.name).as_("cnt"))
-		.where((si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end))
+		# Exclude the shared walk-in aggregate so it can't top the "khách thân thiết" ranking.
+		.where((si.docstatus == 1) & (si.company == company) & (si.customer != dto.WALKIN_NAME) & (si.posting_date >= start) & (si.posting_date <= end))
 		.groupby(si.customer)
 		.orderby(Sum(si.grand_total), order=Order.desc)
 		.limit(cint(limit) or 10)
@@ -232,15 +233,29 @@ def gross_profit(period="today", from_date=None, to_date=None):
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	sii = frappe.qb.DocType("Sales Invoice Item")
-	res = (
-		frappe.qb.from_(sii)
-		.join(si)
-		.on(sii.parent == si.name)
-		.select(Sum(sii.base_net_amount).as_("rev"), Sum(sii.incoming_rate * sii.stock_qty).as_("cogs"))
-		.where((si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end))
+	sle = frappe.qb.DocType("Stock Ledger Entry")
+	in_period = (si.docstatus == 1) & (si.company == company) & (si.posting_date >= start) & (si.posting_date <= end)
+	# Revenue = goods sold, NET of bill discount / coupon / redeemed points (grand_total already nets
+	# them at the document level), EXCLUDING the delivery-fee pass-through (a non-stock line that is
+	# pure cost recovery, not margin). Returns are included — their negative grand_total nets them out.
+	gt = (frappe.qb.from_(si).select(Sum(si.grand_total).as_("v")).where(in_period)).run(as_dict=True)
+	dv = (
+		frappe.qb.from_(sii).join(si).on(sii.parent == si.name)
+		.select(Sum(sii.base_net_amount).as_("v"))
+		.where(in_period & (sii.item_code == "CAGO-DELIVERY"))
 	).run(as_dict=True)
-	rev = flt(res[0].rev) if res else 0
-	cogs = flt(res[0].cogs) if res else 0
+	rev = flt(gt[0].v if gt else 0) - flt(dv[0].v if dv else 0)
+	# COGS from the Stock Ledger = the value that actually LEFT stock for these sales. This is the
+	# authoritative cost (correct for returns + moving-average valuation), unlike per-line
+	# incoming_rate which is unreliable on return / zero-valuation lines. Value leaving is negative.
+	cg = (
+		frappe.qb.from_(sle).select(Sum(sle.stock_value_difference).as_("v"))
+		.where(
+			(sle.voucher_type == "Sales Invoice") & (sle.company == company)
+			& (sle.is_cancelled == 0) & (sle.posting_date >= start) & (sle.posting_date <= end)
+		)
+	).run(as_dict=True)
+	cogs = -flt(cg[0].v if cg else 0)
 	profit = rev - cogs
 	margin = round(profit / rev * 100) if rev else 0
 	return {
@@ -308,7 +323,8 @@ def best_sellers(limit=10, period="all", from_date=None, to_date=None):
 	company = _company()
 	si = frappe.qb.DocType("Sales Invoice")
 	sii = frappe.qb.DocType("Sales Invoice Item")
-	where = (si.docstatus == 1) & (si.company == company) & (si.is_return == 0)
+	# Exclude returns AND the delivery-fee service line (it isn't a product — it must not rank as a "best seller").
+	where = (si.docstatus == 1) & (si.company == company) & (si.is_return == 0) & (sii.item_code != "CAGO-DELIVERY")
 	if period and period != "all":
 		start, end, _ = _resolve(period, from_date, to_date)
 		where = where & (si.posting_date >= start) & (si.posting_date <= end)

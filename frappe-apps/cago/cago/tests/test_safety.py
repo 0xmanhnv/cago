@@ -27,6 +27,16 @@ class TestSafetyLabelQuote(unittest.TestCase):
 		self.assertFalse(safety.answerable_from_data(["dosage"], [{"display_name": "Y"}]))
 		self.assertIsNone(safety.label_answer([{"display_name": "Y"}]))
 
+	def test_classify_catches_accent_free_and_english_dosage(self):
+		"""Rural users type without dấu — accent-free dosage/mixing questions must still be flagged
+		(regression guard: they previously bypassed the gate and reached the LLM ungated)."""
+		for q in ("lieu luong bao nhieu", "pha bao nhieu nuoc", "phun may lan",
+				"thuoc chuot nay pha bao nhieu", "how much dose", "tang lieu duoc khong"):
+			self.assertTrue(safety.classify(q), f"should flag: {q}")
+		# …but must NOT misfire on common non-chemical words that collapse to similar accent-free forms.
+		for q in ("du lieu khach hang", "tai lieu huong dan", "cam co gia bao nhieu", "con hang khong"):
+			self.assertFalse(safety.classify(q), f"should NOT flag: {q}")
+
 	def test_only_single_focused_product(self):
 		two = [
 			{"display_name": "A", "label_instructions": "x"},

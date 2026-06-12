@@ -253,16 +253,19 @@ def resolve_all():
 def accept_request(name):
 	"""Staff claims a request → kiosk shows 'nhân viên đang đến'."""
 	ensure_cap("sell")
-	doc = frappe.get_doc(_DT, name)
-	if doc.status == "pending":
-		doc.status = "accepted"
-		doc.assigned_to = frappe.session.user
-		doc.assigned_name = frappe.utils.get_fullname(frappe.session.user)
-		doc.accepted_at = now_datetime()
-		doc.save(ignore_permissions=True)
+	# Atomic claim: only the FIRST staffer to tap "tôi đến" wins. A guarded UPDATE (status flips only
+	# while still pending) prevents two staff who both read 'pending' from both claiming it.
+	user = frappe.session.user
+	frappe.db.sql(
+		"""update `tabCago Support Request`
+		set status='accepted', assigned_to=%s, assigned_name=%s, accepted_at=%s
+		where name=%s and status='pending'""",
+		(user, frappe.utils.get_fullname(user), now_datetime(), name),
+	)
+	if frappe.db.sql("select row_count()")[0][0]:
 		frappe.db.commit()
-		_broadcast(doc)
-	return _public_view(doc)
+		_broadcast(frappe.get_doc(_DT, name))
+	return _public_view(frappe.get_doc(_DT, name))
 
 
 @frappe.whitelist()

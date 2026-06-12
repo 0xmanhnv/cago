@@ -12,7 +12,7 @@ Privileged submit (owner lacks ERPNext accounting/stock perms; ERPNext still val
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, nowdate
+from frappe.utils import cint, flt, getdate, nowdate
 
 from cago.api import debt
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
@@ -210,7 +210,12 @@ def _fefo_lots(code, wh):
 		if qty > 0:
 			scored.append((qty, bz.expiry_date, bz.name))
 	scored.sort(key=lambda s: (s[1] is None, str(s[1] or "9999-12-31")))
-	return [(name, qty) for (qty, _exp, name) in scored]
+	# Exclude EXPIRED lots from auto-FEFO so chemicals/vet-meds are never silently dispensed past HSD
+	# (a safety + compliance requirement). Expired stock can still be sold, but only when staff pick
+	# that lô explicitly (batch_no/allocs) — the auto path won't choose it.
+	today = getdate(nowdate())
+	fresh = [s for s in scored if not (s[1] and getdate(s[1]) < today)]
+	return [(name, qty) for (qty, _exp, name) in fresh]
 
 
 def _auto_batch(code, wh):
@@ -241,15 +246,37 @@ def _allocate_rows(row, code, wh, uom, stock_uom, allocs=None, chosen=None):
 	on-hand lots lands on the last lô (negative batch stock is allowed for opted-in/offline sales)."""
 	if not frappe.db.get_value("Item", code, "has_batch_no"):
 		return [row]
-	# 1) explicit per-lô allocations
+	# 1) explicit per-lô allocations (client-supplied — VALIDATE, don't trust)
 	if allocs:
-		out = []
+		from erpnext.stock.doctype.batch.batch import get_batch_qty
+
+		flags = frappe.db.get_value("Item", code, ["cago_stock_auto", "cago_allow_oversell"], as_dict=True) or {}
+		no_oversell = bool(flags.get("cago_stock_auto")) and not flags.get("cago_allow_oversell")
+		cf = _conversion_factor(code, uom, stock_uom) or 1
+		today = getdate(nowdate())
+		out, total = [], 0.0
 		for a in allocs:
 			b = _resolve_batch((a or {}).get("batch"), code)
 			q = flt((a or {}).get("qty"))
-			if b and q > 0:
-				out.append({**row, "qty": q, "batch_no": b})
+			if not b or q <= 0:
+				continue
+			# Don't let a client allocate an EXPIRED lô (safety) or drive a lô negative beyond its
+			# on-hand (integrity — the line-level _check_stock can't catch a per-lô overdraw) unless
+			# this item explicitly allows oversell.
+			if no_oversell:
+				exp = frappe.db.get_value("Batch", b, "expiry_date")
+				if exp and getdate(exp) < today:
+					frappe.throw(_("Lô đã hết hạn — không bán được lô này."))
+				on_hand = flt(get_batch_qty(b, wh, code))  # stock units
+				if q * cf > on_hand + 1e-6:
+					frappe.throw(_("Lô được chọn không đủ tồn để bán."))
+			out.append({**row, "qty": q, "batch_no": b})
+			total += q
 		if out:
+			# The allocations must sum to the line qty, so a client can't quietly sell more/less than
+			# the cart shows by mis-splitting across lots.
+			if abs(total - flt(row["qty"])) > 1e-6:
+				frappe.throw(_("Phân lô không khớp số lượng dòng hàng."))
 			return out
 	# 2) a single chosen lô for the whole line
 	b = _resolve_batch(chosen, code)
@@ -267,7 +294,9 @@ def _allocate_rows(row, code, wh, uom, stock_uom, allocs=None, chosen=None):
 		need -= take
 	if need > 1e-9:  # oversell remainder (only reachable when oversell was allowed upstream)
 		if out:
-			out[-1] = {**out[-1], "qty": flt(out[-1]["qty"]) + need / cf}
+			# Dump the negative remainder on the NEAREST-expiry lô (out[0]), not the newest — keeps FEFO
+			# consistent so the next receive into the old lô clears the negative first.
+			out[0] = {**out[0], "qty": flt(out[0]["qty"]) + need / cf}
 		else:
 			name = frappe.db.get_value("Item", code, "cago_display_name") or frappe.db.get_value("Item", code, "item_name") or code
 			frappe.throw(_("{0} cần nhập lô/HSD trước khi bán. Vào 'Nhập hàng' để nhập lô.").format(name))
@@ -326,6 +355,7 @@ def credit_sale(customer, items, note=None, client_uuid=None):
 	debt.ensure_not_unverified(customer)  # a self-registered lead can't buy on credit until verified
 	limit = flt(debt.effective_debt_limit(customer))
 	if limit:
+		debt.lock_customer(customer)  # serialize concurrent credit sales to the same customer (TOCTOU)
 		current = flt(debt.get_customer_debt(customer)["outstanding"])
 		est = sum(r["qty"] * r["rate"] for r in rows)
 		if current + est > limit:
@@ -782,6 +812,13 @@ def exchange_sale(invoice, return_lines, new_items, payment_mode="cash", custome
 	# leaving debt relief + free goods. Catch it up front so neither leg runs.
 	if payment_mode == "credit" and (not customer or customer == walkin_customer()):
 		frappe.throw(_("Đổi hàng ghi nợ cần chọn đúng khách hàng (không dùng khách lẻ)."))
+	# Pre-check the shift gate up front too: leg 2 (quick_sale) requires an open shift for a live sale,
+	# and it runs AFTER leg 1's refund commits — a shift that's closed would otherwise book the refund
+	# then fail the replacement (debt relief / cash out, no offsetting sale). Mirror quick_sale's gate.
+	if posted_at is None and not frappe.flags.in_test and not is_owner():
+		from cago.api.shift import ensure_open_shift
+
+		ensure_open_shift(frappe.session.user)
 	# Both legs share the attempt's client_uuid (with distinct suffixes) so a network-retry of the
 	# whole exchange dedups each leg instead of double-refunding + double-selling.
 	ret_uuid = f"{client_uuid}:ret" if client_uuid else None
@@ -1131,6 +1168,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 				debt.ensure_not_unverified(cust)  # lead can't take the shortfall as credit
 				limit = flt(debt.effective_debt_limit(cust))
 				if limit:
+					debt.lock_customer(cust)  # serialize concurrent credit decisions (TOCTOU)
 					current = _customer_outstanding(cust)
 					if current + (total - paid) > limit:
 						frappe.throw(
@@ -1172,6 +1210,7 @@ def quick_sale(items, payment_mode="cash", customer=None, discount_amount=0, pay
 		debt.ensure_not_unverified(cust)  # a self-registered lead can't buy on credit until verified
 		limit = flt(debt.effective_debt_limit(cust))
 		if limit:
+			debt.lock_customer(cust)  # serialize concurrent credit sales to the same customer (TOCTOU)
 			current = _customer_outstanding(cust)
 			# Check the limit against the ACTUAL debt incurred (after the bill discount) — the same
 			# amount require_proof uses — not the pre-discount gross, which would wrongly over-block a

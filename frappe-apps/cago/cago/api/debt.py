@@ -47,6 +47,14 @@ def effective_debt_limit(customer):
 	return flt(frappe.db.get_value("Company", _company(), "cago_default_debt_limit"))
 
 
+def lock_customer(customer):
+	"""Serialize concurrent credit decisions for ONE customer: take a row lock so two tills can't both
+	read the outstanding, both pass the limit, then both book past it (TOCTOU). Call inside the sale/
+	debt transaction right before reading the outstanding for a limit check; the lock holds until commit."""
+	if customer:
+		frappe.db.sql("SELECT name FROM `tabCustomer` WHERE name = %s FOR UPDATE", customer)
+
+
 def ensure_not_unverified(customer):
 	"""Block buying on credit for a self-registered (Zalo/web) customer until the owner verifies them.
 	A lead must not get goods on credit just by signing up — cash/bank are still fine. Cleared via
@@ -197,6 +205,7 @@ def record_debt(customer, amount, note=None, signature=None, photo=None, witness
 	# Credit limit (hạn mức nợ): block if this would push outstanding over the limit.
 	limit = effective_debt_limit(customer)
 	if limit:
+		lock_customer(customer)  # serialize concurrent debt entries to the same customer (TOCTOU)
 		current = flt(get_customer_debt(customer)["outstanding"])
 		if current + amount > limit:
 			frappe.throw(

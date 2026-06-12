@@ -9,8 +9,15 @@ warning is injected by code (never relied upon from the LLM).
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from cago.utils.safety import STANDARD_SAFETY_WARNING
+
+
+def _strip_accents(s: str) -> str:
+	"""Lowercase + remove Vietnamese diacritics + đ→d, so accent-free typing matches too."""
+	s = unicodedata.normalize("NFD", (s or "").lower())
+	return "".join(c for c in s if unicodedata.category(c) != "Mn").replace("đ", "d")
 
 # Intent -> patterns. Matching any pattern flags that sensitive intent.
 # The detector is deliberately broad (allow-by-default would be unsafe for a chemical store): any
@@ -38,6 +45,28 @@ _INTENT_PATTERNS = {
 }
 _COMPILED = {intent: [re.compile(p, re.IGNORECASE) for p in pats] for intent, pats in _INTENT_PATTERNS.items()}
 
+# Accent-free (and minimal English) patterns matched against the ACCENT-STRIPPED message. Rural users
+# very often type WITHOUT diacritics ("lieu luong bao nhieu", "pha bao nhieu nuoc", "phun may lan") —
+# the accented patterns above silently miss those, letting a dosage/mixing question reach the LLM
+# ungated. Bare "lieu"/"du lieu" are deliberately OMITTED (they collide with "tài liệu"/"dữ liệu");
+# we rely on dose-specific multiword + verb-near-quantity + quantity-near-unit cues instead.
+_USE_VERB_NA = r"(pha|tron|phun|xit|bon|tuoi|ruoi|rac|rai|bom|tam|hoa|do|dung|su dung|xai)"
+_INTENT_PATTERNS_NA = {
+	"dosage": [
+		r"lieu luong", r"lieu dung", r"dinh luong", r"t[iy] le",
+		_USE_VERB_NA + r"[^\n]{0,6}(bao nhieu|may)",
+		r"bao nhieu\s*(ml|cc|gram|gam|g|kg|lit|nap|muong|thia|goi|vien|binh|chai|lan|sao|goc|cay)",
+		r"may\s*(nap|muong|thia|goi|vien|binh|chai|lan|chen|ca|gao|kg|lit|gram|gam)",
+		r"\b(dose|dosage|how much|how many)\b",
+	],
+	"mixing": [r"pha voi", r"pha (chung|cung)", r"tron (chung|voi|cung)", r"phoi tron", r"phoi hop", r"ket hop .*thuoc", r"\b(mix|ratio|dilut)"],
+	"stronger_than_label": [r"tang lieu", r"dam (dac )?hon", r"manh hon", r"qua lieu", r"gap (doi|ba|may|\d)", r"(phun|xit|pha|bon|tuoi)\b.{0,12}(dam|manh|day|nhieu hon)", r"nhieu hon .*(lieu|nhan|huong dan)", r"stronger"],
+	"near_harvest": [r"gan (ngay )?thu hoach", r"truoc (khi )?thu hoach", r"cach ly", r"bao lau .*(an|hai|gat|thu hoach)", r"thu hoach .*phun", r"phun .*(roi )?(bao lau|may ngay)"],
+	"misuse": [r"(an|uong|nuot) .*(thuoc|chuot)", r"thuoc chuot .*(nguoi|an)", r"dung .*cho nguoi"],
+	"medical": [r"chua benh cho (nguoi|cho|meo|bo|lon|ga)", r"lieu cho (nguoi|vat)"],
+}
+_COMPILED_NA = {intent: [re.compile(p, re.IGNORECASE) for p in pats] for intent, pats in _INTENT_PATTERNS_NA.items()}
+
 DOSAGE_REFUSAL = (
 	"Dạ cháu là Mạnh, cháu không thể tự đưa ra liều lượng, cách pha/trộn hay thời gian "
 	"cách ly. Bác vui lòng đọc kỹ hướng dẫn trên nhãn sản phẩm, hoặc hỏi trực tiếp người "
@@ -48,9 +77,19 @@ DOSAGE_REFUSAL = (
 
 
 def classify(message: str) -> list[str]:
-	"""Return the list of chemical-sensitive intents detected in the message."""
+	"""Return the list of chemical-sensitive intents detected in the message. Matches the accented
+	patterns against the raw text AND accent-free/English patterns against the diacritic-stripped text,
+	so a question typed without dấu ("lieu luong bao nhieu") is caught the same as the accented form."""
 	text = message or ""
-	return [intent for intent, regexes in _COMPILED.items() if any(r.search(text) for r in regexes)]
+	norm = _strip_accents(text)
+	hits = set()
+	for intent, regexes in _COMPILED.items():
+		if any(r.search(text) for r in regexes):
+			hits.add(intent)
+	for intent, regexes in _COMPILED_NA.items():
+		if any(r.search(norm) for r in regexes):
+			hits.add(intent)
+	return list(hits)
 
 
 def is_sensitive(intents) -> bool:

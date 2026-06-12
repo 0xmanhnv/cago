@@ -9,7 +9,7 @@ helper + an audit log entry. Bank/credit are shown for context but aren't drawer
 """
 
 import frappe
-from frappe.utils import flt
+from frappe.utils import flt, nowdate
 
 from cago.api import debt, reports
 from cago.cago.doctype.cago_owner_action_log.cago_owner_action_log import record_action
@@ -32,11 +32,29 @@ def today_summary():
 
 @frappe.whitelist()
 def day_close(counted_cash, opening_cash=0, payouts=0):
-	"""Reconcile the drawer: expected = opening + today cash sales − payouts vs counted."""
+	"""Reconcile the drawer: expected = opening + today's cash IN (POS cash sales + cash debt collected
+	+ net cash movements) − payouts, vs counted. Must mirror the per-shift formula (shift.py), else the
+	whole-day expectation omits cash debt collections + petty-cash movements and the drawer reads off."""
 	ensure_cap("cash")
 	cash_sales = flt(reports.payment_split("today")["cash"])
+	today = nowdate()
+	# Cash collected on customer debt today (Khách trả nợ via a Cash account) — real money in the drawer.
+	repaid = frappe.db.sql(
+		"""select coalesce(sum(pe.paid_amount), 0)
+		from `tabPayment Entry` pe join `tabAccount` acc on acc.name = pe.paid_to
+		where pe.docstatus = 1 and pe.payment_type = 'Receive' and pe.posting_date = %s and acc.account_type = 'Cash'""",
+		today,
+	)
+	repaid = flt(repaid[0][0]) if repaid else 0.0
+	# Net cash movements today across all shifts: Nộp quỹ (+) / Rút quỹ (−) / Chi vặt (−).
+	mvs = frappe.get_all(
+		"Cago Cash Movement",
+		filters={"posted": ["between", [f"{today} 00:00:00", f"{today} 23:59:59"]]},
+		fields=["kind", "amount"],
+	)
+	mv_net = sum((flt(m.amount) if m.kind == "Nộp quỹ" else -flt(m.amount)) for m in mvs)
 	opening, payouts, counted = flt(opening_cash), flt(payouts), flt(counted_cash)
-	expected = opening + cash_sales - payouts
+	expected = opening + cash_sales + repaid + mv_net - payouts
 	diff = counted - expected
 	record_action(
 		"Other",

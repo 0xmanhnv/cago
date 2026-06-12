@@ -60,7 +60,11 @@ def daily_owner_digest():
 			pass  # an in-app notice failing must not stop the outbound send
 	from cago.api import notify
 
-	notify.notify_ops(text)  # no-op when no webhook/owner phone is configured
+	# The digest carries the shop's TOTAL outstanding debt — send it to the OWNER privately (Zalo +
+	# owner Telegram DMs), NOT notify_ops (the shared staff group), so staff don't see the debt/money
+	# figures. Mirrors the shift-close, which deliberately uses the owner-private channel for cash.
+	notify.send_owner(text)  # owner Zalo/SMS
+	notify.notify_owner_telegram(text)  # owner private Telegram DMs only
 	frappe.db.commit()
 
 
