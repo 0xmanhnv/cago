@@ -39,7 +39,32 @@ export function Chat() {
     <div>
       <BackBar title="🤖 Trợ lý" onBack={() => (typeof window !== "undefined" && window.history.length > 1 ? router.back() : router.push("/pos"))} />
       <div ref={logRef} className="max-h-[60vh] overflow-y-auto">
-        {hist.length === 0 && <div className="text-slate-500">Hỏi nhanh: giá, tồn, vị trí kệ, tư vấn, sản phẩm thay thế...</div>}
+        {hist.length === 0 && (
+          // Low-tech staff shouldn't face a blank input — offer a friendly greeting + tappable example
+          // questions (one tap → answer) instead of just a text hint.
+          <div className="py-2">
+            <div className="rounded-2xl bg-white p-3.5 shadow-sm">
+              👋 Chào bạn! Mình là trợ lý của cửa hàng. Bấm một câu hỏi mẫu, hoặc gõ câu hỏi của bạn ở dưới.
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                "Hàng nào sắp hết?",
+                "Cửa hàng bán những loại gì?",
+                "Có hàng khuyến dùng nào?",
+                "Tìm sản phẩm thay thế giúp tôi",
+                "Vị trí kệ để ở đâu?",
+              ].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => ask(q)}
+                  className="rounded-full border-2 border-emerald-300 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-800 active:scale-95"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {hist.map((m, i) =>
           m.who === "user" ? (
             <div key={i} className="my-2 text-right">
