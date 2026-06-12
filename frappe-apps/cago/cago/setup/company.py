@@ -66,6 +66,10 @@ def _apply_store_settings():
 	no public signup, Minh Tuyết brand on the login page, and VND number formatting
 	(no decimals, dot thousands → 1.234.567đ — đồng has no sub-unit)."""
 	frappe.db.set_single_value("System Settings", "allow_login_using_mobile_number", 1)
+	# Force the site timezone to ICT explicitly — setup_complete's `timezone` arg doesn't always reach
+	# System Settings, and an EMPTY time_zone falls back to the (UTC) container clock, shifting every
+	# "hôm nay" / hourly report by 7h and rolling the day over at 07:00 ICT.
+	frappe.db.set_single_value("System Settings", "time_zone", "Asia/Ho_Chi_Minh")
 	# VND has no fractional unit. fmt_money(currency=) reads the GLOBAL DEFAULTS, so set both
 	# the Single and the default (ERPNext desk + print then show "320.000" not "320.000,00";
 	# Cago's own /staff/sell already formats VND manually).
