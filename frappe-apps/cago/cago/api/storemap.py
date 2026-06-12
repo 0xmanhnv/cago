@@ -24,6 +24,10 @@ from cago.utils.permissions import ensure_cap, ensure_owner
 def get_store_map():
 	"""Layout DTO for the kiosk + the owner editor. No sensitive fields."""
 	doc = frappe.get_single("Cago Store Map")
+	# A guest (kiosk/public) only sees a PUBLISHED map; an unpublished draft stays private to the
+	# logged-in owner editor. (Layout is non-sensitive, but a draft shouldn't surface to customers.)
+	if not doc.is_published and frappe.session.user == "Guest":
+		return {"published": False}
 	return {
 		"published": bool(doc.is_published),
 		"width": flt(doc.width) or 100,

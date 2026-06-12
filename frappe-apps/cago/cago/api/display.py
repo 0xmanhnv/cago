@@ -58,7 +58,9 @@ def set_state(data):
 def get_state(token=None):
 	"""Public-but-token-gated: the current display state for the customer screen. A wrong/absent token
 	returns idle (so a random device on the LAN can't read what's being rung up)."""
-	if not token or token != _token():
+	import hmac
+
+	if not token or not hmac.compare_digest(str(token), str(_token())):
 		return _IDLE
 	raw = frappe.cache().get_value(_KEY)
 	if not raw:

@@ -145,20 +145,33 @@ def _notify_staff(doc):
 
 
 @frappe.whitelist(allow_guest=True)
-def request_status(name):
-	"""Kiosk polls its own request for status changes (pending → accepted → resolved/expired)."""
+def request_status(name, session_id=None):
+	"""Kiosk polls its OWN request (the session that created it) for status changes. Requests are named
+	with a sequential series, so a guest must NOT be able to enumerate ids and read staff names/reasons:
+	only the matching session sees the detail; anyone else gets a bare status."""
+	from cago.utils.ratelimit import rate_guard
+
+	rate_guard("support_poll", limit=120, seconds=60)
 	if not frappe.db.exists(_DT, name):
-		return {"name": name, "status": "cancelled", "assigned_name": ""}
-	return _public_view(frappe.get_doc(_DT, name))
+		return {"name": name, "status": "cancelled", "assigned_name": "", "reason": ""}
+	doc = frappe.get_doc(_DT, name)
+	if doc.session_id and session_id != doc.session_id:
+		return {"name": doc.name, "status": doc.status, "assigned_name": "", "reason": ""}
+	return _public_view(doc)
 
 
 @frappe.whitelist(allow_guest=True)
 def cancel_request(name, session_id=None):
 	"""Customer cancels (only while still open, and only their own session's request)."""
+	from cago.utils.ratelimit import rate_guard
+
+	rate_guard("support_poll", limit=120, seconds=60)
 	if not frappe.db.exists(_DT, name):
 		return {"ok": True}
 	doc = frappe.get_doc(_DT, name)
-	if session_id and doc.session_id and session_id != doc.session_id:
+	# Require a session match whenever the request HAS a session — omitting session_id must not bypass
+	# the check and let a guest cancel someone else's request (queue-clearing via sequential ids).
+	if doc.session_id and session_id != doc.session_id:
 		return _public_view(doc)
 	if doc.status in ("pending", "accepted"):
 		doc.status = "cancelled"

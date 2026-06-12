@@ -1150,7 +1150,14 @@ def ensure_webhook_registered():
 		except Exception:  # noqa: BLE001
 			info = {}
 		# Already registered to the right URL, healthy, and our secret is stored → leave it alone.
-		if info.get("url") == expected and not info.get("last_error") and has_secret("Company", c, "cago_telegram_webhook_secret"):
+		# Telegram reports failures as last_error_date/last_error_message (there is no `last_error`
+		# key), so re-register when a delivery error is present, not just on URL/secret drift.
+		if (
+			info.get("url") == expected
+			and not info.get("last_error_date")
+			and not info.get("last_error_message")
+			and has_secret("Company", c, "cago_telegram_webhook_secret")
+		):
 			return
 		_register_webhook(origin)
 		frappe.logger("cago.telegram").info(f"Auto-registered Telegram webhook → {expected}")

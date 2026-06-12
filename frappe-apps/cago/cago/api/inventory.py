@@ -99,8 +99,13 @@ def add_batch(item_code, batch_id=None, expiry_date=None, manufacturing_date=Non
 		frappe.throw(_("Không tìm thấy sản phẩm."))
 	batch_id = (batch_id or "").strip()
 	if not batch_id:
-		# Auto code from the HSD (else today's receive date). Same HSD = same lô → reuse it.
-		batch_id = "LO-" + getdate(expiry_date or nowdate()).strftime("%d%m%y")
+		# Auto code from the HSD (same HSD = same lô → reuse it). A receive with NO expiry uses a
+		# distinct "-NA" code so unknown-expiry goods never silently fold into a dated lô that just
+		# happens to expire today (they'd be FEFO-sold first and wrongly flagged expired tomorrow).
+		if expiry_date:
+			batch_id = "LO-" + getdate(expiry_date).strftime("%d%m%y")
+		else:
+			batch_id = "LO-" + getdate(nowdate()).strftime("%d%m%y") + "-NA"
 		existing = frappe.db.get_value(
 			"Batch", {"batch_id": batch_id, "item": item_code},
 			["name", "batch_id", "expiry_date", "manufacturing_date"], as_dict=True,
